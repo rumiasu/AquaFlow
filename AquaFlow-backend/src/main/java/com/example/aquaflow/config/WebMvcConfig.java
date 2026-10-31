@@ -39,6 +39,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(rateLimitInterceptor)
                 .addPathPatterns(
                         "/api/auth/login",
+                        "/api/auth/test-login",
                         "/api/auth/wx-login",
                         "/api/auth/wx-login-staff",
                         "/api/auth/dev-login",
@@ -49,6 +50,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
         // 独立公开配额不耗登录预算；探针及其它需认证的业务路径不在此列表。
         registry.addInterceptor(publicRateLimitInterceptor).addPathPatterns(
+                "/api/ui-assets/scene-home-water",
                 "/api/stations/public", "/api/station/public",
                 "/api/stations/search", "/api/station/search",
                 "/api/stations/{id}/public-phone", "/api/station/{id}/public-phone",
@@ -57,7 +59,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
+                        "/api/ui-assets/scene-home-water",
                         "/api/auth/login",
+                        "/api/auth/test-login",
                         "/api/auth/wx-login",
                         "/api/auth/wx-login-staff",
                         "/api/auth/bind-staff",

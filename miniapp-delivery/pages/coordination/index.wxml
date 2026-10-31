@@ -1,7 +1,7 @@
 <import src="../../templates/station-navbar.wxml" />
 <page-meta page-style="{{showGuide || showAssignModal ? 'overflow: hidden;' : ''}}" />
 
-<view class="container custom-tabbar-page">
+<view class="container custom-tabbar-page b2-page b2-d12 af2-page v2-workbench">
   <!--
     自绘导航栏（b 方案）：**水站营业状态就在「首页」字样的左边**。
     为什么自绘：原生导航栏塞不进任何东西，而站长/配送员要在最上面一眼看到"今天休息 / 配送延迟"。
@@ -14,18 +14,24 @@
   <view class="no-auth" wx:if="{{!isManager}}">
     <text class="no-auth-title">您无权限</text>
     <text class="no-auth-desc">首页仅站长可访问</text>
-    <button class="no-auth-btn" bindtap="onGoBack">返回配送页</button>
+    <button bindtap="onGoBack" class="af-action af-action--cancel">返回配送页</button>
   </view>
 
   <view wx:else>
     <!-- 准备进度只用同一份后端清单；已营业或必填齐全时收为查看入口。 -->
-    <view class="setup-launch-entry" wx:if="{{stationOperatingStatus == null || (stationOperatingStatus === 3 && (!setupProgressKnown || setupRequiredPending > 0))}}" bindtap="openStationPanel">
+    <view class="setup-launch-entry" wx:if="{{stationOperatingStatus === 3}}" bindtap="openStationPanel">
       <text class="setup-launch-dot"></text>
       <view class="setup-launch-main"><text wx:if="{{setupProgressKnown}}">{{setupRequiredPending > 0 ? '还需完成 ' + setupRequiredPending + ' 项必填' : '已具备上线条件'}}</text><text wx:else>上线准备：进度待核实</text><text class="setup-launch-state">{{stationStatusText || '营业状态待核实'}}</text></view>
       <text>查看 ›</text>
     </view>
-    <view class="setup-launch-quiet" wx:else bindtap="openStationPanel">{{setupProgressKnown ? (setupRequiredPending > 0 ? '还需完成 ' + setupRequiredPending + ' 项必填' : '已具备上线条件') : '上线准备待核实'}} · 查看 ›</view>
 
+    <view class="v2-work-overview af2-scene">
+      <view class="v2-overview-copy"><text class="v2-overview-title">配送调度</text>
+        
+      </view>
+      <image class="v2-delivery-scene" wx:if="{{!v2SceneFailed}}" src="/assets/ui/scene-station-delivery.webp" mode="aspectFit" binderror="onV2SceneError" aria-hidden="true" />
+      <view class="v2-scene-fallback" wx:else><icon name="truck" variant="duotone" size="72px" color="#FFFFFF" fill-color="#526D89" /></view>
+    </view>
     <view class="ui-state" wx:if="{{queuesLoading}}"><text class="ui-state-copy">正在核对调度清单…</text></view>
 
     <!--
@@ -34,7 +40,7 @@
       完全无法区分（AGENTS §8.22）。现在部分失败也照常展示已拿到的数据，并在这里说清哪几项没出来。
       样式复用 app.wxss 的 .load-error（全局，不要在本页再写一份）。
     -->
-    <view class="load-error" wx:if="{{loadError}}"><text>{{loadError}}</text><button size="mini" bindtap="onRetryVisibleData">重新加载</button></view>
+    <view class="load-error" wx:if="{{loadError}}"><text>{{loadError}}</text><button bindtap="onRetryVisibleData" class="af-action af-action--quiet"><view class="af-action__face">重新加载</view></button></view>
     <!--
       常驻「水站管理」入口（[2026-09-26] Wave1 轨道 G；docs/design/29 §5
       「首页以站名/营业状态开头，常驻"水站管理"入口」「完整功能入口另行常驻，零待办不占提醒区」）。
@@ -72,39 +78,28 @@
         ③ 同一身份/水站读取失败时保留上次卡并显示未核对提示；切换身份不借用旧卡，首次失败也能重试。
       数量非零的项标红（`hasCount`）—— 现在能进卡的项恒为非零，这个类是"提醒色"不是"等级色"。
     -->
-    <view class="todo-card" wx:if="{{todoError || todoLoading || (todo && todo.items.length)}}">
-      <view class="todo-head">
-        <!--
-          [2026-09-26 文案] 标题「其他待办」→「其他待处理」，并按 docs/design/29 §7 去掉副标题
-          「不在订单页里的」（那是"关于页面分类"的解释，站长不需要）。
-          ⚠️ 卡的显隐条件（`todo && todo.items.length`）本身没改 —— 变的是 items 的收录口径
-          （零计数不再进来），见上面那段与 index.js 的 decorateTodo。
-        -->
+    <view class="todo-card v2-todo" wx:if="{{todoError || todoLoading || (todo && todo.items.length)}}">
+      <view class="v2-todo-summary">
         <text class="todo-title">本站待办</text>
+        <view class="v2-todo-first" wx:if="{{todo && todo.items.length}}"><text>{{todo.items[0].label}}</text><text class="v2-todo-first-count">{{todo.items[0].count}}</text><text wx:if="{{todo.items.length > 1}}">等</text></view>
+        <button class="af-action af-action--quiet v2-todo-toggle" wx:if="{{todo && todo.items.length}}" bindtap="onToggleV2Todo" aria-expanded="{{v2TodoExpanded}}"><text class="af-action__face">{{v2TodoExpanded ? '收起' : '展开'}}</text></button>
       </view>
-      <text wx:if="{{todoLoading}}">正在核对待办…</text>
-      <text wx:if="{{todoError}}">{{todoError}}</text>
-      <button wx:if="{{todoError}}" bindtap="onRetryTodo" disabled="{{todoLoading}}">重新核对</button>
-      <view class="todo-row {{todo.items.length === 1 ? 'todo-row-single' : ''}}">
-        <view class="todo-item {{item.hasCount ? 'todo-item-on' : ''}}"
-              wx:for="{{todo.items}}" wx:key="key"
-              bindtap="onTodoTap" data-key="{{item.key}}">
-          <text class="todo-count">{{item.count}}</text>
-          <text class="todo-label">{{item.label}}</text>
-          <text class="todo-amount" wx:if="{{item.amountText}}">¥{{item.amountText}}</text>
+      <text class="v2-todo-read-state" wx:if="{{todoLoading}}">正在核对待办…</text>
+      <text class="v2-todo-read-state" wx:if="{{todoError}}">{{todoError}}</text>
+      <button wx:if="{{todoError}}" bindtap="onRetryTodo" disabled="{{todoLoading}}" class="af-action af-action--quiet"><view class="af-action__face">重新核对</view></button>
+      <view class="todo-row {{todo.items.length === 1 ? 'todo-row-single' : ''}}" wx:if="{{v2TodoExpanded}}">
+        <view class="todo-item {{item.hasCount ? 'todo-item-on' : ''}}" wx:for="{{todo.items}}" wx:key="key" bindtap="onTodoTap" data-key="{{item.key}}">
+          <text class="todo-count">{{item.count}}</text><text class="todo-label">{{item.label}}</text><text class="todo-amount" wx:if="{{item.amountText}}">¥{{item.amountText}}</text>
         </view>
       </view>
     </view>
 
     <!-- Tab 切换：角标即当下的待办数，点进去才展开明细 -->
-    <view class="guide-entry" bindtap="onOpenGuide">使用帮助 ›</view>
+    
 
-    <scroll-view class="tab-bar" scroll-x enable-flex>
-      <view class="tab-item {{activeTab === item.key ? 'active' : ''}}"
-            wx:for="{{tabs}}" wx:key="key"
-            bindtap="switchTab" data-tab="{{item.key}}">
-        <text>{{item.label}}</text>
-        <text class="tab-count" wx:if="{{item.count > 0}}">{{item.count}}</text>
+    <scroll-view class="tab-bar v2-queues" scroll-x enable-flex>
+      <view wx:for="{{tabs}}" wx:key="key" bindtap="switchTab" data-tab="{{item.key}}" class="af-choice b2-choice v2-queue-tab {{activeTab === item.key ? 'af-choice--selected' : ''}}" aria-selected="{{activeTab === item.key}}">
+        <view class="af-choice__face"><text class="tab-count">{{queuesLoading ? '…' : (!sectionRead || (item.key === 'pending' ? !sectionRead.pending : item.key === 'approval' ? (!sectionRead.approvalCustomer || !sectionRead.approvalStation) : item.key === 'pool' ? (!sectionRead.pool || !sectionRead.directedIncoming) : (!sectionRead.dispatchPool || !sectionRead.dispatchDirected))) ? '—' : item.count}}</text><text class="v2-queue-label">{{item.label}}</text><view class="v2-queue-indicator" wx:if="{{activeTab === item.key}}"></view></view>
       </view>
     </scroll-view>
 
@@ -112,7 +107,7 @@
     <view class="list" wx:if="{{activeTab === 'pending'}}">
       <view class="queue-head">
         <text class="queue-title">待分配</text>
-        <text class="queue-link" bindtap="onOpenOrders">查全部订单 ›</text>
+        <text bindtap="onOpenOrders" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">查全部订单 ›</text></text>
       </view>
       <view class="order-card {{item.showRisk ? item.riskClass : ''}}" wx:for="{{lists.pending}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
         <view class="card-header">
@@ -150,19 +145,19 @@
             退回站长/指定退回（transferPending）：沿用同意/拒绝；其余普通行：分配/外派。
           -->
           <block wx:if="{{item.transferKind === 'staff-transfer'}}">
-            <button class="btn-danger-small" catchtap="onCancelTransferRow" data-id="{{item.id}}">撤回转单</button>
+            <button catchtap="onCancelTransferRow" data-id="{{item.id}}" class="af-action af-action--danger-quiet">撤回转单</button>
           </block>
           <block wx:elif="{{item.transferPending}}">
-            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}">同意转单</button>
-            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}">拒绝转单</button>
+            <button catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}" class="af-action af-action--primary">同意转单</button>
+            <button catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}" class="af-action af-action--secondary">拒绝转单</button>
           </block>
           <block wx:else>
-            <button class="btn-primary" catchtap="onShowAssign" data-id="{{item.id}}">分配配送员</button>
-            <button class="btn-outline-small" catchtap="onOutsource" data-id="{{item.id}}">外派</button>
+            <button catchtap="onShowAssign" data-id="{{item.id}}" class="af-action af-action--primary">分配配送员</button>
+            <button catchtap="onOutsource" data-id="{{item.id}}" class="af-action af-action--secondary">外派</button>
           </block>
         </view>
       </view>
-      <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.pending && lists.pending.length === 0}}">
+      <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.pending && lists.pending.length === 0}}"><image class="v2-empty-image" wx:if="{{!v2EmptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onV2EmptyImageError" aria-hidden="true" /><icon wx:else name="bill" variant="duotone" size="48px" color="#1F5EA8" />
         <text>暂无待分配/转单订单</text>
       </view>
     </view>
@@ -171,16 +166,16 @@
     <view class="list" wx:elif="{{activeTab === 'approval'}}">
       <!-- 子页签 -->
       <view class="sub-tab-bar">
-        <view class="sub-tab-item {{approvalTab === 'customer' ? 'active' : ''}}"
-              bindtap="switchApprovalTab" data-tab="customer">
+        <view
+              bindtap="switchApprovalTab" data-tab="customer" class="af-choice b2-choice {{approvalTab === 'customer' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{approvalTab === 'customer'}}">✓</text>
           <text>客户</text>
           <text class="tab-count" wx:if="{{lists.approvalCustomer.length > 0}}">{{lists.approvalCustomer.length}}</text>
-        </view>
-        <view class="sub-tab-item {{approvalTab === 'station' ? 'active' : ''}}"
-              bindtap="switchApprovalTab" data-tab="station">
+        </view></view>
+        <view
+              bindtap="switchApprovalTab" data-tab="station" class="af-choice b2-choice {{approvalTab === 'station' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{approvalTab === 'station'}}">✓</text>
           <text>站内</text>
           <text class="tab-count" wx:if="{{lists.approvalStation.length > 0}}">{{lists.approvalStation.length}}</text>
-        </view>
+        </view></view>
       </view>
 
       <!-- 客户发起：取消申请 -->
@@ -207,11 +202,11 @@
           </view>
           <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
           <view class="card-actions">
-            <button class="btn-primary-small" catchtap="onApproveCancel" data-id="{{item.id}}">同意取消</button>
-            <button class="btn-danger-small" catchtap="onRejectCancel" data-id="{{item.id}}">驳回</button>
+            <button catchtap="onApproveCancel" data-id="{{item.id}}" class="af-action af-action--primary">同意取消</button>
+            <button catchtap="onRejectCancel" data-id="{{item.id}}" class="af-action af-action--secondary">驳回</button>
           </view>
         </view>
-        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.approvalCustomer && lists.approvalCustomer.length === 0}}">
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.approvalCustomer && lists.approvalCustomer.length === 0}}"><image class="v2-empty-image" wx:if="{{!v2EmptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onV2EmptyImageError" aria-hidden="true" /><icon wx:else name="bill" variant="duotone" size="48px" color="#1F5EA8" />
           <text>暂无客户待审批申请</text>
         </view>
       </block>
@@ -240,19 +235,19 @@
           </view>
           <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
           <view class="card-actions" wx:if="{{item.approvalAction === 'return'}}">
-            <button class="btn-primary-small" catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="staff">同意退回</button>
-            <button class="btn-danger-small" catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="staff">拒绝退回</button>
+            <button catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="staff" class="af-action af-action--primary">同意退回</button>
+            <button catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="staff" class="af-action af-action--secondary">拒绝退回</button>
           </view>
           <view class="card-actions" wx:elif="{{item.approvalAction === 'transfer'}}">
-            <button class="btn-outline-small" catchtap="onCancelTransferRow" data-id="{{item.id}}">撤回转让</button>
+            <button catchtap="onCancelTransferRow" data-id="{{item.id}}" class="af-action af-action--danger-quiet">撤回转让</button>
           </view>
           <view class="card-actions" wx:elif="{{item.approvalAction === 'cancel'}}">
-            <button class="btn-danger-small" catchtap="onApproveCancel" data-id="{{item.id}}">同意取消</button>
-            <button class="btn-outline-small" catchtap="onRejectCancel" data-id="{{item.id}}">拒绝取消</button>
+            <button catchtap="onApproveCancel" data-id="{{item.id}}" class="af-action af-action--primary">同意取消</button>
+            <button catchtap="onRejectCancel" data-id="{{item.id}}" class="af-action af-action--secondary">拒绝取消</button>
           </view>
           <view class="section-caption" wx:else>请打开订单查看申请</view>
         </view>
-        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.approvalStation && lists.approvalStation.length === 0}}">
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.approvalStation && lists.approvalStation.length === 0}}"><image class="v2-empty-image" wx:if="{{!v2EmptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onV2EmptyImageError" aria-hidden="true" /><icon wx:else name="bill" variant="duotone" size="48px" color="#1F5EA8" />
           <text>暂无站内待审批申请</text>
         </view>
       </block>
@@ -261,8 +256,8 @@
     <!-- 抢单池：其他水站外派的救援订单 -->
     <view class="list" wx:elif="{{activeTab === 'pool'}}">
       <view class="sub-tab-bar">
-        <view class="sub-tab-item {{acceptTab === 'pool' ? 'active' : ''}}" bindtap="switchAcceptTab" data-tab="pool">公开可抢 <text class="tab-count" wx:if="{{lists.pool.length}}">{{lists.pool.length}}</text></view>
-        <view class="sub-tab-item {{acceptTab === 'directed' ? 'active' : ''}}" bindtap="switchAcceptTab" data-tab="directed">指定给本站 <text class="tab-count" wx:if="{{lists.directedIncoming.length}}">{{lists.directedIncoming.length}}</text></view>
+        <view bindtap="switchAcceptTab" data-tab="pool" class="af-choice b2-choice {{acceptTab === 'pool' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{acceptTab === 'pool'}}">✓</text>公开可抢 <text class="tab-count" wx:if="{{lists.pool.length}}">{{lists.pool.length}}</text></view></view>
+        <view bindtap="switchAcceptTab" data-tab="directed" class="af-choice b2-choice {{acceptTab === 'directed' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{acceptTab === 'directed'}}">✓</text>指定给本站 <text class="tab-count" wx:if="{{lists.directedIncoming.length}}">{{lists.directedIncoming.length}}</text></view></view>
       </view>
       <block wx:if="{{acceptTab === 'pool'}}">
       <view class="order-card pool-card" wx:for="{{lists.pool}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
@@ -285,11 +280,11 @@
         <view class="fee-box">
           <view class="fee-row-main">
             <text class="fee-label">本单金额</text>
-            <text class="fee-amount">¥{{item.totalAmountText}}</text>
+            <text class="fee-amount">{{item.totalAmountText === '' ? '金额待核实' : '¥' + item.totalAmountText}}</text>
           </view>
           <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
-            <text class="fee-detail-item">含配送费 ¥{{item.deliveryFeeText}}</text>
-            <text class="fee-detail-item">楼层费 ¥{{item.floorFeeText}}</text>
+            <text class="fee-detail-item">含配送费 {{item.deliveryFeeText === '' ? '金额待核实' : '¥' + item.deliveryFeeText}}</text>
+            <text class="fee-detail-item">楼层费 {{item.floorFeeText === '' ? '金额待核实' : '¥' + item.floorFeeText}}</text>
           </view>
           <view class="fee-source" wx:if="{{item.feeStationName}}">
             <text class="fee-source-label">定价来自</text>
@@ -334,11 +329,11 @@
           <text class="info-value">{{item.addressDetail || item.addressSnapshot}}</text>
         </view>
         <view class="card-actions">
-          <button class="btn-outline-small" catchtap="onSkipPool" data-id="{{item.id}}">跳过</button>
-          <button class="btn-primary-small" catchtap="onClaimPool" data-id="{{item.id}}">抢单</button>
+          <button catchtap="onSkipPool" data-id="{{item.id}}" class="af-action af-action--quiet"><view class="af-action__face">跳过</view></button>
+          <button catchtap="onClaimPool" data-id="{{item.id}}" class="af-action af-action--primary">抢单</button>
         </view>
       </view>
-      <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.pool && lists.pool.length === 0}}">
+      <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.pool && lists.pool.length === 0}}"><image class="v2-empty-image" wx:if="{{!v2EmptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onV2EmptyImageError" aria-hidden="true" /><icon wx:else name="bill" variant="duotone" size="48px" color="#1F5EA8" />
         <text>暂无可抢单订单</text>
       </view>
       </block>
@@ -361,11 +356,11 @@
           <view class="fee-box">
             <view class="fee-row-main">
               <text class="fee-label">本单金额</text>
-              <text class="fee-amount">¥{{item.totalAmountText}}</text>
+              <text class="fee-amount">{{item.totalAmountText === '' ? '金额待核实' : '¥' + item.totalAmountText}}</text>
             </view>
             <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
-              <text class="fee-detail-item">含配送费 ¥{{item.deliveryFeeText}}</text>
-              <text class="fee-detail-item">楼层费 ¥{{item.floorFeeText}}</text>
+              <text class="fee-detail-item">含配送费 {{item.deliveryFeeText === '' ? '金额待核实' : '¥' + item.deliveryFeeText}}</text>
+              <text class="fee-detail-item">楼层费 {{item.floorFeeText === '' ? '金额待核实' : '¥' + item.floorFeeText}}</text>
             </view>
             <view class="fee-source" wx:if="{{item.feeStationName}}">
               <text class="fee-source-label">定价来自</text>
@@ -393,11 +388,11 @@
           </view>
           <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
           <view class="card-actions">
-            <button class="btn-primary-small" catchtap="onShowAssign" data-id="{{item.id}}" wx:if="{{item.status === 1}}">接受并分配</button>
-            <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 2}}">退回原水站</button>
+            <button catchtap="onShowAssign" data-id="{{item.id}}" wx:if="{{item.status === 1}}" class="af-action af-action--primary">接受并分配</button>
+            <button catchtap="onMediateReturn" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 2}}" class="af-action af-action--secondary">退回原水站</button>
           </view>
         </view>
-        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.directedIncoming && lists.directedIncoming.length === 0}}">暂无指定给本站的待接受任务</view>
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.directedIncoming && lists.directedIncoming.length === 0}}"><image class="v2-empty-image" wx:if="{{!v2EmptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onV2EmptyImageError" aria-hidden="true" /><icon wx:else name="bill" variant="duotone" size="48px" color="#1F5EA8" />暂无指定给本站的待接受任务</view>
         <view class="section-caption" wx:if="{{lists.directedAccepted.length}}">已接受 · 配送进度</view>
         <view class="order-card dispatch-card incoming-card" wx:for="{{lists.directedAccepted}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
           <view class="card-header">
@@ -416,11 +411,11 @@
           <view class="fee-box">
             <view class="fee-row-main">
               <text class="fee-label">本单金额</text>
-              <text class="fee-amount">¥{{item.totalAmountText}}</text>
+              <text class="fee-amount">{{item.totalAmountText === '' ? '金额待核实' : '¥' + item.totalAmountText}}</text>
             </view>
             <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
-              <text class="fee-detail-item">含配送费 ¥{{item.deliveryFeeText}}</text>
-              <text class="fee-detail-item">楼层费 ¥{{item.floorFeeText}}</text>
+              <text class="fee-detail-item">含配送费 {{item.deliveryFeeText === '' ? '金额待核实' : '¥' + item.deliveryFeeText}}</text>
+              <text class="fee-detail-item">楼层费 {{item.floorFeeText === '' ? '金额待核实' : '¥' + item.floorFeeText}}</text>
             </view>
             <view class="fee-source" wx:if="{{item.feeStationName}}">
               <text class="fee-source-label">定价来自</text>
@@ -448,7 +443,7 @@
           </view>
           <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
           <view class="card-actions" wx:if="{{item.status === 1 || item.status === 2}}">
-            <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}">退回原水站</button>
+            <button catchtap="onMediateReturn" data-id="{{item.id}}" class="af-action af-action--secondary">退回原水站</button>
           </view>
         </view>
       </block>
@@ -466,16 +461,16 @@
     -->
     <view class="list" wx:elif="{{activeTab === 'dispatch'}}">
       <view class="sub-tab-bar">
-        <view class="sub-tab-item {{dispatchTab === 'pool' ? 'active' : ''}}"
-              bindtap="switchDispatchTab" data-tab="pool">
+        <view
+              bindtap="switchDispatchTab" data-tab="pool" class="af-choice b2-choice {{dispatchTab === 'pool' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{dispatchTab === 'pool'}}">✓</text>
           <text>一键外派</text>
           <text class="tab-count" wx:if="{{dispatchCount.pool > 0}}">{{dispatchCount.pool}}</text>
-        </view>
-        <view class="sub-tab-item {{dispatchTab === 'directed' ? 'active' : ''}}"
-              bindtap="switchDispatchTab" data-tab="directed">
+        </view></view>
+        <view
+              bindtap="switchDispatchTab" data-tab="directed" class="af-choice b2-choice {{dispatchTab === 'directed' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{dispatchTab === 'directed'}}">✓</text>
           <text>指定外派</text>
           <text class="tab-count" wx:if="{{dispatchCount.directed > 0}}">{{dispatchCount.directed}}</text>
-        </view>
+        </view></view>
       </view>
 
       <!-- 一键外派：放进抢单池、等别站来抢（不用管，出事了才需要召回） -->
@@ -526,11 +521,11 @@
             点了后端会当一次空召回成功，界面却像"取消掉了什么"（假动作比没有动作更糟）。
           -->
           <view class="card-actions">
-            <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1 && !item._backHome}}">取消外派</button>
-            <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">重新外派</button>
+            <button catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1 && !item._backHome}}" class="af-action af-action--danger-quiet">取消外派</button>
+            <button catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}" class="af-action af-action--secondary">重新外派</button>
           </view>
         </view>
-        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.dispatchPool && lists.dispatchPool.length === 0}}">
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.dispatchPool && lists.dispatchPool.length === 0}}"><image class="v2-empty-image" wx:if="{{!v2EmptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onV2EmptyImageError" aria-hidden="true" /><icon wx:else name="bill" variant="duotone" size="48px" color="#1F5EA8" />
           <text>暂无放进抢单池的订单</text>
         </view>
       </block>
@@ -554,11 +549,11 @@
           <view class="fee-box" wx:if="{{item._dir === 'in'}}">
             <view class="fee-row-main">
               <text class="fee-label">本单金额</text>
-              <text class="fee-amount">¥{{item.totalAmountText}}</text>
+              <text class="fee-amount">{{item.totalAmountText === '' ? '金额待核实' : '¥' + item.totalAmountText}}</text>
             </view>
             <view class="fee-detail" wx:if="{{item.hasFeeDetail}}">
-              <text class="fee-detail-item">含配送费 ¥{{item.deliveryFeeText}}</text>
-              <text class="fee-detail-item">楼层费 ¥{{item.floorFeeText}}</text>
+              <text class="fee-detail-item">含配送费 {{item.deliveryFeeText === '' ? '金额待核实' : '¥' + item.deliveryFeeText}}</text>
+              <text class="fee-detail-item">楼层费 {{item.floorFeeText === '' ? '金额待核实' : '¥' + item.floorFeeText}}</text>
             </view>
             <view class="fee-source" wx:if="{{item.feeStationName}}">
               <text class="fee-source-label">定价来自</text>
@@ -593,7 +588,7 @@
           -->
           <view class="dispatch-stale" wx:if="{{item.dispatchStaleHint}}">
             <text class="dispatch-stale-text">{{item.dispatchStaleHint}}</text>
-            <button class="btn-outline-small" catchtap="onPriceByListed" data-id="{{item.id}}">按挂牌价结这单</button>
+            <button catchtap="onPriceByListed" data-id="{{item.id}}" class="af-action af-action--secondary">按挂牌价结这单</button>
           </view>
           <view class="dispatch-info" wx:elif="{{item._dir === 'in'}}">
             <view class="dispatch-row">
@@ -608,19 +603,21 @@
               动作、端点、判据**全不变**：仍是 index.js 的 onMediateReturn → POST /api/orders/{id}/directed-return
               （只打「指定退回待确认」标记，等原站长同意/拒绝）。
             -->
-            <button class="btn-outline-small" catchtap="onMediateReturn" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 2}}">退回原水站</button>
+            <button catchtap="onMediateReturn" data-id="{{item.id}}" wx:if="{{item.status === 1 || item.status === 2}}" class="af-action af-action--secondary">退回原水站</button>
           </view>
           <view class="card-actions" wx:else>
-            <button class="btn-danger-small" catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">取消外派</button>
-            <button class="btn-outline-small" catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}">重新外派</button>
+            <button catchtap="onCancelDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}" class="af-action af-action--danger-quiet">取消外派</button>
+            <button catchtap="onReDispatch" data-id="{{item.id}}" wx:if="{{item.status === 1}}" class="af-action af-action--secondary">重新外派</button>
           </view>
         </view>
-        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.dispatchDirected && lists.dispatchDirected.length === 0}}">
+        <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.dispatchDirected && lists.dispatchDirected.length === 0}}"><image class="v2-empty-image" wx:if="{{!v2EmptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onV2EmptyImageError" aria-hidden="true" /><icon wx:else name="bill" variant="duotone" size="48px" color="#1F5EA8" />
           <text>暂无指定外派订单</text>
         </view>
       </block>
     </view>
 
+  
+    <view bindtap="onOpenGuide" class="guide-entry af-entry">使用帮助 ›</view>
   </view>
 
 </view>
@@ -647,11 +644,11 @@
           把后者说成前者 —— 站长会真的去建员工（人早就在库里）。见 onClaimPool 的同一判据。
         -->
         <view class="modal-empty" wx:if="{{staffList.length === 0}}">
-          <text wx:if="{{staffListError}}">名单尚未读取，请重试。</text><button wx:if="{{staffListError}}" size="mini" bindtap="onRetryVisibleData">重新读取名单</button>
+          <text wx:if="{{staffListError}}">名单尚未读取，请重试。</text><button wx:if="{{staffListError}}" bindtap="onRetryVisibleData" class="af-action af-action--quiet"><view class="af-action__face">重新读取名单</view></button>
           <text wx:else>暂无配送员，请先添加配送员</text>
         </view>
       </scroll-view>
-      <button class="modal-cancel" bindtap="onCloseModal">取消</button>
+      <button bindtap="onCloseModal" class="af-action af-action--cancel">取消</button>
     </view>
   </view>
 
@@ -666,7 +663,8 @@
         <view class="guide-step">审批：退回、取消各走对应入口；同事转让由当事人接手、拒绝或撤回，不占本站审批。</view>
         <view class="guide-step">接单前查看报酬、桶折款和结算去向；押金风险需双方确认。</view>
       </scroll-view>
-      <button class="modal-cancel" bindtap="onCloseGuide">跳过 / 知道了</button>
+      <button bindtap="onCloseGuide" class="af-action af-action--cancel">跳过 / 知道了</button>
     </view>
   </view>
 </root-portal>
+<business-dialog id="business-dialog" />

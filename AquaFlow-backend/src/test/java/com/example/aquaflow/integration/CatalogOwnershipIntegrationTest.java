@@ -45,7 +45,9 @@ class CatalogOwnershipIntegrationTest extends AbstractIntegrationTest {
                 for (int i = 0; i < 6; i++) amounts.setString(i + 1, values[i]);
                 amounts.execute();
             }
-            ScriptUtils.executeSqlScript(connection, new ByteArrayResource(sql));
+            // SQL files are UTF-8; the Windows test JVM may otherwise decode them as GBK.
+            ScriptUtils.executeSqlScript(connection, new org.springframework.core.io.support.EncodedResource(
+                    new ByteArrayResource(sql), java.nio.charset.StandardCharsets.UTF_8));
         }
     }
 

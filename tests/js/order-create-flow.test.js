@@ -9,7 +9,35 @@
  */
 
 const assert = require('assert')
+const fs = require('fs')
+const path = require('path')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
+const { parseWxml, renderElements } = require('./wxml-tree')
+const checkoutTree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxml'), 'utf8'))
+function productSectionTree() {
+  const visit = node => {
+    if (node.attrs && node.attrs.class === 'section' && (node.children || []).some(child => child.attrs && child.attrs.class === 'product-list')) return node
+    for (const child of node.children || []) { const found = visit(child); if (found) return found }
+    return null
+  }
+  const section = visit(checkoutTree)
+  assert(section, 'product section exists')
+  return { tag: '#root', attrs: {}, children: [section] }
+}
+const productTree = productSectionTree()
+// 2026-10-26: parseWxml only checks tags; evaluate the actual submit text too so a
+// missing ternary parenthesis cannot hide behind otherwise passing flow tests.
+function submitButtonTree() {
+  const visit = node => {
+    if (node.attrs && node.attrs.bindtap === 'onSubmit' && /checkout-submit/.test(node.attrs.class || '')) return node
+    for (const child of node.children || []) { const found = visit(child); if (found) return found }
+    return null
+  }
+  const button = visit(checkoutTree)
+  assert(button, 'checkout submit button exists')
+  return { tag: '#root', attrs: {}, children: [button] }
+}
+const submitTree = submitButtonTree()
 
 // 完成哨兵：**只用 ASCII**。受限沙箱下子进程往文件描述符写中文会被编码毁成 `?`，
 // 于是中文完成标记匹配不到、正常套件被误判成"未跑完"（2026-09-27 实测）。
@@ -74,7 +102,7 @@ function newPage(scenario) {
             // 渠道能力（后端 quote 的 wechatPay）：默认**微信走模拟渠道可用**，
             // 这样"微信要不要发支付请求"的用例只需覆盖自己的那一条。
             // 要测"渠道没开"就显式传 quote.wechatPay = { enabled: false }。
-            wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）' }
+            wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
           }, sc.quote || {})
         }
       }
@@ -272,7 +300,7 @@ await test('"已下单"态：付款没结清 ⇒ 提示"还没付款"；结清�
     quote: {
       methods: [{ id: 1, name: '微信支付', desc: '模拟支付', enabled: true }],
       defaultMethod: 1,
-      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付' }
+      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
     },
     createOrder: [{ data: { orderId: 11, needConfirm: false, warnings: [] } }],
     createPayment: [{ data: { status: 2 } }],
@@ -482,8 +510,8 @@ await test('回查也失败：说"查不到"，不猜已付、不重复扣票', 
   await page._createOrder(false)
   assert.strictEqual(calls.createPayment.length, 1)
   const titles = page.__wx.__calls.modal.map(m => m.title)
-  assert.ok(titles.some(t => t.indexOf('支付结果未知') > -1))
-  const modal = page.__wx.__calls.modal.find(m => m.title.includes('支付结果未知'))
+  assert.ok(titles.some(t => t.indexOf('订单已提交，付款结果待确认') > -1))
+  const modal = page.__wx.__calls.modal.find(m => m.title.includes('订单已提交，付款结果待确认'))
   assert.ok(modal.content.includes('订单号 69') && modal.content.includes('暂时查不到是否已付款'))
   assert.strictEqual(modal.confirmText, '查原单')
   assert.strictEqual(modal.cancelText, '再试一次')
@@ -503,7 +531,7 @@ await test('回查也失败：说"查不到"，不猜已付、不重复扣票', 
     })
     wx.__modalAutoConfirm = false
     await page._createOrder(false)
-    const modal = wx.__calls.modal.find(m => m.title.includes('支付结果未知'))
+    const modal = wx.__calls.modal.find(m => m.title.includes('订单已提交，付款结果待确认'))
     assert.strictEqual(modal.confirmText, '查原单'); assert.strictEqual(modal.cancelText, '再试一次')
     assert.strictEqual(calls.createOrder.length, 1)
     assert.deepStrictEqual(calls.createPayment.map(p => p.orderId), [769, 769])
@@ -527,7 +555,7 @@ await test('微信（模拟渠道开启）：建 1 单 → 同单模拟支付 �
         { id: 1, name: '微信支付', desc: '模拟支付（点击即成功，仅联调期开启）', enabled: true }
       ],
       defaultMethod: 1,
-      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）' }
+      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
     },
     createOrder: [{ data: { orderId: 90, needConfirm: false, warnings: [] } }],
     createPayment: [{ data: { status: 2 } }],
@@ -571,7 +599,7 @@ await test('微信支付请求成功但服务端仍待收款(1) ⇒ 不假报已
     quote: {
       methods: [{ id: 1, name: '微信支付', desc: '模拟支付', enabled: true }],
       defaultMethod: 1,
-      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付' }
+      wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
     },
     createOrder: [{ data: { orderId: 92, needConfirm: false, warnings: [] } }],
     createPayment: [{ data: { status: 1 } }],            // 幂等返回旧 PENDING 流水的形状
@@ -821,6 +849,76 @@ await test('不填写期望时间或备注仍可正常下单', async () => {
   await page._createOrder(false)
   assert.strictEqual(calls.createOrder.length, 1)
   assert.strictEqual(calls.createOrder[0].specialNote, '')
+})
+
+await test('remove a cart line, undo it, and re-quote without losing address, note, or other quantities', async () => {
+  const { page, calls } = newPage()
+  const first = { ...page.data.products[0], _checkoutOrder: 0 }
+  const second = { id: 8, name: '第二款商品', quantity: 3, price: 6, deposit: 20, category: 1, _checkoutOrder: 1 }
+  page.setData({ products: [first, second], items: [{ productId: first.id, quantity: 2 }, { productId: second.id, quantity: 3 }],
+    address: { id: 11, detail: '原地址' }, note: '原备注', removedProducts: [] })
+
+  page.onRemoveProduct({ currentTarget: { dataset: { index: 0 } } })
+  assert.deepStrictEqual(page.data.products.map(p => p.id), [8])
+  assert.deepStrictEqual(page.data.items, [{ productId: 8, quantity: 3 }])
+  assert.equal(page.data.address.detail, '原地址'); assert.equal(page.data.note, '原备注')
+  await new Promise(resolve => setTimeout(resolve, 340))
+  assert.deepStrictEqual(calls.getQuote.at(-1).items, [{ productId: 8, quantity: 3 }])
+
+  page.onUndoRemovedProduct({ currentTarget: { dataset: { index: 0 } } })
+  assert.deepStrictEqual(page.data.products.map(p => p.id), [5, 8], 'undo restores original cart order')
+  assert.deepStrictEqual(page.data.items, [{ productId: 5, quantity: 2 }, { productId: 8, quantity: 3 }])
+  assert.equal(page.data.address.detail, '原地址'); assert.equal(page.data.note, '原备注')
+  await new Promise(resolve => setTimeout(resolve, 340))
+  assert.deepStrictEqual(calls.getQuote.at(-1).items, [{ productId: 5, quantity: 2 }, { productId: 8, quantity: 3 }])
+  page.cancelScheduledQuote()
+})
+
+await test('empty cart offers return to shopping, blocks submit, and locked order recovery cannot edit lines', async () => {
+  const empty = newPage()
+  empty.page.setData({ products: [{ ...empty.page.data.products[0] }], items: [{ productId: 5, quantity: 2 }], removedProducts: [] })
+  empty.page.onRemoveProduct({ currentTarget: { dataset: { index: 0 } } })
+  assert.equal(empty.page.data.products.length, 0)
+  assert.equal(empty.page.data.quoteReady, false)
+  const emptyNodes = renderElements(productTree, { ...empty.page.data, loading: false }, { includeText: true })
+  assert(emptyNodes.some(n => n.text === '继续选水'))
+  assert(emptyNodes.some(n => n.attrs.bindtap === 'onContinueSelectingWater'))
+  await empty.page.onSubmit()
+  assert.equal(empty.calls.createOrder.length, 0)
+
+  for (const lock of [{ submitState: 'unknown' }, { submitState: 'creating' }, { pendingOrderId: 991 }, { submitting: true }]) {
+    const locked = newPage()
+    const original = locked.page.data.products.map(p => ({ ...p }))
+    locked.page.setData({ ...lock, products: original, removedProducts: [] })
+    locked.page.onRemoveProduct({ currentTarget: { dataset: { index: 0 } } })
+    locked.page.onQtyChange({ currentTarget: { dataset: { index: 0, type: 'add' } } })
+    assert.deepStrictEqual(locked.page.data.products, original)
+  }
+  const removeControl = renderElements(productTree, { ...empty.page.data, products: [{ id: 5 }], loading: false }, { includeText: true })
+    .find(n => n.attrs.bindtap === 'onRemoveProduct')
+  assert(removeControl && /submitState === 'creating'/.test(removeControl.attrs.disabled || '') && /submitState === 'unknown'/.test(removeControl.attrs.disabled || ''))
+})
+
+await test('submit button binding parses and preserves empty, blocked, submitting and payment recovery priority', () => {
+  const base = { products: [{ id: 5 }], blocked: false, submitting: false, pendingOrderId: null,
+    pendingOrderPaid: false, pendingOrderPaymentState: 'unpaid' }
+  const cases = [
+    [{}, '立即下单'],
+    [{ pendingOrderId: 77 }, '继续支付'],
+    [{ pendingOrderId: 77, pendingOrderPaid: true }, '查看这笔订单'],
+    ...['paid', 'unknown', 'pending', 'refunded', 'cancelled'].map(pendingOrderPaymentState =>
+      [{ pendingOrderId: 77, pendingOrderPaymentState }, '查看这笔订单']),
+    [{ submitting: true, pendingOrderId: 77 }, '提交中...'],
+    [{ blocked: true, submitting: true, pendingOrderId: 77 }, '暂不可下单'],
+    [{ products: [], blocked: true, submitting: true, pendingOrderId: 77 }, '先选商品']
+  ]
+  for (const [overrides, expected] of cases) {
+    const elements = renderElements(submitTree, { ...base, ...overrides }, { includeText: true })
+    const button = elements.find(n => n.attrs.bindtap === 'onSubmit')
+    assert.strictEqual(button.attrs.bindtap, 'onSubmit')
+    assert.strictEqual(elements.find(n => n.tag === 'text').text, expected, JSON.stringify(overrides))
+    assert.strictEqual(/\bdisabled\b/.test(button.className), !!(overrides.submitting || overrides.blocked || overrides.products?.length === 0))
+  }
 })
 
 console.log('')

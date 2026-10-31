@@ -30,7 +30,7 @@ async function test(name, fn) { try { await fn(); passed++; console.log('PASS ' 
   await test('search separates same-name products by spec and keeps station discount separate', async () => {
     const page = tiers(async () => ({ data: products }))
     await page.loadProducts(); page.onProductSearch(ev('', '500ml'))
-    assert.deepEqual(page.data.visibleProducts.map(p => p.id), ['UNIFIED', 42])
+    assert.deepEqual(page.data.visibleProducts.map(p => p.id), [42]); assert.ok(page.data.products.every(p => !p.unified))
   })
   await test('failed image becomes a stable fallback rather than retrying a broken URL', async () => {
     const page = tiers(async () => ({ data: products })); await page.loadProducts()
@@ -40,7 +40,7 @@ async function test(name, fn) { try { await fn(); passed++; console.log('PASS ' 
   })
   await test('unavailable inherited product fails clearly rather than editing a different product', async () => {
     const page = tiers(async () => ({ data: products })); page.onLoad({ productId: '999' }); await page.loadProducts()
-    assert.equal(page.data.productId, ''); assert.ok(page.data.productLoadError)
+    assert.equal(page.data.productId, ''); assert.ok(page.data.productSelectionError)
   })
   await test('late tier response cannot overwrite newly selected product', async () => {
     const old = defer(), page = tiers(async url => url.includes('productId=41') ? old.promise : { data: [{ id: 42, qty: 20 }] })

@@ -34,3 +34,48 @@ button[disabled] { color: var(--text-secondary); background: var(--bg-gray); bor
 .record-id { word-break: break-all; }
 .recovery { border-left-width: 6rpx; }
 .field input { font-size: 30rpx; }
+
+.quantity-field { display:flex; flex-wrap:wrap; align-items:center; gap:12rpx; }
+.quantity-field > text { flex:1 1 100%; font-size:16px; }
+.quantity-field input { min-width:0; flex:1; min-height:48px; text-align:center; font-size:18px; }
+.quantity-step { flex:0 0 48px; min-width:48px; min-height:48px; margin:0; padding:8px; font-size:20px; }
+.purchase-primary { min-height:48px; }
+.text-action,.history-heading { margin:0; min-height:44px; background:transparent; color:var(--primary-color); font-size:14px; text-align:left; padding:10px 0; white-space:normal; }
+.text-action::after,.history-heading::after { border:0; }
+.record,.recovery-record { overflow-wrap:anywhere; }
+
+button.method-choice { display:flex; width:100%; margin-top:8px; }
+.method-choice .af-choice__face { justify-content:flex-start; text-align:left; }
+.page > .af-action, .recovery .af-action, .history .af-action { margin:8px 8px 0 0; }
+
+.page > .af-action--block { margin-right:0; }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.quote-card { background:var(--af2-surface-money); color:var(--af2-ink-money); border-radius:14px; }
+.quote-card .amount,.quote-card .quote-label { color:var(--af2-ink-money); }
+.purchase-form,.recovery,.history { border-radius:14px; }
+.field { min-width:0; }
+.amount { overflow-wrap:anywhere; }
+
+.payment-options { margin:12px 16px; padding:16px; background:var(--af2-surface); border-radius:14px; }
+.payment-options .section-title { display:block; margin-bottom:8px; }
+.payment-options .method-choice { margin-top:8px; }
+
+/* 商品摘要和报价紧邻，弹层只负责选商品，不改变报价和购买闸门。 */
+.page { padding:16px 16px calc(24px + env(safe-area-inset-bottom)); }
+.purchase-form { margin-bottom:8px; padding:14px; }
+.selected-product { display:flex; align-items:center; gap:10px; min-width:0; }
+.selected-photo { flex:none; width:64px; height:64px; border-radius:8px; background:#F3F7FC; }
+.selected-placeholder { display:flex; align-items:center; justify-content:center; color:#5D6B7D; }
+.selected-copy { flex:1; min-width:0; }.selected-name,.selected-detail { display:block; overflow-wrap:anywhere; }
+.selected-name { font-size:16px; line-height:23px; font-weight:700; }.selected-detail { font-size:14px; line-height:21px; color:#5D6B7D; }
+button.change-product { flex:none; width:auto; min-width:48px; margin:0; padding:8px; color:#1264D6; }
+.field { justify-content:space-between; border:0; padding:12px 0 0; }.field integer-stepper { width:150px; flex:none; }
+.quote-card { margin-bottom:12px; padding:14px; background:#EAF2FF; border-left:3px solid #1264D6; }
+.amount { margin:4px 0; font-size:26px; }.quote-notice { display:block; font-size:14px; line-height:22px; color:#244D7D; }
+.payment-options { margin:12px 0; }.history { margin-top:12px; padding-top:8px; }
+.product-mask { position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,.4); }
+.product-sheet { position:fixed; z-index:1101; left:0; right:0; bottom:0; box-sizing:border-box; max-height:calc(100vh - env(safe-area-inset-top) - 88px); padding:16px 16px calc(16px + env(safe-area-inset-bottom)); border-radius:18px 18px 0 0; background:#fff; display:flex; flex-direction:column; }
+.product-sheet-head { display:flex; align-items:center; justify-content:space-between; font-size:18px; font-weight:700; }.product-sheet-head button { width:auto; margin:0; }
+.product-search { box-sizing:border-box; min-height:44px; margin:8px 0 12px; padding:0 12px; border:1px solid #CFD9E6; border-radius:8px; font-size:15px; }.product-results { min-height:0; max-height:55vh; }
+.recovery { border-color:#1264D6; }

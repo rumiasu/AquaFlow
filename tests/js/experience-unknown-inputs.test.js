@@ -1,3 +1,4 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 /** Real page/API/request functions and WXML projection; synthetic transport only. */
 const assert = require('assert')
 const fs = require('fs')
@@ -134,6 +135,8 @@ test('enterprise', '换身份后不得保存旧站草稿，重新读取后回填
   assert.strictEqual(t.calls.filter(c => c.method === 'PUT').length, 0)
   const returned = t.page.onShow(); await flush()
   success(t.pending[1], { enabled: true, barrelThreshold: 60 }); await returned
+  assert.strictEqual(t.page.data.entVisible, false, 'old station editor stays closed')
+  t.page.onEntOpen({ currentTarget: { dataset: { view: 'settings' } } })
   assert.strictEqual(t.page.data.entCfgForm.barrels, '60')
 })
 
@@ -143,12 +146,13 @@ function order(data) {
     if (call.method === 'POST' && Array.isArray(call.data.items)) { writes.push(call.data); success(call, { orderId: 777, warnings: [] }) }
     else if (call.method === 'POST' && call.data.orderId) { payments.push(call.data.orderId); fail(call) }
     else if (/\/orders\/777(?:\?|$)/.test(call.url)) { reads.push(777); success(call, data) }
+    else if (call.url.endsWith('/api/payments/capabilities')) success(call, { wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟付款', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } } })
     else success(call, {})
   })
-  // 2026-10-10：旧 false 表示不重试；未知弹窗交换主次后它会重付，须按「查原单」语义选择。
+  // 2026-10-26：按原单及未知事实选择查单动作，标题改写不能让夹具误选成再次付款。
   const showModal = t.wx.showModal.bind(t.wx)
   t.wx.showModal = modal => {
-    if (modal.title.includes('支付结果未知')) {
+    if (t.page.data.lastSubmittedOrder?.paymentState === 'unknown') {
       assert.strictEqual(modal.confirmText, '查原单')
       assert.strictEqual(modal.cancelText, '再试一次')
       t.wx.__modalAutoConfirm = modal.confirmText === '查原单'
@@ -167,9 +171,14 @@ for (const [name, data] of [['空详情', null], ['数字详情', 0], ['缺少�
   test('payment', name + '保留未知及原订单，不能宣称未付款', async () => {
     const t = order(data); await t.page.onSubmit()
     const original = JSON.stringify(t.page._originalOrderRequest.body)
-    assert(t.wx.__calls.modal.some(m => m.title.includes('支付结果未知')))
+    assert.strictEqual(t.wx.__calls.modal.length, 1)
+    const modal = t.wx.__calls.modal[0]
+    assert.match(modal.title, /(?:付款|支付).*待确认|(?:付款|支付)结果未知/)
+    assert(modal.content.includes('订单号 777') && modal.content.includes('暂时查不到是否已付款'))
+    assert.strictEqual(modal.confirmText, '查原单'); assert.strictEqual(modal.cancelText, '再试一次')
     assert(t.hint().includes('待确认')); assert(!t.hint().includes('还没付款'))
     assert.strictEqual(t.page.data.lastSubmittedOrder.paymentState, 'unknown')
+    assert.strictEqual(t.page.data.pendingOrderPaid, false)
     t.page.setData({ lastSubmittedOrder: null }); t.page._restorePendingOrderFromStorage(); t.page._syncPendingOrderState()
     assert(t.hint().includes('待确认')); await t.page.onSubmit()
     assert.strictEqual(t.writes.length, 1); assert.deepStrictEqual(t.payments, [777]); assert.deepStrictEqual(t.reads, [777])

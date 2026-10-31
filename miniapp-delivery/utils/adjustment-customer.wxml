@@ -2,7 +2,7 @@
   <view class="card-title">选择本站客户</view>
   <view class="customer-search-row">
     <input class="field-input" value="{{customerKeyword}}" placeholder="姓名、电话或地址" bindinput="onCustomerSearchInput" bindconfirm="searchCustomers" confirm-type="search" />
-    <button size="mini" bindtap="searchCustomers" loading="{{customerSearchLoading}}">搜索</button>
+    <button class="af-action af-action--quiet" size="mini" bindtap="searchCustomers" loading="{{customerSearchLoading}}"><view class="af-action__face">搜索</view></button>
   </view>
   <text class="field-hint">仅可办理已绑定本站的客户；显示最近匹配结果，找不到时请细化搜索。</text>
   <view class="field-hint" wx:if="{{customerSearchLoading}}">搜索中…</view>

@@ -1,3 +1,5 @@
+const uiScene = require('../../utils/ui-scene')
+const { showBusinessModal } = require('../../utils/business-dialog')
 // 首页 · Step4 锁稿落地（2026-09-11）
 // [2026-09-26 Wave1 轨道 B] 信息顺序重排为：水站与营业状态 / 收货地址 / 当前订单（有才显示）/
 // 再买上次 / 商品列表 / 水桶与押金入口。顺序与文案见 docs/design/29 §3「订水首页」。
@@ -25,6 +27,7 @@ const fmtMoney = (n) => {
 
 Page({
   data: {
+    sceneImageUrl: uiScene.LOCAL,
     loading: true,
     // 数据没加载出来时的提示（空串 = 全部正常）。见 _noteLoadError 的说明。
     loadError: '',
@@ -40,6 +43,7 @@ Page({
     // 与 loadError 分开：选站列表在 noStation 状态下才是主角，混在一处会互相覆盖。
     stationListError: '',
     stationListLoading: false,
+    rememberSwitchNotice: false,
     statusBarHeight: 44,
     navBarHeight: 44,
     navContentWidth: 235,
@@ -56,6 +60,7 @@ Page({
     productsView: [],   // 渲染用：合并了 qty / priceText / depositText
     cart: {},
     unavailableCartCount: 0,
+    quantityInputError: false,
     total: { count: 0, waterText: '0', depositText: '0', grandText: '0' },
     againOrder: null,   // { img, summary, items:[{productId, quantity}] }
     activeShip: null,   // { id, title, sub }
@@ -89,7 +94,9 @@ Page({
   },
 
   onShow() {
+    uiScene.show(this, 'posterArtFailed')
     this._homeHidden = false
+    if (this.data.posterArtFailed) this.setData({ posterArtFailed: false })
     this.invalidateHomeQuote()
     this.refreshDerived(undefined, false)
     const app = getApp()
@@ -125,6 +132,7 @@ Page({
   },
 
   onHide() {
+    uiScene.hide(this)
     this._homeHidden = true
     this._homeLoadSeq = (this._homeLoadSeq || 0) + 1
     this._homeRetry = null
@@ -178,7 +186,7 @@ Page({
   onStationStatusTap() {
     const { stationStatusText, stationStatusNote } = this.data
     if (!stationStatusText) return
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '水站状态',
       content: stationStatusNote ? stationStatusText + '\n' + stationStatusNote : stationStatusText,
       showCancel: false,
@@ -315,7 +323,7 @@ Page({
     }
   },
 
-  /** 检查未读通知，逐条弹窗提醒（拒单/临时外派） */
+  /** 一次展示本次读取的全部未读提醒；只有确认阅读后才按原方式标已读。 */
   async checkNotifications() {
     if (this._homeDestroyed || this._homeHidden) return
     const session = captureSession()
@@ -344,21 +352,14 @@ Page({
       this._noteLoadError('', 'notifications')
       if (res.data.length > 0) {
         const notifications = res.data
-        for (let i = 0; i < notifications.length; i++) {
-          const n = notifications[i]
-          if (!current()) return
-          const shown = await new Promise((resolve) => {
-            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-              title: n.title || '消息提醒',
-              content: n.content || '',
-              showCancel: false,
-              confirmText: '我知道了',
-              success: () => resolve(true),
-              fail: () => resolve(false)
-            })
-          })
-          if (!shown || !current()) return
-        }
+        // 2026-10-28：多条未读曾连续弹窗；合在同一可滚动正文，不省略内容或提前标已读。
+        const content = notifications.length === 1 ? notifications[0].content || ''
+          : notifications.map((n, index) => (index + 1) + '. ' + (n.title || '消息提醒') + '\n' + (n.content || '')).join('\n\n')
+        const shown = await new Promise(resolve => showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+          title: notifications.length === 1 ? notifications[0].title || '消息提醒' : '消息提醒（' + notifications.length + '条）',
+          content, showCancel: false, confirmText: '我知道了',
+          success: result => resolve(result.confirm === true), fail: () => resolve(false) }))
+        if (!shown || !current()) return
         // 标记已读是**写操作**、不是"我们向用户断言了某个事实"，所以只留日志不弹提示：
         // 它失败的后果是"同一批提醒下次进首页会再弹一遍"，用户当场无从处置，弹 toast 只会添乱。
         // 但不能继续空 catch（原来是 `.catch(() => {})`）—— 否则排查时连"写失败"都看不见。
@@ -407,6 +408,8 @@ Page({
     }
   },
 
+  onSwitchRememberChange(e) { this.setData({ rememberSwitchNotice: e.detail.value.includes('remember') }) },
+
   onSelectStation(e) {
     const { id } = e.currentTarget.dataset
     this.confirmStation(id)
@@ -433,7 +436,7 @@ Page({
       const noticeDisabled = stationStorage.getSwitchNoticeDisabled()
       if (!noticeDisabled && this.data.currentStationId && this.data.currentStationId !== stationId) {
         const confirm = await new Promise(resolve => {
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title: '切换水站提醒',
             content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
             confirmText: '继续',
@@ -443,17 +446,7 @@ Page({
           })
         })
         if (!current() || !confirm) return
-        const dontShow = await new Promise(resolve => {
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-            title: '提示',
-            content: '下次不再提示？',
-            confirmText: '不再提示',
-            cancelText: '继续提示',
-            success: (r) => resolve(r.confirm)
-          })
-        })
-        if (!current()) return
-        if (dontShow) stationStorage.setSwitchNoticeDisabled(true)
+        if (this.data.rememberSwitchNotice) stationStorage.setSwitchNoticeDisabled(true)
       }
 
       if (!current()) return
@@ -480,6 +473,7 @@ Page({
   },
 
   onUnload() {
+    uiScene.hide(this)
     this._homeDestroyed = true
     this._homeLoadSeq = (this._homeLoadSeq || 0) + 1
     this.invalidateHomeQuote()
@@ -645,7 +639,7 @@ Page({
     if (owed > 0) parts.push(`欠 ${owed} 个空桶，还清前不能退桶`)
     if (balance > 0) parts.push(`押金余额 ¥${fmtMoney(balance)}`)
     this.setData({ barrelVisible: true, barrelLine1: '水桶与押金',
-      barrelLine2: parts.join(' · ') || '查看说明与办理入口' })
+      barrelLine2: parts.join(' · ') })
   },
 
   /** 当前订单条：进行中订单（待配送1/配送中2），附商品摘要；activeCount = 进行中总张数 */
@@ -801,6 +795,9 @@ Page({
       this._homeQuoteContext = null
     }
     const { products, cart } = this.data
+    const session = captureSession(), quantityScope = session.epoch + ':' + session.customerId + ':' + this.data.currentStationId
+    if (this._quantityDraftScope !== quantityScope) { this._quantityDraftScope = quantityScope; this._quantityDrafts = {} }
+    const drafts = this._quantityDrafts || {}
     const heldMap = rights || this.data.barrelRights || {}
     const quote = this._homeQuote
     const independent = quote && quote.independentRights === true
@@ -848,6 +845,8 @@ Page({
       return {
         ...p,
         qty,
+        qtyDraft: Object.prototype.hasOwnProperty.call(drafts, p.id) ? drafts[p.id].value : String(qty),
+        qtyError: drafts[p.id] && drafts[p.id].error || '',
         quantityUnit: itemUnit(p),
         depositNote,
         priceText: fmtMoney(p.price),
@@ -863,6 +862,7 @@ Page({
       ? Object.keys(cart).filter(id => Number(cart[id]) > 0 && !productIds.has(String(id))).length : 0
     this.setData({
       productsView,
+      quantityInputError: productsView.some(row => !!row.qtyError),
       unavailableCartCount,
       total: {
         count,
@@ -964,10 +964,8 @@ Page({
     this.setData({ homeWaterBackdropFailed: true })
   },
 
-  // 海报仅为装饰资源；失败保留原生标题与真实商品信息，不阻断订水。
-  onPosterArtError() {
-    this.setData({ posterArtFailed: true })
-  },
+  // 海报仅为装饰资源；失败保留原生标题和列表中的真实商品信息，不阻断订水。
+  onPosterArtError(e) { uiScene.imageError(this, e, 'posterArtFailed') },
 
   onHomeProductImageError(e) {
     const { id, url, kind } = e.currentTarget.dataset
@@ -1014,8 +1012,38 @@ Page({
     return items
   },
 
+  homeQuantityEventCurrent() {
+    const session = captureSession(), stationId = this.data.currentStationId
+    const scope = session.epoch + ':' + session.customerId + ':' + stationId
+    const selected = stationStorage.getId()
+    // 2026-10-28：新数量事件也必须绑定显示时的账号/站别；迟到输入不能写入新账号清单。
+    return !this._homeHidden && !this._homeDestroyed && session.loggedIn && !!session.customerId
+      && !this.data.loading && this.data.catalogState === 'ready' && !!stationId
+      && (!this._quantityDraftScope || this._quantityDraftScope === scope)
+      && (!selected || String(selected) === String(stationId))
+  },
+
+  onCartQuantityInput(e) {
+    if (!this.homeQuantityEventCurrent()) return
+    const id = e.currentTarget.dataset.id
+    if (!this.data.products.some(p => String(p.id) === String(id))) return
+    const value = String(e.detail.value)
+    const valid = /^\d+$/.test(value) && Number.isSafeInteger(Number(value))
+    // 2026-10-28：编辑中空值留在输入框；不把未完成输入存成0，也不沿用旧数量结算。
+    this._quantityDrafts = this._quantityDrafts || {}
+    this._quantityDrafts[id] = { value, error: valid ? '' : '请填写 0 或正整数' }
+    if (valid) {
+      const app = getApp()
+      app.setCartQty(this.data.currentStationId, id, Number(value))
+      this.setData({ cart: app.getCart(this.data.currentStationId) })
+    }
+    this.refreshDerived(undefined, true, true)
+  },
+
   onCartQtyChange(e) {
+    if (!this.homeQuantityEventCurrent()) return
     const { id, type } = e.currentTarget.dataset
+    if (this._quantityDrafts) delete this._quantityDrafts[id]
     const app = getApp()
     const stationId = this.data.currentStationId
     const cart = app.getCart(stationId)
@@ -1028,6 +1056,7 @@ Page({
   },
 
   onSubmit() {
+    if (this.data.quantityInputError) { wx.showToast({ title: '请先核对商品数量', icon: 'none' }); return }
     const { loading, catalogState, currentStationId } = this.data
     // 旧界面的点击可能在刷新后才到达；商品未核实时不带旧清单进入确认页。
     if (loading || catalogState === 'loading' || catalogState === 'error' || catalogState === 'empty' || !currentStationId) {
@@ -1042,7 +1071,7 @@ Page({
       return
     }
     if (!address) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: this._homeChosenAddressId != null ? '请重新选择配送地址' : '还没有配送地址',
         content: this._homeChosenAddressId != null ? '先前选择的地址已不可用，请重新选择后再确认订单' : '先设置一个收货地址，水才能送到家',
         confirmText: '去设置',

@@ -1,21 +1,24 @@
-<view class="container">
+<view class="container b2-page b2-d39 af2-page lv2-page lv2-barrels">
   <view class="page-state" wx:if="{{loading}}"><text class="page-state-text">{{loaded ? '正在刷新...' : '加载中...'}}</text></view>
-  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button class="page-state-retry" bindtap="onRetry">重试</button></view>
-  <view class="summary-card" wx:if="{{totalReturn > 0 || totalDiscrepancy !== 0}}">
+  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button bindtap="onRetry" class="af-action af-action--quiet"><view class="af-action__face">重试</view></button></view>
+<view class="lv2-title-row"><view class="af2-icon-tile lv2-physical-tile"><icon name="barrel" size="24px" color="#235F5A" variant="duotone" fill-color="#D8EFED" /></view><text>空桶记录</text></view>
+  <view class="summary-card" wx:if="{{loaded && records.length}}">
     <view class="summary-item">
       <text class="summary-num">{{totalDeliveries}}</text>
-      <text class="summary-label">配送次数</text>
+      <text class="summary-label">本次记录</text>
     </view>
     <view class="summary-item">
-      <text class="summary-num">{{totalReturn}}</text>
-      <text class="summary-label">回收空桶</text>
+      <text class="summary-num">{{totalReturnText}}</text>
+      <text class="summary-label">已知回收（桶）</text>
     </view>
     <view class="summary-item">
-      <text class="summary-num {{totalDiscrepancy > 0 ? 'warn' : ''}}">{{totalDiscrepancy}}</text>
-      <text class="summary-label">差异合计</text>
+      <text class="summary-num warn">{{totalShortText}}</text><text class="summary-label">已知少回（桶）</text>
+    </view>
+    <view class="summary-item"><text class="summary-num">{{totalExtraText}}</text><text class="summary-label">已知多回（桶）</text>
     </view>
   </view>
 
+  <text class="known-scope" wx:if="{{loaded && (unknownReturn || unknownDiscrepancy)}}">{{unknownReturn}} 条回收量、{{unknownDiscrepancy}} 条差异未提供，未计入对应小计。</text>
   <view class="record-list">
     <view class="record-card" wx:for="{{records}}" wx:key="id">
       <view class="record-top">
@@ -27,13 +30,13 @@
       <view class="record-meta">
         <text class="meta-bucket">配送 {{item.quantity}}桶</text>
         <text class="meta-divider">|</text>
-        <text class="meta-bucket">回收 {{item.returnBucketQty || 0}}桶</text>
+        <text class="meta-bucket">{{item.returnText}}</text>
         <text class="meta-divider">|</text>
         <text class="meta-bucket">{{item.firstProductName}}</text>
       </view>
-      <view class="record-bottom" wx:if="{{item.barrelDiscrepancy !== 0}}">
+      <view class="record-bottom" wx:if="{{item.hasDiscrepancy || !item.discKnown}}">
         <text class="discrepancy-tag {{item.discTagClass}}">
-          {{item.discLabel}} {{item.discAbsText}}个
+          {{item.discLabel}}<text wx:if="{{item.discKnown}}"> {{item.discAbsText}}桶</text>
         </text>
         <text class="discrepancy-note" wx:if="{{item.barrelDiscrepancyNote}}">{{item.barrelDiscrepancyNote}}</text>
       </view>
@@ -41,6 +44,7 @@
   </view>
 
   <view class="empty" wx:if="{{loaded && !loading && !error && records.length === 0}}">
-    <text>暂无空桶回收记录</text>
+    <view class="af2-icon-tile lv2-physical-tile"><icon name="barrel" size="32px" color="#235F5A" variant="duotone" fill-color="#D8EFED" /></view><text>暂无空桶回收记录</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

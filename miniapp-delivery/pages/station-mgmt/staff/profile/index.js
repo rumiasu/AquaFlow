@@ -6,6 +6,7 @@ Page({
     loading: true,
     id: null,
     profile: null,
+    metricsExpanded: false,
     error: ''
   },
 
@@ -21,6 +22,7 @@ Page({
   },
 
   onRetryProfile() { return this.loadProfile(this.data.id) },
+  onToggleMetrics() { this.setData({ metricsExpanded: !this.data.metricsExpanded }) },
 
   async loadProfile(id) {
     this.setData({ loading: true, error: '' })
@@ -59,5 +61,10 @@ Page({
   onCall(e) {
     const { phone } = e.currentTarget.dataset
     if (phone) wx.makePhoneCall({ phoneNumber: phone })
+  },
+
+  onOrderTap(e) {
+    const id = e.currentTarget.dataset.id
+    if (/^[1-9][0-9]*$/.test(String(id))) wx.navigateTo({ url: `/pages/order/detail?id=${id}` })
   }
 })

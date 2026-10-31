@@ -1,19 +1,20 @@
 <view class="container">
-  <view class="page-intro"><text class="page-intro-title">公告消息</text><text class="page-intro-note">查看水站与系统发布的信息</text></view>
-  <view class="state-card" wx:if="{{loading && !loaded}}"><text class="state-title">正在读取公告</text><text class="state-note">请稍候，最新消息正在路上。</text></view>
+  <view class="page-intro"><text class="page-intro-title">公告</text></view>
+  <view class="state-card" wx:if="{{loading && !loaded}}"><text class="state-title">正在读取公告</text><text class="state-note">请稍候。</text></view>
   <view class="state-banner" wx:if="{{loading && loaded}}">正在更新，以下为上次读取的公告。</view>
   <view class="state-card state-error" wx:if="{{loadError}}">
     <text class="state-title">{{accessDenied ? '暂时无法访问公告' : '公告读取失败'}}</text><text class="state-note">{{loadError}}</text>
     <text class="state-note" wx:if="{{loaded && !accessDenied}}">以下为上次读取的公告，可能不是最新内容。</text>
-    <view class="state-actions"><button class="state-button" bindtap="onRetry" loading="{{loading}}" disabled="{{loading}}">重新读取</button><button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button></view>
+    <view class="state-actions"><button class="af-action af-action--quiet" bindtap="onRetry" loading="{{loading}}" disabled="{{loading}}"><text class="af-action__face">重新读取</text></button><button wx:if="{{accessDenied}}" class="af-action af-action--secondary" bindtap="onLogin">去登录</button></view>
   </view>
   <view class="notice-list" wx:if="{{notices.length && !accessDenied}}">
-    <view class="notice-item" wx:for="{{notices}}" wx:key="id" data-id="{{item.id}}" bindtap="onNoticeTap" role="button" aria-label="{{item.title}}，查看公告详情">
+    <view class="notice-item af-entry af-entry--two-line" wx:for="{{notices}}" wx:key="id" data-id="{{item.id}}" bindtap="onNoticeTap" role="button" aria-label="{{item.title}}，查看公告详情">
       <view class="notice-item-top"><text class="notice-type">{{item.typeLabel}}</text><text class="notice-title">{{item.title || '公告标题待核实'}}</text></view>
-      <view class="notice-footer"><text class="notice-time">{{item.timeLabel}}</text><text class="notice-link">查看详情 ›</text></view>
+      <view class="notice-footer"><text class="notice-time">{{item.timeLabel}}</text><text class="notice-link">›</text></view>
     </view>
   </view>
   <view class="state-card" wx:if="{{loaded && !loading && !loadError && notices.length === 0}}">
-    <text class="state-title">暂时没有公告</text><text class="state-note">新公告发布后会显示在这里。</text><button class="state-button secondary" bindtap="onRetry">刷新公告</button>
+    <text class="state-title">暂时没有公告</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

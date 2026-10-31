@@ -10,11 +10,14 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Base64;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Map;
 
 @Component
 public class JwtUtil {
+    public static final String TEST_AUTH_SOURCE = "TEMPORARY_TEST";
 
     @Value("${jwt.secret}")
     private String secret;
@@ -112,6 +115,29 @@ public String generateAccessToken(Long userId, String userType, String role,
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    /** 测试认证沿用普通 token 的过期/jti；刷新时必须保留标记，不能升级为普通会话。 */
+    public String withTestAuthentication(String token, String account, String binding) {
+        Map<String,Object> claims = new HashMap<>(parseToken(token));
+        claims.put("authSource", TEST_AUTH_SOURCE);
+        if ("refresh".equals(claims.get("tokenType"))) {
+            // 2026-10-30: full test claims made HS512 customer refresh JWTs exceed VARCHAR(500).
+            // userId/userType already identify one configured account; omit its duplicate name
+            // and keep all 256 binding bits in base64url rather than extending the database.
+            claims.remove("testAccount");
+            claims.put("testBinding", compactTestBinding(binding));
+        } else {
+            claims.put("testAccount", account);
+            claims.put("testBinding", binding);
+        }
+        return Jwts.builder().claims(claims).signWith(getSigningKey()).compact();
+    }
+
+    /** Encode a complete SHA-256 binding without truncation for persisted test refresh JWTs. */
+    public static String compactTestBinding(String hexBinding) {
+        if (hexBinding == null || hexBinding.length() != 64) throw new IllegalArgumentException("Invalid test binding");
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(HexFormat.of().parseHex(hexBinding));
     }
 
     public boolean validateToken(String token) {

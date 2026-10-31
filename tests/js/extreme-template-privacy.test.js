@@ -30,7 +30,7 @@ function rowEvents(page) {
       return
     }
     if (attrs['wx:if'] && !binding(attrs['wx:if'], context)) return
-    const handler = attrs.bindtap || attrs.bindinput
+    const handler = attrs.bindtap || attrs.bindinput || attrs['bind:change']
     if (handler) {
       const dataset = {}
       for (const [key, value] of Object.entries(attrs)) if (key.startsWith('data-')) {
@@ -46,6 +46,12 @@ function rowEvents(page) {
 function dispatch(page, rendered, detail = {}) {
   return page[rendered.handler]({ currentTarget: { dataset: rendered.dataset }, detail })
 }
+function selectorEvent(page, index) {
+  const open = rowEvents(page).filter(node => node.handler === 'onOpenProduct')[index]
+  if (page.data.selectingRowKey !== open.dataset.rowKey) dispatch(page, open)
+  return rowEvents(page).find(node => node.handler === 'onSelectProduct' && Number(node.dataset.index) === index)
+}
+function selectProduct(page, index, id) { return dispatch(page, selectorEvent(page, index), { id }) }
 function fixture() {
   const calls = [], wx = createWx(), app = createApp()
   const p = loadPage('miniapp-user/pages/template/index.js', { wx, app, stubs: {
@@ -66,40 +72,30 @@ function fixture() {
   }
   p.loadFormData = async () => {}; p.loadData = async () => {}
   p.onAddTemplate(); p.onAddItem()
-  p.setData({ loading: false, stationId: 9, products: [{ id: 201, name: '甲' }, { id: 202, name: '乙' }, { id: 203, name: '丙' }] })
+  p.setData({ loading: false, formReady: true, stationId: 9, products: [{ id: 201, name: '甲' }, { id: 202, name: '乙' }, { id: 203, name: '丙' }] })
   return { p, wx, calls }
 }
-test('actual first-row third-product tap changes that row without creating a sparse extra row', () => {
+test('shared selector event changes only its selected row', () => {
   const { p } = fixture(), before = clone(p.data.form.items)
-  dispatch(p, rowEvents(p).filter(node => node.handler === 'onSelectProduct')[2])
+  selectProduct(p, 0, 203)
   assert.equal(p.data.form.items.length, 2); assert.equal(p.data.form.items[0].productId, 203)
   assert.deepStrictEqual(p.data.form.items[1], before[1]); assert.equal(p.data.form.items[0].quantity, 1)
-})
-test('actual second-row first-product tap preserves the first row and renders selection in its own row', () => {
-  const { p } = fixture()
-  const choices = rowEvents(p).filter(node => node.handler === 'onSelectProduct')
-  dispatch(p, choices[1]); dispatch(p, choices[3])
-  assert.deepStrictEqual(p.data.form.items.map(row => row.productId), [202, 201])
-  assert.deepStrictEqual(choices.map(node => node.dataset.index), [0, 0, 0, 1, 1, 1])
+  selectProduct(p, 1, 201); assert.deepStrictEqual(p.data.form.items.map(row => row.productId), [203, 201])
 })
 test('add/delete/select retain surviving row keys and reject an event captured before row deletion', () => {
   const { p } = fixture(), keys = p.data.form.items.map(row => row.rowKey)
   assert(keys.every(key => typeof key === 'string' && key.length)); assert.notEqual(keys[0], keys[1])
-  const stale = rowEvents(p).filter(node => node.handler === 'onSelectProduct')[3]
+  const stale = selectorEvent(p, 1)
   dispatch(p, rowEvents(p).filter(node => node.handler === 'onRemoveItem')[0])
-  assert.equal(p.data.form.items[0].rowKey, keys[1])
-  p.onAddItem(); const addedKey = p.data.form.items[1].rowKey
+  assert.equal(p.data.form.items[0].rowKey, keys[1]); p.onAddItem(); const addedKey = p.data.form.items[1].rowKey
   assert(!keys.includes(addedKey)); const before = clone(p.data.form.items)
-  dispatch(p, stale); assert.deepStrictEqual(p.data.form.items, before)
-  dispatch(p, rowEvents(p).filter(node => node.handler === 'onSelectProduct')[0])
-  assert.deepStrictEqual(p.data.form.items.map(row => row.productId), [201, null])
+  dispatch(p, stale, { id: 201 }); assert.deepStrictEqual(p.data.form.items, before)
+  selectProduct(p, 0, 201); assert.deepStrictEqual(p.data.form.items.map(row => row.productId), [201, null])
 })
-test('rendered quantity and removal controls use row identity including string dataset indices', () => {
-  const { p } = fixture()
-  const input = rowEvents(p).filter(node => node.handler === 'onQuantityInput')[1]
+test('shared stepper change and removal preserve row identity', () => {
+  const { p } = fixture(), input = rowEvents(p).filter(node => node.handler === 'onQuantityInput')[1]
   dispatch(p, input, { value: '7' }); assert.deepStrictEqual(p.data.form.items.map(row => row.quantity), [1, 7])
-  const plus = rowEvents(p).filter(node => node.handler === 'onQuantityChange' && node.dataset.type === 'add')[1]
-  dispatch(p, plus); assert.equal(p.data.form.items[1].quantity, 8)
+  dispatch(p, input, { value: '8' }); assert.equal(p.data.form.items[1].quantity, 8)
   const remove = rowEvents(p).filter(node => node.handler === 'onRemoveItem')[0]
   remove.dataset.index = String(remove.dataset.index); dispatch(p, remove)
   assert.equal(p.data.form.items.length, 1); assert.equal(p.data.form.items[0].quantity, 8)
@@ -126,7 +122,8 @@ test('editing repeated products creates distinct row keys, and saving sends only
   const { p, calls } = fixture()
   p.onEditTemplate({ currentTarget: { dataset: { template: { id: 31, name: '原配置', items: [{ productId: 201, quantity: 2 }, { productId: 201, quantity: 3 }] } } } })
   assert.notEqual(p.data.form.items[0].rowKey, p.data.form.items[1].rowKey)
-  dispatch(p, rowEvents(p).filter(node => node.handler === 'onSelectProduct')[5]); await p.onSaveTemplate()
+  p.setData({ formReady: true })
+  selectProduct(p, 1, 203); await p.onSaveTemplate()
   assert.equal(calls.length, 1); assert.equal(calls[0][1], 9)
   assert.deepStrictEqual(calls[0][0].items, [{ productId: 201, quantity: 2 }, { productId: 203, quantity: 3 }])
   assert.equal(calls[0][0].id, 31); assert.equal(p.data.showEditModal, false)

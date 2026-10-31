@@ -1,3 +1,4 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 // Actual page handlers, synthetic transport only; no GUI, HTTP or database.
 const assert = require('assert')
 const fs = require('fs'), path = require('path')
@@ -43,6 +44,8 @@ function realStaffApp() {
   global.App = config => { app = config }
   const Module = require('module'), original = Module._load
   Module._load = function (name, parent, main) {
+    // App lifecycle is under test; capture its transport command regardless of develop cloud routing.
+    if (name.endsWith('utils/transport')) return { send: options => { requests.push(options) } }
     if (name.endsWith('utils/request')) return { get: async () => ({ data: {} }) }
     return original.apply(this, arguments)
   }

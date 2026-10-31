@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('./business-dialog')
 // 2026-10-06：同一在途导航只发一次；微信跳转不可取消，旧回调不得释放后来的锁。
 // tab 重置先 reLaunch 到登录页清空缓存，再 switchTab；直接 reLaunch 到自绘 tab 曾白屏。
 const TAB_PAGES = ['/pages/coordination/index', '/pages/home/index', '/pages/mine/index']
@@ -186,7 +187,7 @@ function current() {
       home: () => { const app = appNow(); if (app && app.globalData && app.globalData.isLogin && typeof app.routeByRole === 'function') app.routeByRole(false); else current().open('/pages/login/index', { mode: 'reset', guard: true }) },
       feedback: ({ message, retry, home }) => {
         const fallback = () => wx.showToast({ title: '页面未打开，请返回后重试', icon: 'none' })
-        try { wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '页面未打开', content: message, confirmText: '重试', cancelText: '返回首页', success: r => { if (r.confirm) retry(); else if (r.cancel) home() }, fail: fallback }) }
+        try { showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '页面未打开', content: message, confirmText: '重试', cancelText: '返回首页', success: r => { if (r.confirm) retry(); else if (r.cancel) home() }, fail: fallback }) }
         catch (e) { fallback() }
       }
     })

@@ -1,3 +1,4 @@
+@import "../../styles/actions.wxss";
 .order-card {
   background: #fff;
   border-radius: var(--radius-lg);
@@ -224,3 +225,22 @@
 .btn-pay, .btn-reorder, .btn-cancel { min-height: 44px; }
 .footer-left { min-width: 0; }
 .amount { overflow-wrap: anywhere; }
+
+.footer-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.footer-actions button.af-action{flex:none;min-width:44px;width:auto;margin:0}.footer-actions button.af-action--primary{min-height:48px}
+
+/* Visual 28: white record, semantic state chips, factual amount, local actions. */
+.order-card{padding:16px;border-radius:16px;border:1px solid var(--af2-line,#DCE5ED);background:var(--af2-surface,#FFFFFF);color:var(--af2-ink,#203047)}
+.order-id{font-size:14px;line-height:22px;color:var(--af2-muted,#53687B)}
+.status-tag,.pay-tag{font-size:12px;line-height:18px;padding:3px 8px;border-radius:6px}
+.status-tag.warning,.status-tag.primary{background:var(--af2-surface-current,#DCEAFF);color:var(--af2-ink-current,#244F82)}
+.pay-tag.warning{background:var(--af2-surface-money,#E7E2F7);color:var(--af2-ink-money,#54467C)}
+.status-tag.success,.pay-tag.paid{background:var(--af2-surface-success,#E7F1EB);color:var(--af2-ink-success,#326451)}
+.status-tag.cancelled,.status-tag.default,.pay-tag.other{background:var(--af2-surface-neutral,#EDF1F5);color:var(--af2-ink-neutral,#4A5B70)}
+.product-name,.product-summary{font-size:16px;line-height:24px;color:var(--af2-ink,#203047)}
+.product-spec,.time{font-size:13px;line-height:20px;color:var(--af2-muted,#53687B)}
+.product-qty,.address,.customer-note-preview,.amount-unknown{font-size:14px;line-height:22px}
+.card-footer{gap:12px;align-items:flex-start}
+.footer-left{flex:1;min-width:100px;max-width:100%}
+.amount{max-width:100%;font-size:20px;line-height:28px;color:var(--af2-ink,#203047);word-break:break-all}
+.footer-actions{justify-content:flex-end;max-width:100%}
+@media(max-width:340px){.card-footer{flex-direction:column;align-items:stretch}.footer-actions{justify-content:flex-end}.order-item-row{gap:8px}}

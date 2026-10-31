@@ -5,6 +5,8 @@ import com.example.aquaflow.common.Result;
 import com.example.aquaflow.dto.HistoricalAssetClaimDTO;
 import com.example.aquaflow.entity.HistoricalAssetClaim;
 import com.example.aquaflow.service.HistoricalAssetClaimService;
+import com.example.aquaflow.service.HistoricalClaimPhotoService;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -13,7 +15,19 @@ import java.util.List;
 @RequestMapping("/api")
 public class HistoricalAssetClaimController {
     private final HistoricalAssetClaimService service;
-    public HistoricalAssetClaimController(HistoricalAssetClaimService service) { this.service=service; }
+    private final HistoricalClaimPhotoService photos;
+    public HistoricalAssetClaimController(HistoricalAssetClaimService service, HistoricalClaimPhotoService photos) { this.service=service; this.photos=photos; }
+    @PostMapping("/asset-claims/photo")
+    public Result<HistoricalClaimPhotoService.Photo> uploadPhoto(@RequestParam Long stationId, @RequestParam String clientToken, @RequestParam("file") MultipartFile file) {
+        return Result.success(photos.upload(stationId,clientToken,file));
+    }
+    @GetMapping("/asset-claims/photo")
+    public Result<HistoricalClaimPhotoService.Photo> myPhoto(@RequestParam Long stationId, @RequestParam String clientToken) {
+        return Result.success(photos.mine(stationId,clientToken));
+    }
+    @RequireRole("STATION_MANAGER")
+    @GetMapping("/manager/asset-claims/{id}/photo")
+    public Result<HistoricalClaimPhotoService.Photo> claimPhoto(@PathVariable Long id) { return Result.success(photos.manager(id)); }
     @PostMapping("/asset-claims")
     public Result<HistoricalAssetClaim> submit(@RequestBody @Valid HistoricalAssetClaimDTO request) {
         return Result.success(service.submit(request));

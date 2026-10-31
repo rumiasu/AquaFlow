@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "利润报表",
-  "usingComponents": {}
+  "usingComponents": {
+    "icon": "../../../components/Icon/index"
+  }
 }

@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('./business-dialog')
 // 网络请求封装（JWT 双 Token + 自动续期）
 const { API } = require('../config/api')
 const { send } = require('./transport')
@@ -42,6 +43,7 @@ function sendRequest(options, session, accessToken, retried) {
       beforeDispatch: () => isCurrentSession(session),
       method: options.method || 'GET',
       data: snapshot(options.data),
+      filePath: options.filePath, name: options.name, formData: options.formData,
       header,
       timeout: 15000,
       success: (res) => {
@@ -142,7 +144,7 @@ function offerErrorReport(message, options, session) {
   if (!message || offeredReports.has(message)) return
   offeredReports.add(message)
 
-  wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+  showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
     title: '遇到点问题',
     content: '系统好像开小差了。要把这个问题告诉水站吗？',
     confirmText: '上报',

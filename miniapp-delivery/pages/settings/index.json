@@ -2,5 +2,8 @@
   "navigationBarTitleText": "设置",
   "navigationBarBackgroundColor": "#1264D6",
   "navigationBarTextStyle": "white",
-  "backgroundColor": "#F5F6F7"
+  "backgroundColor": "#F5F6F7",
+  "usingComponents": {
+    "icon": "/components/Icon/index"
+  }
 }

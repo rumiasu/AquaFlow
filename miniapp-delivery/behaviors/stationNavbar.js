@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../utils/business-dialog')
 /**
  * 自绘导航栏 + 水站营业状态胶囊（页面级 Behavior，员工端「配送」页与「首页」共用）。
  *
@@ -175,7 +176,8 @@ module.exports = Behavior({
         // 渲染用的那一份：**跟着当前页签走**（见 switchPanelTab）。
         // ⚠️ 在 js 里拼好、wxml 只渲染 —— 别写成 `wx:for="{{showAll ? a : b}}"`。
         stationPanelItems: groupSetupItems(this.data.stationPanelShowAll ? pending.concat(done) : pending),
-        stationPanelSummary: pending.length ? (r.summaryText || '') : '',
+        // Optional settings remain reachable without being presented as missing requirements.
+        stationPanelSummary: pending.some(it => it && it.key !== 'ticketPackage' && it.levelText !== '选填') ? (r.summaryText || '') : '',
         stationPanelOnlineHint: r.onlineHint || '',
         stationPanelError: '', stationPanelReadReady: true, stationPanelRefreshing: false,
         stationPanelLoading: false
@@ -218,7 +220,7 @@ module.exports = Behavior({
     onStationStatusTap() {
       const { stationStatusText, stationStatusNote, stationStatusError, isManager } = this.data
       if (stationStatusError) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '营业状态待核实', content: stationStatusError, confirmText: '重新读取', cancelText: '稍后再看', success: result => { if (result.confirm) this.loadStationStatus((getApp().globalData.userInfo || {}).stationId) } })
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '营业状态待核实', content: stationStatusError, confirmText: '重新读取', cancelText: '稍后再看', success: result => { if (result.confirm) this.loadStationStatus((getApp().globalData.userInfo || {}).stationId) } })
         return
       }
       if (!stationStatusText) return
@@ -226,7 +228,7 @@ module.exports = Behavior({
         this.openStationPanel()
         return
       }
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '水站状态',
         content: stationStatusNote ? stationStatusText + '\n' + stationStatusNote : stationStatusText,
         showCancel: false,
@@ -261,26 +263,6 @@ module.exports = Behavior({
 
     closeStationPanel() {
       this.setData({ stationPanelShow: false })
-    },
-
-    /**
-     * 小框里点「?」→ 展开/收起**这一项**的说明（why + suggestion）。
-     *
-     * [2026-09-24 产品反馈]「现在的界面好啰嗦，每一项都详细解释，加一个问号藏在里面」——
-     * 原来每行固定挂一整句 why，4 项就占掉半个弹窗，而站长多数时候只想知道"还差哪几项"。
-     * 收起态每行只剩「项名 · 级别  ?  去填写」。
-     *
-     * ⚠️ wxml 里这个「?」必须用 **catchtap**：用 bindtap 会冒泡到整行的 `onPanelGoFill`，
-     *    用户想看一眼原因就被直接拽到别的页面去了。
-     * ⚠️ 一次 setData 改完整个数组（见 setupPatchOf 的 ⚠️），中间不要插第二次。
-     *    只替换命中那一个对象，其余保留原引用，渲染层不必重画没动过的行。
-     */
-    onPanelToggleWhy(e) {
-      const key = e.currentTarget.dataset.key
-      if (!key) return
-      const items = (this.data.stationPanelItems || []).map(it =>
-        it.key === key ? Object.assign({}, it, { whyOpen: !it.whyOpen }) : it)
-      this.setData({ stationPanelItems: items })
     },
 
     /** 小框里点一条待填项 → 先关框再跳（不关的话返回时框还盖着，像"没反应"） */

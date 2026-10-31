@@ -23,6 +23,9 @@ import java.util.Map;
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.aquaflow.service.TemporaryTestLogin temporaryTestLogin;
+
     /**
      * <b>未完成身份选择的会话（role=UNSELECTED）能访问的全部路径</b>。
      *
@@ -91,6 +94,16 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         Claims claims = jwtUtil.parseToken(token);
+
+        if (com.example.aquaflow.service.TemporaryTestLogin.marked(claims)) {
+            try {
+                if (temporaryTestLogin == null) throw new com.example.aquaflow.exception.BusinessException("测试登录已失效");
+                temporaryTestLogin.requireSession(claims);
+            } catch (com.example.aquaflow.exception.BusinessException rejected) {
+                send401(response,"测试登录已失效，请重新登录");
+                return false;
+            }
+        }
 
         String tokenType = claims.get("tokenType", String.class);
         if (!"access".equals(tokenType)) {

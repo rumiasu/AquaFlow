@@ -1,4 +1,5 @@
-<view class="container">
+<view class="container b2-page b2-d44 af2-page lv2-page lv2-settings">
+<view class="lv2-title-row"><view class="af2-icon-tile lv2-neutral-tile"><icon name="settings" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text>设置</text></view>
   <!-- 账号信息 -->
   <view class="section">
     <text class="section-title">账号信息</text>
@@ -14,7 +15,7 @@
         有名字 / 已绑定但名称暂未加载（可重试）/ 确实未绑定或审核中。
       -->
       <text class="info-value">{{stationStateText}}</text>
-      <text class="info-retry" wx:if="{{stationNameRetry}}" bindtap="onRetryStationName">{{stationNameLoading ? '加载中…' : '重试'}}</text>
+      <text wx:if="{{stationNameRetry}}" bindtap="onRetryStationName" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">{{stationNameLoading ? '加载中…' : '重试'}}</text></text>
     </view>
   </view>
 
@@ -31,42 +32,34 @@
   -->
   <view class="section" wx:if="{{isManager}}">
     <text class="section-title">通知设置</text>
-    <view class="setting-row">
+    <view class="af-entry b2-setting-row">
       <view class="setting-text">
         <text class="setting-label">待办提醒</text>
-        <text class="setting-sub">有别人递来的申请时，首页标签亮红点（打开小程序时刷新）</text>
+        <text class="setting-sub">待办更新时显示红点，仅打开小程序时刷新</text>
       </view>
       <switch checked="{{reminderEnabled}}" bindchange="onToggleReminder" color="#1264D6" />
-    </view>
-  </view>
-  <view class="section" wx:else>
-    <text class="section-title">通知设置</text>
-    <view class="setting-row">
-      <view class="setting-text">
-        <text class="setting-label">待办提醒</text>
-        <text class="setting-sub">待办提醒只对站长开放：配送端没有「首页」页签，这条提醒在配送员身份下不起作用</text>
-      </view>
     </view>
   </view>
 
   <!-- 其他 -->
   <view class="section">
     <text class="section-title">其他</text>
-    <view class="setting-row" bindtap="onClearCache">
-      <text class="setting-label">清除缓存</text>
+    <view class="af-entry b2-setting-row" bindtap="onClearCache">
+      <icon name="settings" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /><text class="setting-label">清除缓存</text>
       <text class="setting-arrow"></text>
     </view>
   </view>
 
   <!-- 退出登录 -->
   <view class="section">
-    <view class="logout-btn" bindtap="onLogout">
+    <view class="af-action af-action--quiet b2-logout" bindtap="onLogout">
       <text class="logout-text">退出登录</text>
     </view>
   </view>
 
   <!-- 版本信息 -->
   <view class="version-info">
-    <text class="version-text">水站员工端 · 版本 1.0.0</text>
+    <text class="version-text">水站员工端 · {{versionText}}</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

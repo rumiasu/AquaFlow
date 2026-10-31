@@ -6,15 +6,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 进货成本与毛利（v39）。
- *
- * <p>规格见 {@code docs/design/20} §2。本 mapper 只做两件事：写站级成本价、按期间算毛利。</p>
- *
- * <p>⚠️ <b>刻意不做批次成本核算</b>：不做供应商表、采购单、应付账款，也不做加权平均/先进先出。
- * 代价是"成本变了之后历史毛利用新成本重算"——对独立小水站这是可接受的
- * （他们算账就是这么算的），但接口里必须把这件事说明白，不能让站长以为看到的是当时真实毛利。</p>
- */
+/** 期间收入沿用既有口径；成本来自本站实际出库流水，不用当前价追算历史。 */
 @Mapper
 public interface GrossProfitMapper {
 
@@ -39,33 +31,9 @@ public interface GrossProfitMapper {
                         @Param("costPrice") BigDecimal costPrice);
 
     /**
-     * 期间毛利报表：按商品汇总销量、收入、成本与毛利。
-     *
-     * <p>口径说明（四条，都容易踩错）：</p>
-     * <ol>
-     *   <li>按 <b>{@code coalesce(settle_station_id, delivery_station_id, station_id)}</b>
-     *       （v47 <b>结算站</b> = 本单营收归谁）统计，<b>不是</b> {@code station_id}（归属站）——
-     *       跨站外派单的水费 + 配送费 + 楼层费归实际配送站（2026-09-18 产品裁定），毛利是"这笔生意
-     *       赚了多少"，所以它出现在<b>送货那一站</b>的报表里。换成绩效口径（工钱）才用履约站
-     *       （见 {@code docs/design/18}）。
-     *       ⚠️ 改写前这里按 {@code station_id} 统计，与本仓看板/客户画像（两级 coalesce）**归两个站**。</li>
-     *   <li><b>成本 join 必须与统计条件用同一个站</b>（{@code i.station_id = 上面那个 coalesce}）——
-     *       进货价是站级的（v39：{@code inventory.cost_price}），A 站的成本算 B 站的售价
-     *       会得到一个既不是 A 也不是 B 的毛利，而且**看起来完全正常**（没有任何报错）。
-     *       只改 where 不改 join = 正是这个错误。</li>
-     *   <li><b>排除已取消(5)</b>：取消单不该进营收，也不该进毛利。</li>
-     *   <li>时间上界用「结束日 + 1 天」（调用方传 {@code endExclusive}）——
-     *       写 {@code <= 结束日} 会让当天的销量一条都统计不到（AGENTS §8.19）。</li>
-     *   <li><b>[2026-09-25 修正] 收入排除水票单，成本不排除</b>（评审问题 6）：{@code revenue} 只累计
-     *       非水票单的 {@code subtotal}；{@code soldQty} / {@code costAmount} 覆盖<b>全部</b>履约明细
-     *       ——「卖出多少、货出去多少」是事实，不因收钱方式而变。原实现用 WHERE 过滤票单，
-     *       把成本事实一起滤掉了（毛利虚高），详见 {@code revenue} 那行的注释。</li>
-     * </ol>
-     *
-     * <p>{@code costPrice} 为 NULL 的商品，{@code costAmount} 按 0 计、
-     * 并由 {@code missingCost} 标出 —— <b>调用方必须据此把该行利润显示成「未填成本」而不是全额</b>
-     * （站长的界面用词是「利润」，不是「毛利」，见 {@code ManagerGrossProfitController}），
-     * 否则站长会以为自己赚了整整一个售价。</p>
+     * 按既有结算站、订单创建日期与收入规则统计；实际出库流水提供不可追改的成本。
+     * 未出库或遗留流水缺成本时 missingCost=1，调用方必须隐藏所选期间的利润。
+     * 水票购票收入单独统计，兑票订单仍计实际成本；退款只按既有实退规则减少收入。
      */
     @Select("select oi.product_id as productId, "
             + "       max(oi.product_name_snapshot) as productName, "
@@ -77,13 +45,16 @@ public interface GrossProfitMapper {
             //    一起滤掉：报表只剩售票实收与工钱，兑票配送的进货成本凭空消失、毛利虚高。
             //    改法就是下面这一行 CASE WHEN（只过滤"收入"这一个聚合，不过滤行）。
             + "       round(sum(case when o.payment_method <> 3 and not (" + REFUND_WATER + " > 0 and " + REFUND_WATER + " >= o.water_amount) then oi.subtotal else 0 end), 2) as revenue, "
-            + "       max(i.cost_price) as costPrice, "
-            + "       round(sum(oi.quantity * coalesce(i.cost_price, 0)), 2) as costAmount, "
-            + "       case when max(i.cost_price) is null then 1 else 0 end as missingCost "
+            + "       null as costPrice, "
+            + "       round(sum(coalesce(c.costAmount,0)), 2) as costAmount, "
+            + "       max(case when c.shippedQty=oi.quantity and c.unknownCost=0 then 0 else 1 end) as missingCost "
             + "  from order_item oi "
             + "  join orders o on o.id = oi.order_id "
-            + "  left join inventory i on i.station_id = coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) "
-            + "       and i.product_id = oi.product_id "
+            + "  left join (select station_id,product_id,ref_id, sum(case when type='CONSUME' then -delta else 0 end) shippedQty, "
+            + "      max(case when cost_amount is null then 1 else 0 end) unknownCost, "
+            + "      sum(case when type='CONSUME' then cost_amount else -cost_amount end) costAmount "
+            + "      from inventory_record where type in ('CONSUME','CANCEL_RESTORE','REFUND_RESTORE') group by station_id,product_id,ref_id) c "
+            + "      on c.station_id=coalesce(o.settle_station_id,o.delivery_station_id,o.station_id) and c.ref_id=o.id and c.product_id=oi.product_id "
             + " where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "   and o.status <> 5 "
             + "   and o.create_time >= #{start} and o.create_time < #{endExclusive} "
@@ -93,17 +64,8 @@ public interface GrossProfitMapper {
                                                    @Param("start") java.time.LocalDateTime start,
                                                    @Param("endExclusive") java.time.LocalDateTime endExclusive);
 
-    /**
-     * 本站已上架、但**没填成本价**的商品。
-     *
-     * <p>用途：毛利报表上要显式提示"这 N 个商品没填成本，毛利算不出来" ——
-     * 没有这个提示，站长会以为报表里的毛利就是全部，而实际漏了一半商品。</p>
-     */
-    @Select("select p.id as productId, p.name as productName "
-            + "  from inventory i join product p on p.id = i.product_id "
-            + " where i.station_id = #{stationId} and i.enabled = 1 and i.cost_price is null "
-            + " order by p.name asc")
-    List<Map<String, Object>> listMissingCost(@Param("stationId") Long stationId);
+    // 独立催填已取消；旧待办调用保留兼容空列表，期间缺失由报表自身判断。
+    default List<Map<String, Object>> listMissingCost(Long stationId) { return List.of(); }
 
     /**
      * 期间内**买水票的实收**（按商品汇总）。

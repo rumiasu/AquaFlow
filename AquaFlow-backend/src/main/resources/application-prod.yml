@@ -51,7 +51,7 @@ app:
   # ⚠️ 写在这里**不是**闸 —— 命令行参数（--app.dev-login-enabled=true）/ SPRING_APPLICATION_JSON /
   #    直接映射的环境变量（APP_DEV_LOGIN_ENABLED）优先级都高于配置文件，照样能覆盖它。
   #    真正的闸是启动期硬校验 `config/RequiredConfigChecker#checkProdSafetySwitches`：
-  #    prod profile 生效时，只要解析出的 app.dev-login-enabled 或 app.payment.mock-wechat-pay 为 true，
+  #    prod 禁止 app.dev-login-enabled=true；旧 mock 开关在未显式开启 PAYMENT_TEST_MODE 时为 true，
   #    直接 `IllegalStateException` 拒绝启动（与"缺变量"那套 Spring 解析期失败是两回事）。
   dev-login-enabled: false
   # ⚠️ `app.payment.mock-wechat-pay` **故意不写在本文件**：它由 `application.yml` 的

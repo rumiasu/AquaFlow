@@ -1,0 +1,35 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const { parseWxml, renderElements } = require('./wxml-tree')
+const { loadPage, createWx, createApp, ROOT } = require('./harness')
+const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8')
+function render(route, state) {
+  const page = loadPage(`miniapp-user/pages/${route}.js`, { wx: createWx(), app: createApp() })
+  return renderElements(parseWxml(read(`miniapp-user/pages/${route}.wxml`)), { ...page.data, ...state }, { includeText: true })
+}
+const labels = nodes => nodes.map(n => n.text).filter(Boolean)
+const urls = nodes => nodes.map(n => n.attrs['data-url']).filter(Boolean)
+const mine = render('mine/index', { isLogin: true, userInfo: {}, isCompany: false })
+for (const url of ['/pages/payment/records', '/pages/address/list', '/pages/template/index', '/pages/mine/asset-claims/index', '/pages/service/index', '/pages/mine/account-data/index']) assert(urls(mine).includes(url), url)
+assert.equal(urls(mine).filter(url => url === '/pages/deposit/records/index').length, 1)
+assert(labels(mine).includes('个人资料与注销'))
+assert(!urls(mine).includes('/pages/mine/company'))
+assert(urls(render('mine/index', { isLogin: true, userInfo: {}, isCompany: true })).includes('/pages/mine/company'))
+const guest = urls(render('mine/index', { isLogin: false, userInfo: {} }))
+assert(guest.includes('/pages/service/index')); assert(!guest.includes('/pages/address/list'))
+for (const anonymous of [false, true]) {
+  const nodes = render('service/index', { isLogin: true, refundRef: null, serviceInfo: {}, anonymous, myDisputes: [], refundOptions: [], history: [] })
+  const text = labels(nodes).join(' ')
+  assert(text.includes('匿名提交')); assert(text.includes('反馈类型')); assert(text.includes('问题或建议')); assert(text.includes('联系方式（选填）'))
+  assert.equal(text.includes('匿名后水站无法识别你；填写联系方式仍可联系你。'), anonymous)
+  assert(!text.includes('未开启（实名）'))
+  assert(text.includes('意见反馈')); assert(!text.includes('我的退款争议')); const recordText = labels(render('service/index', { isLogin: true, serviceTab: 'records', refundRef: null, serviceInfo: {}, anonymous, myDisputes: [], refundOptions: [], history: [] })).join(' '); assert(recordText.includes('我的退款争议')); assert(!recordText.includes('意见反馈'))
+  assert(nodes.some(n => n.attrs.bindchange === 'onAnonymousChange' && n.attrs.checked === '{{anonymous}}'))
+}
+const refund = render('service/index', { isLogin: true, refundRef: { objectText: '退款' }, serviceInfo: {}, refundOptions: [], history: [], dispute: null })
+assert(!labels(refund).includes('匿名提交')); assert(labels(refund).join(' ').includes('本条沟通需保留身份'))
+for (const file of ['miniapp-user/pages/mine/index.wxss', 'miniapp-user/pages/service/index.wxss']) {
+  const css = read(file); assert(!css.includes('\ufeff')); assert(/min-height:\s*(?:44px|88rpx)/.test(css))
+}
+console.log('AQUAFLOW_SUITE_OK 1')

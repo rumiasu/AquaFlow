@@ -53,4 +53,11 @@
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }
 button::after { border: 0; }
-button[disabled] { color: #637083; background: #e8edf3; opacity: 1; }
+
+.detail-panel > .af-action { margin:8px 8px 0 0; }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.exception-card { border-radius:14px; }
+.card-header { gap:12px; }
+.order-info,.value { min-width:0; overflow-wrap:anywhere; }
+.detail-link { min-height:44px; display:flex; align-items:center; }

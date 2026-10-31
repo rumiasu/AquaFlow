@@ -12,6 +12,7 @@ const scope = {
 }
 function fixture(name, overrides = {}) {
   let sessionEpoch = 1
+  const drafts = new Map()
   const calls = { toast: [], modal: [], nav: [], write: [], logs: [], timers: [], stop: 0 }
   const defaults = {
     getAddresses: async () => ({ data: [] }), getAddressDetail: async id => ({ data: { id, name: '原联系人', detail: '原门牌' } }),
@@ -23,6 +24,7 @@ function fixture(name, overrides = {}) {
   }
   const api = Object.assign(defaults, overrides.api || {})
   const wx = Object.assign({
+    getStorageSync: key => drafts.has(key) ? drafts.get(key) : '', setStorageSync: (key, value) => drafts.set(key, value), removeStorageSync: key => drafts.delete(key),
     showToast: o => calls.toast.push(o),
     showModal: o => {
       for (const k of ['confirmText', 'cancelText']) if (o[k] && [...o[k]].length > 4) throw Error('Modal button too long')
@@ -38,7 +40,7 @@ function fixture(name, overrides = {}) {
     'utils/storage': { storage: { set: (key, value) => calls.write.push({ key, value }) } },
     'utils/address': { formatAddress: a => [a.district, a.detail].filter(Boolean).join(''), parseRegion: s => ({ province: '', city: '', district: '', detail: s }) },
     'utils/validator': { validateForm: () => ({ valid: true }), rules: {} },
-    'utils/token': { getCustomerId: () => 7, captureSession: () => ({ epoch: sessionEpoch }), isCurrentSession: value => value.epoch === sessionEpoch },
+    'utils/token': { getCustomerId: () => 7, captureSession: () => ({ epoch: sessionEpoch, customerId: 7, loggedIn: true }), isCurrentSession: value => value.epoch === sessionEpoch },
     'utils/format': { formatTime: s => s || '' },
     'config/api': { API: { CUSTOMER_EXCEPTIONS: '/api/customer/exceptions' } }
   }
@@ -46,6 +48,8 @@ function fixture(name, overrides = {}) {
   vm.runInNewContext(fs.readFileSync(path.join(ROOT, scope[name] + '.js'), 'utf8'), {
     Page: value => { definition = value }, wx, getApp: () => ({ globalData: { isLogin: true } }),
     require: p => {
+      if (p.endsWith('draft-guard')) return { createDraftGuard: scope => require('../../miniapp-user/utils/draft-guard').createDraftGuard(scope, wx) }
+      if (p.endsWith("business-dialog")) return { showBusinessModal: options => wx.showModal(options) }
       const key = Object.keys(deps).find(k => p.endsWith(k))
       if (!key) throw Error('Unexpected dependency ' + p)
       return deps[key]
@@ -55,12 +59,12 @@ function fixture(name, overrides = {}) {
   }, { filename: scope[name] + '.js' })
   const p = Object.assign({}, definition)
   p.data = JSON.parse(JSON.stringify(definition.data))
-  p.setData = patch => Object.entries(patch).forEach(([key, value]) => {
+  p.setData = (patch, callback) => { Object.entries(patch).forEach(([key, value]) => {
     const parts = key.split('.')
     let target = p.data
     parts.slice(0, -1).forEach(part => { target = target[part] })
     target[parts[parts.length - 1]] = value
-  })
+  }); if (callback) callback() }
   Object.keys(p).forEach(key => { if (typeof p[key] === 'function') p[key] = p[key].bind(p) })
   return { p, calls, api, wx, name, switchSession: () => { sessionEpoch++ } }
 }

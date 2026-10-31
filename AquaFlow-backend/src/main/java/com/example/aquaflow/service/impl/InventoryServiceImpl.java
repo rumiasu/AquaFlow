@@ -79,7 +79,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void inbound(Long stationId, List<InventoryInboundDTO.ItemDTO> items) {
-        applyInbound(stationId, items);
+        applyInbound(stationId, normalizedInbound(items));
     }
 
     @Override
@@ -96,7 +96,7 @@ public class InventoryServiceImpl implements InventoryService {
             throw new BusinessException("入库编号无效，请核对原入库记录");
         List<InventoryInboundDTO.ItemDTO> ordered = normalizedInbound(items);
         StringBuilder canonical = new StringBuilder();
-        for (InventoryInboundDTO.ItemDTO item : ordered) canonical.append(item.getProductId()).append(':').append(item.getQuantity()).append(';');
+        for (InventoryInboundDTO.ItemDTO item : ordered) canonical.append(item.getProductId()).append(':').append(item.getQuantity()).append(item.getCostAmount()==null ? "" : "@"+item.getCostAmount().toPlainString()).append(';');
         String target = "inbound:" + inboundDigest(actor + "|" + stationId + "|" + clientRequestId);
         String detail = "v1|" + stationId + "|" + inboundDigest(canonical.toString());
         // 2026-10-24：单纯前端锁挡不住超时重发。站行锁先于库存锁，回执与数量、流水一起提交。
@@ -121,7 +121,10 @@ public class InventoryServiceImpl implements InventoryService {
             if (item == null || item.getProductId() == null || item.getProductId() <= 0 || item.getQuantity() == null
                     || item.getQuantity() <= 0 || !ids.add(item.getProductId())) throw new BusinessException("入库商品或数量无效，请重新核对");
             var copy = new InventoryInboundDTO.ItemDTO();
-            copy.setProductId(item.getProductId()); copy.setQuantity(item.getQuantity()); ordered.add(copy);
+            copy.setProductId(item.getProductId()); copy.setQuantity(item.getQuantity());
+            try { copy.setCostAmount(com.example.aquaflow.util.InventoryCostMath.money(item.getCostAmount())); }
+            catch (IllegalArgumentException invalid) { throw new BusinessException(invalid.getMessage()); }
+            ordered.add(copy);
         }
         ordered.sort(Comparator.comparing(InventoryInboundDTO.ItemDTO::getProductId));
         return ordered;
@@ -154,8 +157,8 @@ public class InventoryServiceImpl implements InventoryService {
                 throw new BusinessException("商品不存在或不属于本站可用目录");
             inventoryMapper.upsertQuantity(stationId, item.getProductId(), item.getQuantity());
             // [AQ-029] 入库写流水，与库存变动同事务
-            recordChange(stationId, item.getProductId(), item.getQuantity(), InventoryChangeType.INBOUND,
-                    null, operatorId, "入库");
+            inventoryLedgerService.recordChangeWithCost(stationId, item.getProductId(), item.getQuantity(), InventoryChangeType.INBOUND,
+                    null, operatorId, "入库", item.getCostAmount());
             // [2026-09-25 库存预留模型] 新到的货先补给"等货的单"（按业务需求时间 FIFO），
             // 否则那些单完成配送时会被 shipForOrder 拦下（站长会以为"明明入了库还不能送"）
             inventoryReservationService.backfillReservations(stationId, item.getProductId());

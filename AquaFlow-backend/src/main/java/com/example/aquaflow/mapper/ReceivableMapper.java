@@ -104,6 +104,6 @@ public interface ReceivableMapper {
     @Select("select id, customer_id as customerId, status, payment_status as paymentStatus, "
             + "       settlement_status as settlementStatus, total_amount as totalAmount, due_date as dueDate "
             + "from orders where id = #{orderId} "
-            + "  and coalesce(settle_station_id, delivery_station_id, station_id) = #{stationId}")
+            + "  and coalesce(settle_station_id, delivery_station_id, station_id) = #{stationId} for update")
     Map<String, Object> getForSettle(@Param("orderId") Long orderId, @Param("stationId") Long stationId);
 }

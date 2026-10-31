@@ -36,7 +36,7 @@ add('ticket-recovery','ticket/index',{...ticket,pendingPurchase:{body:{quantity:
 add('shop','shop/index',{...station,isLogin:true,loading:false,currentStation:{id:11,name:station.stationName},currentStationId:11,allProducts:[product],visibleProducts:[product]},'商城商品与清单动作')
 add('shop-picker-error','shop/index',{...station,isLogin:true,loading:false,currentStationId:11,showStationPicker:true,stationList:[],stationListError:'可选水站暂未加载，请重新读取。'},'商城选站失败')
 add('template-form','template/index',{loading:false,loaded:true,showEditModal:true,isEditing:true,editingTemplate:{id:8},products:[product],addresses:[{...address,addressText:address.detail}],formReady:true,saveError:'配置未能保存，输入已保留，请重试。',form:{name:'每周订水 Original',addressId:3,specialNote:'放门口（合成）',items:[{productId:5,quantity:2}]}},'配置保存失败保输入')
-add('mine','mine/index',{...station,isLogin:true,userInfo:{nickname:'测试顾客 Original'},depositLoaded:true,ticketLoaded:true,barrelLoaded:true,depositText:'240',ticketText:'12',barrelText:'3',barrelHint:'账面桶数，非实物盘点',unloadedCount:1,staleAssetsText:'刷新未完成，部分资产为上次读取，请重新核对。'},'我的资产与陈旧标记')
+add('mine','mine/index',{...station,isLogin:true,userInfo:{nickname:'测试顾客 Original'},depositLoaded:true,ticketLoaded:true,barrelLoaded:true,depositText:'240',ticketText:'12',barrelText:'3',barrelHint:'账面桶数，非实物盘点',unloadedCount:0,staleAssetsText:''},'我的资产已加载')
 add('mine-guest','mine/index',{isLogin:false},'游客账户与服务入口')
 add('profile','mine/edit',{nickname:'测试顾客 Original',phone:'13800000000',saveError:'资料未能保存，输入已保留，请重试。'},'资料保存失败')
 add('login','login/index',{loginError:'微信登录未完成，请检查网络后手动重试。',showDevLogin:false},'登录失败与只读协议入口')

@@ -21,6 +21,6 @@
 
 `./gradlew.bat test --rerun-tasks --no-daemon` 执行后端验证；只连接目标保护器允许的 `aquaflow_test` 或会话后缀，须同时明确确认可清空的库名和完整 IPv4/端口/库目标；`*_test`、业务/备份标记及仅凭名称相似均不放行。每用例在同一实际连接核对目标后清表，配置要求见根 CONTRIBUTING §4。结果读取 `build/test-results/test/TEST-*.xml`；构建输出被改目录时读取对应目录，不能把 UP-TO-DATE 当作重跑。
 
-`./gradlew.bat bootJar --no-daemon` 生成发布包，之后按根贡献指南执行发布检查。真实凭据不能入版本库或 JAR。真实微信支付/退款目前不可用，生产必须关闭模拟支付和开发登录。
+`./gradlew.bat bootJar --no-daemon` 生成发布包，之后按根贡献指南执行发布检查。真实凭据不能入版本库或 JAR。真实微信支付/退款目前不可用；真实业务部署必须关闭测试付款及开发登录。现有全测试云服务的 `PAYMENT_TEST_MODE` 例外见 [临时测试付款更新](../deployment/limited-trial/README.md)，沿用 `prod` 配置名不表示真实付款已接入。
 
 完整流程见[贡献指南](../CONTRIBUTING.md)、[领域模型](../docs/architecture/02-领域模型.md)、[迁移清单](sql/README.md)和[部署说明](../docs/operations/01-部署与运维.md)。

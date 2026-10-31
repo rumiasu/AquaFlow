@@ -26,6 +26,7 @@ class GrossProfitRefundRepairIntegrationTest extends AbstractIntegrationTest {
         long id=createOrderFull(customer,address,station,product,4,2,2,"15.00","0.00","20.00",false,1);
         jdbc.update("update orders set settle_station_id=?,delivery_fee=4,floor_fee=1,create_time=? where id=?",station,oldDay.atTime(12,0),id);
         createOrderItemFull(id,product,"水",1,0,"15.00","0.00");
+        insert("insert into inventory_record(station_id,product_id,delta,type,ref_id,cost_amount) values(?,?,-1,'CONSUME',?,8)",station,product,id);
         payment=insert("insert into payment_record(order_id,customer_id,station_id,payment_method,status,amount,water_amount,barrel_deposit,delivery_fee,floor_fee) values(?,?,?,2,2,20,15,0,4,1)",id,customer,station);
         jdbc.update("insert into staff_earning(station_id,staff_id,order_id,kind,product_id,amount,create_time) values(?,?,?,'DELIVERY_BUCKET',?,3,now())",station,staff,id,product);
     }

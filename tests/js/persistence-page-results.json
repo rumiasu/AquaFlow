@@ -1,0 +1,5 @@
+{
+  "passed": 18,
+  "failed": 0,
+  "scope": "actual page entries with restart/storage/lifecycle/SDK mocks; no real credentials or upload"
+}

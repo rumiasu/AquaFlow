@@ -1,5 +1,7 @@
 {
   "navigationBarTitleText": "收款记录",
   "enablePullDownRefresh": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "icon": "../../../components/Icon/index"
+  }
 }

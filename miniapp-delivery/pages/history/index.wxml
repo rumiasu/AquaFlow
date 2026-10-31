@@ -1,10 +1,10 @@
-<view class="container">
+<view class="container b2-page b2-d41 af2-page lv2-page lv2-history">
   <view class="page-state" wx:if="{{loading}}"><text class="page-state-text">{{loaded ? '正在刷新...' : '加载中...'}}</text></view>
-  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button class="page-state-retry" bindtap="onRetry">重试</button></view>
+  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button bindtap="onRetry" class="af-action af-action--quiet"><view class="af-action__face">重试</view></button></view>
   <!-- 统计头部 -->
   <view class="stats-header" wx:if="{{loaded}}">
-    <text class="stats-title">已完成配送</text>
-    <text class="stats-count">{{orders.length}} 单</text>
+    <view class="lv2-history-heading"><icon name="order" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /><text class="stats-title">配送历史</text></view>
+    <text class="stats-count">已读取 {{orders.length}} 单</text>
   </view>
 
   <!-- 订单列表 -->
@@ -12,8 +12,7 @@
     <view class="order-card" wx:for="{{orders}}" wx:key="id" bindtap="onOrderTap" data-id="{{item.id}}">
       <!-- 订单头部 -->
       <view class="card-header">
-        <text class="status-tag status-completed">已完成</text>
-        <text class="order-date">{{item.createTime}}</text>
+        <text class="order-date">{{item.createTime ? '下单时间 ' + item.createTime : '下单时间待核实'}}</text>
       </view>
 
       <!-- 客户信息：跨站履约单后端**刻意不下发** customerName（画像归归属站），回落到订单收件人 -->
@@ -28,7 +27,7 @@
       <view class="product-list" wx:if="{{item.productItems.length}}">
         <view class="product-info" wx:for="{{item.productItems}}" wx:for-item="product" wx:for-index="productIndex" wx:key="id">
           <image wx:if="{{product.imageUrl}}" class="product-image" src="{{product.imageUrl}}" mode="aspectFit" binderror="onProductImageError" data-order-id="{{item.id}}" data-item-index="{{productIndex}}" data-src="{{product.imageUrl}}" />
-          <view wx:else class="product-image product-placeholder"><text>商品</text></view>
+          <view wx:else class="product-image product-placeholder"><icon name="products" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view>
           <view class="product-copy">
             <text class="product-name">{{product.name}}</text>
             <text class="product-spec" wx:if="{{product.spec}}">{{product.spec}}</text>
@@ -55,10 +54,10 @@
 
     <!-- 空状态 -->
     <view class="empty-state" wx:if="{{loaded && !loading && !error && orders.length === 0}}">
-      <text class="empty-text">暂无配送历史</text>
-      <text class="empty-hint">完成配送后记录将显示在这里</text>
+      <image class="af2-empty__image" wx:if="{{!emptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onEmptyImageError" /><view class="af2-icon-tile lv2-neutral-tile" wx:else><icon name="order" size="32px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text class="empty-text">暂无配送历史</text>
     </view>
   </view>
 
 
 </view>
+<business-dialog id="business-dialog" />

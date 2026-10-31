@@ -9,19 +9,19 @@
       页面照旧显示「0 张 / 暂无水票 / 暂无记录」。样式复用 styles/common.wxss 的 .load-error。
     -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}<view bindtap="onRetryAssets">重新加载 ›</view></view>
-    <button class="recovery-btn recovery-btn-primary" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
+    <button class="af-action af-action--secondary" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
     <view class="load-error" wx:if="{{purchaseNotice}}">{{purchaseNotice}}</view>
     <!-- [2026-10-07 #15] 原购买恢复提示：原来是 .load-error 错误条里塞裸 <button>（默认样式，
          与本页设计系统违和，且恢复类关键操作与错误提示无层级）。
          改成结构化恢复卡：标题说"是什么"，正文原样透传 purchaseStorageError / purchaseRecoveryText，
-         按钮分层 —— 主=查询/重新读取（品牌蓝），次=重试/另买（描边），危险=结束原购买（错误色描边）。
+         按钮按查询工具、恢复入口及结束操作分层。
          ⚠️ 按钮仍是原生 <button>：disabled 语义由它承载（如"结束原购买"在 purchaseStorageError
          非空时被禁），改成 view 会丢这道闸门；绑定与条件一行未动。 -->
     <view class="recovery-card" wx:if="{{purchaseStorageError}}">
       <view class="recovery-title">原购买记录待核实</view>
       <view class="recovery-text">{{purchaseStorageError}}</view>
       <view class="recovery-actions">
-        <button class="recovery-btn recovery-btn-primary" bindtap="onQueryPurchaseResult" disabled="{{submitting || recoveringPurchase}}">重新读取原购买</button>
+        <button class="af-action af-action--quiet" bindtap="onQueryPurchaseResult" disabled="{{submitting || recoveringPurchase}}"><text class="af-action__face">重新读取原购买</text></button>
       </view>
     </view>
     <!-- 原购买恢复入口不依赖商品在售；未知结果不能另起编号再买。 -->
@@ -29,29 +29,31 @@
       <view class="recovery-title">有一笔水票购买待核实</view>
       <view class="recovery-text">{{purchaseRecoveryText}}</view>
       <view class="recovery-actions">
-        <button class="recovery-btn recovery-btn-primary" bindtap="onQueryPurchaseResult" disabled="{{submitting || recoveringPurchase}}">查询原购买结果</button>
-        <button class="recovery-btn recovery-btn-plain" wx:if="{{!pendingPurchase.result}}" bindtap="onRetryOriginalPurchase" disabled="{{submitting || recoveringPurchase}}">重试原购买</button>
-        <button class="recovery-btn recovery-btn-danger" wx:if="{{!pendingPurchase.result}}" bindtap="onCloseOriginalPurchase" disabled="{{submitting || recoveringPurchase || purchaseStorageError}}">核实后结束原购买</button>
-        <button class="recovery-btn recovery-btn-plain" wx:if="{{pendingPurchase.result && !purchaseStorageError}}" bindtap="onStartNextPurchase" disabled="{{submitting || recoveringPurchase}}">另买一笔水票</button>
+        <button class="af-action af-action--quiet" bindtap="onQueryPurchaseResult" disabled="{{submitting || recoveringPurchase}}"><text class="af-action__face">查询原购买结果</text></button>
+        <button class="af-action af-action--secondary" wx:if="{{!pendingPurchase.result}}" bindtap="onRetryOriginalPurchase" disabled="{{submitting || recoveringPurchase}}">重试原购买</button>
+        <button class="af-action af-action--danger-quiet" wx:if="{{!pendingPurchase.result}}" bindtap="onCloseOriginalPurchase" disabled="{{submitting || recoveringPurchase || purchaseStorageError}}">核实后结束原购买</button>
+        <button class="af-action af-action--secondary" wx:if="{{pendingPurchase.result && !purchaseStorageError}}" bindtap="onStartNextPurchase" disabled="{{submitting || recoveringPurchase}}">另买一笔水票</button>
       </view>
     </view>
 
+    <view class="ui-draft-notice" wx:if="{{uiDraftAvailable || uiDraftError}}"><text>{{uiDraftError || '有一份未提交的选购填写'}}</text><button class="af-action af-action--quiet" wx:if="{{uiDraftAvailable}}" bindtap="onRestoreUiDraft" disabled="{{submitting || recoveringPurchase || pendingPurchase || purchaseStorageError}}"><text class="af-action__face">恢复暂存选购</text></button><button class="af-action af-action--quiet" wx:else bindtap="readUiDraft"><text class="af-action__face">重试读取暂存</text></button></view>
     <!-- 当前水站：水票按「客户 × 水站」隔离（A 站买的票不能抵 B 站的单，也不在 B 站显示）。
          不写清楚，客户换个站就会以为"我的票少了" —— 站长接到这种电话也解释不了。
          文案与样式照抄 pages/deposit/records（那里已有同一条提示条，保持一致）。 -->
 
     <!-- 可用水票卡片 -->
     <view class="ticket-balance-card">
+      <icon name="ticket" size="28px" color="#244F82" variant="duotone" />
       <view class="balance-left">
-        <text class="balance-label">可用水票</text>
+        <text class="balance-label">可用水票{{refreshing ? (totalTickets == null ? ' · 更新中' : ' · 更新中（上次读取）') : ''}}</text>
         <view class="balance-amount">
           <!-- [2026-09-20] 余额没拉到就显示「—」：显示 0 张会让客户以为票没了（钱的事，宁可不显示数） -->
-          <text class="balance-count">{{accountsFailed && !accountsStale ? '—' : totalTickets}}</text>
+          <text class="balance-count">{{totalTickets == null || (accountsFailed && !accountsStale) ? '—' : totalTickets}}</text>
           <text class="balance-unit">张</text>
         </view>
-        <text class="balance-total" wx:if="{{totalValue > 0}}">按当前票价估算 ¥{{totalValue}}（非退款金额）</text>
+        <text class="balance-total" wx:if="{{totalValue > 0}}">剩余批次票面额 ¥{{totalValue}}（非退款金额）</text>
       </view>
-      <view class="balance-icon"><icon name="ticket" size="56rpx" color="rgba(255,255,255,0.9)" /></view>
+      <button class="af-action af-action--secondary" bindtap="onShowPurchase" disabled="{{needLogin || pendingPurchase || purchaseStorageError || submitting || recoveringPurchase}}">{{purchaseDraftSaved ? '继续选购' : '购买水票'}}</button>
     </view>
     <text class="stale-note" wx:if="{{accountsStale}}">水票余额与明细为上次读取，当前余额待重新核对。</text>
 
@@ -64,32 +66,24 @@
     <!-- 标签切换 -->
     <view class="tabs">
       <view
-        class="tab-item {{currentTab === item.id ? 'active' : ''}}"
+        class="tab-item af-choice {{currentTab === item.id ? 'active af-choice--selected' : ''}}"
         wx:for="{{tabs}}"
         wx:key="id"
         bindtap="onTabChange"
         data-id="{{item.id}}"
       >
-        <text>{{item.name}}</text>
+        <text class="af-choice__face">{{item.name}}</text>
       </view>
     </view>
 
     <!-- 水票明细 -->
     <view class="tab-content" wx:if="{{currentTab === 0}}">
-      <view class="section-title">水票明细</view>
+      <view class="section-title">水票明细{{refreshing ? ' · 更新中' : ''}}</view>
       <view class="ticket-list">
         <view class="ticket-item" wx:for="{{accounts}}" wx:key="id">
           <view class="ticket-info">
             <text class="ticket-name">{{item.productName || item.waterTypeName}}</text>
-            <!--
-              [2026-09-26 Wave3 H1] 让持有明细也能看出"这张票能买哪款水"（docs/design/29 §3）。
-              只说得出前面那款水，是因为**账本本身就这么记的**：一条 ticket_account 就是
-              (客户, 水站, 商品) 一个账户（TicketAccountMapper.listByCustomerAndStationWithDetail
-              按 product_id 一对一，票的适用范围就是该商品），票没有"通用"这一档。
-              本行只用后端随这条账户一起下发的字段，**没有新请求、没有任何猜测**：
-              productName 为空时不渲染这一行（宁可不显示，也不承诺适用范围）。
-            -->
-            <text class="ticket-use" wx:if="{{item.productName || item.waterTypeName}}">本票可用于购买该款水</text>
+            <!-- 票账户按商品展示，不推断通用票。 -->
             <text class="ticket-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
             <text class="ticket-expire" wx:if="{{item.expireTime}}">有效期至 {{item.expireTime}}</text>
           </view>
@@ -107,18 +101,17 @@
 
     <!-- 消费记录 -->
     <view class="tab-content" wx:if="{{currentTab === 1}}">
-      <view class="section-title">消费记录</view>
+      <view class="section-title">消费记录{{refreshing ? ' · 更新中' : ''}}</view>
       <text class="stale-note" wx:if="{{recordsStale}}">以下为上次读取的消费记录，请重新加载核对。</text>
       <view class="record-list">
         <view class="record-item" wx:for="{{records}}" wx:key="id">
           <view class="record-info">
             <text class="record-name">{{item.productName || item.waterTypeName}}</text>
+            <text class="record-direction">{{item.changeDirection}}</text>
             <text class="record-time">{{item.createTime}}</text>
           </view>
           <view class="record-quantity">
-            <text class="quantity-change {{item.increaseQty > 0 ? 'increase' : 'decrease'}}">
-              {{item.increaseQty > 0 ? '+' : ''}}{{item.increaseQty > 0 ? item.increaseQty : -item.decreaseQty}}
-            </text>
+            <text class="quantity-change {{item.changeClass}}">{{item.changeText}} 张</text>
           </view>
         </view>
         <!-- [2026-09-20] 同上：记录拉失败时 records 也是空的，别把"没查到"说成"确实没有记录" -->
@@ -127,12 +120,6 @@
       </view>
     </view>
 
-    <!-- 购买水票按钮 -->
-    <view class="buy-ticket-section">
-      <view class="buy-ticket-btn" bindtap="onShowPurchase">
-        <text>购买水票</text>
-      </view>
-    </view>
   </view>
 
   <!-- 购买水票弹窗 -->
@@ -150,71 +137,49 @@
            体现在下面拉到的档位上，不体现在商品名上。 -->
       <text class="modal-label">购票水站：{{stationName || '水站 #' + viewStationId}}</text>
       <text class="modal-label">选择商品</text>
-      <text class="load-error" wx:if="{{productsFailed}}">可购买商品未能加载，请返回页面重新加载；原购买仍可恢复。</text>
+      <text class="modal-label" wx:if="{{productsLoading}}">正在加载可购买商品…</text>
+      <text class="load-error" wx:elif="{{productsFailed}}">可购买商品未能加载，请返回页面重新加载；原购买仍可恢复。</text>
       <text class="modal-label" wx:elif="{{!buyProducts.length}}">本站暂无可购买水票的商品。</text>
-      <view class="product-list">
-        <view
-          class="product-item {{buyForm.productId === item.id ? 'active' : ''}}"
-          wx:for="{{buyProducts}}"
-          wx:key="id"
-          data-id="{{item.id}}"
-          bindtap="onBuyProductSelect"
-        >
-          <text class="product-name">{{item.name}}</text>
-          <!-- 面值 = 本站水票价（后端 effectiveTicketPrice），与扣款同源 -->
-          <text class="product-price" wx:if="{{item.effectiveTicketPrice}}">¥{{item.effectiveTicketPrice}}/张</text>
-        </view>
-      </view>
+      <product-selector items="{{buyProductOptions}}" selected-id="{{buyForm.productId}}" disabled="{{submitting || recoveringPurchase || pendingPurchase || purchaseStorageError}}" bind:change="onBuyProductChange" />
 
       <!-- 档位（价目表）。两种来源在界面上**长得一样**：
              · CUSTOM  = 站长给这款水挂的定制档位；
              · UNIFIED = 站级统一折扣按**这款水自己的价**折算出来的档位。
            总价与均价全部用服务端下发的值，这里不做 price/qty 的算术。 -->
       <block wx:if="{{buyPackages.length}}">
-        <text class="modal-label">选择购票档位</text>
+        <text class="modal-label">选择水票套餐</text>
         <view class="pkg-list">
           <view
-            class="pkg-item {{(buyForm.packageId && buyForm.packageId === item.packageId) || (buyForm.unifiedQty && buyForm.unifiedQty === item.qty && item.source === 'UNIFIED') ? 'active' : ''}}"
+            class="pkg-item {{buyForm.selectedTierKey === item.selectionKey ? 'active' : ''}}"
             wx:for="{{buyPackages}}"
-            wx:key="qty"
-            data-id="{{item.packageId || item.qty}}"
+            wx:key="selectionKey"
+            data-id="{{item.packageId || item.id || item.qty}}"
             data-source="{{item.source}}"
             bindtap="onBuyPackageSelect"
           >
-            <text class="pkg-title">{{item.title || item.qty + ' 张'}}</text>
+            <text class="pkg-title">{{item.title || item.qty + ' 张'}}<text class="pkg-selected" wx:if="{{buyForm.selectedTierKey === item.selectionKey}}"> · 已选</text></text>
             <text class="pkg-price">¥{{item.price}}</text>
-            <text class="pkg-sub">{{item.qty}} 张 · 均价 ¥{{item.unitPrice}}/张</text>
+            <text class="pkg-sub">每份 {{item.qty}} 张 · ¥{{item.unitPrice}}/张</text>
           </view>
-        </view>
-        <view class="pkg-clear" bindtap="onBuyPackageClear">
-          {{buyForm.packageId || buyForm.unifiedQty ? '不按档位，改为散买' : '当前：按单张散买'}}
         </view>
       </block>
 
       <!--
         [2026-09-20] 档位（优惠价目表）没拉到时的说明。原来这里什么都不显示 ——
         客户看到的就是"这款水没有优惠档位"，与"确实没配档位"无法区分（AGENTS §8.22）。
-        不阻断买票（照旧可以按单张散买），只把实情说出来。
+        套餐未核实时提示重新读取；原购买仍按持久凭据恢复。
       -->
       <text class="modal-label" wx:if="{{packagesLoading}}">正在读取购票档位…</text>
-      <view class="load-error" wx:if="{{packagesError}}">{{packagesError}}<button bindtap="onRetryPackages">重新加载档位</button></view>
-      <text class="modal-label" wx:if="{{packagesLoaded && !buyPackages.length && !packagesError}}">本商品未设置购票档位，散买价格请见下方。</text>
+      <view class="load-error" wx:if="{{packagesError}}">{{packagesError}}<button class="af-action af-action--quiet" bindtap="onRetryPackages"><text class="af-action__face">重新加载档位</text></button></view>
+      <text class="modal-label" wx:if="{{packagesLoaded && !buyPackages.length && !packagesError}}">本商品暂未设置可购套餐，请联系水站。</text>
 
-      <!-- 数量：张数由所选档位决定（后端会校验张数必须等于档位张数） -->
-      <text class="modal-label">购买数量</text>
-      <text class="modal-label" wx:if="{{buyForm.productId && !buyForm.packageId && !buyForm.unifiedQty && !(buyForm.faceValue > 0)}}">单张票价尚未核实，请选择购票档位或联系水站。</text>
-      <view class="qty-row">
-        <view class="qty-btn {{buyForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onBuyQtyStep" data-type="minus">
-          <text>-</text>
-        </view>
-        <input class="qty-input" type="number" value="{{buyForm.quantity}}" bindinput="onBuyQuantityInput" />
-        <view class="qty-btn" bindtap="onBuyQtyStep" data-type="add">
-          <text>+</text>
-        </view>
+      <view class="purchase-copies" wx:if="{{buyForm.selectedTierKey}}">
+        <view class="copies-heading"><text>购买份数</text><text>每份 {{buyForm.packageQty}} 张 · ¥{{buyForm.packagePrice}}</text></view>
+        <integer-stepper value="{{buyForm.copies}}" min="{{1}}" max="{{buyCopiesMax}}" label="购买份数" disabled="{{submitting || recoveringPurchase || pendingPurchase || purchaseStorageError}}" bind:change="onBuyQuantityInput" />
+        <view class="purchase-total"><text>共 {{buyForm.quantity == null ? '—' : buyForm.quantity}} 张</text><text>合计 ¥{{buyForm.totalPrice == null ? '—' : buyForm.totalPrice}}</text></view>
+        <text class="purchase-copies-error" wx:if="{{purchaseCopiesError}}">{{purchaseCopiesError}}</text>
+        <text class="pkg-lock">按整份购买，单次最多 5000 张。付款金额以本次购买结果为准。</text>
       </view>
-      <text class="pkg-lock" wx:if="{{buyForm.packageId || buyForm.unifiedQty}}">
-        已按档位锁定张数；改数量会自动退回「按单张散买」。
-      </text>
 
       <!-- 支付方式 -->
       <text class="modal-label">支付方式</text>
@@ -236,12 +201,13 @@
     </scroll-view>
 
     <view class="modal-footer">
-      <view class="modal-btn cancel" bindtap="onClosePurchase">
-        <text>取消</text>
+      <view class="af-action af-action--cancel af-action--form" bindtap="onClosePurchase">
+        <text>暂存关闭</text>
       </view>
-      <button class="modal-btn confirm {{submitting ? 'disabled' : ''}}" bindtap="onBuySubmit" disabled="{{submitting || !buyForm.productId || buyForm.totalPrice == null || (!buyForm.packageId && !buyForm.unifiedQty && !(buyForm.faceValue > 0))}}">
-        <text>{{submitting ? '购买中…' : (!buyForm.productId ? '请先选择商品' : (buyForm.totalPrice == null ? '金额待核实' : (!buyForm.packageId && !buyForm.unifiedQty && !(buyForm.faceValue > 0) ? '请先选择购票档位' : '确认购买 ¥' + buyForm.totalPrice)))}}</text>
+      <button class="af-action af-action--primary af-action--form af-action--grow {{submitting ? 'is-disabled' : ''}}" bindtap="onBuySubmit" disabled="{{submitting || !buyForm.productId || !buyForm.selectedTierKey || buyForm.totalPrice == null}}">
+        <text>{{submitting ? '购买中…' : !buyForm.productId ? '请先选择商品' : !buyForm.selectedTierKey ? '请选择水票套餐' : purchaseCopiesError ? '请核对购买份数' : buyForm.totalPrice == null ? '金额待核实' : '确认购买 ¥' + buyForm.totalPrice}}</text>
       </button>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

@@ -7,32 +7,36 @@
 <view class="container">
   <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
 
-  <view class="records-heading"><text class="records-title">押金流水</text><text class="records-note">按所选水站查看押金变动，正负金额分别表示增加与扣减。</text></view>
+  <view class="records-heading"><text class="records-title">押金流水</text></view>
   <loading wx:if="{{loading && !loaded}}"></loading>
   <view class="refresh-hint" wx:if="{{loading && loaded}}">正在核对最新流水，以下为上次读取的记录…</view>
 
   <block>
     <view class="error-card" wx:if="{{errorText}}">
       <text class="error-text">{{errorText}}</text>
-      <button class="error-btn" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
-      <view class="error-btn" wx:if="{{needStation}}" bindtap="onGoSelectStation">去选水站</view>
-      <view class="error-btn ghost" wx:else bindtap="onRetry">重新加载</view>
+      <button class="af-action af-action--secondary" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
+      <view class="af-action af-action--secondary" wx:if="{{needStation}}" bindtap="onGoSelectStation">去选水站</view>
+      <view class="af-action af-action--quiet" wx:else bindtap="onRetry"><text class="af-action__face">重新加载</text></view>
     </view>
 
     <view class="record-list" wx:if="{{loaded}}">
-      <view class="record-item" wx:for="{{records}}" wx:key="id">
+      <block wx:for="{{records}}" wx:key="id">
+      <view class="record-date" wx:if="{{item.showDateHeader}}">{{item.dateLabel}}</view>
+      <view class="record-item">
         <view class="record-main">
           <!-- 类型中文文案由后端下发（DepositRecord.getTypeText → DepositType.textOf）。
-               拿不到就整行不显示，前端不补中文 —— 自建映射表是本仓明令禁止的。 -->
-          <text class="record-type" wx:if="{{item.typeText}}">{{item.typeText}}</text>
+               拿不到则明确提示类型未提供，前端不猜业务类型 —— 自建映射表是本仓明令禁止的。 -->
+          <view class="record-type-row"><text class="record-direction-mark" aria-hidden="true">{{item.amountState === 'in' ? '↑' : item.amountState === 'out' ? '↓' : '—'}}</text><text class="record-type" wx:if="{{item.typeText}}">{{item.typeText}}</text></view>
           <text class="record-time">{{item.timeText}}</text>
           <text class="record-note" wx:if="{{item.note}}">{{item.note}}</text>
           <text class="record-order" wx:if="{{item.orderText}}">{{item.orderText}}</text>
         </view>
         <!-- 金额原样带正负（增加为正 / 扣减为负），由 js 预先算好，模板不做运算 -->
-        <text class="record-amount amount-{{item.amountState}}">{{item.amountText}}</text>
+        <text class="record-amount amount-{{item.amountState}}">{{item.directionText}} {{item.amountText}}</text>
       </view>
+      </block>
       <view class="local-empty" wx:if="{{records.length === 0}}"><text>{{errorText ? '上次查询暂无押金流水' : '暂无押金流水'}}</text></view>
     </view>
   </block>
 </view>
+<business-dialog id="business-dialog" />

@@ -311,7 +311,7 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
 
     @Override
     public List<Orders> listStationByStatus(Long stationId, int status) {
-        return orderMapper.listByStationIdAndStatus(stationId, status);
+        return maskCrossStationProfiles(orderMapper.listByStationIdAndStatus(stationId, status));
     }
 
     @Override

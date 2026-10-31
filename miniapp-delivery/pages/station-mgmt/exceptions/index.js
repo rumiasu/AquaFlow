@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 // 站长端「异常订单」：把**同一件事的两个面**放在一个页面里用页签切换 ——
 //   · 页签 1「桶异常单」= 待办清单（哪几单回桶有差异、系统建议补什么）；
 //   · 页签 2「处理留痕」= 处理流水（补偿已执行 / 异常被忽略 的告警记录）。
@@ -73,7 +74,7 @@ Page({
     // 页签上的角标：待处置（WARN）的条数。它是"有没有事等着我"的信号，
     // 与其他两个级别的计数一样**在筛选之前**算好，切筛选不会把它清零
     // （否则切到「留痕」时角标变 0，会被读成"没有待处置的事"）
-    alertWarnCount: 0
+    statsExpanded: false, handling: false, alertWarnCount: 0
   },
 
   /**
@@ -89,6 +90,7 @@ Page({
   },
 
   onShow() {
+    this._exceptionsHidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
@@ -139,19 +141,19 @@ Page({
    *   ① 忽略（IGNORE，一分钱不动）；② 按系统建议补偿（APPROVE，明细**只能等于**后端建议值）。
    * 硬约束（改这里之前先读 design/20 §9.3）：
    *   · **界面上不提供金额 / 数量输入框** —— 人手输入金额在本仓出过事故（§8.17 同族）；
-   *   · **两步走**：先 handle 登记处理意见，再单独确认执行（第二步逐条列出将要发生的动作）；
+   *   · **两步走**：一次确认列清处理说明与补偿，仍先登记处理意见、再执行补偿；
    *   · **一次只处理一张单**（不做批量、不做"全部同意"）；
    *   · **失败留在页面上可重试**，不用一闪而过的 toast；
    *   · 仍不开放 MODIFY（手工改判）与 ESCALATE —— 那是 A2 的范围。 */
 
   /** 让站长填一句理由（必填）。返回 null = 取消或没填。 */
-  askNote(title, placeholder) {
+  askNote(title, placeholder, options = {}) {
     return new Promise((resolve) => {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-        title,
+      showBusinessModal({ confirmColor: options.confirmColor || '#1264D6', cancelColor: '#637083',
+        title, initialValue: options.initialValue || '', description: options.description || '', details: options.details || [],
         editable: true,
         placeholderText: placeholder,
-        confirmText: '提交',
+        confirmText: options.confirmText || '提交',
         success: (r) => {
           if (!r.confirm) return resolve(null)
           const v = (r.content || '').trim()
@@ -167,10 +169,19 @@ Page({
 
   /** ① 忽略：最轻的动作，不动任何金额与桶账。 */
   async onIgnore(e) {
-    const id = e.currentTarget.dataset.id
-    const note = await this.askNote('忽略这张异常单', '请填写忽略原因（会留痕）')
-    if (note === null) return
-    await this.submitHandle(id, { action: 'IGNORE', managerNote: note }, '已忽略')
+    if (this._exceptionAction || this._exceptionsHidden) return
+    const action = { context: this.exceptionContext() }
+    this._exceptionAction = action
+    this.setData({ handling: true })
+    try {
+      const id = e.currentTarget.dataset.id
+      const note = await this.askNote('忽略这张异常单', '请填写忽略原因（会留痕）')
+      if (note === null || this._exceptionAction !== action || this._exceptionsHidden
+        || action.context !== this.exceptionContext() || !getApp().canAccessStationBusiness()) return
+      await this.submitHandle(id, { action: 'IGNORE', managerNote: note }, '已忽略')
+    } finally {
+      if (this._exceptionAction === action) { this._exceptionAction = null; this.setData({ handling: false }) }
+    }
   },
 
   /**
@@ -178,22 +189,32 @@ Page({
    * ⚠️ 提交的明细与后端下发的 `suggested*` **逐字相同**，前端不做任何算术。
    */
   async onApproveSuggested(e) {
+    if (this._exceptionAction || this._exceptionsHidden) return
+    const action = { context: this.exceptionContext() }
+    this._exceptionAction = action
+    this.setData({ handling: true })
+    const current = () => this._exceptionAction === action && !this._exceptionsHidden && getApp().canAccessStationBusiness() && action.context === this.exceptionContext()
+    try {
     const id = e.currentTarget.dataset.id
+    // 2026-10-28：说明只属于当前身份、当前异常单，不能带入下一张单。
+    const approvalKey = JSON.stringify([action.context, String(id)])
+    if (this._exceptionApprovalKey !== approvalKey) this._exceptionApprovalNote = ''
+    this._exceptionApprovalKey = approvalKey
     let dto = null
     try {
       const res = await get(EXCEPTIONS + '/' + id)
       dto = (res && res.data) || null
     } catch (err) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '读取异常单失败', content: (err && err.message) || '请稍后重试', showCancel: false })
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '读取异常单失败', content: (err && err.message) || '请稍后重试', showCancel: false })
       return
     }
-    if (!dto) return
+    if (!dto || !current()) return
 
     const lines = []
     if (dto.suggestedTicketQty) lines.push(`退水票 ${dto.suggestedTicketQty} 张`)
-    if (dto.suggestedCashAmount) lines.push(`退现金 ¥${dto.suggestedCashAmount}`)
+    if (dto.suggestedCashAmount) lines.push(`增加押金账户余额 ¥${dto.suggestedCashAmount}（不交付现金）`)
     if (!lines.length) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '系统没有给出补偿建议',
         content: '这张异常单没有可执行的补偿项，只能选择「忽略」。',
         showCancel: false
@@ -201,20 +222,13 @@ Page({
       return
     }
 
-    const note = await this.askNote('按系统建议补偿', '请填写处理说明（会留痕）')
-    if (note === null) return
-
-    const ok = await new Promise((resolve) => {
-      wx.showModal({ cancelColor: '#637083',
-        title: '确认按系统建议补偿',
-        content: `本单将执行：${lines.join('、')}。\n\n`
-          + '金额与数量由系统算出，不能修改；执行后不可撤销，如需纠正只能另建反向调整单。',
-        confirmText: '确认执行',
-        confirmColor: '#BD3328',
-        success: (r) => resolve(r.confirm)
-      })
+    const note = await this.askNote('确认建议补偿', '处理说明（必填）', {
+      initialValue: this._exceptionApprovalNote || '', confirmText: '确认执行', confirmColor: '#BD3328',
+      description: '按以下建议登记处理意见，再执行补偿。金额与数量不可修改。执行后如需纠正须另行办理资产调整。',
+      details: [{ label: '异常单', value: '#' + id }, ...lines.map(value => ({ label: '补偿去向', value }))]
     })
-    if (!ok) return
+    if (note === null || !current()) return
+    this._exceptionApprovalNote = note
 
     const handled = await this.submitHandle(id, {
       action: 'APPROVE',
@@ -224,8 +238,10 @@ Page({
       adjustProductId: dto.adjustProductId || null,
       managerNote: note
     }, null)
-    if (!handled) return
+    if (!handled || !current()) return
     await this.executeCompensation(id)
+    if (current()) this._exceptionApprovalNote = ''
+    } finally { if (this._exceptionAction === action) { this._exceptionAction = null; this.setData({ handling: false }) } }
   },
 
   /** 第一步：登记处理意见。返回 true = 已登记，可以继续执行。 */
@@ -241,7 +257,7 @@ Page({
       return true
     } catch (err) {
       wx.hideLoading()
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '处理失败',
         content: (err && err.message) || '请稍后重试',
         showCancel: false
@@ -252,6 +268,8 @@ Page({
 
   /** 第二步：执行补偿。后端失败时会整体回滚到可重试状态，所以这里给「重试」入口。 */
   async executeCompensation(id) {
+    if (this._exceptionsHidden || !getApp().canAccessStationBusiness()) return
+    const context = this.exceptionContext()
     try {
       wx.showLoading({ title: '执行中...' })
       await post(EXCEPTIONS + '/' + id + '/execute')
@@ -260,11 +278,11 @@ Page({
       this.load()
     } catch (err) {
       wx.hideLoading()
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '补偿执行失败',
         content: ((err && err.message) || '请稍后重试') + '\n\n处理意见已登记，可在本单上重试执行。',
         confirmText: '重试',
-        success: (r) => { if (r.confirm) this.executeCompensation(id) }
+        success: (r) => { if (r.confirm && !this._exceptionsHidden && context === this.exceptionContext()) this.executeCompensation(id) }
       })
     }
   },
@@ -272,7 +290,10 @@ Page({
   onReachBottom() { return this.onLoadMore() },
   onLoadMore() { return this.loadList(false) },
   onRetryList() { return this.loadList(this.data.page === 0) },
-  onUnload() { this._listSeq = (this._listSeq || 0) + 1; this._overviewSeq = (this._overviewSeq || 0) + 1 },
+  exceptionContext() { const app = getApp(), u = app.globalData.userInfo || {}; return JSON.stringify([app._loginGeneration || 0, u.staffId, u.role, u.stationId]) },
+  onToggleExceptionStats() { this.setData({ statsExpanded: !this.data.statsExpanded }) },
+  onHide() { this._exceptionsHidden = true; this._exceptionAction = null; this.setData({ handling: false }) },
+  onUnload() { this._exceptionsHidden = true; this._exceptionAction = null; this._listSeq = (this._listSeq || 0) + 1; this._overviewSeq = (this._overviewSeq || 0) + 1 },
 
   async loadList(reset) {
     if (!reset && (this.data.loading || this.data.loadingMore || !this.data.hasMore)) return
@@ -407,7 +428,7 @@ function suggestText(r) {
   const parts = []
   if (r.suggestedTicketQty) parts.push('水票 ' + r.suggestedTicketQty + ' 张')
   if (r.suggestedCashAmount && Number(r.suggestedCashAmount) !== 0) {
-    parts.push('现金 ¥' + Number(r.suggestedCashAmount).toFixed(2))
+    parts.push('押金账户余额 +¥' + Number(r.suggestedCashAmount).toFixed(2))
   }
   return parts.length ? parts.join(' / ') : ''
 }

@@ -1,3 +1,5 @@
+const { showBusinessModal } = require('../../../../utils/business-dialog')
+const { captureSession, currentSession } = require('../../../../utils/request')
 // 站长资产调整单列表（本站；带 customerId 时只看该客户）
 const { listAdjustments, executeAdjustment, getCustomerAssets } = require('../../../../api/station-mgmt')
 const adjustmentCustomer = require('../../../../utils/adjustment-customer')
@@ -33,7 +35,7 @@ Page({
     ...adjustmentCustomer.data,
     customerId: null,
     list: [],
-    total: 0,
+    total: null,
     page: 1,
     size: PAGE_SIZE,
     hasMore: false,
@@ -45,6 +47,7 @@ Page({
   },
 
   onLoad(options) {
+    this._session = captureSession()
     const customerId = options && options.customerId ? Number(options.customerId) : null
     this.setData({ customerId })
 
@@ -62,9 +65,16 @@ Page({
   },
 
   onShow() {
-    if (this.data.denied) return
+    this._hidden = false
+    if (this._session && !currentSession(this._session)) {
+      adjustmentCustomer.methods.onUnload.call(this); this._executePrompt = null; this._session = captureSession()
+      this.setData({ customerId: null, customerName: '', customerPhone: '', customerAssets: null, customerResults: [], customerKeyword: '', list: [], total: null, executing: false })
+    }
+    if (this.data.denied || !getApp().isStationManager()) return
     return Promise.all([this.loadData(), this.refreshCustomerAssets()])
   },
+  onHide() { this._hidden = true; this._executePrompt = null; this._adjustmentListSeq = (this._adjustmentListSeq || 0) + 1 },
+  onUnload() { this.onHide(); this._unloaded = true; adjustmentCustomer.methods.onUnload.call(this) },
 
   // 返回/刷新只重读摘要，不调用会清空选择表单与幂等意图的客户选择动作。
   async refreshCustomerAssets() {
@@ -118,38 +128,40 @@ Page({
 
   async loadData() {
     if (this.data.denied) return
-    const seq = this._adjustmentListSeq = (this._adjustmentListSeq || 0) + 1
+    const session = captureSession(), seq = this._adjustmentListSeq = (this._adjustmentListSeq || 0) + 1
     this.setData({ loading: true, listError: '', list: [], total: null, hasMore: false })
     try {
       const res = await listAdjustments(this.buildQuery(1))
-      if (seq !== this._adjustmentListSeq) return
-      const data = res.data || {}
-      const list = (data.list || []).map(decorate)
-      const total = data.total || 0
-      this.setData({ list: list, total: total, page: 1, hasMore: list.length < total })
+      if (seq !== this._adjustmentListSeq || !currentSession(session)) return
+      const data = res && res.data
+      if (!data || !Array.isArray(data.list)) throw Error('调整单未完整读取，请重试')
+      const list = data.list.map(decorate)
+      const total = Number.isFinite(data.total) && data.total >= 0 ? data.total : null
+      this.setData({ list: list, total: total, page: 1, hasMore: total == null ? data.list.length === this.data.size : list.length < total })
     } catch (err) {
-      if (seq === this._adjustmentListSeq) this.setData({ listError: err.message || '调整单加载失败，请重试' })
+      if (seq === this._adjustmentListSeq && currentSession(session)) this.setData({ listError: err.message || '调整单加载失败，请重试' })
     } finally {
-      if (seq === this._adjustmentListSeq) this.setData({ loading: false })
+      if (seq === this._adjustmentListSeq && currentSession(session)) this.setData({ loading: false })
     }
   },
 
   async loadMore() {
     if (this.data.denied || this.data.loading || !this.data.hasMore) return
     const next = this.data.page + 1
-    const seq = this._adjustmentListSeq
+    const session = captureSession(), seq = this._adjustmentListSeq
     this.setData({ loading: true, listError: '' })
     try {
       const res = await listAdjustments(this.buildQuery(next))
-      if (seq !== this._adjustmentListSeq) return
-      const data = res.data || {}
-      const list = this.data.list.concat((data.list || []).map(decorate))
-      const total = data.total || 0
-      this.setData({ list: list, total: total, page: next, hasMore: list.length < total })
+      if (seq !== this._adjustmentListSeq || !currentSession(session)) return
+      const data = res && res.data
+      if (!data || !Array.isArray(data.list)) throw Error('后续调整单未完整读取，请重试')
+      const list = this.data.list.concat(data.list.map(decorate))
+      const total = Number.isFinite(data.total) && data.total >= 0 ? data.total : null
+      this.setData({ list: list, total: total, page: next, hasMore: total == null ? data.list.length === this.data.size : list.length < total })
     } catch (err) {
-      if (seq === this._adjustmentListSeq) this.setData({ listError: err.message || '后续调整单加载失败，请重试' })
+      if (seq === this._adjustmentListSeq && currentSession(session)) this.setData({ listError: err.message || '后续调整单加载失败，请重试' })
     } finally {
-      if (seq === this._adjustmentListSeq) this.setData({ loading: false })
+      if (seq === this._adjustmentListSeq && currentSession(session)) this.setData({ loading: false })
     }
   },
 
@@ -166,39 +178,22 @@ Page({
     wx.navigateTo({ url: `/pages/station-mgmt/customers/adjust/detail/index?id=${id}` })
   },
 
-  /**
-   * 执行（PENDING → EFFECTIVE）：会真正改写客户资产（建权益批次 / 动押金 / 动水票）。
-   * 二次确认用**回调式** wx.showModal（本端统一写法，见 barrel-return/index.js）。
-   */
+  /** 执行前核对原单，取消或身份变化不写入。 */
   onExecute(e) {
-    const { id } = e.currentTarget.dataset
-    const item = this.data.list.find(x => x.id === id)
-    if (!item) return
-    if (this.data.executing) return
-    const what = item.hasQty ? `数量 ${item.qtyText}` : `金额 ¥${item.amountText}`
-    wx.showModal({ cancelColor: '#637083',
-      title: '执行调整单',
-      content: `确定执行 ${item.adjustNo}？\n类型：${item.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产，事后只能通过「撤销」生成反向单，不能删除。`,
-      confirmText: '执行',
-      confirmColor: '#1264D6',
-      success: async (res) => {
-        if (!res.confirm) return
-        this.setData({ executing: true })
-        wx.showLoading({ title: '执行中...' })
-        try {
-          await executeAdjustment(id)
-          wx.hideLoading()
-          wx.showToast({ title: '已执行生效', icon: 'success' })
-          await Promise.all([this.loadData(), this.refreshCustomerAssets()])
-        } catch (err) {
-          wx.hideLoading()
-          wx.showToast({ title: err.message || '执行失败', icon: 'none', duration: 3000 })
-          // 失败常见原因是状态已被并发处理（重复执行被 CAS 拒绝）→ 重新拉一次让列表自愈
-          await Promise.all([this.loadData(), this.refreshCustomerAssets()])
-        } finally {
-          this.setData({ executing: false })
-        }
-      }
+    const id = e.currentTarget.dataset.id, item = this.data.list.find(x => x.id === id)
+    if (!item || !item.isPending || this.data.executing || this._executePrompt || this._hidden || this._unloaded) return
+    const session = captureSession(), prompt = this._executePrompt = {}
+    const what = item.hasQty ? `数量 ${item.qtyText}` : (item.hasAmount ? `金额 ¥${item.amountText}` : '数量或金额待核实')
+    showBusinessModal({ title: '执行调整单', content: `确定执行 ${item.adjustNo}？\n类型：${item.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产，事后只能通过「撤销」生成反向单，不能删除。`, confirmText: '执行',
+      success: async res => {
+        if (this._executePrompt !== prompt) return
+        this._executePrompt = null
+        if (!res.confirm || this._hidden || this._unloaded || !currentSession(session) || this.data.executing || !this.data.list.some(x => x.id === id && x.isPending)) return
+        this.setData({ executing: true }); wx.showLoading({ title: '执行中...' })
+        try { await executeAdjustment(id); if (!this._hidden && !this._unloaded && currentSession(session)) { wx.showToast({ title: '已执行生效', icon: 'success' }); await Promise.all([this.loadData(), this.refreshCustomerAssets()]) } }
+        catch (err) { if (!this._hidden && !this._unloaded && currentSession(session)) { wx.showToast({ title: err.message || '执行失败', icon: 'none', duration: 3000 }); await Promise.all([this.loadData(), this.refreshCustomerAssets()]) } }
+        finally { wx.hideLoading(); if (!this._unloaded && currentSession(session)) this.setData({ executing: false }) }
+      }, fail: () => { if (this._executePrompt === prompt) this._executePrompt = null }
     })
   }
 })

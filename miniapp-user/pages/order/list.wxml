@@ -1,13 +1,15 @@
 <view class="page-container">
-  <view class="orders-heading"><text class="orders-title">我的订单</text><text class="orders-note">查看配送、付款及处理进度</text></view>
+  <view class="orders-heading"><text class="orders-title">我的订单</text></view>
   <!-- 标签栏 -->
-  <view class="tab-bar">
+  <scroll-view class="tab-scroll" scroll-x="{{true}}"><view class="tab-bar">
     <view wx:for="{{tabs}}" wx:key="index"
-      class="tab-item {{currentTab === index ? 'active' : ''}}"
+      class="tab-item af-choice {{currentTab === index ? 'active af-choice--selected' : ''}}"
       data-index="{{index}}" bindtap="onTabChange" hover-class="tab-pressed">
-      {{item.name}}
+      <text class="af-choice__face">{{item.name}}</text>
     </view>
   </view>
+
+  </scroll-view>
 
   <!-- 加载态：页面上还没有内容时（首屏 / 上次失败后的重试）给出明确反馈，而不是一片空白 -->
   <loading wx:if="{{loading}}"></loading>
@@ -16,7 +18,7 @@
        没有它，请求失败时屏幕上就是下面的 empty「暂无订单」，与"确实没有订单"长得一模一样
        （AGENTS §8.22）。文案里给"怎么重试"，不出现接口/后端这类开发词。
        样式复用 styles/common.wxss 的 .load-error（全局已 import，不要再写一份）。 -->
-  <view class="load-error" wx:if="{{loadError}}"><text>{{loadError}}</text><button class="orders-retry" bindtap="onRetry" disabled="{{loading || loadingMore}}">重新查询订单</button></view>
+  <view class="load-error" wx:if="{{loadError && !loadErrorMore}}"><text>{{loadError}}</text><button class="af-action af-action--quiet" bindtap="onRetry" disabled="{{loading || loadingMore}}"><text class="af-action__face">重新查询订单</text></button></view>
 
   <!-- 订单列表 -->
   <view class="order-list" wx:if="{{orders.length > 0}}">
@@ -27,15 +29,17 @@
       bind:cancel="onCancel" />
   </view>
 
+  <view class="load-error" wx:if="{{loadError && loadErrorMore}}"><text>{{loadError}}</text><button class="af-action af-action--quiet" bindtap="onReachBottom" disabled="{{loadingMore}}"><text class="af-action__face">重试加载更多</text></button></view>
   <view class="list-progress" wx:if="{{loadingMore}}">正在读取更多订单…</view>
-  <button class="orders-retry" wx:elif="{{hasMore && !loadError}}" bindtap="onReachBottom">加载更多订单</button>
+  <button class="af-action af-action--quiet" wx:elif="{{hasMore && !loadError}}" bindtap="onReachBottom"><text class="af-action__face">加载更多订单</text></button>
   <view class="list-progress" wx:elif="{{orders.length && !loadError}}">已显示全部订单</view>
 
   <!-- 空状态：只在**确实取到了、且列表为空**时才说"暂无订单"；
        加载中与加载失败都不许落到这句（!loading && !loadError 两道闸门）。 -->
   <view class="local-empty" wx:if="{{!loading && !loadError && page > 0 && orders.length === 0}}">
+    <view class="empty-order-art" wx:if="{{currentTab === 0}}"><image wx:if="{{!emptyOrderImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onEmptyOrderImageError" /><icon wx:else name="order" size="40px" color="#244F82" /></view>
     <text>{{currentTab === 0 ? '暂无订单' : '当前分类暂无订单'}}</text>
-    <text class="empty-next-note">可回到订水页确认水站并选水。</text>
-    <button class="empty-order-action" bindtap="onGoOrderHome">去订水</button>
+    <button class="af-action af-action--secondary" bindtap="onGoOrderHome">去订水 ›</button>
   </view>
 </view>
+<business-dialog id="business-dialog" />

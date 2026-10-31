@@ -1,0 +1,42 @@
+# Dedicated cloud test entry. All identity/target values must be approved separately; no default target.
+spring:
+  sql:
+    init:
+      mode: never
+  datasource:
+    url: ${DB_URL:}
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
+wechat:
+  miniapp:
+    appid: ${WX_APP_ID:}
+    secret: ${WX_APP_SECRET:}
+    staff-appid: ${WX_STAFF_APP_ID:}
+    staff-secret: ${WX_STAFF_APP_SECRET:}
+jwt:
+  secret: ${JWT_SECRET:}
+# Keep the established trial asset model; never reinterpret test assets through the legacy path.
+aquaflow:
+  barrel:
+    independent-rights-enabled: true
+app:
+  dev-login-enabled: false
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  payment:
+    sandbox:
+      environment-id: ${PAYMENT_SANDBOX_ENV_ID:}
+      service-id: ${PAYMENT_SANDBOX_SERVICE_ID:}
+      binding-id: ${PAYMENT_SANDBOX_BINDING_ID:}
+      runtime-environment-id: ${PAYMENT_SANDBOX_RUNTIME_ENV_ID:}
+      runtime-service-id: ${PAYMENT_SANDBOX_RUNTIME_SERVICE_ID:}
+      db-host: ${PAYMENT_SANDBOX_DB_HOST:}
+      db-port: ${PAYMENT_SANDBOX_DB_PORT:}
+      db-name: ${PAYMENT_SANDBOX_DB_NAME:}
+      db-server-uuid: ${PAYMENT_SANDBOX_DB_SERVER_UUID:}
+# Cloud sandbox must not inherit a default bucket or external alert destination.
+cos:
+  secret-id: ''
+  secret-key: ''
+  bucket-name: ''
+alert:
+  system-webhook: ''

@@ -10,24 +10,10 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * 超时未支付的**微信**单自动取消（2026-09-18 产品裁定）。
- *
- * <p>产品原话：「微信单不支付就在配送员那里当不存在，然后和主流平台那样，做时间限制，
- * 长时间不支付会被取消，只是微信单，货到付款是特殊。」</p>
- *
- * <p>它是"先付款后派单"的配套：未付微信单本来就不进站长/配送员视野，
- * 但会一直挂在"待支付"占着库存 —— 本类按主流平台的做法给个时限，到点走
- * {@link PaymentService#refundOrder}（<b>取消订单的唯一编排入口</b>：退水票 → 退流水 → 退押金 →
- * 清配送中桶 → <b>回补库存</b> → 置已取消），所以不会留下"库存扣了、单没了"的窟窿。</p>
- *
- * <p>⚠️ 三条边界，改判据前先读：</p>
- * <ol>
- *   <li><b>只碰微信单</b>（判据在 {@code OrderMapper.listTimedOutWechatOrders}，理由写在那里）；</li>
- *   <li><b>逐单独立事务</b>：一张单取消失败（并发被别人改了状态等）不能连累其余单，
- *       方法内 catch 并记 WARN —— 定时任务是无人值守路径，抛出去只会让整批停摆；</li>
- *   <li><b>阈值可配</b>（{@code app.order.wechat-pay-timeout-minutes}，≤0 表示关闭），
- *       行业常见 15–30 分钟，默认 30。</li>
- * </ol>
+ * 微信与水票未付单超时回收。保留旧类名和配置键，避免改变现有定时任务配置。
+ * <p>两者均须先付后派；现金货到付款不参与。逐单事务在锁后重查状态和活跃支付凭据，
+ * 统一走 {@link PaymentService#refundOrder} 释放库存与桶容量，不猜测支付结果。</p>
+ * <p>{@code app.order.wechat-pay-timeout-minutes} 统一用于两种先付款方式；默认30分钟，≤0关闭。</p>
  */
 @Service
 @Slf4j
@@ -69,8 +55,8 @@ public class UnpaidWechatOrderSweeper {
             sweepOnce();
         } catch (Exception e) {
             log.error("[超时取消] 本轮扫描失败（已发系统告警）", e);
-            alertService.systemFault("UnpaidWechatOrderSweeper", "微信未付单超时扫描任务执行失败",
-                    "本轮扫描未完成，超时未付的微信单仍占着库存：" + e.getClass().getSimpleName()
+            alertService.systemFault("UnpaidWechatOrderSweeper", "微信/水票未付单超时扫描任务执行失败",
+                    "本轮扫描未完成，超时未付的微信/水票单仍占着库存：" + e.getClass().getSimpleName()
                             + " - " + e.getMessage(), null, null);
         }
     }
@@ -98,7 +84,7 @@ public class UnpaidWechatOrderSweeper {
             }
         }
         if (cancelled > 0) {
-            log.info("[超时取消] 微信未付单超时（>{} 分钟）自动取消 {} 张", timeoutMinutes, cancelled);
+            log.info("[超时取消] 微信/水票未付单超时（>{} 分钟）自动取消 {} 张", timeoutMinutes, cancelled);
         }
         return cancelled;
     }

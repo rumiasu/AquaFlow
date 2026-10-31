@@ -36,17 +36,18 @@ import java.util.Map;
  * 此前它常驻在 LoginController 中，仅靠一个布尔开关保护——开关一旦被误配为 true（或被环境变量覆盖），
  * 生产环境等同于完全不设防。
  * </p>
- * 现在的做法：整个类从生产包中物理移除，而不是靠运行时开关。
+ * 现在的做法：prod、独立云 sandbox 及测试付款模式均不创建此 Bean，其余本地仍须显式开关。
  * <ul>
- *   <li>{@code @Profile("!prod")}：prod 环境该 Bean 根本不会被创建，接口 404</li>
- *   <li>{@code @ConditionalOnProperty}：非 prod 环境也需显式配置 DEV_LOGIN_ENABLED=true 才生效</li>
+ *   <li>{@code @Profile("!prod & !payment-sandbox")}：两个部署入口均不创建该 Bean，路径不可用</li>
+ *   <li>{@code @ConditionalOnProperty}：本地/合成测试还需显式配置 DEV_LOGIN_ENABLED=true 才生效</li>
  * </ul>
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
-@Profile("!prod")
+@Profile("!prod & !payment-sandbox")
 @ConditionalOnProperty(name = "app.dev-login-enabled", havingValue = "true")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnExpression("!${app.payment.test-mode:false}")
 public class DevLoginController {
 
     @Autowired

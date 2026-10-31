@@ -7,12 +7,12 @@
          —— 那是写给开发看的排障话术，不该出现在站长面前（产品反馈："接口这些有些专业了"）。
          面向站长只需要告诉他**能做什么**；真要排障，看 console 与后端日志。
          ⚠️ 保留"这不代表该客户没有数据"这层意思：失败与"确实没有"必须能区分（§8.22）。 -->
-    <text class="error-hint">{{canViewAssets ? '客户资料尚未核实，可重试读取；本站资产在下方单独核对。' : '客户资料尚未核实，请重新读取后再操作。'}}</text><button size="mini" bindtap="onRetryProfile" disabled="{{loading}}">重新读取资料</button>
+    <text class="error-hint">{{canViewAssets ? '客户资料尚未核实，可重试读取；本站资产在下方单独核对。' : '客户资料尚未核实，请重新读取后再操作。'}}</text><button size="mini" bindtap="onRetryProfile" disabled="{{loading}}" class="af-action af-action--quiet b3-on-retry-profile" hover-class="af-action--pressed"><view class="af-action__face">重新读取资料</view></button>
   </view>
 
   <view class="asset-error" wx:if="{{returnPending || returnRecoveryError || returnMessage}}">
     <text class="asset-error-text">{{returnRecoveryError || returnMessage}}</text>
-    <button size="mini" bindtap="onShowReturnEmpty" disabled="{{returnSubmitting}}">核对还桶登记</button>
+    <button size="mini" bindtap="onShowReturnEmpty" disabled="{{returnSubmitting}}" class="af-entry b3-on-show-return-empty" hover-class="af-action--pressed"><view class="af-entry__body">核对还桶登记</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
   </view>
 
   <block wx:if="{{!loading && profile}}">
@@ -24,7 +24,7 @@
           <text class="name">{{profile.name}}</text>
           <text class="badge type">{{profile.customerTypeText}}</text>
         </view>
-        <text class="phone" bindtap="onCall" data-phone="{{profile.phone}}">{{profile.phone || '未填写电话'}}</text>
+        <view class="af-action af-action--quiet b3-on-call" bindtap="onCall" data-phone="{{profile.phone}}"><view class="af-action__face">{{profile.phone || '未填写电话'}}</view></view>
         <view class="badge-row">
           <text class="badge level" style="background:{{profile.customerLevelColor}}">{{profile.customerLevel}}</text>
           <text class="badge act-{{profile.activityStatus}}">{{profile.activityText}}</text>
@@ -40,7 +40,7 @@
     -->
     <view class="section">
       <view class="link-row">
-        <text class="link-btn" bindtap="onPlaceOrder">替客户下单</text>
+        <view class="af-entry b3-on-place-order" bindtap="onPlaceOrder"><view class="af-entry__body">替客户下单</view><text class="af-entry__arrow" aria-hidden="true">›</text></view>
       </view>
     </view>
 
@@ -52,50 +52,50 @@
         <view class="section-title no-mb">本站资产</view>
         <text class="section-note" wx:if="{{!profile}}">客户编号：{{id}}</text>
         <text class="section-note">仅统计 {{assets && assets.stationName || '本水站'}}</text>
-        <text class="link-btn" bindtap="onOpenAdjust">资产调整</text>
+        <view class="af-entry b3-on-open-adjust" bindtap="onOpenAdjust"><view class="af-entry__body">资产调整</view><text class="af-entry__arrow" aria-hidden="true">›</text></view>
       </view>
 
       <view class="asset-loading" wx:if="{{assetsLoading}}"><text>资产加载中...</text></view>
 
       <view class="asset-error" wx:elif="{{assetsError}}">
         <text class="asset-error-text">{{assetsError}}</text>
-        <view class="asset-retry" bindtap="onRefreshAssets"><text>重试</text></view>
+        <view class="af-action af-action--quiet b3-on-refresh-assets" bindtap="onRefreshAssets"><view class="af-action__face"><text>重试</text></view></view>
       </view>
 
       <block wx:elif="{{assets}}">
         <!-- 资产概览 -->
         <view class="metric-grid asset-grid">
-          <view class="metric">
-            <text class="metric-value">{{assets.independentRights ? assets.actualBuckets : assets.heldBuckets}}</text>
+          <view class="metric s-asset-physical">
+            <text class="metric-value">{{assets.independentRights ? assets.actualBucketsDisplay : assets.heldBucketsDisplay}}</text>
             <text class="metric-label">{{assets.independentRights ? '实际在手桶' : '持有桶'}}</text>
           </view>
-          <view class="metric">
-            <text class="metric-value {{assets.inTransitBuckets > 0 ? 'transit' : ''}}">{{assets.inTransitBuckets}}</text>
+          <view class="metric s-asset-physical">
+            <text class="metric-value {{assets.inTransitBuckets > 0 ? 'transit' : ''}}">{{assets.inTransitBucketsDisplay}}</text>
             <text class="metric-label">配送中桶</text>
           </view>
-          <view class="metric">
-            <text class="metric-value small {{assets.hasOwed ? 'warn' : ''}}">{{assets.owedBuckets > 0 ? assets.owedBuckets : '无'}}</text>
+          <view class="metric s-asset-physical">
+            <text class="metric-value small {{assets.hasOwed ? 'warn' : ''}}">{{assets.owedBucketsDisplay}}</text>
             <text class="metric-label">欠桶</text>
           </view>
-          <view class="metric">
-            <text class="metric-value small">{{assets.ticketQuantity}}</text>
+          <view class="metric s-asset-order">
+            <text class="metric-value small">{{assets.ticketQuantityDisplay}}</text>
             <text class="metric-label">水票(张)</text>
           </view>
         </view>
         <view class="metric-grid second">
-          <view class="metric">
+          <view class="metric s-asset-money">
             <text class="metric-value small">¥{{assets.depositBalanceText}}</text>
             <text class="metric-label">押金余额</text>
           </view>
-          <view class="metric">
+          <view class="metric s-asset-money">
             <text class="metric-value small">¥{{assets.ticketValueText}}</text>
             <text class="metric-label">水票折算</text>
           </view>
-          <view class="metric">
+          <view class="metric s-asset-money">
             <text class="metric-value small">¥{{assets.barrelDepositTotalText}}</text>
             <text class="metric-label">持桶押金</text>
           </view>
-          <view class="metric">
+          <view class="metric s-asset-money">
             <text class="metric-value small">¥{{assets.totalAssetValueText}}</text>
             <text class="metric-label">资产合计</text>
           </view>
@@ -107,17 +107,15 @@
         </view>
         <!-- 资产为空时「水桶明细」标题行不渲染，这里补一个入口：
              历史漏录的客户正是最需要「资产调整」补录的人，不能让他们无路可走 -->
-        <view class="record-toggle" wx:if="{{assets.empty}}" bindtap="onOpenAdjust">
-          <text>历史漏录？去「资产调整」补录</text>
-        </view>
+        <view class="af-entry b3-on-open-adjust" wx:if="{{assets.empty}}" bindtap="onOpenAdjust"><view class="af-entry__body"><text>历史漏录？去「资产调整」补录</text></view><text class="af-entry__arrow" aria-hidden="true">›</text></view>
 
         <block wx:else>
           <!-- 水桶明细 -->
           <view class="sub-title-row" wx:if="{{assets.barrels.length}}">
             <text class="sub-title no-mb">水桶明细</text>
             <view class="link-row">
-              <text class="link-btn" bindtap="onShowReturnEmpty">还空桶</text>
-              <text class="link-btn" bindtap="onOpenAdjust">资产调整</text>
+              <view class="af-entry b3-on-show-return-empty" bindtap="onShowReturnEmpty"><view class="af-entry__body">还空桶</view><text class="af-entry__arrow" aria-hidden="true">›</text></view>
+              <view class="af-entry b3-on-open-adjust" bindtap="onOpenAdjust"><view class="af-entry__body">资产调整</view><text class="af-entry__arrow" aria-hidden="true">›</text></view>
             </view>
           </view>
           <view class="asset-item" wx:for="{{assets.barrels}}" wx:key="productId">
@@ -165,16 +163,15 @@
               <text class="record-status" wx:if="{{item.statusText}}">{{item.statusText}}</text>
             </view>
           </view>
-          <view class="record-toggle" wx:if="{{assets.hasMoreRecords}}" bindtap="onToggleRecords">
-            <text>{{recordsExpanded ? '收起' : '展开已取回 ' + assets.records.length + ' 条'}}</text>
-          </view>
+          <view class="af-action af-action--quiet b3-on-toggle-records" wx:if="{{assets.hasMoreRecords}}" bindtap="onToggleRecords"><view class="af-action__face"><text>{{recordsExpanded ? '收起' : '展开已取回 ' + assets.records.length + ' 条'}}</text></view></view>
         </block>
       </block>
     </view>
 
   <block wx:if="{{!loading && profile}}">
     <view class="section">
-      <view class="section-title">消费概览</view>
+      <view class="section-title-row consumption-toggle b3-disclosure" bindtap="onToggleConsumption"><text class="section-title no-mb">消费概览</text><text>{{consumptionExpanded ? '收起' : '展开'}}</text></view>
+      <view wx:if="{{consumptionExpanded}}">
       <view class="metric-grid">
         <view class="metric">
           <text class="metric-value">{{profile.totalOrders}}</text>
@@ -211,6 +208,7 @@
           <text class="metric-label">欠桶</text>
         </view>
       </view>
+      </view>
     </view>
 
     <!-- 客户消费统计保持原口径，排在本站资产之后。 -->
@@ -232,14 +230,14 @@
             <text class="priv-name">{{item.typeText || '特权类型待核实'}}</text>
             <text class="priv-note" wx:if="{{item.note}}">{{item.note}}</text>
           </view>
-          <view class="priv-btn priv-btn-off" bindtap="onRevokePrivilege" data-type="{{item.type}}">撤销</view>
+          <view class="af-action af-action--danger-quiet b3-on-revoke-privilege" bindtap="onRevokePrivilege" data-type="{{item.type}}">撤销</view>
         </view>
         <view class="empty-line" wx:if="{{!privileges.length}}">该客户在本站暂无特权，按默认规则。</view>
 
         <block wx:if="{{grantableTypes.length}}">
           <view class="priv-add-label">可授予</view>
           <view class="priv-add-row">
-            <view class="priv-btn" wx:for="{{grantableTypes}}" wx:key="type"
+            <view class="af-action af-action--secondary b3-on-grant-privilege" wx:for="{{grantableTypes}}" wx:key="type"
                   bindtap="onGrantPrivilege" data-type="{{item.type}}">+ {{item.text}}</view>
           </view>
         </block>
@@ -306,10 +304,10 @@
     <!-- 最近订单 -->
     <view class="section" wx:if="{{profile.recentOrders.length}}">
       <view class="section-title">最近订单</view>
-      <view class="order-item" wx:for="{{profile.recentOrders}}" wx:key="id">
+      <view class="order-item af-entry" wx:for="{{profile.recentOrders}}" wx:key="id" bindtap="onRecentOrderTap" data-id="{{item.id}}">
         <text class="order-no">#{{item.id}}</text>
         <text class="order-status">{{item.statusText}}</text>
-        <text class="order-amount">¥{{item.totalAmount}}</text>
+        <text class="order-amount">{{item.totalAmount !== null && item.totalAmount !== undefined ? '¥' + item.totalAmount : '金额待核实'}}</text><text>查看 ›</text>
       </view>
     </view>
   </block>
@@ -326,7 +324,7 @@
   <view class="modal" wx:if="{{showReturnEmpty}}">
     <view class="modal-header">
       <text class="modal-title">还空桶</text>
-      <text class="modal-close" bindtap="onCloseReturnEmpty">×</text>
+      <view class="af-action af-action--cancel b3-on-close-return-empty" bindtap="onCloseReturnEmpty">×</view>
     </view>
     <view class="modal-tip">
       <text>顾客交回空桶但不带走满桶。只冲减欠桶记录，<text class="strong">不退押金、不减少桶权益</text>；想拿回钱请走「退桶」。</text>
@@ -337,14 +335,15 @@
         <text class="return-item-name">{{item.productName}}</text>
         <text class="return-item-hint">最多可还 {{item.max}} 个<text wx:if="{{item.over > 0}}">（当前欠桶 {{item.over}} 个）</text></text>
       </view>
-      <input class="return-item-input" type="number" value="{{item.qty}}"
-             data-idx="{{index}}" data-max="{{item.max}}" bindinput="onReturnEmptyQtyInput" disabled="{{returnSubmitting || returnPending}}" />
+      <integer-stepper value="{{item.qty}}" min="{{0}}" max="{{item.max}}" label="还桶数量"
+             data-idx="{{index}}" bindchange="onReturnEmptyQtyInput" disabled="{{returnSubmitting || returnPending}}" />
     </view>
     <view class="modal-footer">
-      <view class="modal-btn cancel" bindtap="onCloseReturnEmpty"><text>取消</text></view>
-      <view class="modal-btn confirm {{returnSubmitting ? 'disabled' : ''}}" bindtap="onSubmitReturnEmpty">
+      <view class="af-action af-action--cancel b3-on-close-return-empty af-action--form" bindtap="onCloseReturnEmpty"><text>取消</text></view>
+      <view class="af-action af-action--primary b3-on-submit-return-empty af-action--grow" bindtap="onSubmitReturnEmpty">
         <text>{{returnSubmitting ? '核对中...' : (returnPending ? '重试原登记' : '确认还桶')}}</text>
       </view>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

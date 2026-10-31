@@ -1,4 +1,6 @@
 {
-  "navigationBarTitleText": "员工登录",
-  "usingComponents": {}
+  "navigationBarTitleText": "艾泉工作台",
+  "usingComponents": {
+    "icon": "/components/Icon/index"
+  }
 }

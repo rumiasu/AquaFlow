@@ -1,0 +1,484 @@
+{
+  "codeIntegration": "56f5a660",
+  "base": "1fc926f33a2643022a6cd9f6e2a9559d01fc1ebe",
+  "candidateCommits": [
+    {
+      "key": "ticket",
+      "commit": "b552dc3a228aeca1bf861c4c576c4917491a988d",
+      "files": [
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/controller/TicketAccountController.java",
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/controller/TicketPackageController.java",
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/dto/TicketPurchaseDTO.java",
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/InventoryMapper.java",
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/TicketPackageMapper.java",
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/OrderServiceImpl.java",
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/TicketAccountServiceImpl.java",
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/TicketTierService.java",
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/util/TicketPurchaseIntent.java",
+        "AquaFlow-backend/src/test/java/com/example/aquaflow/service/ClosedStationTicketPurchaseTest.java",
+        "AquaFlow-backend/src/test/java/com/example/aquaflow/service/TicketPurchaseFenceTest.java",
+        "AquaFlow-backend/src/test/java/com/example/aquaflow/service/TicketPurchaseIntentTest.java",
+        "AquaFlow-backend/src/main/java/com/example/aquaflow/service/TicketPackageService.java",
+        "AquaFlow-backend/src/test/java/com/example/aquaflow/service/TicketPackageBatchPurchaseTest.java",
+        "AquaFlow-backend/src/test/java/com/example/aquaflow/service/TicketPackageCompatibilityTest.java"
+      ]
+    },
+    {
+      "key": "ticket",
+      "commit": "9403482a0a29e7dbb2987ccf1dff7f39294b1842",
+      "files": [
+        "miniapp-delivery/pages/station-mgmt/products/index.js",
+        "miniapp-delivery/pages/station-mgmt/products/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/products/index.wxss",
+        "miniapp-delivery/pages/station-mgmt/ticket-packages/index.js",
+        "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxml",
+        "miniapp-user/api/ticket.js",
+        "miniapp-user/pages/ticket/index.js",
+        "miniapp-user/pages/ticket/index.wxml",
+        "miniapp-user/pages/ticket/index.wxss",
+        "tests/js/product-editor-unification.test.js",
+        "tests/js/product-inventory-host.test.js",
+        "tests/js/product-phone-feedback.test.js",
+        "tests/js/product-sheet-recovery.test.js",
+        "tests/js/run-all.js",
+        "tests/js/ticket-purchase-flow.test.js",
+        "tests/js/ticket-package-copies.test.js"
+      ]
+    },
+    {
+      "key": "fee",
+      "commit": "8c91e17d8164c8bc2be17965995af3e8af57c0f6",
+      "files": [
+        "miniapp-delivery/pages/station-mgmt/delivery-config/index.js",
+        "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxml",
+        "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss",
+        "miniapp-delivery/styles/station-navbar.wxss",
+        "miniapp-delivery/templates/station-navbar.wxml",
+        "miniapp-delivery/utils/setup-progress.js",
+        "tests/js/delivery-config-layout.test.js",
+        "tests/js/run-all.js",
+        "tests/js/setup-navigation.test.js",
+        "tests/js/delivery-fee-tutorial.test.js"
+      ]
+    },
+    {
+      "key": "assets",
+      "commit": "0b452042ee0e1e969e83a9ebe7dd58764ba004f0",
+      "files": [
+        "miniapp-user/components/AssetStationView/index.wxml",
+        "miniapp-user/components/AssetStationView/index.wxss",
+        "miniapp-user/pages/mine/index.wxml",
+        "miniapp-user/pages/mine/index.wxss",
+        "tests/js/run-all.js",
+        "tests/js/customer-assets-hierarchy.test.js"
+      ]
+    }
+  ],
+  "targetedSuites": [
+    {
+      "file": "ticket-package-copies.test.js",
+      "status": 0,
+      "count": 13,
+      "failures": []
+    },
+    {
+      "file": "ticket-purchase-flow.test.js",
+      "status": 0,
+      "count": 24,
+      "failures": []
+    },
+    {
+      "file": "ticket-purchase-recovery-boundary.test.js",
+      "status": 0,
+      "count": 40,
+      "failures": []
+    },
+    {
+      "file": "product-inventory-host.test.js",
+      "status": 0,
+      "count": 12,
+      "failures": []
+    },
+    {
+      "file": "product-sheet-recovery.test.js",
+      "status": 0,
+      "count": 22,
+      "failures": []
+    },
+    {
+      "file": "product-phone-feedback.test.js",
+      "status": 0,
+      "count": 16,
+      "failures": []
+    },
+    {
+      "file": "product-editor-unification.test.js",
+      "status": 0,
+      "count": 30,
+      "failures": []
+    },
+    {
+      "file": "delivery-fee-tutorial.test.js",
+      "status": 0,
+      "count": 20,
+      "failures": []
+    },
+    {
+      "file": "delivery-config-layout.test.js",
+      "status": 0,
+      "count": 18,
+      "failures": []
+    },
+    {
+      "file": "delivery-config-pull-refresh.test.js",
+      "status": 0,
+      "count": 21,
+      "failures": []
+    },
+    {
+      "file": "setup-navigation.test.js",
+      "status": 0,
+      "count": 9,
+      "failures": []
+    },
+    {
+      "file": "asset-view-station-flow.test.js",
+      "status": 0,
+      "count": 24,
+      "failures": []
+    },
+    {
+      "file": "customer-assets-state.test.js",
+      "status": 0,
+      "count": 10,
+      "failures": []
+    },
+    {
+      "file": "customer-assets-hierarchy.test.js",
+      "status": 0,
+      "count": 4,
+      "failures": []
+    }
+  ],
+  "staticGates": [
+    {
+      "name": "text",
+      "status": 0
+    },
+    {
+      "name": "requires",
+      "status": 0
+    },
+    {
+      "name": "wxss",
+      "status": 0
+    },
+    {
+      "name": "wxml",
+      "status": 1,
+      "explanation": "Unchanged baseline scanner limitation: both pages inherit the defined method from stationNavbar behavior."
+    },
+    {
+      "name": "jar",
+      "status": 0
+    }
+  ],
+  "nativeStaff": [
+    {
+      "name": "original two-item proof retained",
+      "pass": true
+    },
+    {
+      "name": "recovery preview uses original two not new four",
+      "pass": true
+    },
+    {
+      "name": "recovery sends exact original key and quantity",
+      "pass": true
+    },
+    {
+      "name": "rejected original remains recoverable and releases busy",
+      "pass": true
+    },
+    {
+      "name": "different synthetic product has no original proof",
+      "pass": true
+    },
+    {
+      "name": "new inbound preview adds four",
+      "pass": true
+    },
+    {
+      "name": "new inbound matching receipt applies and clears its proof",
+      "pass": true
+    },
+    {
+      "name": "single native panel host",
+      "pass": true
+    },
+    {
+      "name": "records remain open after delayed leave event",
+      "pass": true
+    },
+    {
+      "name": "native leave closes active records",
+      "pass": true
+    },
+    {
+      "name": "native viewport scroll unlocked after records",
+      "pass": true
+    },
+    {
+      "name": "other product success cannot clear original proof",
+      "pass": true
+    }
+  ],
+  "nativeFee": [
+    {
+      "name": "typing stays on current section",
+      "pass": true
+    },
+    {
+      "name": "unlimited retains numeric draft",
+      "pass": true
+    },
+    {
+      "name": "explicit completion reviews four sections",
+      "pass": true
+    },
+    {
+      "name": "review is not a save",
+      "pass": true
+    },
+    {
+      "name": "manual save and matching readback complete setup",
+      "pass": true
+    },
+    {
+      "name": "overview renders one compact how-to",
+      "pass": true
+    }
+  ],
+  "nativeAssetsSupplement": [
+    {
+      "name": "actual close event returns to assets",
+      "pass": true
+    },
+    {
+      "name": "page scrolls after picker close",
+      "pass": true
+    },
+    {
+      "name": "asset target 0 at least 44px",
+      "pass": true
+    },
+    {
+      "name": "asset target 1 at least 44px",
+      "pass": true
+    },
+    {
+      "name": "asset target 2 at least 44px",
+      "pass": true
+    },
+    {
+      "name": "asset amounts remain station scoped",
+      "pass": true
+    }
+  ],
+  "assetsShort": {
+    "system": {
+      "brand": "devtools",
+      "model": "iPhone 5",
+      "system": "iOS 10.0.1",
+      "platform": "devtools",
+      "benchmarkLevel": -1,
+      "pixelRatio": 2,
+      "screenWidth": 320,
+      "screenHeight": 568,
+      "windowWidth": 320,
+      "windowHeight": 504,
+      "statusBarHeight": 20,
+      "safeArea": {
+        "top": 20,
+        "left": 0,
+        "right": 320,
+        "bottom": 568,
+        "width": 320,
+        "height": 548
+      },
+      "language": "zh_CN",
+      "version": "8.0.5",
+      "fontSizeSetting": 26,
+      "SDKVersion": "3.17.0",
+      "host": {
+        "env": "WeChat"
+      },
+      "enableDebug": false,
+      "mode": "default",
+      "deviceOrientation": "portrait",
+      "bluetoothEnabled": true,
+      "locationEnabled": true,
+      "wifiEnabled": true,
+      "albumAuthorized": true,
+      "cameraAuthorized": true,
+      "locationAuthorized": true,
+      "microphoneAuthorized": true,
+      "notificationAuthorized": true,
+      "notificationAlertAuthorized": true,
+      "notificationBadgeAuthorized": true,
+      "notificationSoundAuthorized": true,
+      "phoneCalendarAuthorized": true,
+      "bluetoothAuthorized": true,
+      "locationReducedAccuracy": true,
+      "devicePixelRatio": 2
+    },
+    ".picker": {
+      "size": {
+        "width": 320,
+        "height": 416
+      },
+      "offset": {
+        "left": 0,
+        "top": 88
+      }
+    },
+    ".picker-close": {
+      "size": {
+        "width": 44,
+        "height": 44
+      },
+      "offset": {
+        "left": 265,
+        "top": 99
+      }
+    },
+    ".picker-list": {
+      "size": {
+        "width": 298,
+        "height": 257.0078125
+      },
+      "offset": {
+        "left": 11,
+        "top": 235.9921875
+      }
+    }
+  },
+  "assetsShortClosed": {
+    "system": {
+      "brand": "devtools",
+      "model": "iPhone 5",
+      "system": "iOS 10.0.1",
+      "platform": "devtools",
+      "benchmarkLevel": -1,
+      "pixelRatio": 2,
+      "screenWidth": 320,
+      "screenHeight": 568,
+      "windowWidth": 320,
+      "windowHeight": 504,
+      "statusBarHeight": 20,
+      "safeArea": {
+        "top": 20,
+        "left": 0,
+        "right": 320,
+        "bottom": 568,
+        "width": 320,
+        "height": 548
+      },
+      "language": "zh_CN",
+      "version": "8.0.5",
+      "fontSizeSetting": 26,
+      "SDKVersion": "3.17.0",
+      "host": {
+        "env": "WeChat"
+      },
+      "enableDebug": false,
+      "mode": "default",
+      "deviceOrientation": "portrait",
+      "bluetoothEnabled": true,
+      "locationEnabled": true,
+      "wifiEnabled": true,
+      "albumAuthorized": true,
+      "cameraAuthorized": true,
+      "locationAuthorized": true,
+      "microphoneAuthorized": true,
+      "notificationAuthorized": true,
+      "notificationAlertAuthorized": true,
+      "notificationBadgeAuthorized": true,
+      "notificationSoundAuthorized": true,
+      "phoneCalendarAuthorized": true,
+      "bluetoothAuthorized": true,
+      "locationReducedAccuracy": true,
+      "devicePixelRatio": 2
+    },
+    "scroll": {
+      "id": "",
+      "dataset": {},
+      "scrollLeft": 0,
+      "scrollTop": 500,
+      "scrollWidth": 320,
+      "scrollHeight": 1226
+    }
+  },
+  "backend": {
+    "tree": "11bd5b900914a9487786e5bfbb8c83201ea79b03",
+    "jarBytes": 46906889,
+    "jarSha256": "ed182ea0d251d7c4b08b7096c32daed7825652196c2886cf281626ea2ac2ad4a",
+    "sourceCount": 442,
+    "compiledClasses": 568,
+    "sourcesMatchFinalIntegration": true,
+    "classesMatchJar": true,
+    "gradleTasksUpToDate": true,
+    "reusedTestResults": {
+      "tests": 64,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "tlsSourcesUnchanged": true
+  },
+  "screenshots": [
+    {
+      "file": "staff-inventory-pixels.png",
+      "sha256": "c1cca3ee71f37b6a583b2a0ff3b95f61b266490777c7745b56d9c8c44b20bb29",
+      "actualPixelsInspected": true
+    },
+    {
+      "file": "staff-records-pixels.png",
+      "sha256": "58298cd2a1fb9e0dcdb91bba500cb328dca524712b7731da3e4b37e5a02ab6dc",
+      "actualPixelsInspected": true
+    },
+    {
+      "file": "fee-unlimited-final.png",
+      "sha256": "ed418e1763ced71922a0db98807dfc830b57cdfaf14f2eb4b94fb9df6d2e8459",
+      "actualPixelsInspected": true
+    },
+    {
+      "file": "fee-saved-final.png",
+      "sha256": "84ae123197b983d2cfa2975595a197b2164757cb1b1d00b09f08dfde00441b2b",
+      "actualPixelsInspected": true
+    },
+    {
+      "file": "fee-overview-howto.png",
+      "sha256": "44af0eedc7f559ee19aeff16d9d7a2314223d57e1aae81044efd9d073d1c9544",
+      "actualPixelsInspected": true
+    },
+    {
+      "file": "assets-short-open-pixels.png",
+      "sha256": "5c17b61f8dbcded040d1f6495af4286b74633378d0f798f67186f9fc7bf1c9b8",
+      "actualPixelsInspected": true
+    }
+  ],
+  "requiredCloudEnvironment": {
+    "WECHAT_MINIAPP_CLOUD_CALL_TLS_ENABLED": "true"
+  },
+  "limitations": {
+    "physicalDeviceTested": false,
+    "liveBusinessTested": false,
+    "containerBuilt": false,
+    "cloudDeploymentExecuted": false,
+    "explicitMiniappUploadExecuted": false,
+    "sqlExecuted": false,
+    "temporarySyntheticPreviewAccidentallyGenerated": true,
+    "fullJsKnownBaselineIncompleteSuites": 12
+  }
+}

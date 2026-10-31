@@ -29,7 +29,7 @@ import java.util.Map;
  * 本控制器所有端点都带 {@code @RequireRole("STATION_MANAGER")}。</p>
  *
  * <p>⚠️ 本版**不做**供应商表/采购单/应付账款/批次成本核算（{@code docs/design/16} §D4 明确不做上游供应链）。
- * 代价：成本改了以后历史毛利会用新成本重算。响应里带 {@code costBasisNote} 把这件事写给前端。</p>
+ * 入库总成本可选填，出库按库存成本池分摊并留快照，历史缺失保持未知。响应以 {@code costBasisNote} 说明口径。</p>
  */
 @RestController
 @RequestMapping("/api/manager/gross-profit")
@@ -44,7 +44,7 @@ public class ManagerGrossProfitController {
      *
      * <p>⚠️ 这里是<b>画面上的那一行小字</b>，不是文档：[2026-09-26] 产品反馈"利润里太罗嗦了"，
      * 原来的四句长解释已**收进小程序页面的「利润怎么算」帮助弹窗**，这里只留一句最重要的
-     * （成本不是批次快照、改了就变）。**不要再把这行写回一段话** —— 站长要的是数字，
+     * （出库成本快照，历史缺失不补写）。**不要再把这行写回一段话** —— 站长要的是数字，
      * 不是每次打开报表都读一遍口径论文。</p>
      *
      * <p>⚠️ 这里<b>不要写 Markdown 记号</b>（曾出现 {@code **当前**}）：这段文案是直接渲染到
@@ -55,7 +55,7 @@ public class ManagerGrossProfitController {
      * 代码 / 端点 / 表名里的 GrossProfit 保持不变（改的是下发给站长看的文案）。</p>
      */
     private static final String COST_BASIS_NOTE =
-            "利润按当前成本价算：改了成本价，历史期间的利润也会跟着变。";
+            "利润使用出库时记录的成本；历史缺失不以新进货成本补写。";
 
     /**
      * 净利口径提示。[2026-09-19 新增净利] 前端必须原样展示 ——
@@ -85,7 +85,7 @@ public class ManagerGrossProfitController {
      * <p>⚠️ 同样不要写 Markdown 记号（渲染在 wx.showModal 里，星号会原样显示）。</p>
      */
     private static final String HELP_NOTE =
-            "利润 = 该期间的销售收入 − 卖出数量 × 当前进货成本价；"
+            "利润 = 该期间的销售收入 − 本期出库成本快照；"
                     + "净利 = 收入 − 进货成本 − 计件工钱。\n\n"
                     + "1. 按「下单时间」统计这一批订单（不是按哪天送完），后续实际退款扣回原订单批次：它是这批生意本身的账，"
                     + "不是当天进账的现金。\n"
@@ -95,8 +95,8 @@ public class ManagerGrossProfitController {
                     + "退出未用的真实购票批次会扣回该批次收入。所以单看某一张水票单的利润会是负的（成本在、收入不在它身上），请看期间合计。\n"
                     + "5. 明细里「卖出」与「成本合计」算的是本期实际履约的货（含用票兑出去的）；"
                     + "只卖票、本期还没兑货的商品会单列一行，只显示票款收入。\n"
-                    + "6. 利润按当前成本价算：本版不做批次成本核算，改了成本价，历史期间的利润也会跟着变。\n"
-                    + "7. 未填成本的商品不计入利润，只列收入（报表上写「未填成本」）。";
+                    + "6. 进货成本可在入库时选填，出库按库存成本分摊并留存快照，历史缺失保持未知。\n"
+                    + "7. 期间涉及的成本不完整时只显示收入，不展示利润。";
 
     @Autowired
     private GrossProfitMapper grossProfitMapper;
@@ -119,31 +119,7 @@ public class ManagerGrossProfitController {
      */
     @PutMapping("/cost")
     public Result<Void> setCost(@RequestBody com.example.aquaflow.dto.CostPriceDTO body) {
-        Long stationId = AuthContext.requireStationId();
-        if (body.getProductId() == null) {
-            return Result.error("productId 不能为空");
-        }
-
-        BigDecimal cost;
-        if (Boolean.TRUE.equals(body.getClear())) {
-            cost = null;
-        } else {
-            if (body.getCostPrice() == null) {
-                return Result.error("costPrice 不能为空（若要清除成本价请传 clear: true）");
-            }
-            if (body.getCostPrice().signum() < 0) {
-                return Result.error("成本价不能为负");
-            }
-            cost = body.getCostPrice().setScale(2, RoundingMode.HALF_UP);
-        }
-
-        int affected = grossProfitMapper.updateCostPrice(stationId, body.getProductId(), cost);
-        if (affected == 0) {
-            // 拿不到受影响行数就不返回 success —— 否则站长会以为设好了，报表里却一直没有
-            return Result.error("本站没有该商品的上架配置，请先在「商品管家」里上架");
-        }
-        log.info("[v39] 站长设置进货成本: stationId={}, productId={}, costPrice={}", stationId, body.getProductId(), cost);
-        return Result.success();
+        return Result.error("进货成本为选填，请在补货入库时记录本次总成本");
     }
 
     /** 本站已上架但没填成本价的商品（报表里要显式提示"这些没算进利润"）。 */
@@ -162,10 +138,8 @@ public class ManagerGrossProfitController {
      * / {@code wage} / {@code netProfit} —— 六个字段全部取自<b>同一订单集合</b>，
      * 看 {@code profitBasisNote} 了解口径。</p>
      *
-     * <p>⚠️ 两个 null 语义：{@code totalProfit} 与 {@code netProfit} 在"有商品没填成本"时
-     * <b>一起为 null</b>。只 null 一个会让站长拿另一个数字继续算，等于把缺失的成本当成 0。
-     * 前端把这两个 null 渲染成「未填成本」并原样展示 {@code missingCostHint} ——
-     * <b>不允许</b>因此把整张卡藏起来（站长会以为功能没了，而不是"还差一个成本价"）。</p>
+     * <p>所选期间缺失出库成本时，成本合计与两个利润字段均为 null；客户端只展示收入。
+     * 入库成本为选填，不要求事后补价，也不影响商品或营业。</p>
      *
      * @param from 起始日（含），缺省 = 本月 1 号
      * @param to   结束日（含），缺省 = 今天
@@ -234,7 +208,8 @@ public class ManagerGrossProfitController {
             item.put("revenue", revenue);                  // 订单侧水费（不含票款）—— 保持原字段语义
             item.put("ticketRevenue", rowTicketRevenue);    // 该商品本期购票实收
             item.put("revenueTotal", revenueTotal);         // 上两者之和：行利润用的就是它
-            item.put("costPriceText", missing ? "未填" : dec(row.get("costPrice")).toPlainString());
+            item.put("costPriceText", "出库成本快照");
+            if (missing) item.put("costAmount", null);
             item.put("profit", profit);
             item.put("profitText", missing ? "未填成本，无法计算"
                     : profit.toPlainString());
@@ -260,8 +235,11 @@ public class ManagerGrossProfitController {
             item.put("revenueTotal", e.getValue());
             item.put("costPrice", null);
             item.put("costPriceText", "未填");
-            item.put("costAmount", BigDecimal.ZERO);
-            item.put("missingCost", 0);
+            // Only ticket receipts exist for this product in the period: no fulfilment cost matches them.
+            // Keep the receipt as income, but propagate the same unknown-cost state to summary profits.
+            item.put("costAmount", null);
+            item.put("missingCost", 1);
+            missingCostKinds++;
             item.put("profit", null);
             item.put("profitText", "本期只有购票收入，没有兑票记录");
             item.put("profitRateText", "—");
@@ -279,15 +257,16 @@ public class ManagerGrossProfitController {
         data.put("orderRevenue", orderRevenue);
         data.put("ticketRevenue", ticketRevenue);
         data.put("totalRevenue", revenueAll);
-        data.put("totalCost", totalCost);
+        data.put("totalCost", missingCostKinds > 0 ? null : totalCost);
+        data.put("costComplete", missingCostKinds == 0);
+        if (missingCostKinds > 0) for (Map<String,Object> item : items) { item.put("profit", null); item.put("profitText", "成本未完整记录"); item.put("profitRateText", "—"); }
         // 合计利润只在**所有商品都有成本**时才给，否则给出 null + 提示
         data.put("totalProfit", missingCostKinds > 0 ? null : revenueAll.subtract(totalCost));
         data.put("missingCostKinds", missingCostKinds);
         data.put("costBasisNote", COST_BASIS_NOTE);
-        // 缺成本时下发给站长看的那句话要**说清是哪一项**算不出来（前端原样展示，
-        // 不许把 null 渲染成 0，也不许自己拼一句"算不出"就完事 —— 站长得知道去补什么）
+        // 缺失历史成本不催填、不追算；只说明本期采用收入视图。
         data.put("missingCostHint", missingCostKinds > 0
-                ? "有 " + missingCostKinds + " 个商品没填进货成本，它们的利润算不出来（收入已计入合计，成本按 0 计）"
+                ? "本期成本未完整记录，当前仅展示收入；不影响正常经营。"
                 : null);
 
         // ===== 净利（2026-09-19）：同一批订单的 收入 − 成本 − 工钱 =====

@@ -126,11 +126,25 @@ public class PaymentRecord {
 
     /** 支付方式文案（1 微信 / 2 现金(货到付款) / 3 水票），真相源是 PayMethod */
     public String getMethodText() {
+        if (isSimulated()) return "模拟微信支付（未扣款）";
         return com.example.aquaflow.constant.PayMethod.textOf(paymentMethod);
     }
 
+    /** 持久渠道标识由服务端生成，备注或客户端 simulated 字段不能改变此判据。 */
+    public boolean isSimulated() {
+        return Integer.valueOf(com.example.aquaflow.constant.PayMethod.WECHAT).equals(paymentMethod)
+                && transactionNo != null && transactionNo.matches("SIM-WX:[0-9a-f-]{36}");
+    }
+
+    public String getSimulationResultText() { return isSimulated() ? "测试付款成功（不扣真实款）" : null; }
+
     /** 支付状态文案（0 未支付 / 1 待收款 / 2 已付款 / 3 已退款 / 4 已取消），真相源是 PaymentStatus */
     public String getStatusText() {
+        if (isSimulated()) {
+            if (Integer.valueOf(com.example.aquaflow.constant.PaymentStatus.PAID).equals(status)) return "模拟已付款（未扣款）";
+            if (Integer.valueOf(com.example.aquaflow.constant.PaymentStatus.REFUNDED).equals(status)) return "模拟已退款（未实际退款）";
+            return "模拟" + com.example.aquaflow.constant.PaymentStatus.textOf(status);
+        }
         return com.example.aquaflow.constant.PaymentStatus.textOf(status);
     }
 }

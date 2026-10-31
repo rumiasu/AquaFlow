@@ -21,7 +21,7 @@ Page({
     metricSwitchable: true,
     payChart: null,            // 环形图数据
     hourChart: null,           // {bars:[{label,height,orders}]}
-    recordsExpanded: false,
+    analysisExpanded: false, recordsExpanded: false,
     recordsPreviewCount: 3
   },
 
@@ -165,6 +165,9 @@ Page({
 
   // ==================== 图表数据准备 ====================
 
+  onToggleAnalysis() {
+    this.setData({ analysisExpanded: !this.data.analysisExpanded }, () => { if (this.data.analysisExpanded && this.data.report) this.prepareCharts(this.data.report) })
+  },
   prepareCharts(report) {
     // 1) 趋势图：今日看 24 小时分布（按天只有 1 个点没意义），7d/30d 看按天趋势
     if (report.range === 'today') {
@@ -258,7 +261,7 @@ Page({
       ctx.strokeStyle = '#F1ECE1'
       ctx.fillStyle = '#A39E92'
       ctx.lineWidth = 1
-      ctx.font = '10px sans-serif'
+      ctx.font = '12px sans-serif'
       ctx.textAlign = 'right'
       ctx.textBaseline = 'middle'
       for (let i = 0; i <= 4; i++) {
@@ -340,7 +343,7 @@ Page({
       ctx.textBaseline = 'middle'
       ctx.fillText(String(chart.total), cx, cy - 8)
       ctx.fillStyle = '#A39E92'
-      ctx.font = '10px sans-serif'
+      ctx.font = '12px sans-serif'
       ctx.fillText('总单数', cx, cy + 10)
     })
   },

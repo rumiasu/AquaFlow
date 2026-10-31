@@ -1,48 +1,43 @@
 <view class="page">
-  <view class="work-heading"><text class="work-title">待办与责任</text><text class="work-caption">按事项核对原记录，办理结果以本次读取为准</text></view>
-  <text class="error" wx:if="{{error}}">{{error}}</text><button wx:if="{{error}}" bindtap="onRetry" disabled="{{loading}}">重新核对</button><text wx:if="{{loading}}">正在核对待办…</text>
-  <view class="section" id="waiting-stock"><text class="title">缺货待补 <text wx:if="{{ready.stock}}">· {{counts.stock}} 单</text></text>
+  <view class="waiting-nav"><button wx:for="{{waitingTabs}}" wx:key="key" class="af-choice b3-on-waiting-section {{activeSection === item.key ? 'selected' : ''}}" data-key="{{item.key}}" bindtap="onWaitingSection" hover-class="af-action--pressed"><view class="af-choice__face">{{item.label}}<text wx:if="{{item.key !== 'all'}}"> · {{ready[item.key] ? counts[item.key] : '待核实'}}</text></view></button></view>
+  <view class="work-heading"><text class="work-title">业务待办</text></view>
+  <text class="error" wx:if="{{error}}">{{error}}</text><button wx:if="{{error}}" bindtap="onRetry" disabled="{{loading}}" class="af-action af-action--quiet b3-on-retry" hover-class="af-action--pressed"><view class="af-action__face">重新核对</view></button><text wx:if="{{loading}}">正在核对待办…</text>
+  <view class="section" id="waiting-stock" wx:if="{{activeSection === 'all' || activeSection === 'stock'}}"><text class="title">缺货待补 <text wx:if="{{ready.stock}}">· {{counts.stock}} 单</text></text>
     <text class="error" wx:if="{{errors.stock}}">未完成核对；下面如有记录，是上次读取的结果。</text>
-    <view class="row task-row" wx:for="{{stock}}" wx:key="orderId" data-id="{{item.orderId}}" bindtap="onOrder">订单 {{item.orderNo || item.orderId}} · 还缺 {{item.shortageQty}} 件
-      <text>责任站 {{item.responsibleStationText}} · {{item.waitingSinceLabel}} {{item.waitingSinceTime}}</text><text>{{item.waitingReason}}</text><text>{{item.nextActionText}} ›</text>
+    <view class="row task-row af-entry b3-record-entry" wx:for="{{stock}}" wx:key="orderId" data-id="{{item.orderId}}" bindtap="onOrder"><text class="card-title">订单 {{item.orderNo || item.orderId}}</text><text class="card-amount">还缺 {{item.shortageQty}} 件</text>
+      <text>责任站 {{item.responsibleStationText}} · {{item.waitingSinceLabel}} {{item.waitingSinceTime}}</text><text>{{item.waitingReason}}</text><text class="card-action">{{item.nextActionText}} ›</text>
     </view>
     <text class="empty-state" wx:if="{{ready.stock && !loading && !stock.length}}">暂无缺货待办</text>
     <text class="hint" wx:if="{{ready.stock && counts.stock > stock.length}}">共 {{counts.stock}} 单，本次显示最早 {{stock.length}} 单；办理后重新核对后续记录。</text>
   </view>
-  <view class="section"><text class="title">原购买批次剩余水票退出</text>
-    <text class="hint">仅在客户要求退出并核实原款后办理；赠票及无来源批次由站长另行裁决。</text>
-    <view class="row task-row" wx:for="{{tickets}}" wx:key="paymentId">{{item.customerName}} · {{item.productName}} · 剩余 {{item.remainingQty}} 张 · 原渠道 {{item.paymentMethodText}} · ¥{{item.refundAmount}}
-      <button wx:if="{{ready.tickets && !loading}}" data-id="{{item.paymentId}}" bindtap="onTicketRefund">核实并退本批剩余票</button>
-    </view><text class="error" wx:if="{{errors.tickets}}">未完成核对，请重试。</text><text class="empty-state" wx:if="{{ready.tickets && !loading && !tickets.length}}">暂无有原款凭据的可退剩余批次</text>
-  </view>
-  <view class="section" id="waiting-returns"><text class="title">退桶审批与已收桶待退款 <text wx:if="{{ready.returns}}">· {{counts.returns}} 笔</text></text>
-    <button bindtap="onAllReturns">全部未结退还申请与历史</button>
+  <view class="section" id="waiting-returns" wx:if="{{activeSection === 'all' || activeSection === 'returns'}}"><text class="title">退桶审批与已收桶待退款 <text wx:if="{{ready.returns}}">· {{counts.returns}} 笔</text></text>
+    <button bindtap="onAllReturns" class="af-entry b3-on-all-returns" hover-class="af-action--pressed"><view class="af-entry__body">全部未结退还申请与历史</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
     <text class="hint">提醒时间仅用于发现等待事项，办理安排请与客户核实。</text>
     <text class="error" wx:if="{{errors.returns}}">未完成核对；下面如有记录，是上次读取的结果。</text>
-    <view class="row task-row" wx:for="{{returns}}" wx:key="recordId" data-id="{{item.recordId}}" bindtap="onReturns">申请 {{item.recordId}} · ¥{{item.refundAmount}}
+    <view class="row task-row af-entry b3-record-entry" wx:for="{{returns}}" wx:key="recordId" data-id="{{item.recordId}}" bindtap="onReturns"><text class="card-title">申请 {{item.recordId}}</text><text class="card-amount">{{item.refundAmount === null || item.refundAmount === undefined || item.refundAmount === '' ? '退款金额待核实' : '¥' + item.refundAmount}}</text>
       <text>责任站 {{item.responsibleStationText}} · {{item.waitingSinceLabel}} {{item.waitingSinceTime}}</text><text>{{item.waitingReason}}</text>
-      <text wx:if="{{item.overdue}}">已超过退款提醒时间 {{item.refundDueTime}}</text><text>{{item.nextActionText}} ›</text>
+      <text wx:if="{{item.overdue}}">已超过退款提醒时间 {{item.refundDueTime}}</text><text class="card-action">{{item.nextActionText}} ›</text>
     </view>
     <text class="empty-state" wx:if="{{ready.returns && !loading && !returns.length}}">暂无待审批提醒或已收桶待退款</text>
     <text class="hint" wx:if="{{ready.returns && counts.returns > returns.length}}">共 {{counts.returns}} 笔，本次显示最早 {{returns.length}} 笔；办理后重新核对后续记录。</text>
   </view>
-  <view class="section"><text class="title">确认拒付与资产冻结记录</text>
+  <view class="section" wx:if="{{activeSection === 'all' || activeSection === 'refusals'}}"><text class="title">确认拒付与资产冻结记录</text>
     <text class="hint">当前事项保留仍有限制或本站办理责任的案件；已结证据可翻历史或按订单编号查询。</text>
-    <button size="mini" data-scope="ACTIVE" bindtap="onRefusalScope" disabled="{{refusalBusy || pendingRefusal}}">当前事项{{refusalScope === 'ACTIVE' && !refusalOrderId ? ' · 当前' : ''}}</button>
-    <button size="mini" data-scope="ALL" bindtap="onRefusalScope" disabled="{{refusalBusy || pendingRefusal}}">全部历史{{refusalScope === 'ALL' && !refusalOrderId ? ' · 当前' : ''}}</button>
+    <button size="mini" data-scope="ACTIVE" bindtap="onRefusalScope" disabled="{{refusalBusy || pendingRefusal}}" class="af-choice b3-on-refusal-scope {{refusalScope === 'ACTIVE' && !refusalOrderId ? 'af-choice--selected' : ''}}" hover-class="af-action--pressed"><view class="af-choice__face">当前事项{{refusalScope === 'ACTIVE' && !refusalOrderId ? ' · 当前' : ''}}</view></button>
+    <button size="mini" data-scope="ALL" bindtap="onRefusalScope" disabled="{{refusalBusy || pendingRefusal}}" class="af-choice b3-on-refusal-scope {{refusalScope === 'ALL' && !refusalOrderId ? 'af-choice--selected' : ''}}" hover-class="af-action--pressed"><view class="af-choice__face">全部历史{{refusalScope === 'ALL' && !refusalOrderId ? ' · 当前' : ''}}</view></button>
     <input type="number" placeholder="拒付案件的订单编号" value="{{refusalSearch}}" bindinput="onRefusalSearchInput" disabled="{{refusalBusy || pendingRefusal}}" />
-    <button size="mini" bindtap="onRefusalSearch" disabled="{{refusalBusy || pendingRefusal}}">按编号查询</button>
-    <button size="mini" wx:if="{{refusalOrderId}}" bindtap="onClearRefusalSearch" disabled="{{refusalBusy || pendingRefusal}}">返回清单</button>
+    <button size="mini" bindtap="onRefusalSearch" disabled="{{refusalBusy || pendingRefusal}}" class="af-action af-action--quiet b3-on-refusal-search" hover-class="af-action--pressed"><view class="af-action__face">按编号查询</view></button>
+    <button size="mini" wx:if="{{refusalOrderId}}" bindtap="onClearRefusalSearch" disabled="{{refusalBusy || pendingRefusal}}" class="af-action af-action--quiet b3-on-clear-refusal-search" hover-class="af-action--pressed"><view class="af-action__face">返回清单</view></button>
     <text class="error" wx:if="{{refusalSearchError}}">{{refusalSearchError}}</text>
     <text class="hint" wx:if="{{refusalOrderId}}">正在核对原订单 #{{refusalOrderId}}；已有原请求可核对上次结果。</text>
     <view class="row task-row" wx:for="{{refusals}}" wx:key="order_id">订单 {{item.order_id}} · {{item.debtAmount === null || item.debtAmount === undefined ? '原款金额待核' : '原款 ¥' + item.debtAmount}}
       <text>{{item.judgmentText}}</text><text>{{item.freezeText}}</text><text>{{item.debtText}}</text>
       <view wx:for="{{item.freezeScope}}" wx:for-item="scope" wx:key="productId"><text>{{scope.productName}} · 已核范围 ¥{{scope.amount}}（生效情况见本案状态）</text></view>
-      <button wx:if="{{ready.refusals && !loading && (item.scopeEditable || item.retryScope)}}" data-id="{{item.order_id}}" data-action="SCOPE" bindtap="onOpenRefusalResolution">{{item.retryScope ? '核对上次范围请求' : '核对争议商品及冻结金额'}}</button>
-      <button wx:if="{{ready.refusals && !loading && (item.canRevoke || item.retryRevoke)}}" data-id="{{item.order_id}}" data-action="REVOKE" bindtap="onOpenRefusalResolution">{{item.retryRevoke ? '核对上次撤销结果' : '撤销本站拒付误判'}}</button>
-      <button wx:if="{{ready.refusals && !loading && (item.canRelease || item.retryRelease)}}" data-id="{{item.order_id}}" data-action="RELEASE" bindtap="onOpenRefusalResolution">{{item.retryRelease ? '核对上次解除结果' : '解除本案资产冻结'}}</button>
-      <button wx:if="{{ready.refusals && !loading}}" data-id="{{item.order_id}}" bindtap="onRefusalHistory">查看处理历史</button>
-      <button data-id="{{item.order_id}}" bindtap="onOrder">查看本单追款</button>
+      <button wx:if="{{ready.refusals && !loading && (item.scopeEditable || item.retryScope)}}" data-id="{{item.order_id}}" data-action="SCOPE" bindtap="onOpenRefusalResolution" class="af-action af-action--quiet b3-on-open-refusal-resolution" hover-class="af-action--pressed"><view class="af-action__face">{{item.retryScope ? '核对上次范围请求' : '核对争议商品及冻结金额'}}</view></button>
+      <button wx:if="{{ready.refusals && !loading && (item.canRevoke || item.retryRevoke)}}" data-id="{{item.order_id}}" class="af-action af-action--quiet b3-on-open-refusal-resolution" data-action="REVOKE" bindtap="onOpenRefusalResolution" hover-class="af-action--pressed"><view class="af-action__face">{{item.retryRevoke ? '核对上次撤销结果' : '撤销本站拒付误判'}}</view></button>
+      <button wx:if="{{ready.refusals && !loading && (item.canRelease || item.retryRelease)}}" data-id="{{item.order_id}}" class="af-action af-action--quiet b3-on-open-refusal-resolution" data-action="RELEASE" bindtap="onOpenRefusalResolution" hover-class="af-action--pressed"><view class="af-action__face">{{item.retryRelease ? '核对上次解除结果' : '解除本案资产冻结'}}</view></button>
+      <button wx:if="{{ready.refusals && !loading}}" data-id="{{item.order_id}}" class="af-action af-action--quiet b3-on-refusal-history" bindtap="onRefusalHistory" hover-class="af-action--pressed"><view class="af-action__face">查看处理历史</view></button>
+      <button data-id="{{item.order_id}}" class="af-action af-action--quiet b3-on-order" bindtap="onOrder" hover-class="af-action--pressed"><view class="af-action__face">查看本单追款</view></button>
       <view wx:if="{{selectedRefusal && selectedRefusal.order_id === item.order_id}}">
         <text wx:if="{{refusalAction && refusalAction !== 'SCOPE'}}">理由必须填写。原判断及欠款保留，不会收款、免债或恢复赊账；跨站冻结由资产站另行复核。</text>
         <view wx:if="{{refusalAction === 'SCOPE'}}">
@@ -55,34 +50,52 @@
           <text wx:if="{{!scopeLines.length}}">原单缺商品证据，保留待核，不能猜测冻结范围。</text>
         </view>
         <textarea wx:if="{{refusalAction}}" maxlength="1000" placeholder="{{refusalAction === 'SCOPE' ? '核对说明（选填）' : '核实依据与办理理由'}}" value="{{refusalReason}}" bindinput="onRefusalReason" disabled="{{refusalAction === 'SCOPE' && pendingRefusal}}" />
-        <button wx:if="{{refusalAction}}" loading="{{refusalBusy}}" disabled="{{refusalBusy}}" bindtap="onSubmitRefusalResolution">保存本次处理</button>
-        <button wx:if="{{pendingRefusal && refusalAction}}" disabled="{{refusalBusy}}" bindtap="onRetryRefusalResolution">重试原请求</button>
+        <button wx:if="{{refusalAction}}" loading="{{refusalBusy}}" disabled="{{refusalBusy}}" bindtap="onSubmitRefusalResolution" class="af-action af-action--primary b3-on-submit-refusal-resolution af-action--grow" hover-class="af-action--pressed">保存本次处理</button>
+        <button wx:if="{{pendingRefusal && refusalAction}}" disabled="{{refusalBusy}}" bindtap="onRetryRefusalResolution" class="af-action af-action--secondary b3-on-retry-refusal-resolution" hover-class="af-action--pressed">重试原请求</button>
         <text class="error" wx:if="{{refusalHistoryError}}">{{refusalHistoryError}}</text>
         <view wx:for="{{refusalHistory}}" wx:for-item="entry" wx:key="id"><text>{{entry.actionText}} · {{entry.createTime}}</text><text>{{entry.reason}}</text></view>
       </view>
     </view><text class="error" wx:if="{{errors.refusals}}">{{errors.refusals}}；未完成核对，请重试。</text>
     <text class="empty-state" wx:if="{{ready.refusals && !loading && !refusalLoading && !refusals.length}}">{{refusalScope === 'ACTIVE' ? '暂无当前拒付事项' : '暂无拒付历史记录'}}</text>
     <text class="error" wx:if="{{refusalMoreError}}">{{refusalMoreError}}</text>
-    <button wx:if="{{refusalNextBeforeId && !refusalOrderId}}" bindtap="onMoreRefusals" loading="{{refusalLoading}}" disabled="{{loading || refusalLoading || refusalBusy}}">{{refusalMoreError ? '重试更早记录' : '更多记录'}}</button>
+    <button wx:if="{{refusalNextBeforeId && !refusalOrderId}}" bindtap="onMoreRefusals" loading="{{refusalLoading}}" disabled="{{loading || refusalLoading || refusalBusy}}" class="af-action af-action--quiet b3-on-more-refusals" hover-class="af-action--pressed"><view class="af-action__face">{{refusalMoreError ? '重试更早记录' : '更多记录'}}</view></button>
   </view>
-  <view class="section" id="waiting-recoveries"><text class="title">冲销款当前返还责任 <text wx:if="{{ready.recoveries}}">· {{counts.recoveries}} 笔</text></text>
+  <view class="section" id="waiting-recoveries" wx:if="{{activeSection === 'all' || activeSection === 'recoveries'}}"><text class="title">冲销款当前返还责任 <text wx:if="{{ready.recoveries}}">· {{counts.recoveries}} 笔</text></text>
     <text class="error" wx:if="{{errors.recoveries}}">未完成核对；下面如有记录，是上次读取的结果。</text>
     <view class="row task-row" wx:for="{{recoveries}}" wx:key="orderId">订单 {{item.orderId}} · {{item.fromStationText}} 向 {{item.toStationText}} 返还 ¥{{item.amount}}
       <text>责任站 {{item.responsibleStationText}} · {{item.waitingSinceLabel}} {{item.waitingSinceTime}}</text><text>{{item.waitingReason}}</text>
-      <button wx:if="{{ready.recoveries && !loading}}" data-id="{{item.orderId}}" data-action="{{item.nextAction}}" bindtap="action">{{item.nextActionText}}</button>
+      <button wx:if="{{ready.recoveries && !loading}}" data-id="{{item.orderId}}" data-action="{{item.nextAction}}" bindtap="action" class="af-action af-action--quiet b3-action" hover-class="af-action--pressed"><view class="af-action__face">{{item.nextActionText}}</view></button>
     </view><text class="empty-state" wx:if="{{ready.recoveries && !loading && !recoveries.length}}">暂无本站可办理的返还款责任</text>
     <text class="hint" wx:if="{{ready.recoveries && counts.recoveries > recoveries.length}}">共 {{counts.recoveries}} 笔，本次显示最早 {{recoveries.length}} 笔；办理后重新核对后续记录。</text>
   </view>
-  <view class="section" id="waiting-barrels"><text class="title">外派净桶当前交接责任 <text wx:if="{{ready.barrels}}">· {{counts.barrels}} 笔</text></text>
+  <view class="section" id="waiting-barrels" wx:if="{{activeSection === 'all' || activeSection === 'barrels'}}"><text class="title">外派净桶当前交接责任 <text wx:if="{{ready.barrels}}">· {{counts.barrels}} 笔</text></text>
     <text class="error" wx:if="{{errors.barrels}}">未完成核对；下面如有记录，是上次读取的结果。</text>
-    <view class="row task-row" wx:for="{{barrels}}" wx:key="orderId">订单 {{item.orderId}} · 归属站 {{item.sourceStationText}} / 履约站 {{item.targetStationText}} · 实际净送 {{item.netBarrels}} 桶（负数反向）
+    <view class="row task-row" wx:for="{{barrels}}" wx:key="orderId"><text class="card-title">订单 {{item.orderId}}</text><text class="card-amount">实际净送 {{item.netBarrels}} 桶（负数反向）</text><text>归属站 {{item.sourceStationText}} / 履约站 {{item.targetStationText}}</text>
       <text>{{item.barrelItems}} · {{item.barrelModeText}} · 桶折款 ¥{{item.barrelAmount}}</text>
       <text>责任站 {{item.responsibleStationText}} · {{item.waitingSinceLabel}} {{item.waitingSinceTime}}</text><text>{{item.waitingReason}}</text>
       <text wx:if="{{item.disputed}}">待双方确认争议：{{item.disputeNote}}</text><text wx:if="{{item.resolutionNote}}">方案：{{item.resolutionNote}}</text>
-      <button wx:if="{{ready.barrels && !loading && item.nextAction === 'proposal'}}" data-id="{{item.orderId}}" bindtap="onProposal">{{item.nextActionText}}</button>
-      <button wx:if="{{ready.barrels && !loading && item.nextAction !== 'proposal'}}" data-id="{{item.orderId}}" data-action="{{item.nextAction}}" bindtap="action">{{item.nextActionText}}</button>
-      <button wx:if="{{ready.barrels && !loading}}" data-id="{{item.orderId}}" data-action="dispute" bindtap="action">报告桶损或交接争议</button>
+      <button wx:if="{{ready.barrels && !loading && item.nextAction === 'proposal'}}" data-id="{{item.orderId}}" bindtap="onProposal" class="af-action af-action--quiet b3-on-proposal" hover-class="af-action--pressed"><view class="af-action__face">{{item.nextActionText}}</view></button>
+      <button wx:if="{{ready.barrels && !loading && item.nextAction !== 'proposal'}}" data-id="{{item.orderId}}" data-action="{{item.nextAction}}" bindtap="action" class="af-action af-action--quiet b3-action" hover-class="af-action--pressed"><view class="af-action__face">{{item.nextActionText}}</view></button>
+      <button wx:if="{{ready.barrels && !loading}}" data-id="{{item.orderId}}" data-action="dispute" bindtap="action" class="af-action af-action--quiet b3-action" hover-class="af-action--pressed"><view class="af-action__face">报告桶损或交接争议</view></button>
     </view><text class="empty-state" wx:if="{{ready.barrels && !loading && !barrels.length}}">暂无本站可办理的净桶交接责任</text>
     <text class="hint" wx:if="{{ready.barrels && counts.barrels > barrels.length}}">共 {{counts.barrels}} 笔，本次显示最早 {{barrels.length}} 笔；办理后重新核对后续记录。</text>
   </view>
+  <view class="section ticket-tool">
+    <text class="title">客户要求退水票</text>
+    <text class="hint">收到客户要求后，查询可退的购买批次。</text>
+    <button wx:if="{{!ticketOpen}}" bindtap="onOpenTickets" class="af-entry b3-on-open-tickets" hover-class="af-action--pressed"><view class="af-entry__body">查询可退批次</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
+    <block wx:else>
+      <button bindtap="onCloseTickets" disabled="{{ticketBusy}}" class="af-action af-action--quiet b3-on-close-tickets" hover-class="af-action--pressed"><view class="af-action__face">收起</view></button>
+      <text class="hint" wx:if="{{ticketLoading}}">正在核对批次…</text>
+      <view wx:if="{{ticketError}}"><text class="error">{{ticketError}}</text><button bindtap="onOpenTickets" disabled="{{ticketBusy || ticketLoading}}" class="af-entry b3-on-open-tickets" hover-class="af-action--pressed"><view class="af-entry__body">重新核对</view><text class="af-entry__arrow" aria-hidden="true">›</text></button></view>
+      <view class="row task-row" wx:for="{{tickets}}" wx:key="paymentId">
+        <text class="card-title">{{item.customerName}} · {{item.productName}}</text>
+        <text class="card-amount">剩余 {{item.remainingQty}} 张 · ¥{{item.refundAmount}}</text>
+        <text>原渠道 {{item.paymentMethodText}}</text>
+        <button data-id="{{item.paymentId}}" bindtap="onTicketRefund" disabled="{{ticketBusy || ticketLoading || ticketError}}" class="af-action af-action--secondary b3-on-ticket-refund" hover-class="af-action--pressed">核实并退票</button>
+      </view>
+      <text class="empty-state" wx:if="{{!ticketLoading && !ticketError && !tickets.length}}">暂无可退批次</text>
+    </block>
+  </view>
 </view>
+<business-dialog id="business-dialog" />

@@ -127,14 +127,16 @@ class TicketPurchaseIntentTest {
         product.setId(5L); product.setCategory(2); product.setTicketEnabled(1); product.setStatus(1);
         product.setTicketPrice(new BigDecimal("8.00")); product.setPrice(new BigDecimal("20.00"));
         when(catalog.getById(5L)).thenReturn(product);
-        var selected = new com.example.aquaflow.entity.Inventory(); selected.setEnabled(1);
+        var selected = new com.example.aquaflow.entity.Inventory(); selected.setEnabled(1); selected.setTicketPrice(new BigDecimal("8.00"));
         when(inventory.getByStationAndProduct(1L, 5L)).thenReturn(selected);
         when(tiers.usesCustomTicket(product, selected)).thenReturn(true);
         var service = new TicketAccountServiceImpl();
+        ReflectionTestUtils.setField(service,"mockPolicy",mock(com.example.aquaflow.payment.MockPaymentPolicy.class));
         ReflectionTestUtils.setField(service, "paymentRecordMapper", mapper);
         ReflectionTestUtils.setField(service, "productMapper", catalog);
         ReflectionTestUtils.setField(service, "inventoryMapper", inventory);
         ReflectionTestUtils.setField(service, "ticketTierService", tiers);
+        ReflectionTestUtils.setField(service, "ticketPackageMapper", mock(com.example.aquaflow.mapper.TicketPackageMapper.class));
         ReflectionTestUtils.setField(service, "barrelPolicy", policy);
         ReflectionTestUtils.setField(service, "purchaseFenceService", mock(TicketPurchaseFenceService.class));
         var stations = mock(com.example.aquaflow.mapper.StationMapper.class);

@@ -1,0 +1,39 @@
+{
+  "passed": 8,
+  "failed": 0,
+  "results": [
+    {
+      "name": "remove-page-hidden-epoch-guard",
+      "detected": true
+    },
+    {
+      "name": "retain-old-visible-state-after-read-error",
+      "detected": true
+    },
+    {
+      "name": "omit-durable-marker-before-dispatch",
+      "detected": true
+    },
+    {
+      "name": "ignore-durable-cases-after-restart",
+      "detected": true
+    },
+    {
+      "name": "merge-independent-common-drafts",
+      "detected": true
+    },
+    {
+      "name": "remove-account-station-storage-isolation",
+      "detected": true
+    },
+    {
+      "name": "clear-case-on-empty-recovery-read",
+      "detected": true
+    },
+    {
+      "name": "permit-corrupted-metadata-reset",
+      "detected": true
+    }
+  ],
+  "scope": "in-memory mutations exercised through actual page entries; production bytes unchanged"
+}

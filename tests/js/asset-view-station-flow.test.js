@@ -142,6 +142,49 @@ test('invalid ticket quantity is failure while an empty account list is true zer
   await p.loadData();assert.strictEqual(p.data.accountsFailed,true);assert.strictEqual(p.data.totalTickets,null)
   empty=true;await p.loadData();assert.strictEqual(p.data.accountsFailed,false);assert.strictEqual(p.data.totalTickets,0)
 })
+test('same-station ticket refresh labels retained balance and shows product loading until responses settle', async () => {
+  const slow=deferred(); let refresh=false
+  const {p}=page('ticket/index',{accounts:()=>refresh?slow.promise:Promise.resolve(ok([{remainQuantity:4,rightAmount:40,productName:'水'}])),
+    products:async()=>ok([{id:5,category:1,name:'水'}])})
+  await p.loadData(); refresh=true; const request=p.loadData(); p.onShowPurchase()
+  assert.strictEqual(p.data.totalTickets,4); assert.strictEqual(p.data.refreshing,true); assert.strictEqual(p.data.productsLoading,true)
+  const tree=parseWxml(require('fs').readFileSync(path.join(ROOT,'miniapp-user/pages/ticket/index.wxml'),'utf8'))
+  const texts=()=>renderElements(tree,p.data,{includeText:true}).map(n=>n.text)
+  assert.ok(texts().includes('可用水票 · 更新中（上次读取）'))
+  assert.ok(texts().includes('正在加载可购买商品…')); assert.ok(!texts().includes('本站暂无可购买水票的商品。'))
+  slow.resolve(ok([{remainQuantity:3,rightAmount:30,productName:'水'}])); await request
+  assert.strictEqual(p.data.totalTickets,3); assert.strictEqual(p.data.refreshing,false); assert.strictEqual(p.data.productsLoading,false)
+  assert.ok(!texts().includes('正在加载可购买商品…')); assert.strictEqual(p.data.buyProducts.length,1)
+})
+test('ticket refresh distinguishes unknown balance, product failure and successful empty products', async () => {
+  const slow=deferred(); let phase=0
+  const {p}=page('ticket/index',{accounts:()=>phase===1?slow.promise:Promise.resolve(phase===0?{code:1}:ok([])),
+    products:async()=>phase===0?{code:1}:ok([])})
+  await p.loadData(); assert.strictEqual(p.data.totalTickets,null); assert.strictEqual(p.data.accountsFailed,true)
+  phase=1; const request=p.loadData(); p.onShowPurchase()
+  const tree=parseWxml(require('fs').readFileSync(path.join(ROOT,'miniapp-user/pages/ticket/index.wxml'),'utf8'))
+  const texts=()=>renderElements(tree,p.data,{includeText:true}).map(n=>n.text)
+  assert.ok(texts().includes('可用水票 · 更新中')); assert.ok(texts().includes('—'))
+  assert.ok(texts().includes('正在加载可购买商品…')); assert.ok(!texts().includes('本站暂无可购买水票的商品。'))
+  slow.resolve(ok([])); await request
+  assert.strictEqual(p.data.totalTickets,0); assert.ok(texts().includes('本站暂无可购买水票的商品。'))
+  phase=0; await p.loadData(); assert.strictEqual(p.data.productsFailed,true)
+  assert.ok(texts().includes('可购买商品未能加载，请返回页面重新加载；原购买仍可恢复。'))
+  assert.ok(!texts().includes('本站暂无可购买水票的商品。'))
+})
+test('late ticket refresh cannot clear newer station loading or restore old station facts', async () => {
+  const old=deferred(), current=deferred(); let calls=0
+  const {p}=page('ticket/index',{accounts:id=>{
+    calls++; if (calls===1) return Promise.resolve(ok([{remainQuantity:4}]))
+    return id===11 ? old.promise : current.promise
+  },products:async id=>ok([{id,category:1,name:'水'}])})
+  await p.loadData(); const older=p.loadData(); const newer=select(p)
+  assert.strictEqual(p.data.viewStationId,22); assert.strictEqual(p.data.totalTickets,null); assert.strictEqual(p.data.productsLoading,true)
+  old.resolve(ok([{remainQuantity:99}])); await older
+  assert.strictEqual(p.data.totalTickets,null); assert.strictEqual(p.data.productsLoading,true)
+  current.resolve(ok([{remainQuantity:2}])); await newer
+  assert.strictEqual(p.data.totalTickets,2); assert.strictEqual(p.data.productsLoading,false); assert.strictEqual(p.data.buyProducts[0].id,22)
+})
 test('late deposit response is ignored after changing viewed station', async () => {
   const slow=deferred(),{p}=page('deposit/records/index',{deposit:(_,q)=>q.stationId===11?slow.promise:Promise.resolve(ok([{id:22,amount:-60}]))})
   const old=p.loadRecords();await select(p);slow.resolve(ok([{id:11,amount:900}]));await old

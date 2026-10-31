@@ -7,14 +7,21 @@ const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
 const ROOT = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve(__dirname, '..', '..')
-const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8')
+function read(rel, stack = []) {
+  if (stack.includes(rel)) throw new Error('cyclic WXSS import: ' + rel)
+  const source = fs.readFileSync(path.join(ROOT, rel), 'utf8')
+  if (!rel.endsWith('.wxss')) return source
+  return source.replace(/^\s*@import\s+['"]([^'"]+)['"]\s*;?/gm, (_, imported) =>
+    read(path.posix.normalize(path.posix.join(path.posix.dirname(rel), imported)), [...stack, rel]))
+}
 const PAGES = [
+  { path: "miniapp-user/components/ProductSelector/index.wxss", selectors: [".product-price"] },
   {
     "path": "miniapp-user/pages/order/create.wxss",
     "selectors": [
       ".fee-hint",
       ".popup-desc",
-      ".detail-subtotal-label"
+      ".detail-item-meta"
     ]
   },
   {
@@ -50,7 +57,7 @@ const PAGES = [
   {
     "path": "miniapp-delivery/pages/station-mgmt/customers/index.wxss",
     "selectors": [
-      ".chip",
+      ".af-choice",
       ".customer-phone",
       ".customer-phone.muted",
       ".stat-label",
@@ -70,20 +77,19 @@ const PAGES = [
       ".stat-unit",
       ".bucket-time",
       ".record-summary",
-      ".record-action-secondary",
+      ".af-action--secondary",
       ".info-tip",
-      ".eco-desc",
+      ".rights-purchase-note",
+      ".return-tip",
       ".preview-placeholder",
-      ".preview-lots-title",
-      ".preview-storage text",
-      ".water-type-qty"
+      ".af-action--quiet",
+      ".preview-storage text"
     ]
   },
   {
     "path": "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss",
     "selectors": [
-      ".eyebrow",
-      ".page-caption",
+      ".page-scope",
       ".record-number",
       ".status.neutral",
       ".muted",
@@ -125,13 +131,13 @@ function property(sheet, selector, name) {
   assert(value, selector + ' missing ' + name)
   return value
 }
-function tokens(rel) { return rules(read(rel)).find(rule => rule.selector === 'page').declarations }
+function tokens(rel) { const blocks = rules(read(rel)).filter(rule => rule.selector === 'page'); assert(blocks.length, rel + ' missing page tokens'); return Object.assign({}, ...blocks.map(rule => rule.declarations)) }
 function color(value, palette) {
   const seen = new Set()
   while (value.startsWith('var(')) {
-    const match = /^var\((--[\w-]+)\)$/.exec(value)
+    const match = /^var\((--[\w-]+)(?:,\s*([^)]*))?\)$/.exec(value)
     assert(match && !seen.has(match[1]), 'unsupported/cyclic color ' + value)
-    seen.add(match[1]); value = palette[match[1]]
+    seen.add(match[1]); value = palette[match[1]] || match[2]
     assert(value, 'missing token ' + match[1])
   }
   const hex = /^#([\da-f]{3}|[\da-f]{6})$/i.exec(value)
@@ -148,7 +154,7 @@ function contrast(a, b) {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
 }
 const palettes = {
-  'miniapp-user': tokens('miniapp-user/styles/variable.wxss'),
+  'miniapp-user': tokens('miniapp-user/app.wxss'),
   'miniapp-delivery': tokens('miniapp-delivery/app.wxss')
 }
 let passed = 0, failed = 0
@@ -161,7 +167,7 @@ function test(name, action) {
 // warning or primary controls retain their more-specific foreground declarations.
 for (const page of PAGES) {
   const palette = palettes[page.path.split('/')[0]]
-  const sheet = rules(read(page.path))
+  const sheet = rules(read(page.path.split('/')[0] + '/app.wxss') + '\n' + read(page.path))
   const wxml = read(page.path.replace('.wxss', '.wxml')).replace(/<!--[\s\S]*?-->/g, '')
   const classValues = Array.from(wxml.matchAll(/\bclass="([^"]*)"/g)).map(m => m[1])
   for (const selector of page.selectors) test(page.path + ' ' + selector, () => {
@@ -182,17 +188,22 @@ const knownFacts = [
   ['order-delivery same-order customer readback', 'miniapp-user/pages/order/detail.wxml', '订单编号', 'miniapp-user/pages/order/detail.wxss', '.label'],
   ['return-refund manager amount', 'miniapp-delivery/pages/station-mgmt/barrel-return/index.wxml', '应退押金', 'miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss', '.muted'],
   ['barrel-rights', 'miniapp-user/pages/barrel/index.wxml', '用桶权益', 'miniapp-user/pages/barrel/index.wxss', '.stat-label'],
+  ['barrel-return-station', 'miniapp-user/pages/barrel/index.wxml', '办理水站', 'miniapp-user/pages/barrel/index.wxss', '.return-tip'],
   ['roles-stations', 'miniapp-delivery/pages/role-select/index.wxml', '选择身份只是登记意向', 'miniapp-delivery/pages/role-select/index.wxss', '.footer-tip']
 ]
 for (const [object, wxml, fact, wxss, selector] of knownFacts) test('known A01 binding ' + object, () => {
   assert(read(wxml).replace(/<!--[\s\S]*?-->/g, '').includes(fact), 'necessary fact absent')
-  assert.strictEqual(property(rules(read(wxss)), selector, 'color'), 'var(--text-regular)')
+  const palette = palettes[wxml.split('/')[0]]
+  const foreground = color(property(rules(read(wxss)), selector, 'color'), palette)
+  for (const background of ['#FFFFFF', 'var(--af2-surface-order)', 'var(--af2-surface-physical)', 'var(--af2-surface-money)']) {
+    assert(contrast(foreground, color(background, palette)) >= 4.5, object + ' readable semantic surface')
+  }
 })
 
-test('active customer chips and retry surfaces retain readable white text', () => {
-  const sheet = rules(read('miniapp-delivery/pages/station-mgmt/customers/index.wxss'))
+test('selected customer choices and retry surfaces retain readable text', () => {
+  const sheet = rules(read('miniapp-delivery/app.wxss') + '\n' + read('miniapp-delivery/pages/station-mgmt/customers/index.wxss'))
   const palette = palettes['miniapp-delivery']
-  for (const selector of ['.chip.active', '.ent-empty.ent-state-action']) {
+  for (const selector of ['.af-choice--selected .af-choice__face', '.ent-empty.ent-state-action']) {
     const ratio = contrast(color(property(sheet, selector, 'color'), palette), color(property(sheet, selector, 'background'), palette))
     assert(ratio >= 4.5)
   }

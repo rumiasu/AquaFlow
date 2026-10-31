@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { jumpToSettingSection } = require('../../../utils/settings-sections')
 // ⚠️ 直接用 utils/request，不引 api/station-mgmt.js 与 config/api.js：
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
@@ -29,7 +30,7 @@ const PRODUCTS = '/api/products/sale-by-station'
  * 产品口径：「统一水票，**在站长端是特殊化的**，但在**用户端看起来没区别**，执行上
  * **也不是统一定价**，而是**对应水怎么统一打折、统一打几折**的区别，**不是专门卖统一水票**。」
  *
- * 所以本页的"统一水票"入口（橙色 chip）实际配的是**折扣**，不是价格：
+ * 所以本页独立的站级设置入口配的是**折扣**，不是价格：
  *   · 站长在这里配"买 N 张打几折"（如 10 张 9.5 折、30 张 9 折）—— 这就是"特殊化"的那部分；
  *   · **价格由后端按各款水自己的价现算**（农夫山泉按农夫山泉的价、娃哈哈按娃哈哈的价），
  *     所以这一页**没有"总价"输入框**，也不显示绝对金额；
@@ -43,9 +44,11 @@ Page({
   data: {
     settingsSections: [{"target": "ticket-products", "label": "选择商品"}, {"target": "ticket-tiers", "label": "现有档位"}, {"target": "ticket-edit", "label": "新增或修改"}],
     stationId: null,
-    loading: true,
+    loading: false,
     products: [],
     visibleProducts: [], productKeyword: '', productLoadError: '', packageLoadError: '', productSpec: '',
+    productsLoading: false, showProductPicker: false, pendingProductId: '', productImage: '', productImageFailed: false,
+    qtyError: '', formDirty: false, productSelectionError: '',
     productId: '',
     productName: '',
     /** 当前选中的是不是站级「统一折扣」入口 —— 决定表单与列表渲染哪一套 */
@@ -56,8 +59,24 @@ Page({
     // 平台预设档（10 / 20 / 100 张三档的**折扣**，由后端下发）。
     // 它只是「一键填入」的草稿 —— 点了只填表单，不自动保存；站长能改数字再存。
     presets: [],
+    editingTierId: null, editorCollapsed: false, editorExpanded: false, presetsExpanded: false,
     form: { qty: '', price: '', discount: '', title: '', sort: '' },
-    saving: false
+    saving: false,
+    ticketReadinessText: '', ticketReadinessError: ''
+  },
+
+  async refreshTicketReadiness() {
+    const context = this.readContext(), seq = this._ticketGuideSeq = (this._ticketGuideSeq || 0) + 1
+    try {
+      const response = await get('/api/manager/setup-guide')
+      if (!this.isReadCurrent(context) || seq !== this._ticketGuideSeq) return
+      const row = response && response.code === 0 && response.data && Array.isArray(response.data.items)
+        && response.data.items.find(row => row.key === 'ticketPackage')
+      if (!row || typeof row.why !== 'string' || !row.why.trim()) throw Error('水票准备状态暂未读取，请重试')
+      this.setData({ ticketReadinessText: row.why + (!row.done && row.suggestion ? '；' + row.suggestion : ''), ticketReadinessError: '' })
+    } catch (error) {
+      if (this.isReadCurrent(context) && seq === this._ticketGuideSeq) this.setData({ ticketReadinessText: '', ticketReadinessError: '水票准备状态暂未读取，请重试' })
+    }
   },
 
   onLoad(options) {
@@ -65,24 +84,87 @@ Page({
     this._initialProductId = Number.isSafeInteger(id) && id > 0 ? String(id) : ''
   },
 
-  onProductSearch(e) {
-    const keyword = String(e.detail.value || '').trim().toLowerCase()
-    this.setData({ productKeyword: e.detail.value,
-      visibleProducts: this.data.products.filter(p => p.unified || [p.name, p.spec, p.brand].join(' ').toLowerCase().includes(keyword)) })
+  filterProducts(keyword = this.data.productKeyword) {
+    const text = String(keyword || '').trim().toLowerCase()
+    return this.data.products.filter(p => [p.name, p.spec, p.brand].join(' ').toLowerCase().includes(text))
   },
-
+  onProductSearch(e) {
+    this.setData({ productKeyword: e.detail.value, visibleProducts: this.filterProducts(e.detail.value) })
+  },
   onProductImageError(e) {
     const id = String(e.currentTarget.dataset.id)
     const products = this.data.products.map(p => String(p.id) === id ? { ...p, imageFailed: true } : p)
-    const keyword = String(this.data.productKeyword || '').trim().toLowerCase()
-    this.setData({ products, visibleProducts: products.filter(p => p.unified || [p.name, p.spec, p.brand].join(' ').toLowerCase().includes(keyword)) })
+    this.setData({ products, productImageFailed: id === this.data.productId || this.data.productImageFailed })
+    this.setData({ visibleProducts: this.filterProducts() })
   },
+  hideKeyboard() { if (typeof wx.hideKeyboard === 'function') wx.hideKeyboard() },
+  onOpenProductPicker() {
+    if (this.data.saving) return
+    this.hideKeyboard()
+    this.setData({ showProductPicker: true, pendingProductId: this.data.isUnified ? '' : this.data.productId,
+      productKeyword: '', visibleProducts: this.filterProducts('') })
+  },
+  onCloseProductPicker() {
+    this.hideKeyboard()
+    this.setData({ showProductPicker: false })
+  },
+  onChooseProduct(e) {
+    const id = String(e.currentTarget.dataset.id)
+    if (!this.data.saving && this.data.products.some(p => String(p.id) === id)) {
+      this.hideKeyboard()
+      this.setData({ pendingProductId: id })
+    }
+  },
+  onConfirmProduct() {
+    if (this.data.productsLoading || this.data.productLoadError || !this.data.pendingProductId) return
+    return this.requestProductSwitch(this.data.pendingProductId)
+  },
+  onOpenUnified() { return this.requestProductSwitch('UNIFIED') },
+  hasDraft() { return Object.values(this.data.form).some(value => String(value).trim() !== '') },
+  requestProductSwitch(id) {
+    if (this.data.saving) return
+    this.hideKeyboard()
+    if (String(id) === this.data.productId) { this.onCloseProductPicker(); return }
+    if (!this.hasDraft()) { this.onCloseProductPicker(); return this.onPickProduct({ currentTarget: { dataset: { id } } }) }
+    if (this._switchPrompt) return
+    this._switchPrompt = true
+    const context = this.readContext(), from = this.data.productId
+    // 2026-10-26：切商品曾直接清空表单；确认保留/放弃后才切，取消仍停留原稿。
+    let handled = false
+    wx.showActionSheet({ itemList: ['保留草稿并切换', '放弃草稿并切换'],
+      success: result => {
+        if (handled) return
+        handled = true
+        if (!this.isReadCurrent(context) || this.data.productId !== from || this.data.saving) return
+        if (![0, 1].includes(result.tapIndex)) return
+        this.onCloseProductPicker()
+        this.onPickProduct({ currentTarget: { dataset: { id } }, discardDraft: result.tapIndex === 1 })
+      },
+      complete: () => { this._switchPrompt = false }
+    })
+  },
+  readContext() {
+    const user = getApp().globalData.userInfo || {}
+    return { epoch: this._readEpoch || 0, actor: [user.staffId || user.id || '', user.stationId || '', user.role || ''].join(':') }
+  },
+  isReadCurrent(context) {
+    const now = this.readContext()
+    return !this._unloaded && !this._hidden && context.epoch === now.epoch && context.actor === now.actor
+  },
+  onHide() {
+    this._hidden = true
+    this._readEpoch = (this._readEpoch || 0) + 1
+    this.onCloseProductPicker()
+    this.setData({ loading: false, productsLoading: false })
+  },
+  onUnload() { this.onHide(); this._unloaded = true },
 
   onTicketPurchaseHistory() {
     wx.navigateTo({ url: '/pages/station-mgmt/payments/index?view=ticketHistory' })
   },
 
   onShow() {
+    this._hidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
@@ -93,8 +175,19 @@ Page({
       wx.showToast({ title: '未识别到所属水站', icon: 'none' })
       return
     }
+    const actor = this.readContext().actor
+    if (this._draftActor && this._draftActor !== actor) {
+      this._draftsByProduct = {}
+      this.setData({ productId: '', productName: '', productSpec: '', productImage: '', isUnified: false,
+        packages: [], discounts: [], productSelectionError: '', packageLoadError: '', productLoadError: '',
+        editingTierId: null, editorCollapsed: false, editorExpanded: false, presetsExpanded: false,
+    form: { qty: '', price: '', discount: '', title: '', sort: '' }, formDirty: false, qtyError: '' })
+    }
+    this._draftActor = actor
     this.setData({ stationId })
-    this.loadProducts()
+    this.refreshTicketReadiness()
+    this._refreshAfterWrite = this.data.saving
+    if (!this.data.saving) this.loadProducts()
     this.loadPresets()
   },
 
@@ -106,13 +199,15 @@ Page({
    * 这只是一个方便填写的草稿，不该挡住主流程。
    */
   async loadPresets() {
+    const context = this.readContext()
     try {
       const res = await get(DISCOUNT_PRESETS)
+      if (!this.isReadCurrent(context)) return
       const d = (res && res.data) || {}
       this.setData({ presets: d.presets || [] })
     } catch (err) {
       console.warn('[ticket-discount presets] load failed:', err && err.message)
-      this.setData({ presets: [] })
+      if (this.isReadCurrent(context)) this.setData({ presets: [] })
     }
   },
 
@@ -122,43 +217,63 @@ Page({
    * 填的是**折扣**（千分比 950 → 界面上的「9.5」折）与张数/名称，全部用服务端下发的值。
    * ⚠️ 这里**没有总价**：价格要按各款水自己的价现算，存不下来也不该由前端算。
    */
+  onToggleTierEditor() { const visible = !this.data.editorCollapsed && (this.data.editorExpanded || this.data.formDirty || (!this.data.packages.length && !this.data.discounts.length)); this.setData({ editorCollapsed: visible, editorExpanded: !visible }) },
+  onTogglePresets() { this.setData({ presetsExpanded: !this.data.presetsExpanded }) },
+  onEditTier(e) {
+    if (!this.canMutateTiers()) return
+    const rows = this.data.isUnified ? this.data.discounts : this.data.packages
+    const row = rows.find(item => String(item.id) === String(e.currentTarget.dataset.id))
+    if (!row) return
+    const context = this.readContext(), productId = this.data.productId
+    const apply = () => {
+      if (!this.canMutateTiers() || !this.isReadCurrent(context) || this.data.productId !== productId) return
+      this.setData({ editorCollapsed: false, editorExpanded: true, editingTierId: row.id, formDirty: true, qtyError: '',
+        form: { qty: String(row.qty), price: row.price == null ? '' : String(row.price),
+          discount: row.discountPerMille == null ? '' : String(row.discountPerMille / 100),
+          title: row.title || '', sort: row.sort == null ? '' : String(row.sort) } })
+      if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: '#ticket-edit', duration: 180 })
+    }
+    if (!this.data.formDirty) return apply()
+    showBusinessModal({ title: '替换当前输入', content: '当前套餐有未保存输入。改为编辑所选档位？', confirmText: '替换输入', cancelText: '继续填写', success: result => { if (result.confirm) apply() } })
+  },
   onApplyPreset(e) {
+    if (this.data.saving) return
     const id = Number(e.currentTarget.dataset.id)
     const p = this.data.presets.find(x => Number(x.qty) === id)
     if (!p) return
-    this.setData({
-      'form.qty': String(p.qty),
-      // 千分比 → 界面上的"折"：950 → 9.5。反着算回千分比时乘 100 再取整（见 onSave）
-      'form.discount': String((Number(p.discountPerMille) || 0) / 100),
-      'form.title': p.title || ''
-    })
+    // 千分比 → 折；仍只填草稿，不自动保存。
+    this.setData({ editorCollapsed: false, editorExpanded: true, editingTierId: null, formDirty: true, qtyError: '', form: { ...this.data.form, qty: String(p.qty),
+      discount: String((Number(p.discountPerMille) || 0) / 100), title: p.title || '' } })
     wx.showToast({ title: '已填入，可修改后保存', icon: 'none' })
   },
 
   async loadProducts() {
+    const context = this.readContext()
     const seq = this._productLoadSeq = (this._productLoadSeq || 0) + 1
-    this.setData({ loading: true, productLoadError: '' })
+    this.setData({ productsLoading: true, productLoadError: '' })
     try {
       const res = await get(PRODUCTS + '?stationId=' + this.data.stationId)
-      if (seq !== this._productLoadSeq) return
-      // 站级「统一折扣」放在最前面：它是站级设置，不是"某个商品的档位"
-      // （产品口径：「统一水票在站长端是特殊化的」）。它不参与具体商品的保存流程。
-      const unified = { id: 'UNIFIED', name: '统一折扣（站级）', unified: true }
-      const products = [unified].concat(res.data || [])
-      const keyword = String(this.data.productKeyword || '').trim().toLowerCase()
-      this.setData({ products, visibleProducts: products.filter(p => p.unified || [p.name, p.spec, p.brand].join(' ').toLowerCase().includes(keyword)) })
+      if (seq !== this._productLoadSeq || !this.isReadCurrent(context)) return
+      // 站级设置不进入商品数据，搜索结果只包含真实商品。
+      if (!Array.isArray(res.data)) throw new Error('商品清单未能确认，请重试')
+      const products = res.data
+      this.setData({ products })
+      this.setData({ visibleProducts: this.filterProducts() })
       const selected = this.data.productId || this._initialProductId
       this._initialProductId = ''
       if (selected) {
-        const p = products.find(p => String(p.id) === String(selected))
+        const p = selected === 'UNIFIED' || products.find(p => String(p.id) === String(selected))
         if (p) await this.onPickProduct({ currentTarget: { dataset: { id: selected } } })
-        else this.setData({ productId: '', packages: [], discounts: [], productLoadError: '原商品当前不在本站在售清单，请重新选择' })
+        else {
+          this._packageSeq = (this._packageSeq || 0) + 1
+          this.setData({ packages: [], discounts: [], loading: false, productSelectionError: '原商品当前不在本站在售清单，请重新选择',
+            packageLoadError: '原商品当前不在本站在售清单，请重新选择' })
+        }
       }
     } catch (err) {
-      if (seq === this._productLoadSeq) this.setData({ productLoadError: err.message || '商品加载失败，请重试' })
-      wx.showToast({ title: err.message || '商品加载失败', icon: 'none' })
+      if (seq === this._productLoadSeq && this.isReadCurrent(context)) this.setData({ productLoadError: err.message || '商品加载失败，请重试' })
     } finally {
-      if (seq === this._productLoadSeq) this.setData({ loading: false })
+      if (seq === this._productLoadSeq && this.isReadCurrent(context)) this.setData({ productsLoading: false })
     }
   },
 
@@ -166,27 +281,39 @@ Page({
     const raw = e.currentTarget.dataset.id
     const unified = String(raw) === 'UNIFIED'
     const id = unified ? null : Number(raw)
-    const p = this.data.products.find(x => (unified ? x.unified : x.id === id))
+    const p = unified ? { name: '统一折扣（站级）' } : this.data.products.find(x => String(x.id) === String(id))
     if (!p || this.data.saving) return
     const changed = this.data.productId !== (unified ? 'UNIFIED' : String(id))
+    if (!this._draftsByProduct) this._draftsByProduct = {}
+    if (changed && this.data.productId) {
+      if (e.discardDraft) delete this._draftsByProduct[this.data.productId]
+      else this._draftsByProduct[this.data.productId] = { ...this.data.form }
+    }
+    const next = unified ? 'UNIFIED' : String(id)
+    const form = changed ? this._draftsByProduct[next] || { qty: '', price: '', discount: '', title: '', sort: '' } : this.data.form
     this.setData({
       productId: unified ? 'UNIFIED' : String(id),
       productName: p ? p.name : '',
-      isUnified: unified, productSpec: p.spec || '', packages: [], discounts: [], packageLoadError: '',
-      form: changed ? { qty: '', price: '', discount: '', title: '', sort: '' } : this.data.form
+      isUnified: unified, productSpec: p.spec || '', productImage: p.imageUrl || '', productImageFailed: !!p.imageFailed,
+      packages: [], discounts: [], packageLoadError: '', productSelectionError: '', form: { ...form },
+      formDirty: Object.values(form).some(value => String(value).trim() !== ''), qtyError: this.quantityError(form.qty)
     })
     await this.loadPackages()
+      this.refreshTicketReadiness()
   },
 
   async loadPackages() {
+    if (!this.data.productId || (!this.data.isUnified && this.data.productSelectionError)) return
+    const context = this.readContext()
     const seq = this._packageSeq = (this._packageSeq || 0) + 1
     this.setData({ loading: true, packageLoadError: '' })
     try {
       if (this.data.isUnified) {
         // 站级统一折扣：只有张数 + 折扣，**没有金额**（价格按各款水现算）
         const res = await get(DISCOUNTS)
-        if (seq !== this._packageSeq) return
-        const discounts = (res.data || []).map(x => Object.assign({}, x, {
+        if (seq !== this._packageSeq || !this.isReadCurrent(context)) return
+        if (!Array.isArray(res.data)) throw new Error('折扣档位未能确认，请重试')
+        const discounts = res.data.map(x => Object.assign({}, x, {
           statusText: x.status === 1 ? '生效中' : '已停用',
           discountText: (Number(x.discountPerMille) || 0) / 100 + ' 折'
         }))
@@ -194,12 +321,13 @@ Page({
         return
       }
       const res = await get(PACKAGES_MANAGE + '?productId=' + this.data.productId)
-      if (seq !== this._packageSeq) return
+      if (seq !== this._packageSeq || !this.isReadCurrent(context)) return
       const p = this.data.products.find(x => String(x.id) === this.data.productId)
       // 散买单价（站级水票价）只用于算"参考节省"这个展示值；
       // 档位自己的 price / unitPrice 一律用服务端返回值，不由前端推导。
       const looseUnit = p && p.ticketPrice != null ? Number(p.ticketPrice) : null
-      const packages = (res.data || []).map(x => {
+      if (!Array.isArray(res.data)) throw new Error('商品档位未能确认，请重试')
+      const packages = res.data.map(x => {
         const unit = x.unitPrice != null ? Number(x.unitPrice) : null
         let saveText = ''
         if (looseUnit !== null && unit !== null && looseUnit > 0) {
@@ -214,30 +342,58 @@ Page({
       })
       this.setData({ packages, discounts: [] })
     } catch (err) {
-      if (seq === this._packageSeq) this.setData({ packageLoadError: err.message || '档位加载失败，请重试' })
-      wx.showToast({ title: err.message || '档位加载失败', icon: 'none' })
+      if (seq === this._packageSeq && this.isReadCurrent(context)) this.setData({ packageLoadError: err.message || '档位加载失败，请重试' })
     } finally {
-      if (seq === this._packageSeq) this.setData({ loading: false })
+      if (seq === this._packageSeq && this.isReadCurrent(context)) this.setData({ loading: false })
     }
   },
 
-  onInput(e) {
-    this.setData({ ['form.' + e.currentTarget.dataset.field]: e.detail.value })
+  quantityError(raw) {
+    if (raw === '') return ''
+    return /^\d+$/.test(String(raw)) && Number.isSafeInteger(Number(raw)) && Number(raw) >= 1 && Number(raw) <= 5000
+      ? '' : '张数须为 1–5000 的整数'
+  },
+  onQtyChange(e) { this.updateForm('qty', e.detail.value) },
+  updateForm(field, value) {
+    if (this.data.saving || !['qty', 'price', 'discount', 'title', 'sort'].includes(field)) return
+    const form = { ...this.data.form, [field]: value }
+    this.setData({ form, formDirty: Object.values(form).some(value => String(value).trim() !== ''), qtyError: this.quantityError(form.qty) })
+  },
+  onInput(e) { this.updateForm(e.currentTarget.dataset.field, e.detail.value) },
+  resetForm() {
+    if (this._draftsByProduct) delete this._draftsByProduct[this.data.productId]
+    this.setData({ editingTierId: null, editorCollapsed: false, editorExpanded: false, form: { qty: '', price: '', discount: '', title: '', sort: '' }, formDirty: false, qtyError: '' })
   },
 
+  finishMutation() {
+    this.setData({ saving: false })
+    // 返回页面时若原写入还未结束，等其收尾再回读，避免跳过当前商品后永远显示旧档位。
+    if (this._refreshAfterWrite && !this._hidden && !this._unloaded) {
+      this._refreshAfterWrite = false
+      this.loadProducts()
+    }
+  },
+  canMutateTiers() {
+    return !this._hidden && !this._unloaded && !this.data.saving && !this.data.loading
+      && (this.data.isUnified || (!this.data.productsLoading && !this.data.productLoadError && !this.data.productSelectionError)) && !this.data.packageLoadError
+      && (!this._draftActor || this._draftActor === this.readContext().actor)
+  },
   async onSave() {
-    if (this.data.saving) return
+    if (!this.canMutateTiers()) return
+    this.hideKeyboard()
     if (!this.data.productId) {
       wx.showToast({ title: '请先选择商品', icon: 'none' })
       return
     }
     const f = this.data.form
     const qty = Number(f.qty)
-    if (!qty || qty <= 0) {
-      wx.showToast({ title: '请填档位张数', icon: 'none' })
+    if (f.qty === '' || this.quantityError(f.qty)) {
+      this.setData({ qtyError: '张数须为 1–5000 的整数' })
+      wx.showToast({ title: '请核对档位张数', icon: 'none' })
       return
     }
 
+    const context = this.readContext()
     this.setData({ saving: true })
     try {
       if (this.data.isUnified) {
@@ -258,10 +414,12 @@ Page({
           sort: f.sort === '' ? 0 : Number(f.sort),
           status: 1
         })
+        if (!this.isReadCurrent(context)) return
         const saved = res.data || {}
         wx.showToast({ title: '已保存（' + qty + ' 张 ' + (saved.discountPerMille / 100) + ' 折）', icon: 'none' })
-        this.setData({ form: { qty: '', price: '', discount: '', title: '', sort: '' } })
+        this.resetForm()
         await this.loadPackages()
+      this.refreshTicketReadiness()
         return
       }
 
@@ -279,72 +437,72 @@ Page({
         sort: f.sort === '' ? 0 : Number(f.sort),
         status: 1
       })
+      if (!this.isReadCurrent(context)) return
       const saved = res.data || {}
       wx.showToast({ title: '已保存（均价 ¥' + saved.unitPrice + '）', icon: 'none' })
-      this.setData({ form: { qty: '', price: '', discount: '', title: '', sort: '' } })
+      this.resetForm()
       await this.loadPackages()
+      this.refreshTicketReadiness()
     } catch (err) {
-      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+      if (this.isReadCurrent(context)) wx.showToast({ title: err.message || '保存失败', icon: 'none' })
     } finally {
-      this.setData({ saving: false })
+      this.finishMutation()
     }
   },
 
   /** 上架/下架：没有单独的状态接口，按唯一键 upsert 重存一次即可（定制档按站+商品+张数，统一折扣按站+张数）。 */
   async onToggleStatus(e) {
-    const id = Number(e.currentTarget.dataset.id)
+    if (!this.canMutateTiers()) return
+    const id = Number(e.currentTarget.dataset.id), unified = this.data.isUnified
+    const row = (unified ? this.data.discounts : this.data.packages).find(x => Number(x.id) === id)
+    if (!row) return
+    const context = this.readContext()
+    this.setData({ saving: true })
     try {
-      if (this.data.isUnified) {
-        const d = this.data.discounts.find(x => x.id === id)
-        if (!d) return
-        await post(DISCOUNTS, {
-          qty: d.qty,
-          discountPerMille: d.discountPerMille,
-          title: d.title,
-          sort: d.sort,
-          status: d.status === 1 ? 0 : 1
-        })
-        wx.showToast({ title: d.status === 1 ? '已停用' : '已生效', icon: 'success' })
-        await this.loadPackages()
-        return
-      }
-      const p = this.data.packages.find(x => x.id === id)
-      if (!p) return
-      await post(PACKAGES, {
-        productId: p.productId,
-        qty: p.qty,
-        price: p.price,
-        title: p.title,
-        sort: p.sort,
-        status: p.status === 1 ? 0 : 1
-      })
-      wx.showToast({ title: p.status === 1 ? '已下架' : '已上架', icon: 'success' })
+      await post(unified ? DISCOUNTS : PACKAGES, unified
+        ? { qty: row.qty, discountPerMille: row.discountPerMille, title: row.title, sort: row.sort, status: row.status === 1 ? 0 : 1 }
+        : { productId: row.productId, qty: row.qty, price: row.price, title: row.title, sort: row.sort, status: row.status === 1 ? 0 : 1 })
+      if (!this.isReadCurrent(context)) return
+      wx.showToast({ title: unified ? (row.status === 1 ? '已停用' : '已生效') : (row.status === 1 ? '已下架' : '已上架'), icon: 'success' })
       await this.loadPackages()
+      this.refreshTicketReadiness()
     } catch (err) {
-      wx.showToast({ title: err.message || '操作失败', icon: 'none' })
-    }
+      if (this.isReadCurrent(context)) wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+    } finally { this.finishMutation() }
   },
 
   onDelete(e) {
-    const id = Number(e.currentTarget.dataset.id)
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认删除',
-      title: this.data.isUnified ? '删除这个折扣档？' : '删除这个档位？',
-      content: '只删这一行配置。已经卖出去的水票不受影响 —— 它们的单价在批次里另存了快照。',
-      success: async (r) => {
-        if (!r.confirm) return
+    if (!this.canMutateTiers()) return
+    const id = Number(e.currentTarget.dataset.id), unified = this.data.isUnified
+    if (!(unified ? this.data.discounts : this.data.packages).some(row => Number(row.id) === id)) return
+    const context = this.readContext(), url = (unified ? DISCOUNTS : PACKAGES) + '/' + id
+    // 2026-10-26：确认框期间也锁定上下文；旧确认不能删除刚切换到的商品档位。
+    this.setData({ saving: true })
+    this.hideKeyboard()
+    let handled = false
+    showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083', confirmText: '确认删除',
+      title: unified ? '删除这个折扣档？' : '删除这个档位？',
+      content: '移除后顾客不能再选这一档。1 张档会保留停用占位，避免旧价格重新启用；已售水票及原付款记录不变。',
+      success: async r => {
+        if (handled) return
+        handled = true
         try {
-          await del((this.data.isUnified ? DISCOUNTS : PACKAGES) + '/' + id)
+          if (!r.confirm || !this.isReadCurrent(context)) return
+          await del(url)
+          if (!this.isReadCurrent(context)) return
           wx.showToast({ title: '已删除', icon: 'success' })
           await this.loadPackages()
+      this.refreshTicketReadiness()
         } catch (err) {
-          wx.showToast({ title: err.message || '删除失败', icon: 'none' })
-        }
-      }
+          if (this.isReadCurrent(context)) wx.showToast({ title: err.message || '删除失败', icon: 'none' })
+        } finally { this.finishMutation() }
+      },
+      fail: () => { this.finishMutation() }
     })
   },
 
   onHelp() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
       title: '档位怎么定',
       content: '【某款水的档位】挂"10 张 / 20 张 / 100 张"各卖多少钱，越买越便宜。' +
         '它是定价结构不是促销 —— 永远可买、不叠加、不互斥。\n\n' +

@@ -1,29 +1,33 @@
 <view class="container">
-  <view class="page-intro"><text class="page-intro-title">付款记录</text><text class="page-intro-note">核对每笔金额、付款方式与处理状态</text></view>
+  <view class="page-intro"><text class="page-intro-title">付款记录</text></view>
   <view class="error-card" wx:if="{{error}}">
     <text class="error-title">{{loaded ? '账单未更新' : '账单暂未加载'}}</text>
     <text class="error-message">{{error}}</text>
-    <button wx:if="{{needLogin}}" class="retry-button" bindtap="onLogin">去登录</button>
-    <button class="retry-button" bindtap="onRetry" disabled="{{loading}}">重新加载</button>
+    <button wx:if="{{needLogin}}" class="af-action af-action--secondary" bindtap="onLogin">去登录</button>
+    <button class="af-action af-action--quiet" bindtap="onRetry" disabled="{{loading}}"><text class="af-action__face">重新加载</text></button>
   </view>
   <loading wx:if="{{loading && !loaded}}"></loading>
   <view class="refresh-hint" wx:if="{{loading && loaded}}">正在核对最新账单…</view>
 
   <view class="record-list" wx:if="{{loaded}}">
-    <view class="record-item" wx:for="{{records}}" wx:key="id">
+    <block wx:for="{{records}}" wx:key="id">
+      <view class="record-date" wx:if="{{item.showDateHeader}}">{{item.dateLabel}}</view>
+      <view class="record-item">
       <view class="record-main">
         <view class="record-title-row">
           <text class="record-purpose">{{item.purposeText}}</text>
           <text class="record-method">{{item.methodText}}</text>
         </view>
-        <text class="record-order" wx:if="{{item.orderId}}">订单 #{{item.orderId}}</text>
+        <button class="af-action af-action--quiet" wx:if="{{item.orderId}}" data-id="{{item.id}}" bindtap="onViewOrder" disabled="{{loading || error}}"><text class="af-action__face">查看订单 #{{item.orderId}} ›</text></button>
         <text class="record-time">{{item.timeText}}</text>
       </view>
       <view class="record-right">
-        <text class="record-amount">¥{{item.amountText}}</text>
+        <text class="record-direction">{{item.directionText}}</text><text class="record-amount">¥{{item.amountText}}</text>
         <text class="record-status status-{{item.status}}">{{item.statusText}}</text>
       </view>
-    </view>
+      </view>
+    </block>
     <view class="local-empty" wx:if="{{records.length === 0}}"><text>{{error ? '上次查询暂无账单记录' : '暂无账单记录'}}</text></view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

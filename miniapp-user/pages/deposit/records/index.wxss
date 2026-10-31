@@ -144,3 +144,22 @@
 .record-main { min-width: 0; overflow-wrap: anywhere; }
 
 .local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }
+
+.record-item { gap:20rpx; align-items:flex-start; }
+.record-main { min-width:0; overflow-wrap:anywhere; }
+.record-amount { max-width:55%; font-size:18px; line-height:1.5; overflow-wrap:anywhere; }
+.error-btn { min-height:44px; }
+
+.error-card .af-action { margin:12px 8px 0 0; }
+
+/* Visual v2: page hierarchy and reading rhythm. */
+.record-list { margin:12px 16px; border-radius:14px; overflow:hidden; background:var(--af2-surface); }
+.record-item { gap:12px; border-radius:0; }
+.record-main { min-width:0; overflow-wrap:anywhere; }
+.record-amount { text-align:right; overflow-wrap:anywhere; }
+.records-heading { background:var(--af2-surface-money); border-radius:12px; padding:12px 16px; }
+
+.record-date { padding:10px 16px; background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); font-size:13px; line-height:1.5; font-weight:600; }
+
+.record-type-row { display:flex; align-items:center; gap:8px; }
+.record-direction-mark { flex:none; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--af2-surface-money); color:var(--af2-ink-money); font-size:16px; }

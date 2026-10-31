@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "站间结算",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "icon": "../../../components/Icon/index"
+  }
 }

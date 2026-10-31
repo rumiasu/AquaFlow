@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const imageDisplay = require('../../behaviors/imageDisplay')
 const { employeeCustomerNotePreview } = require('../../utils/customer-note')
 const { moneyText, collectionPrompt, canConfirmCash } = require('../../utils/collection-confirmation')
@@ -160,6 +161,7 @@ Page({
     // 支付流水（2026-09-18）：只对站长展示（后端端点本身也是 STATION_MANAGER 专属）
     payments: [],
     canRefundPayment: false,
+    paymentsState: 'idle',
     // 店员角色（决定要不要给「客户拒付」入口；后端端点本身是 STATION_MANAGER 专属，前端只是别画出来）
     isManager: false,
     refusalBusy: false,
@@ -298,7 +300,11 @@ Page({
       }
       const cancel = () => finish({ confirm: false })
       pending.add(cancel)
-      try { wx[sheet ? 'showActionSheet' : 'showModal']({ ...(sheet ? options : { confirmColor: '#1264D6', cancelColor: '#637083', ...options }), success: finish, fail: cancel }) }
+      try {
+        const args = { ...(sheet ? options : { confirmColor: '#1264D6', cancelColor: '#637083', ...options }), success: finish, fail: cancel }
+        if (sheet) wx.showActionSheet(args)
+        else showBusinessModal(args)
+      }
       catch (err) { cancel(); throw err }
     })
   },
@@ -404,7 +410,7 @@ Page({
     if (!this._sameOrderSession(this._withdrawOutcome)) this._withdrawOutcome = null
     this.setData({ loading: true, detailError: '', writeVerifiedText: '',
       detailOutcomeText: this._withdrawOutcome ? '已撤回转单，订单仍由你配送' : '',
-      showMoreActions: false, floorPhotos: [], floorPhotosState: 'idle', deliveryPhotos: [], deliveryPhotosState: 'idle', payments: [], canRefundPayment: false })
+      showMoreActions: false, floorPhotos: [], floorPhotosState: 'idle', deliveryPhotos: [], deliveryPhotosState: 'idle', payments: [], canRefundPayment: false, paymentsState: 'idle' })
 
     try {
       const res = await getOrderDetail(id)
@@ -749,7 +755,7 @@ Page({
     }
 
     if (loadError) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '加载失败',
         content: '没能取到水站列表（' + loadError + '），请稍后重试',
         showCancel: false
@@ -757,7 +763,7 @@ Page({
       return
     }
     if (stationList.length === 0) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
       return
     }
 
@@ -768,7 +774,7 @@ Page({
         const targetStation = stationList[res.tapIndex]
         // 二次确认：显示风险提醒
         const confirm = await new Promise(resolve => {
-          wx.showModal({ cancelColor: '#637083',
+          showBusinessModal({ cancelColor: '#637083',
             title: '⚠️ 外派确认',
             content: `将订单外派给「${targetStation.name}」配送。\n\n` +
               '重要提醒：\n' +
@@ -804,12 +810,8 @@ Page({
   //    待配送(1) 也不需要申请 —— 走「拒单」即可（不经审批）。
   onRequestCancel() {
     return this._runOrderAction('onRequestCancel', async ctx => {
-      const answer = await this._actionDialog(ctx, {
-        title: '申请取消订单', content: '该订单已被接单，需要站长同意才能取消。\n\n提交后订单保持当前状态，等待站长审批；站长同意后才会取消并退款。', confirmText: '提交申请'
-      })
-      if (!answer.confirm || !ctx.current()) return
       const reason = await this._actionDialog(ctx, {
-        title: '取消原因', content: '请填写取消原因，将一并提交给站长：', editable: true, placeholderText: '如：客户临时取消、车辆故障'
+        title: '申请取消订单', description: '提交后订单保持当前状态，等待站长审批；站长同意后才会取消并退款。请填写原因。', initialValue: '', editable: true, confirmText: '提交申请', placeholderText: '如：客户临时取消、车辆故障'
       })
       if (!ctx.current() || !reason.confirm) return
       if (!reason.content || !reason.content.trim()) { wx.showToast({ title: '请填写取消原因', icon: 'none' }); return }
@@ -824,7 +826,7 @@ Page({
     const id = this.data.orderId
     // 严重警告：拒单会导致订单取消、退款、客户可能流失
     const confirm = await new Promise(resolve => {
-      wx.showModal({ cancelColor: '#637083',
+      showBusinessModal({ cancelColor: '#637083',
         title: '⚠️ 严重警告：解决/拒单',
         content: '此操作将：\n\n' +
           '1. 取消订单，状态变为「已取消」\n' +
@@ -842,9 +844,9 @@ Page({
 
     // 必填拒单原因
     const reason = await new Promise(resolve => {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认拒单',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认拒单',
         title: '拒单原因 (必填)',
-        content: '请输入拒单原因，将记录在订单备注中：',
+        description: '请输入拒单原因，将记录在订单备注中：', initialValue: '',
         editable: true,
         placeholderText: '如：地址偏远无法配送、暂时缺货',
         success: (r) => resolve(r.confirm ? r.content : ''),
@@ -1000,12 +1002,14 @@ Page({
     // 非站长直接跳过，连请求都不发（端点本身也会拒）
     if (!app.isStationManager || !app.isStationManager()) {
       if (!current()) return
-      this.setData({ payments: [], canRefundPayment: false })
+      this.setData({ payments: [], canRefundPayment: false, paymentsState: 'idle' })
       return
     }
+    this.setData({ payments: [], canRefundPayment: false, paymentsState: 'loading' })
     try {
       const res = await get(PAYMENTS_BY_ORDER, { orderId: orderId })
-      const list = (res.data || []).map(p => ({
+      if (!res || !Array.isArray(res.data)) throw new Error('付款记录不完整')
+      const list = res.data.map(p => ({
         id: p.id,
         methodText: p.methodText || '',
         statusText: p.statusText || '',
@@ -1019,13 +1023,17 @@ Page({
         canRefund: Number(p.status) === PAY_STATUS_PAID
       }))
       if (!current()) return
-      this.setData({ payments: list, canRefundPayment: true })
+      this.setData({ payments: list, canRefundPayment: true, paymentsState: 'ready' })
     } catch (err) {
-      // 拉不到就整块不显示，不编造"没有流水"（同 loadFloorPhotos 的处理）
+      // 2026-10-28：失败曾隐藏整块，容易误认为没有记录；保持未知并允许重试。
       console.error('加载支付流水失败:', err)
       if (!current()) return
-      this.setData({ payments: [], canRefundPayment: false })
+      this.setData({ payments: [], canRefundPayment: false, paymentsState: 'error' })
     }
+  },
+
+  onRetryPayments() {
+    return this.loadPayments(this.data.order && this.data.order.id)
   },
 
   /**
@@ -1044,7 +1052,7 @@ Page({
       return
     }
 
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '退款确认',
       content: '确定为这笔支付退款吗？\n\n支付方式：' + pay.methodText
         + '\n退款金额：' + pay.amountText
@@ -1071,53 +1079,65 @@ Page({
         if (selected.expectedRefundAmount != null) {
           const amount = Number(selected.expectedRefundAmount)
           if (!Number.isFinite(amount) || amount <= 0) {
-            wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '重新核实', content: '退款金额无效，请重新预览并确认', showCancel: false }); return
+            showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '重新核实', content: '退款金额无效，请重新预览并确认', showCancel: false }); return
           }
           confirmation.expectedRefundAmount = selected.expectedRefundAmount
         } else if (selected.confirmationRequired === true) {
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '重新核实', content: '未取得确认金额，请重新预览并确认', showCancel: false }); return
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '重新核实', content: '未取得确认金额，请重新预览并确认', showCancel: false }); return
         }
         if (res.data.expectedTicketQty != null) confirmation.expectedTicketQty = res.data.expectedTicketQty
         if (res.data.expectedTicketAmount != null) confirmation.expectedTicketAmount = res.data.expectedTicketAmount
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: selected.label, content: res.data.notice, confirmText: '实际退款', success: (r) => {
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: selected.label, content: res.data.notice, confirmText: '实际退款', success: (r) => {
           if (r.confirm) this.doRefundPayment(paymentId, selected.scope, confirmation)
         } })
       } })
-    } catch (err) { wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '暂不能退款', content: err.message || '金额核实失败', showCancel: false }) }
+    } catch (err) { showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '暂不能退款', content: err.message || '金额核实失败', showCancel: false }) }
   },
   async onEditDispatchQuote() {
+    if (this._agreementQuoteBusy || this._hidden || this._unloaded) return
+    const ctx = this._context()
+    ctx.current = () => this._isCurrent(ctx)
+    this._agreementQuoteBusy = true
     try {
-      const res = await businessRules.getAgreement(this.data.orderId)
+      const res = await businessRules.getAgreement(ctx.id)
+      if (!ctx.current()) return
       const current = res.data
       if (!current || !Object.keys(current).length) { wx.showToast({ title: '请先外派本单，再调整外包报价', icon: 'none' }); return }
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '保存报价', title: '调整本单外包服务报价', editable: true, content: '当前 ¥' + current.serviceAmount + '，含水费、配送费、楼层费。桶补偿安排：' + current.barrelNote + '。接收站确认后报价固定。', placeholderText: '本单服务总报价（元）',
-        success: async (r) => {
-          if (!r.confirm) return
-          const value = Number(r.content)
-          if (!Number.isFinite(value) || value < 0) { wx.showToast({ title: '报价不合法', icon: 'none' }); return }
-          try { await businessRules.quoteAgreement(this.data.orderId, { serviceAmount: value, barrelMode: current.barrelMode,
-            barrelAmount: current.barrelAmount, note: '归属站调整本单外包报价' }); this.loadOrderDetail(this.data.orderId) }
-          catch (err) { wx.showToast({ title: err.message || '报价未修改', icon: 'none' }) }
-        } })
-    } catch (err) { wx.showToast({ title: err.message || '报价不可用', icon: 'none' }) }
+      const amountText = current.serviceAmount == null ? '待核实' : '¥' + current.serviceAmount
+      const r = await this._actionDialog(ctx, { confirmText: '保存报价', title: '调整本单外包服务报价', editable: true,
+        description: '当前报价 ' + amountText + '，含水费、配送费、楼层费。桶补偿安排：' + (current.barrelNote || '待核实') + '。接收站确认后报价固定。',
+        initialValue: current.serviceAmount == null ? '' : String(current.serviceAmount), placeholderText: '本单服务总报价（元）' })
+      if (!r.confirm || !ctx.current()) return
+      const value = Number(r.content)
+      if (!String(r.content == null ? '' : r.content).trim() || !Number.isFinite(value) || value < 0) { wx.showToast({ title: '报价不合法', icon: 'none' }); return }
+      await businessRules.quoteAgreement(ctx.id, { serviceAmount: value, barrelMode: current.barrelMode,
+        barrelAmount: current.barrelAmount, note: '归属站调整本单外包报价' })
+      if (ctx.current()) await this.loadOrderDetail(ctx.id)
+    } catch (err) { if (ctx.current()) wx.showToast({ title: err.message || '报价未修改', icon: 'none' }) }
+    finally { this._agreementQuoteBusy = false }
   },
   async onEditBarrelTerms() {
+    if (this._agreementQuoteBusy || this._hidden || this._unloaded) return
+    const ctx = this._context()
+    ctx.current = () => this._isCurrent(ctx)
+    this._agreementQuoteBusy = true
     try {
-      const current=(await businessRules.getAgreement(this.data.orderId)).data
-      wx.showActionSheet({ itemList: ['净送桶补同型空桶', '净送桶按约定总金额折款'], success: picked => {
-        const mode=picked.tapIndex===0?'RETURN_EMPTY':'SETTLE_BARREL'
-        const save=async amount=>{
-          try { await businessRules.quoteAgreement(this.data.orderId,{serviceAmount:current.serviceAmount,barrelMode:mode,barrelAmount:amount,note:'归属站明确本单净送桶补偿安排'}); this.loadOrderDetail(this.data.orderId) }
-          catch(err){wx.showToast({title:err.message||'安排未修改',icon:'none'})}
-        }
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '保存安排',title:'确定净送桶补偿安排',editable:mode==='SETTLE_BARREL',placeholderText:'桶折款总金额（元）',content:'预计净送 '+current.netBarrels+' 个桶；服务报酬仍为 ¥'+current.serviceAmount+'；客户押金仍在归属站。接收站确认后固定安排。',success:r=>{
-          if(!r.confirm)return
-          if(mode==='RETURN_EMPTY'){save(0);return}
-          if(!/^\d+(\.\d{1,2})?$/.test(r.content||'')){wx.showToast({title:'金额不合法',icon:'none'});return}
-          save(Number(r.content))
-        }})
-      }})
-    }catch(err){wx.showToast({title:err.message||'安排不可用',icon:'none'})}
+      const current = (await businessRules.getAgreement(ctx.id)).data
+      if (!ctx.current() || !current) return
+      const picked = await this._actionDialog(ctx, { itemList: ['净送桶补同型空桶', '净送桶按约定总金额折款'] }, true)
+      if (!ctx.current() || ![0, 1].includes(picked.tapIndex)) return
+      const mode = picked.tapIndex === 0 ? 'RETURN_EMPTY' : 'SETTLE_BARREL'
+      const description = '预计净送 '+current.netBarrels+' 个桶；服务报酬仍为 ¥'+current.serviceAmount+'；客户押金仍在归属站。接收站确认后固定安排。'
+      const r = await this._actionDialog(ctx, { confirmText: '保存安排', title: '确定净送桶补偿安排', editable: mode === 'SETTLE_BARREL',
+        placeholderText: '桶折款总金额（元）', content: mode === 'RETURN_EMPTY' ? description : '', description: mode === 'SETTLE_BARREL' ? description : '',
+        initialValue: mode === 'SETTLE_BARREL' && current.barrelAmount != null ? String(current.barrelAmount) : '' })
+      if (!r.confirm || !ctx.current()) return
+      if (mode === 'SETTLE_BARREL' && !/^\d+(\.\d{1,2})?$/.test(r.content || '')) { wx.showToast({ title: '金额不合法', icon: 'none' }); return }
+      await businessRules.quoteAgreement(ctx.id, { serviceAmount: current.serviceAmount, barrelMode: mode,
+        barrelAmount: mode === 'RETURN_EMPTY' ? 0 : Number(r.content), note: '归属站明确本单净送桶补偿安排' })
+      if (ctx.current()) await this.loadOrderDetail(ctx.id)
+    } catch (err) { if (ctx.current()) wx.showToast({ title: err.message || '安排不可用', icon: 'none' }) }
+    finally { this._agreementQuoteBusy = false }
   },
   async doRefundPayment(paymentId, scope, confirmation = {}) {
     wx.showLoading({ title: '退款中...' })
@@ -1132,7 +1152,7 @@ Page({
       wx.hideLoading()
       const msg = (err && err.message) ? err.message : '退款失败，请稍后重试'
       console.error('手工退款失败:', msg)
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '退款未成功', content: msg, showCancel: false, confirmText: '知道了' })
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '退款未成功', content: msg, showCancel: false, confirmText: '知道了' })
     }
   }
 }, 'order')

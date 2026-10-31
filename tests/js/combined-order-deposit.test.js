@@ -8,7 +8,8 @@ const line = { productId: 5, productName: '水', quantity: 1, unitPrice: 50, amo
 const quote = (lines = [line]) => ({ data: { independentRights: true, waterAmount: 20, extraDeposit: lines.reduce((s,l) => s+l.amount,0),
   extraDepositBuckets: lines.reduce((s,l) => s+l.quantity,0), totalAmount: 20+lines.reduce((s,l) => s+l.amount,0), blocked: false,
   barrelPurchases: lines, missingRights: lines.map(l => ({ productId: l.productId, quantity: l.quantity })),
-  methods: [{ id: 1, name: '模拟微信支付', enabled: true }], defaultMethod: 1, wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付' } } })
+  methods: [{ id: 1, name: '模拟微信支付', enabled: true }], defaultMethod: 1, wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟微信支付',
+    simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } } } })
 function page(scenario = {}) {
   const wx = createWx(), app = createApp(), orders = [], payments = []
   global.__wxConfig = { envVersion: 'develop' }

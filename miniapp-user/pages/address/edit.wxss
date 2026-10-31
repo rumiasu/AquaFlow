@@ -234,7 +234,6 @@
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }
 button::after { border: 0; }
-button[disabled] { color: #637083; background: #e8edf3; opacity: 1; }
 
 .container { padding-left: 24rpx; padding-right: 24rpx; box-sizing: border-box; background: #f5f6f7; }
 .page-intro { padding-left: 0; padding-right: 0; }
@@ -251,3 +250,26 @@ button[disabled] { color: #637083; background: #e8edf3; opacity: 1; }
 .default-text { color: #526174; font-size: 28rpx; }
 .default-toggle { min-width: 280rpx; }
 .save-btn { min-width: 260rpx; }
+
+/* 地图是辅助操作，保存保持主动作；窄屏区域字段纵向排列。 */
+.auto-btn { background: var(--primary-bg); }
+.auto-btn text { color: var(--primary-color); }
+.region-fields { flex-wrap: wrap; }
+.region-input { min-height: 44px; flex: 1 1 160rpx; }
+.label-chip, .default-toggle { min-height: 44px; }
+
+.group-title { display: block; padding-top: 28rpx; font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
+
+.label-chip.af-choice, .label-chip.active.af-choice { padding:6px 0; border:0; background:transparent; }
+button.address-save { min-width:120px; margin:0; }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.addr-card { border-radius:14px; }
+.field-row { min-height:52px; }
+.field-input,.region-input { min-height:44px; box-sizing:border-box; }
+.region-fields { flex-wrap:wrap; }
+
+/* 默认设置与长保存状态在窄屏或大字下可自然换行。 */
+.bottom-bar { flex-wrap:wrap; gap:8px 12px; }
+.default-toggle { min-width:0; flex:0 1 auto; }
+.default-text { overflow-wrap:anywhere; }

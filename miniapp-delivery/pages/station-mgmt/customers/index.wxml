@@ -1,18 +1,18 @@
 <view class="container">
-  <view class="work-head"><text class="work-title">客户</text><text class="work-desc">先核对本站与客户身份，再处理订单和资产。</text></view>
+  <view class="work-head"><text class="work-title">客户</text></view>
   <view class="scope-banner">
     <text class="scope-label">{{stationScopeLabel}}</text>
-    <text class="scope-retry" wx:if="{{stationScopeState !== 'ready' && stationScopeState !== 'loading'}}" bindtap="onStationScopeRetry">核实水站</text>
+    <view class="af-action af-action--quiet b3-on-station-scope-retry" wx:if="{{stationScopeState !== 'ready' && stationScopeState !== 'loading'}}" bindtap="onStationScopeRetry"><view class="af-action__face">核实水站</view></view>
   </view>
   <view class="search-bar">
     <input class="search-input" placeholder="搜姓名/手机号/地址（地址可缩写）" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
-    <view class="search-btn" bindtap="onSearch"><text>搜索</text></view>
+    <view class="af-action af-action--quiet b3-on-search" bindtap="onSearch"><view class="af-action__face"><text>搜索</text></view></view>
   </view>
 
   <view class="filter-chips">
-    <view class="chip {{filterType === 'all' ? 'active' : ''}}" data-type="all" bindtap="onFilterType"><text>全部</text></view>
-    <view class="chip {{filterType === '1' ? 'active' : ''}}" data-type="1" bindtap="onFilterType"><text>普通客户</text></view>
-    <view class="chip {{filterType === '2' ? 'active' : ''}}" data-type="2" bindtap="onFilterType"><text>企业客户</text></view>
+    <view class="af-choice b3-on-filter-type {{filterType === 'all' ? 'af-choice--selected' : ''}}" data-type="all" bindtap="onFilterType"><view class="af-choice__face"><text>全部</text></view></view>
+    <view class="af-choice b3-on-filter-type {{filterType === '1' ? 'af-choice--selected' : ''}}" data-type="1" bindtap="onFilterType"><view class="af-choice__face"><text>普通客户</text></view></view>
+    <view class="af-choice b3-on-filter-type {{filterType === '2' ? 'af-choice--selected' : ''}}" data-type="2" bindtap="onFilterType"><view class="af-choice__face"><text>企业客户</text></view></view>
   </view>
 
   <!--
@@ -23,27 +23,25 @@
        而不是留一个点了会报错的入口。
     ⚠️ 待审条数为 0 时这一行**照样显示**（否则站长不知道本站开没开企业身份、阈值是多少）。
   -->
-  <view class="ent-entry" wx:if="{{entCfgState !== 'ready'}}" bindtap="onEntCfgRetry">
-    <view class="ent-entry-left">
+  <view class="af-action af-action--quiet b3-on-ent-cfg-retry" wx:if="{{entCfgState !== 'ready'}}" bindtap="onEntCfgRetry"><view class="af-action__face"><view class="ent-entry-left">
       <text class="ent-entry-title">企业身份</text>
       <text class="ent-entry-desc" wx:if="{{entCfgState === 'loading'}}">企业身份设置加载中...</text>
       <text class="ent-entry-desc" wx:elif="{{entCfgState === 'error'}}">企业身份设置读取失败 · 点击重试</text>
       <text class="ent-entry-desc" wx:else>企业身份设置未核实 · 点击核实</text>
-    </view>
-  </view>
+    </view></view></view>
   <view class="ent-entry" wx:elif="{{entCfg.enabled}}">
     <view class="ent-entry-left" bindtap="onEntOpen" data-view="review">
       <text class="ent-entry-title">企业身份</text>
-      <text class="ent-entry-desc" wx:if="{{entAppliesState === 'unverified'}}" catchtap="onEntRetry">待审申请未核实 · 点击核实</text>
+      <view class="af-action af-action--quiet b3-on-ent-retry" wx:if="{{entAppliesState === 'unverified'}}" catchtap="onEntRetry"><view class="af-action__face">待审申请未核实 · 点击核实</view></view>
       <text class="ent-entry-desc" wx:elif="{{entAppliesState === 'loading'}}">待审申请加载中...</text>
-      <text class="ent-entry-desc" wx:elif="{{entAppliesState === 'error'}}" catchtap="onEntRetry">待审申请读取失败 · 点击重试</text>
+      <view class="af-action af-action--quiet b3-on-ent-retry" wx:elif="{{entAppliesState === 'error'}}" catchtap="onEntRetry"><view class="af-action__face">待审申请读取失败 · 点击重试</view></view>
       <text class="ent-entry-desc" wx:elif="{{entApplies.length}}">有 {{entApplies.length}} 条申请待审核</text>
       <text class="ent-entry-desc" wx:else>暂无待审申请</text>
     </view>
     <text class="ent-entry-set" bindtap="onEntOpen" data-view="settings">提示阈值 ›</text>
   </view>
 
-  <view class="load-error" wx:if="{{!loading && loadError}}" bindtap="onSearch">{{loadError}} · 点击重试</view>
+  <view class="af-action af-action--quiet b3-on-search" wx:if="{{!loading && loadError}}" bindtap="onSearch"><view class="af-action__face">{{loadError}} · 点击重试</view></view>
   <view class="customer-list" wx:if="{{!loading && !loadError}}">
     <view class="customer-card" wx:for="{{list}}" wx:key="id">
       <view class="avatar" style="background:{{item.avatarColor}}">{{item.avatarText}}</view>
@@ -54,14 +52,14 @@
           <text class="badge act-{{item.activityStatus}}">{{item.activityText}}</text>
         </view>
         <text class="customer-phone scope-label customer-number">客户编号：{{item.id}}</text>
-        <text class="customer-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} ›</text>
+        <view class="af-action af-action--quiet b3-on-call" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}"><view class="af-action__face">{{item.phoneMasked}} ›</view></view>
         <text class="customer-phone muted" wx:else>未填写电话</text>
         <text class="customer-phone customer-address" wx:if="{{item.matchedAddressText}}">{{item.matchedAddressSource === 'ORDER_HISTORY' ? '本站历史订单地址命中' : '档案地址命中'}}：{{item.matchedAddressText}}</text>
         <text class="customer-phone customer-address" wx:elif="{{item.addressText}}">默认档案地址：{{item.addressText}}</text>
 
         <view class="stat-row">
           <view class="stat"><text class="stat-val">{{item.totalOrders}}</text><text class="stat-label">本站订单</text></view>
-          <view class="stat"><text class="stat-val">¥{{item.totalConsumptionText}}</text><text class="stat-label">累计消费</text></view>
+          <view class="stat"><text class="stat-val">{{item.totalConsumptionText === '待核实' ? item.totalConsumptionText : '¥' + item.totalConsumptionText}}</text><text class="stat-label">累计消费</text></view>
         </view>
 
         <view class="tags" wx:if="{{item.tagsList.length}}">
@@ -69,10 +67,10 @@
         </view>
       </view>
       <view class="card-actions">
-        <view class="manage-btn" data-id="{{item.id}}" bindtap="onManage"><text>详情</text></view>
+        <view class="af-action af-action--quiet b3-on-manage" data-id="{{item.id}}" bindtap="onManage"><view class="af-action__face"><text>详情</text></view></view>
         <!-- 货到付款的开关与约束（v48）：站长在这里开通；v49 已撤回「首单是否放行 / 单笔上限」 -->
-        <view class="cod-btn" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onCod"><text>设置货到付款</text></view>
-        <view class="call-link" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><text>致电</text></view>
+        <view class="af-action af-action--quiet b3-on-cod" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onCod"><view class="af-action__face"><text>设置货到付款</text></view></view>
+        <view class="af-action af-action--quiet b3-on-call" wx:if="{{item.phone}}" data-phone="{{item.phone}}" bindtap="onCall"><view class="af-action__face"><text>致电</text></view></view>
       </view>
     </view>
     <view class="empty" wx:if="{{searchDone && list.length === 0}}"><text>未找到客户</text></view>
@@ -99,11 +97,11 @@
       <view class="modal-tip">开关表示允许设置；修改开关后需保存，再打开可重新核实当前结果。</view>
       <view class="modal-stat">
         <text>历史订单 {{codModal.orderCount}} 笔</text>
-        <text>逾期未结 {{codModal.overdueCount}} 笔 · ¥{{codModal.overdueAmount}}</text>
+        <text>逾期未结 {{codModal.overdueCount}} 笔 · {{codModal.overdueAmount == null || codModal.overdueAmount === '' || codModal.overdueAmount === '待核实' ? '待核实' : '¥' + codModal.overdueAmount}}</text>
       </view>
       <view class="modal-actions">
-        <view class="modal-btn" bindtap="onCodClose"><text>取消</text></view>
-        <view class="modal-btn primary" bindtap="onCodSave"><text>保存</text></view>
+        <view class="af-action af-action--cancel b3-on-cod-close" bindtap="onCodClose"><text>取消</text></view>
+        <view class="af-action af-action--primary b3-on-cod-save af-action--grow" bindtap="onCodSave"><text>保存</text></view>
       </view>
     </view>
   </view>
@@ -129,9 +127,9 @@
       <!-- ===== 审核视图 ===== -->
       <block wx:if="{{entView === 'review'}}">
         <!-- [2026-10-10] 核实/重试是未核实及失败态的主操作，不能沿用灰色空态文字。 -->
-        <view class="ent-empty ent-state-action" wx:if="{{entAppliesState === 'unverified'}}" bindtap="onEntRetry">待审申请未核实 · 点击核实</view>
+        <view class="af-action af-action--quiet b3-on-ent-retry" wx:if="{{entAppliesState === 'unverified'}}" bindtap="onEntRetry"><view class="af-action__face">待审申请未核实 · 点击核实</view></view>
         <view class="ent-empty" wx:elif="{{entAppliesState === 'loading'}}">待审申请加载中...</view>
-        <view class="ent-empty ent-state-action" wx:elif="{{entAppliesState === 'error'}}" bindtap="onEntRetry">待审申请读取失败 · 点击重试</view>
+        <view class="af-action af-action--quiet b3-on-ent-retry" wx:elif="{{entAppliesState === 'error'}}" bindtap="onEntRetry"><view class="af-action__face">待审申请读取失败 · 点击重试</view></view>
         <block wx:else>
         <view class="ent-item" wx:for="{{entApplies}}" wx:key="id">
           <view class="ent-item-head">
@@ -141,10 +139,10 @@
           <text class="ent-item-line" wx:if="{{item.contactPerson}}">联系人：{{item.contactPerson}}</text>
           <text class="ent-item-line" wx:if="{{item.contactPhone}}">电话：{{item.contactPhone}}</text>
           <text class="ent-item-line" wx:if="{{item.taxNo}}">税号：{{item.taxNo}}</text>
-          <text class="ent-item-line" wx:if="{{item.contactPhone}}" data-phone="{{item.contactPhone}}" bindtap="onCall">拨号核实 ›</text>
+          <view class="af-action af-action--quiet b3-on-call" wx:if="{{item.contactPhone}}" data-phone="{{item.contactPhone}}" bindtap="onCall"><view class="af-action__face">拨号核实 ›</view></view>
           <view class="ent-item-actions">
-            <view class="modal-btn" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntReject"><text>驳回</text></view>
-            <view class="modal-btn primary" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntApprove"><text>通过</text></view>
+            <view class="af-action af-action--secondary b3-on-ent-reject" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntReject"><text>驳回</text></view>
+            <view class="af-action af-action--primary b3-on-ent-approve af-action--grow" data-id="{{item.id}}" data-name="{{item.companyName}}" bindtap="onEntApprove"><text>通过</text></view>
           </view>
         </view>
         <view class="ent-empty" wx:if="{{!entApplies.length}}">暂无待审申请</view>
@@ -154,7 +152,7 @@
       <!-- ===== 阈值视图 ===== -->
       <block wx:else>
         <view class="ent-empty" wx:if="{{entCfgState === 'loading'}}">企业身份设置加载中...</view>
-        <view class="ent-empty" wx:elif="{{entCfgState !== 'ready'}}" bindtap="onEntCfgRetry">企业身份设置读取失败 · 点击重试</view>
+        <view class="af-action af-action--quiet b3-on-ent-cfg-retry" wx:elif="{{entCfgState !== 'ready'}}" bindtap="onEntCfgRetry"><view class="af-action__face">企业身份设置读取失败 · 点击重试</view></view>
         <view class="ent-empty" wx:elif="{{!entCfg.enabled}}">企业身份功能未开启</view>
         <block wx:else>
         <view class="modal-tip">下单时达到任一条就提示客户「可申请企业身份」。只算桶装水：押金、配送费、楼层费都不计。</view>
@@ -172,11 +170,12 @@
       </block>
 
       <view class="modal-actions">
-        <view class="modal-btn" wx:if="{{entView === 'review'}}" bindtap="onEntSwitch" data-view="settings"><text>提示阈值 ›</text></view>
-        <view class="modal-btn" wx:else bindtap="onEntSwitch" data-view="review"><text>‹ 返回待审</text></view>
-        <view class="modal-btn" bindtap="onEntClose"><text>关闭</text></view>
-        <view class="modal-btn primary" wx:if="{{entView === 'settings' && entCfgState === 'ready' && entCfg.enabled}}" bindtap="onEntCfgSave"><text>{{entCfgSaving ? '保存中…' : '保存'}}</text></view>
+        <view class="af-action af-action--quiet b3-on-ent-switch" wx:if="{{entView === 'review'}}" bindtap="onEntSwitch" data-view="settings"><view class="af-action__face"><text>提示阈值 ›</text></view></view>
+        <view class="af-action af-action--quiet b3-on-ent-switch" wx:else bindtap="onEntSwitch" data-view="review"><view class="af-action__face"><text>‹ 返回待审</text></view></view>
+        <view class="af-action af-action--cancel b3-on-ent-close" bindtap="onEntClose"><text>关闭</text></view>
+        <view class="af-action af-action--primary b3-on-ent-cfg-save af-action--grow" wx:if="{{entView === 'settings' && entCfgState === 'ready' && entCfg.enabled}}" bindtap="onEntCfgSave"><text>{{entCfgSaving ? '保存中…' : '保存'}}</text></view>
       </view>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

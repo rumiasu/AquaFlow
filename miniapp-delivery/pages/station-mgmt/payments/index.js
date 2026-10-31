@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { getPendingPayments, confirmPayment } = require('../../../api/station-mgmt')
 const historyCustomer = require('../../../utils/station-history-customer')
 const { get } = require('../../../utils/request')
@@ -114,6 +115,7 @@ Page({
   },
 
   onHide() {
+    if (this._confirmFlight && this._confirmFlight.started) wx.hideLoading()
     this._paymentsHidden = true
     this._paymentsSeq = (this._paymentsSeq || 0) + 1
     this._historySearchSeq = (this._historySearchSeq || 0) + 1
@@ -213,37 +215,52 @@ Page({
    * 因此重复点击是安全的，但仍要提示清楚"确认的是钱已到手"，避免误把未到账的钱点成已确认。
    */
   onConfirm(e) {
-    if (this.data.view !== 'pending') return
+    // 2026-10-30: 连点曾排入多个确认框并重复发请求；一次确认从弹窗到回执只允许一个。
+    if (this.data.view !== 'pending' || this._confirmFlight || this._paymentsHidden) return
     const seq = this._paymentsSeq
+    const query = this.paymentQueryIdentity()
     const id = e.currentTarget.dataset.id
     const item = this.data.list.find(x => x.id === id)
     if (!item) return
+    const flight = this._confirmFlight = { started: false }
+    const current = () => seq === this._paymentsSeq && this.paymentQueryMatches(query) && this.data.view === 'pending'
+    const release = () => { if (this._confirmFlight === flight) this._confirmFlight = null }
     const what = item.isTicketPurchase
       ? `确认已收到该客户购买 ${item.ticketQty || 0} 张水票的款项 ¥${item.amountText}？确认后水票立即入账。`
       : item.orderId
         ? `确认已收到该客户支付 ¥${item.amountText}？确认后订单将标记为已付款。`
         : `确认已收到该客户的${item.purposeText} ¥${item.amountText}？请核对款项用途和实际到账后登记。`
 
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '确认收款',
       content: what,
       confirmText: '确认到账',
       confirmColor: '#1264D6',
       success: async (res) => {
-        if (!res.confirm || this.data.view !== 'pending' || seq !== this._paymentsSeq) return
+        if (flight.started) return
+        if (!res.confirm || !current()) { release(); return }
+        flight.started = true
         wx.showLoading({ title: '确认中...' })
         try {
           await confirmPayment(id)
+          if (!current()) { flight.stale = true; return }
           wx.hideLoading()
           wx.showToast({ title: '已确认到账', icon: 'success' })
           this.loadData()
         } catch (err) {
+          if (!current()) { flight.stale = true; return }
           wx.hideLoading()
-          wx.showToast({ title: err.message || '确认失败', icon: 'none', duration: 3000 })
-          // 失败常见原因是状态已被改（重复确认）→ 重新拉一次让列表自愈
+          wx.showToast({ title: err.requestMayHaveOccurred ? '结果待核实，请查看收款记录' : (err.message || '确认失败'), icon: 'none', duration: 3000 })
+          // 失败后重新读取原列表，不将未知结果直接当作未到账。
           this.loadData()
+        } finally {
+          release()
+          // 离页又返回时，返回时的读取可能早于写入结果；回执落定后再核实同一身份的列表。
+          if (flight.stale && this.paymentQueryMatches(query)) this.loadData()
         }
-      }
+      },
+      fail: release,
+      complete: () => { if (!flight.started) release() }
     })
   }
 })

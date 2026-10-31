@@ -98,12 +98,12 @@ for (const change of ['identity', 'hide', 'refresh']) {
     assert.equal(t.wx.__calls.modal.length, 1)
   })
 }
-test('confirmed station switch still follows both dialogs and loads the chosen station', async () => {
+test('confirmed station switch confirms once and loads the chosen station', async () => {
   const t = fixture()
   t.wx.setStorageSync('selectedStation', station(1))
   t.page.setData({ currentStationId: 1, currentStation: station(1), stationList: [station(2)] })
   await t.page.confirmStation(2)
-  assert.equal(t.wx.__calls.modal.length, 2)
+  assert.equal(t.wx.__calls.modal.length, 1)
   assert.equal(t.wx.getStorageSync('selectedStation').id, 2)
   assert.deepStrictEqual(t.loaded, [2])
 })
@@ -215,10 +215,10 @@ test('notification display failure settles and does not mark unseen messages rea
   assert.deepStrictEqual(t.readMarks, [])
 })
 
-test('visible notifications still acknowledge once after all dialogs finish', async () => {
+test('all notification contents share one dialog and acknowledge once after confirmation', async () => {
   const t = fixture({ notifications: async () => ({ code: 0, data: [{ title: 'first' }, { title: 'second' }] }) })
   await t.page.checkNotifications()
-  assert.strictEqual(t.wx.__calls.modal.length, 2)
+  assert.strictEqual(t.wx.__calls.modal.length, 1)
   assert.deepStrictEqual(t.readMarks, [7])
 })
 

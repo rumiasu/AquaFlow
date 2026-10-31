@@ -67,6 +67,7 @@ async function oldCaseAndCurrentEvidence(t) {
   t.read(t.stats.length - 1); await flush(); t.calls[1].resolve(ok('/synthetic-confirmed-evidence')); await flush()
   t.page.refreshUploadRecovery(); assert.equal(t.page.data.uploadRecoveryCases.length, 1)
   const tree = parseWxml(fs.readFileSync(path.join(sourceRoot, EDIT.replace('.js', '.wxml')), 'utf8'))
+  t.page.onToggleUploadRecovery()
   assert.ok(renderElements(tree, t.page.data).some(value => value.attrs.bindtap === 'onUploadNewDraft'))
   return oldCase
 }
@@ -187,7 +188,10 @@ test('normal map hide/show and token renewal retain valid selection and preserve
   t.app.globalData.accessToken = 'renewed'; t.app.globalData.userInfo = { ...t.app.globalData.userInfo }
   await t.page.onShow(); assert.equal(t.reads.length, 0)
   await t.picks[0].success(point)
-  assert.equal(t.writes.length, 2); assert.equal(t.writes[0][0], 'coordinates'); assert.equal(t.writes[1][1], 1)
+  // D24 contract: coordinates save independently; the suggested address remains an explicit form draft.
+  assert.equal(t.writes.length, 1); assert.equal(t.writes[0][0], 'coordinates')
+  assert.equal(t.page.data.form.address, point.name + point.address)
+  assert.equal(t.page.data.origin.address, ''); assert.equal(t.page.data.infoDirty, true)
 })
 test('duplicate native map callback writes coordinates once', async () => {
   const t = mapFixture(); t.page.setData({ 'form.address': '手填详细地址' }); t.page.onPickCoordinates()

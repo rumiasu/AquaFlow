@@ -349,7 +349,7 @@ async function main() {
   })
   await test('首次读取失败不成为已清空，部分成功保留真实可读分区，重试恢复', async () => {
     const t = setup({ waitingFail: true }); await t.page.loadData()
-    assert.equal(t.page.data.ready.returns, false); assert.equal(t.page.data.ready.tickets, true); assert(t.page.data.error)
+    assert.equal(t.page.data.ready.returns, false); assert.equal(t.page.data.ready.refusals, true); assert(t.page.data.error)
     t.state.waitingFail = false; await t.page.onRetry(); assert.equal(t.page.data.ready.returns, true); assert.equal(t.page.data.error, '')
     t.state.refusalFail = true; await t.page.onRetry(); assert.equal(t.page.data.ready.stock, true); assert.equal(t.page.data.ready.refusals, false)
   })

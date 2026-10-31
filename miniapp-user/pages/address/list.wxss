@@ -30,4 +30,16 @@
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }
 button::after { border: 0; }
-button[disabled] { color: #637083; background: #e8edf3; opacity: 1; }
+
+.action-btn.delete { background: transparent; color: #9b342d; }
+
+.address-edit { margin-left: auto; }
+
+button.address-add { position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); width:auto; margin:0; }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.address-item { border-radius:14px; }
+.address-info { min-width:0; }
+.address-detail { overflow-wrap:anywhere; line-height:1.6; }
+.address-actions { min-height:44px; }
+.default-tag { background:var(--af2-surface-order); color:var(--af2-ink-order); }

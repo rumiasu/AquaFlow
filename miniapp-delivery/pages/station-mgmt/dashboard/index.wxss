@@ -58,7 +58,8 @@
 /* ===== 指标卡 ===== */
 .metric-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .metric-card {
-  width: calc((100% - 16rpx) / 2);
+  width: calc((100% - 12px) / 2);
+  min-width: 0;
   background: var(--bg-color);
   border-radius: 16rpx;
   padding: 22rpx 18rpx;
@@ -195,3 +196,41 @@
 .rank-val,.rank-sub,.legend-item { font-size:26rpx; color:var(--text-regular); }
 .retry { min-height:88rpx; display:flex; align-items:center; box-sizing:border-box; border-radius:10rpx; }
 .error-banner { flex-wrap:wrap; font-size:28rpx; line-height:1.6; }
+
+/* 2026-10-28：本页信息层级、小屏长字与触控下限；业务语义由原数据决定。 */
+button:not(.af-action):not(.af-choice):not(.af-entry) { min-height:44px; height:auto; line-height:1.45; white-space:normal; box-sizing:border-box; }
+.btn-primary,.primary-button,.btn-confirm { min-height:48px; }
+
+.analysis-disclosure { width:100%; padding:12px; margin:12px 0; color:#1264d6; background:#fff; border:1px solid #dbe3ed; font-size:14px; }
+.two-col { flex-wrap:wrap; gap:12px; }
+.two-col .col { min-width:240px; flex:1 1 240px; margin:0 0 12px; }
+.hour-scroll { width:100%; }
+.hour-chart { width:720px; min-width:720px; }
+.hour-col { min-width:28px; }
+.hour-label { font-size:12px; transform:none; }
+.section-note,.rank-sub,.legend-name,.legend-val { font-size:14px; line-height:1.5; }
+.rank-line1 { flex-wrap:wrap; gap:6px 12px; }
+.rank-name { min-width:0; overflow-wrap:anywhere; }
+.ms-item { display:inline-flex; align-items:center; min-height:44px; min-width:44px; justify-content:center; }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Visual v2: page-specific information and action grouping. */
+ .metric-grid { gap:12px; } .metric-card { border:0; border-radius:14px; box-shadow:none; background:var(--af2-surface-neutral); } .metric-card.s-money-metric { background:var(--af2-surface-money); } .s-money-metric .metric-value { color:var(--af2-ink-money); } .section { border-radius:14px; box-shadow:none; } .hbar-track,.rank-track { background:var(--af2-surface-neutral); }
+
+.metric-card.s-physical-metric { background:var(--af2-surface-physical); } .s-physical-metric .metric-value { color:var(--af2-ink-physical); }

@@ -1,3 +1,4 @@
+const { withHttpsTransportFixture } = require('./https-transport-fixture')
 // Native errors observed on 2026-10-09: App is unavailable during onLaunch;
 // the mini-program loader resolves JavaScript modules, not Node's JSON modules.
 const assert = require('assert')
@@ -39,7 +40,7 @@ function boot(restored = true, envVersion = 'develop') {
     app.onLaunch()
     registered = app
   }
-  try { require(path.join(ROOT, 'miniapp-user/app.js')) }
+  try { if (envVersion === 'develop') withHttpsTransportFixture(() => require(path.join(ROOT, 'miniapp-user/app.js'))); else require(path.join(ROOT, 'miniapp-user/app.js')) }
   finally { apiConfig.API_CONFIG.trial.baseUrl = previousTrialBaseUrl; apiConfig.API_CONFIG.trial.transport = previousTrialTransport }
   return { app, wx, sent, earlyReads: () => earlyReads,
     token: require(path.join(ROOT, 'miniapp-user/utils/token.js')) }

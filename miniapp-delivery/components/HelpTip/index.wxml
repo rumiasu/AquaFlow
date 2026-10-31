@@ -1,1 +1,1 @@
-<view class="help-tip" catchtap="onTap" hover-class="help-tip-hover"><text class="help-tip-glyph">?</text></view>
+<view aria-role="button" aria-label="说明" class="help-tip" catchtap="onTap" hover-class="help-tip-hover"><text class="help-tip-glyph">?</text></view>

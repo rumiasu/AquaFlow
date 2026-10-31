@@ -90,7 +90,9 @@ function newPage(sc) {
   const s = sc || {}
   const calls = { settle: [], reverse: [], ledger: 0 }
 
+  // Exercise the declared custom-dialog contract; editable details intentionally fail closed in native fallback.
   const stubs = {
+    'utils/business-dialog': { showBusinessModal: options => wx.showModal(options) },
     'api/station-mgmt': {
       getInterStationSettlements: async () => {
         calls.ledger++

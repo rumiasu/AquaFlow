@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { employeeCustomerNotePreview } = require('../../utils/customer-note')
 const { get, post } = require('../../utils/request')
 const { API } = require('../../config/api')
@@ -57,7 +58,8 @@ const crossStationRiskUrl = (id) => `/api/delivery/orders/${id}/cross-station-ri
 async function fetchCrossStationRisk(orderId) {
   try {
     const res = await get(crossStationRiskUrl(orderId))
-    const d = res.data || {}
+    const d = res && res.data
+    if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('风险提示不完整')
     return {
       risky: !!d.depositBarrelRisk,
       note: d.riskNote || '',
@@ -66,8 +68,9 @@ async function fetchCrossStationRisk(orderId) {
       crossStation: d.crossStation === undefined ? true : !!d.crossStation
     }
   } catch (err) {
-    console.warn('[cross-station-risk] 取风险提示失败，按"无提示"继续:', err && err.message)
-    return { risky: false, note: '', crossStation: false }
+    // 2026-10-28：原来把读取失败当作无风险，用户无法区分未知与已核实。
+    console.warn('[cross-station-risk] 未取得风险提示:', err && err.message)
+    return { unavailable: true }
   }
 }
 
@@ -157,6 +160,7 @@ Page({
   behaviors: [stationNavbar],
 
   data: {
+    v2SceneFailed: false, v2EmptyImageFailed: false, v2TodoExpanded: false,
     isManager: false,
     activeTab: 'pending',
     // 「审批」大页签内的子页签：customer 客户发起 / station 站内（配送员）发起
@@ -321,6 +325,9 @@ Page({
     this.setData(clear ? { todo: null, todoError: '', todoLoading: false } : { todoLoading: false })
   },
   onRetryTodo() { return this.loadTodo() },
+  onToggleV2Todo() { this.setData({ v2TodoExpanded: !this.data.v2TodoExpanded }) },
+  onV2SceneError() { this.setData({ v2SceneFailed: true }) },
+  onV2EmptyImageError() { this.setData({ v2EmptyImageFailed: true }) },
 
   /**
    * [2026-10-02 F-76/B1] 原来只验数组、只认 complete=false；旧目录缺六个新键、
@@ -419,6 +426,13 @@ Page({
    */
   async _confirmRisk(orderId, confirmText, intent) {
     const risk = await fetchCrossStationRisk(orderId)
+    if (risk.unavailable) {
+      const result = await new Promise(resolve => showBusinessModal({
+        title: '风险提示未读取', content: '暂时无法核实押金和桶权益风险。继续后仍会核验，请留意处理结果。',
+        confirmText: '继续', cancelText: '取消', success: resolve, fail: () => resolve({ confirm: false })
+      }))
+      return { ok: !!(result && result.confirm), acknowledged: false }
+    }
     const needConfirm = risk.note && (intent === 'assign' ? risk.crossStation : true)
     if (!needConfirm) return { ok: true, acknowledged: false }
     const MAX_MODAL_BTN = 4
@@ -429,7 +443,7 @@ Page({
       confirmLabel = [...confirmLabel].slice(0, MAX_MODAL_BTN).join('')
     }
     const res = await new Promise((resolve) => {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '押金/桶权益风险',
         content: risk.note,
         confirmText: confirmLabel,
@@ -739,7 +753,7 @@ Page({
   // 审批 · 同意取消申请 —— 同意即走完整退款链并取消订单，不可撤销
   onApproveCancel(e) {
     const id = e.currentTarget.dataset.id
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '同意取消',
       content: '同意后将取消订单，按原单规则处理退款并回补库存。独立押金不随取消自动退还；到账以实际退款结果为准。此操作不可撤销。',
       confirmText: '同意取消',
@@ -763,7 +777,7 @@ Page({
   // 审批 · 驳回取消申请 —— 订单保持原状态，由原配送员继续履约
   onRejectCancel(e) {
     const id = e.currentTarget.dataset.id
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083',
       title: '驳回取消',
       content: '驳回后订单保持原状态，由原配送员继续配送。',
       confirmText: '驳回',
@@ -870,7 +884,7 @@ Page({
       itemList: ['一键外派（放抢单池）', '指定外派（选水站）'],
       success: async (res) => {
         if (res.tapIndex === 0) {
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title: '一键外派',
             content: '将此订单放入抢单池，附近水站可抢单配送。是否继续？',
             confirmText: '确认外派',
@@ -893,7 +907,7 @@ Page({
       wx.hideLoading()
       const stationList = (res.data || []).filter(s => s.id !== myStationId && s.status === 1)
       if (stationList.length === 0) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
         return
       }
       const itemList = stationList.map(s => s.name || ('水站' + s.id))
@@ -901,7 +915,7 @@ Page({
         itemList: itemList,
         success: async (r) => {
           const target = stationList[r.tapIndex]
-          wx.showModal({ cancelColor: '#637083',
+          showBusinessModal({ cancelColor: '#637083',
             title: '指定外派确认',
             content: `将订单指定外派给「${target.name}」配送。确定吗？`,
             confirmText: '确定外派',
@@ -955,7 +969,7 @@ Page({
       // 员工（人早就在库里），把人往错误方向带（AGENTS §8.17 的判据：宁可失败出声）。
       // 所以先看 staffListError 再决定文案，并给出可执行的下一步。
       if (this.data.staffListError) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '配送员名单没加载出来',
           content: '本站配送员名单尚未读取，暂不能分配本单。请重新加载后选择配送员。',
           confirmText: '重新加载', cancelText: '暂不分配',
@@ -963,7 +977,7 @@ Page({
         })
         return
       }
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '暂无配送员', content: '请先添加配送员', showCancel: false })
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '暂无配送员', content: '请先添加配送员', showCancel: false })
       return
     }
     const itemList = colleagues.map(s => s.name || ('配送员' + s.id))
@@ -971,7 +985,7 @@ Page({
       itemList: itemList,
       success: async (res) => {
         const target = colleagues[res.tapIndex]
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '抢单确认',
           content: `确认抢单并分配给 ${target.name || '配送员'}？`,
           confirmText: '确认抢单',
@@ -1002,7 +1016,7 @@ Page({
   // 后端只收「待配送(1)」—— 被接单站接单之后这单归接单站管，本站不能再召回。
   async onCancelDispatch(e) {
     const id = e.currentTarget.dataset.id
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '取消外派',
       content: '确定取消此订单的外派？订单将恢复为本站待分配。',
       confirmText: '确认取消',
@@ -1037,7 +1051,7 @@ Page({
    */
   onPriceByListed(e) {
     const id = e.currentTarget.dataset.id
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '按挂牌价结这一单',
       content: '改成按挂牌价结后，接单站能拿到更多，多出来的差价由本站承担。'
         + '系统不会自动改价，也不会改动客户已付的钱。确定要改吗？',
@@ -1069,7 +1083,7 @@ Page({
     get(API.STATION_SEARCH, {}).then(res => {
       stationList = (res.data || []).filter(s => s.id !== myStationId && s.status === 1)
       if (stationList.length === 0) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '无可外派水站', content: '暂无其他营业中的水站可外派', showCancel: false })
         return
       }
       const itemList = stationList.map(s => s.name || ('水站' + s.id))
@@ -1077,7 +1091,7 @@ Page({
         itemList: itemList,
         success: async (res) => {
           const targetStation = stationList[res.tapIndex]
-          wx.showModal({ cancelColor: '#637083',
+          showBusinessModal({ cancelColor: '#637083',
             title: '指定外派确认',
             content: `将订单指定外派给「${targetStation.name}」配送。确定吗？`,
             confirmText: '确定外派',
@@ -1124,7 +1138,7 @@ Page({
       this.loadAllData()
       return
     }
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '同意转单',
       content: '同意后订单将变为普通待分配状态，届时可分配配送员或外派。',
       confirmText: '同意',
@@ -1158,7 +1172,7 @@ Page({
       this.loadAllData()
       return
     }
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '拒绝转单',
       content: directed ? '拒绝后保留原配送状态和指派，由履约水站继续处理。' : '拒绝后订单将回到配送中，由原配送员继续完成配送。',
       confirmText: '拒绝',
@@ -1189,7 +1203,7 @@ Page({
   // 取消申请虽同为 STAFF 类型，但各有各的决策端点（同意/拒绝、审批页签），不挂这个动作。
   onCancelTransferRow(e) {
     const id = e.currentTarget.dataset.id
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '撤回转单',
       content: '撤回后订单仍归原配送员配送，对方的待确认列表里也不会再有这条申请。',
       confirmText: '撤回',
@@ -1228,7 +1242,7 @@ Page({
       wx.showToast({ title: '当前订单不可退回，请刷新', icon: 'none' })
       return
     }
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '退回原水站',
       content: '本单由别站指定给本站配送。退回后等原水站站长决定：他同意就由原水站重新安排配送，不同意则仍由本站继续配送。',
       confirmText: '确定退回',

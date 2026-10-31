@@ -2,6 +2,18 @@ const { getPaymentsByCustomer } = require('../../api/payment')
 const { formatMoney, formatTime } = require('../../utils/format')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 
+// 只为相邻同日记录添加标题；保留服务端顺序、金额和原时间文案。
+function dateHeaders(records) {
+  let previous = null
+  return records.map(record => {
+    const match = /^(\d{4}-\d{2}-\d{2})\s/.exec(record.timeText || '')
+    const dateLabel = match ? match[1] : '日期未提供'
+    const showDateHeader = dateLabel !== previous
+    previous = dateLabel
+    return { ...record, dateLabel, showDateHeader }
+  })
+}
+
 // 2026-10-22：统一文案曾抹掉可读的网络原因；只筛展示，保留原错误及其元数据。
 function viewError(error) {
   const text = error && typeof error.message === 'string' ? error.message.trim() : ''
@@ -61,6 +73,11 @@ Page({
   onRetry() {
     return this.loadRecords()
   },
+  onViewOrder(e) {
+    if (this.data.loading || this.data.error || !this._recordsSession || !isCurrentSession(this._recordsSession)) return
+    const record = this.data.records.find(r => String(r.id) === String(e.currentTarget.dataset.id))
+    if (record && /^[1-9]\d*$/.test(String(record.orderId))) wx.navigateTo({ url: '/pages/order/detail?id=' + encodeURIComponent(record.orderId) })
+  },
   onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
 
   canApplyRecords(context) {
@@ -106,11 +123,12 @@ Page({
           purposeText: (typeof r.purposeText === 'string' && r.purposeText.trim()) || '支付记录',
           methodText: r.methodText || '—',
           statusText: r.statusText || '—',
+          directionText: r.directionText || (Number(amount) < 0 ? '退回' : Number(amount) > 0 ? '付款' : '金额为零'),
           amountText: formatMoney(amount),
           timeText: formatTime(r.createTime)
         }
       })
-      this.setData({ records: list, loaded: true, error: '' })
+      this.setData({ records: dateHeaders(list), loaded: true, error: '' })
     } catch (err) {
       if (!this.canApplyRecords(context)) return
       const raw = err && err.message || ''

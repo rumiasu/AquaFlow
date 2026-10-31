@@ -35,7 +35,7 @@
   background: #fff;
   border-radius: 16rpx;
   padding: 24rpx;
-  margin-bottom: 20rpx;
+  margin: 0 0 20rpx;
 }
 .card-title {
   font-size: 28rpx;
@@ -204,7 +204,7 @@
 .search-input { min-width:0; min-height:88rpx; font-size:28rpx; border-radius:10rpx; }
 .search-btn { min-height: 44px; height:auto; line-height:1.5; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; }
 .row { min-height:112rpx; box-sizing:border-box; border-color:var(--border-color); gap:16rpx; flex-wrap:wrap; }
-.row-main { min-width:200rpx; overflow:visible; }
+.row-main { flex:1 1 120px; min-width:0; overflow:visible; overflow-wrap:anywhere; }
 .row-title { font-size:32rpx; line-height:1.5; }
 .row-sub,.hint { color:var(--text-regular); font-size:28rpx; line-height:1.6; }
 .qty-btn { width:96rpx; height: auto; line-height: 1.5; font-size:36rpx; border-radius:10rpx; min-height:44px; display:flex; align-items:center; justify-content:center; }
@@ -215,3 +215,28 @@
 .method { min-height:96rpx; box-sizing:border-box; padding:20rpx; font-size:28rpx; border-radius:10rpx; display:flex; align-items:center; justify-content:center; }
 .btn-primary { min-height:104rpx; height:auto; line-height:1.5; padding:20rpx; box-sizing:border-box; display:flex; align-items:center; justify-content:center; border-radius:10rpx; font-size:32rpx; }
 .warn,.blocked { font-size:28rpx; line-height:1.6; border-radius:8rpx; }
+.qty-value { min-width:42rpx; text-align:center; color:#17385f; font-weight:600; }
+.qty-btn { min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; }
+.selected-product { margin-top:16rpx; padding-top:20rpx; border-top:1rpx solid var(--border-color); }
+.selector-hint { display:block; margin-top:16rpx; color:var(--text-regular); font-size:14px; line-height:1.5; }
+.qty-btn { margin:0; padding:0; box-sizing:border-box; }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Visual v2: page-specific information and action grouping. */
+ .work-head { padding:16px; border-radius:14px; background:var(--af2-surface-order); } .work-title,.work-desc { color:var(--af2-ink-order); } .card { border-radius:14px; box-shadow:none; } .s-fee-summary { background:var(--af2-surface-money); } .s-fee-summary .fee-line { padding:8px 0; color:var(--af2-ink-money); } .row { border-bottom:1px solid var(--af-border); } .methods { gap:8px; }

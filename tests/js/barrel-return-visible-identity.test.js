@@ -37,6 +37,8 @@ function fixture(options = {}) {
     return options[kind] ? options[kind](id) : Promise.resolve(ok(fallback))
   }
   const page = loadPage(relative + '.js', { app, wx, stubs: {
+    // Supported shared-dialog fixture; F separately covers safe unsupported native fallback.
+    'utils/business-dialog': { showBusinessModal: options => wx.showModal(options) },
     'api/asset-stations': { getAssetStation: async id => ok({ id, name: '合成资产站' }) },
     'api/barrel': {
       getBarrelSummary: id => read('summary', id, { independentRights: true, rightBuckets: 2,
@@ -191,6 +193,28 @@ test('confirm sends selected B original ID and arrangement version with no displ
   assert.strictEqual(t.calls.confirm.length, 0)
   await t.wx.__calls.modal[0].success({ confirm: true })
   assert.deepStrictEqual(t.calls.confirm, [{ id: 202, version: 3 }])
+})
+test('confirmation is disabled while records refresh or fail and re-enabled after a successful read', async () => {
+  const slow = pending(); let phase = 0
+  const t = fixture({ records: () => phase === 0 ? Promise.resolve(ok([record()])) : phase === 1 ? slow.promise : Promise.resolve({ code: 1 }) })
+  const confirmation = () => nodes(t).find(n => n.attrs.bindtap === 'onReturnConfirm')
+  await t.page.loadData(); assert.strictEqual(confirmation().attrs.disabled, '{{refreshing || recordsFailed}}')
+  assert.strictEqual(t.page.data.refreshing || t.page.data.recordsFailed, false)
+  phase = 1; const read = t.page.loadData(); assert.strictEqual(t.page.data.refreshing, true)
+  await t.page.onReturnConfirm(event(201)); assert.strictEqual(t.wx.__calls.modal.length, 0)
+  slow.resolve(ok([record()])); await read; assert.strictEqual(t.page.data.refreshing || t.page.data.recordsFailed, false)
+  phase = 2; await t.page.loadData(); assert.strictEqual(t.page.data.recordsFailed, true); assert.ok(confirmation())
+  await t.page.onReturnConfirm(event(201)); assert.strictEqual(t.wx.__calls.modal.length, 0)
+  phase = 0; await t.page.loadData(); assert.strictEqual(t.page.data.refreshing || t.page.data.recordsFailed, false)
+  await t.page.onReturnConfirm(event(201)); assert.strictEqual(t.wx.__calls.modal.length, 1)
+})
+test('confirmation accepts a string record ID and explains an invalid arrangement version', async () => {
+  const rows = [record('201')]; const t = fixture({ rows }); await t.page.loadData()
+  await t.page.onReturnConfirm(event('201')); assert.strictEqual(t.wx.__calls.modal.length, 1)
+  await t.wx.__calls.modal[0].success({ confirm: false }); t.page.data.records[0].returnDetail.arrangementVersion = null
+  await t.page.onReturnConfirm(event('201')); assert.strictEqual(t.wx.__calls.modal.length, 1)
+  assert.strictEqual(t.wx.__calls.toast.at(-1).title, '收桶安排未核实，请重新加载')
+  assert.deepStrictEqual(t.calls.confirm, [])
 })
 test('arrangement change preserves B ID, expectedVersion and original explicit body', async () => {
   const t = fixture(); await t.page.loadData(); const task = t.page.onReturnArrangement(event(202))

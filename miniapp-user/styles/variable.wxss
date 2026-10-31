@@ -70,6 +70,15 @@ page {
   --font-xl: 36rpx;
   --font-xxl: 40rpx;
 
+  /* 2026-10-27 层级与触控（页面只引用，不写死数值）：
+     可点控件最小 88rpx（≈44px）；主动作 96rpx（≈48px）；
+     页面/卡片主标题 36rpx；正文 28rpx；辅助说明最小 24rpx。 */
+  --control-h: 88rpx;
+  --control-h-main: 96rpx;
+  --text-title: 36rpx;
+  --text-body: 28rpx;
+  --text-note: 24rpx;
+
   /* 阴影（极少，仅分层用） */
   --shadow-sm: 0 2rpx 8rpx rgba(43, 42, 38, 0.04);
   --shadow-md: 0 4rpx 16rpx rgba(43, 42, 38, 0.05);

@@ -1,538 +1,76 @@
-/*
- * 2026-10-07：按最终 HTML 的奶油底、白卡、纵向商品卡和金额层次适配。
- * 附件是宽 550px 的画布；手机按内容宽度调整间距，输入和主操作仍保留触控高度。
- */
-page { background: #F5F6F7; }
-.page {
-  padding: 28rpx 28rpx calc(48rpx + env(safe-area-inset-bottom));
-}
+/* Financial page presentation consumes visual-v2-V0-3. Business controls stay in actions.wxss. */
+page { background:var(--af2-page); color:var(--af2-ink); }
+.finance-page { box-sizing:border-box; padding:16px 16px calc(24px + env(safe-area-inset-bottom)); font-size:14px; line-height:1.5; }
+.card { box-sizing:border-box; padding:16px; margin:0 0 16px; background:var(--af2-surface); border:1px solid var(--af2-line); border-radius:16px; }
+.card-title,.section-title { font-size:18px; line-height:26px; font-weight:600; color:var(--af2-ink); overflow-wrap:anywhere; }
+.card-title-row,.finance-section-head { display:flex; align-items:center; gap:8px; min-width:0; }
+.card-title-row { flex-wrap:wrap; }
+.card-count { margin-left:auto; font-size:13px; color:var(--af2-muted); }
+.card-sub,.row-sub,.hint,.slip-sub { display:block; font-size:14px; line-height:22px; color:var(--af2-muted); overflow-wrap:anywhere; }
+.card-sub { margin-top:8px; }
+.field { margin-top:16px; min-width:0; }
+.label { display:block; font-size:14px; line-height:20px; color:var(--af2-muted); margin-bottom:8px; }
+.input,.picker,.dialog-input { box-sizing:border-box; width:100%; min-height:48px; padding:12px; border:1px solid var(--af2-line); border-radius:9px; background:var(--af2-surface); color:var(--af2-ink); font-size:16px; line-height:22px; overflow-wrap:anywhere; }
+.input,.dialog-input { height:48px; }
+.picker { display:flex; align-items:center; }
+.picker-empty { color:var(--af2-muted); }
+.field-2col { display:flex; gap:12px; margin-top:16px; }.field.col { flex:1; margin-top:0; }
+.row { display:flex; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid var(--af2-line); }
+.row:last-child { border-bottom:0; }.row-main { flex:1; min-width:0; }
+.row-between { display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px 12px; }
+.row-title { color:var(--af2-ink); font-size:16px; line-height:24px; overflow-wrap:anywhere; }
+.row-amount { margin-left:auto; font-size:18px; line-height:26px; font-weight:600; color:var(--af2-ink); text-align:right; overflow-wrap:anywhere; }
+.empty { padding:24px 12px; color:var(--af2-muted); font-size:14px; line-height:22px; overflow-wrap:anywhere; }
+.finance-empty { display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; padding:32px 16px; }
+.load-error,.ui-state { padding:16px; margin:12px 0; border-radius:12px; background:var(--af2-surface-danger); color:var(--af2-ink); line-height:22px; overflow-wrap:anywhere; }
+.ui-state-title { display:block; font-size:16px; font-weight:600; }.ui-state-copy { display:block; margin:6px 0; }
+.load-error .af-action,.ui-state .af-action { margin-top:8px; }
+.mask { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(25,42,63,.38); z-index:90; }
+.dialog { position:fixed; left:0; right:0; bottom:0; top:auto; z-index:100; box-sizing:border-box; max-height:88vh; padding:20px 20px calc(20px + env(safe-area-inset-bottom)); border-radius:20px 20px 0 0; background:var(--af2-surface); overflow-y:auto; }
+.dialog-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.dialog-title { flex:1; min-width:0; font-size:18px; line-height:26px; font-weight:600; overflow-wrap:anywhere; }
+.dialog-close { flex:none; font-size:24px; margin-left:auto; }
+.kv { display:flex; align-items:flex-start; gap:12px; padding:10px 0; font-size:14px; line-height:22px; }
+.kv-k { flex:0 0 7em; color:var(--af2-muted); }.kv-v { flex:1; min-width:0; text-align:right; color:var(--af2-ink); overflow-wrap:anywhere; }
+.pill,.tag { display:inline-block; font-size:13px; line-height:20px; padding:3px 8px; border-radius:6px; background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); }
+.pill-on,.pill-paid { background:var(--af2-surface-success); color:var(--af2-ink-success); }
+.pill-confirmed { background:var(--af2-surface-current); color:var(--af2-ink-current); }
+.pill-off,.pill-draft { background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); }
+.form-submit { margin-top:20px; }.form-cancel { margin-top:8px; }
+@media (max-width:350px) { .field-2col { flex-direction:column; }.row-amount { max-width:100%; } }
 
-/* ============ 顶部页签（分段控件） ============ */
-.tabs {
-  display: flex;
-  align-items: center;
-  background: #fff;
-  border-radius: 28rpx;
-  padding: 8rpx;
-  margin-bottom: 28rpx;
-  flex-wrap: wrap;
-  box-shadow: 0 4rpx 20rpx rgba(43,42,38,0.04);
-}
-.tab {
-  flex: 1;
-  text-align: center;
-  font-size: 26rpx;
-  color: var(--text-regular);
-  line-height: 64rpx;
-  border-radius: 20rpx;
-}
-.tab-on {
-  background: var(--primary-gradient);
-  color: #fff;
-  font-weight: 600;
-}
-.tab-help {
-  font-size: 24rpx;
-  color: var(--primary-color);
-  padding: 0 16rpx;
-  flex-shrink: 0;
-}
+.tabs { display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin-bottom:20px; padding:4px; background:var(--af2-surface-neutral); border-radius:12px; }
+.tabs .af-choice { flex:1; min-width:0; }.tabs .af-choice__face { padding-left:2px; padding-right:2px; }
+.tab-help { display:flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; font-size:16px; color:var(--af2-muted); }
+.draft-note { display:block; padding:12px; margin-bottom:12px; border-radius:10px; color:var(--af2-ink-neutral); background:var(--af2-surface-neutral); font-size:14px; line-height:22px; }
+.draft-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.configured-rate { align-items:center; }.configured-rate .row-main { order:1; }.configured-rate .rate-edit { order:2; flex:none; margin-left:auto; }
+.configured-default { background:var(--af2-surface-neutral); padding:12px; border-radius:9px; }
+.product-list { margin-top:12px; }.product-card { display:flex; align-items:center; gap:12px; min-height:76px; padding:12px 0; border-top:1px solid var(--af2-line); }
+.product-selected { background:var(--af2-surface-neutral); border-radius:10px; padding:12px; border:1px solid var(--af-primary); }
+.product-image { display:flex; flex:none; align-items:center; justify-content:center; width:52px; height:64px; border-radius:8px; background:var(--af2-surface-neutral); }
+.product-placeholder { flex-direction:column; color:var(--af2-muted); font-size:12px; line-height:18px; }.default-image { font-size:28px; color:var(--af2-ink-money); background:var(--af2-surface-money); }
+.product-copy { flex:1; min-width:0; }.product-name { display:block; font-size:16px; font-weight:600; line-height:24px; overflow-wrap:anywhere; }
+.product-spec,.product-price { display:block; font-size:14px; line-height:22px; color:var(--af2-muted); }.product-price { color:var(--af2-ink); }
+.product-check { flex:none; font-size:18px; color:var(--af-primary); }
+.payroll-amount-panel { padding:16px; margin-top:16px; border-radius:14px; }
+.slip-hero { padding:8px 0 16px; }.slip-hero-amount { display:block; font-size:30px; line-height:38px; font-weight:600; color:var(--af2-ink-money); overflow-wrap:anywhere; }
+.slip-hero-label { display:block; font-size:14px; color:var(--af2-ink-money); margin-top:4px; }
+.payroll-amount-panel .kv { border-top:1px solid var(--af2-line); }.payroll-amount-panel .kv-k,.payroll-amount-panel .kv-v { color:var(--af2-ink-money); }
+.settlement-submit,.adjust-submit { margin-top:20px; }.adjust-toggle { margin-left:auto; }
+.direction-choices,.direction-options { display:flex; gap:8px; margin-top:12px; }.direction-choices .af-choice,.direction-options .af-choice { flex:1; min-width:0; }
+.payroll-search { box-sizing:border-box; height:48px; padding:12px; width:100%; margin:12px 0 0; border:1px solid var(--af2-line); border-radius:9px; background:var(--af2-surface); font-size:16px; }
+.payroll-date-row { display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; margin:8px 0; font-size:14px; }.payroll-date-row picker { flex:1; min-width:86px; }.payroll-date-row picker > view { min-height:44px; display:flex; align-items:center; }
+.payroll-filter-clear { display:flex; align-items:center; min-height:44px; padding:0 8px; color:var(--af2-muted); }
+.slip { padding:16px 0; border-top:1px solid var(--af2-line); }.slip-top { display:flex; align-items:center; gap:12px; }.slip-person { flex:1; min-width:0; }
+.slip-label { display:none; }.slip-name { font-size:16px; line-height:24px; font-weight:600; overflow-wrap:anywhere; }
+.slip-money { display:flex; align-items:baseline; flex-wrap:wrap; justify-content:space-between; gap:6px 12px; margin:12px 0; }.slip-amount { font-size:26px; line-height:34px; font-weight:600; color:var(--af2-ink); overflow-wrap:anywhere; }.slip-period { font-size:13px; color:var(--af2-muted); }
+.pay-caution { display:block; font-size:13px; line-height:20px; color:var(--af2-muted); margin-top:8px; }
+.slip-actions { display:flex; align-items:center; gap:8px; margin-top:8px; }.slip-detail-entry { margin-left:auto; display:flex; align-items:center; gap:10px; min-height:44px; color:var(--af2-muted); }
+.item-card .row-main { width:100%; }.actions-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px; }.item-more-entry { margin-left:auto; }
+.sum-box { padding:12px; margin:12px 0; border-radius:10px; background:var(--af2-surface-neutral); }.sum-title { font-size:13px; color:var(--af2-muted); }.sum-row { display:flex; align-items:flex-start; gap:8px; padding:8px 0; }.sum-name { flex:1; min-width:0; overflow-wrap:anywhere; }.sum-dir { color:var(--af2-muted); }.sum-amount { font-weight:600; overflow-wrap:anywhere; }.sum-add { color:var(--af2-ink-success); }.sum-deduct { color:var(--af2-ink-danger); }.sum-total { padding-top:16px; }
+.dialog .slip-hero,.record-direction { padding:16px; margin:12px 0; border-radius:12px; background:var(--af2-surface-money); }.detail-scroll { max-height:34vh; }.detail-close,.history-more { margin-top:8px; }
+.item-menu { position:fixed; bottom:0; left:0; right:0; z-index:110; padding:20px 20px calc(20px + env(safe-area-inset-bottom)); border-radius:20px 20px 0 0; background:var(--af2-surface); box-sizing:border-box; max-height:85vh; overflow-y:auto; }.menu-mask { z-index:105; }.menu-title { display:block; margin-bottom:12px; font-size:18px; line-height:26px; font-weight:600; overflow-wrap:anywhere; }
+.menu-action,.menu-cancel { display:flex; align-items:center; width:100%; min-height:48px; padding:12px; margin:0; font-size:16px; line-height:24px; border:0; border-top:1px solid var(--af2-line); border-radius:0; background:var(--af2-surface); color:var(--af2-ink); box-sizing:border-box; text-align:left; }.menu-danger { color:var(--af2-ink-danger); }.menu-cancel { justify-content:center; margin-top:12px; background:var(--af2-surface-neutral); border-radius:9px; }.menu-hint { display:block; font-size:13px; line-height:20px; margin:8px 0; color:var(--af2-muted); }
 
-/* ============ 卡片 ============ */
-.card {
-  background: #fff;
-  border-radius: 28rpx;
-  padding: 32rpx;
-  margin-bottom: 28rpx;
-  box-shadow: 0 4rpx 20rpx rgba(43,42,38,0.04);
-}
-.card-title-row {
-  display: flex;
-  align-items: center;
-}
-.card-title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-/* 标题右侧的计数/单位（弱化，不与标题抢注意力） */
-.card-count {
-  margin-left: auto;
-  font-size: 23rpx;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-/* 标题下的一句话：**与钱有关或说清后果**的才放这里，概念解释进 help-tip */
-.card-sub {
-  display: block;
-  font-size: 24rpx;
-  color: var(--text-secondary);
-  line-height: 36rpx;
-  margin-top: 10rpx;
-}
-
-/* ============ 商品 chip ============ */
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  margin: 16rpx 0 4rpx;
-}
-.chip {
-  padding: 12rpx 24rpx;
-  border: 1rpx solid var(--bg-gray);
-  border-radius: 10rpx;
-  font-size: 25rpx;
-  color: var(--text-primary);
-  background: #fff;
-  margin: 0 16rpx 16rpx 0;
-}
-.chip-on {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  background: var(--primary-bg);
-  font-weight: 600;
-}
-
-/* ============ 表单：标签在上、控件在下 ============ */
-.field {
-  margin-top: 20rpx;
-}
-.field.col {
-  flex: 1;
-  min-width: 0;
-  margin-top: 0;
-}
-.field-2col {
-  display: flex;
-  gap: 20rpx;
-  margin-top: 20rpx;
-}
-.label {
-  display: block;
-  font-size: 25rpx;
-  color: var(--text-regular);
-  margin-bottom: 10rpx;
-}
-.input {
-  width: 100%;
-  height: 88rpx;
-  padding: 0 20rpx;
-  background: var(--bg-gray);
-  border-radius: 20rpx;
-  font-size: 28rpx;
-  color: var(--text-primary);
-  box-sizing: border-box;
-}
-.picker {
-  min-height: 88rpx;
-  line-height: 40rpx;
-  padding: 24rpx 20rpx;
-  background: var(--bg-gray);
-  border-radius: 20rpx;
-  font-size: 28rpx;
-  color: var(--text-primary);
-  box-sizing: border-box;
-  overflow-wrap: anywhere;
-}
-/* 还没选：与"已经选了一个值"必须看得出区别（原来两者同色，等于没提示） */
-.picker-empty {
-  color: var(--text-secondary);
-}
-
-/* ============ 列表行 ============ */
-.row {
-  display: flex;
-  align-items: flex-start;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid var(--bg-gray);
-}
-.row:last-child {
-  border-bottom: none;
-}
-.row-main {
-  flex: 1;
-  min-width: 0;
-}
-.row-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12rpx;
-  align-items: flex-start;
-}
-.row-title {
-  font-size: 27rpx;
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-.row-amount {
-  font-size: 29rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-  flex-shrink: 0;
-}
-.row-sub {
-  display: block;
-  font-size: 23rpx;
-  color: var(--text-secondary);
-  margin-top: 6rpx;
-  line-height: 34rpx;
-}
-
-/* ============ pill：状态标签与行内按钮 ============ */
-.pill {
-  font-size: 24rpx;
-  padding: 4rpx 18rpx;
-  border-radius: 999rpx;
-  flex-shrink: 0;
-  margin-left: 12rpx;
-}
-.pill-on {
-  background: var(--success-bg);
-  color: var(--success-color);
-}
-.pill-off {
-  background: var(--bg-gray);
-  color: var(--text-secondary);
-}
-/* 结算单状态（颜色由 js 的 statusPillClass 挑，文案来自服务端 statusText） */
-.pill-draft {
-  background: var(--warning-bg);
-  color: var(--warning-color);
-}
-.pill-confirmed {
-  background: var(--primary-bg);
-  color: var(--primary-color);
-}
-.pill-paid {
-  background: var(--success-bg);
-  color: var(--success-color);
-}
-
-.actions-row {
-  display: flex;
-  flex-wrap: wrap;
-  margin-top: 14rpx;
-}
-.pill-btn {
-  padding: 10rpx 24rpx;
-  border: 1rpx solid var(--primary-color);
-  color: var(--primary-color);
-  border-radius: 999rpx;
-  font-size: 14px;
-  margin: 0 12rpx 10rpx 0;
-  white-space: nowrap;
-}
-.pill-btn-main {
-  background: var(--primary-color);
-  color: #fff;
-}
-.pill-btn-danger {
-  border-color: var(--error-color);
-  color: var(--error-color);
-}
-
-/* ============ 结算单卡片 ============ */
-.slip {
-  padding: 28rpx;
-  border: 2rpx solid var(--border-color);
-  border-radius: 28rpx;
-  margin-top: 24rpx;
-}
-.slip:last-child {
-  border-bottom: 2rpx solid var(--border-color);
-}
-.slip-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16rpx;
-}
-.slip-name {
-  display: block;
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-.slip-amount {
-  display: block;
-  font-size: 60rpx;
-  font-weight: 700;
-  color: var(--primary-color);
-  overflow-wrap: anywhere;
-  line-height: 1.2;
-}
-.slip-mid {
-  display: flex;
-  align-items: center;
-  margin-top: 10rpx;
-}
-.slip-period {
-  display: block;
-  font-size: 23rpx;
-  color: var(--text-secondary);
-  margin-top: 12rpx;
-  line-height: 36rpx;
-}
-.slip-sub {
-  display: block;
-  font-size: 24rpx;
-  color: var(--text-secondary);
-  margin-top: 6rpx;
-  line-height: 32rpx;
-}
-.slip-actions {
-  display: flex;
-  align-items: center;
-  margin-top: 24rpx;
-  gap: 16rpx;
-  flex-wrap: wrap;
-}
-.slip-hint {
-  margin-left: auto;
-  font-size: 24rpx;
-  color: var(--text-secondary);
-}
-
-/* ============ 按条目汇总 ============ */
-.sum-box {
-  background: var(--bg-color);
-  border-radius: 12rpx;
-  padding: 18rpx;
-  margin: 16rpx 0;
-}
-.sum-title {
-  font-size: 23rpx;
-  color: var(--text-secondary);
-  margin-bottom: 8rpx;
-}
-.sum-row {
-  display: flex;
-  align-items: center;
-  padding: 8rpx 0;
-}
-.sum-name {
-  flex: 1;
-  font-size: 26rpx;
-  color: var(--text-primary);
-  overflow: hidden;
-}
-.sum-dir {
-  font-size: 24rpx;
-  color: var(--text-secondary);
-  margin: 0 12rpx;
-}
-.sum-amount {
-  font-size: 28rpx;
-  font-weight: 600;
-}
-.sum-add {
-  color: var(--success-color);
-}
-.sum-deduct {
-  color: var(--error-color);
-}
-.sum-total {
-  padding-top: 16rpx;
-  border-top: 1rpx solid var(--bg-gray);
-  margin-top: 8rpx;
-}
-
-/* ============ 按钮 ============ */
-.btn-primary {
-  min-height: 48px;
-  line-height: 40rpx;
-  padding: 24rpx 20rpx;
-  text-align: center;
-  background: var(--primary-gradient);
-  color: #fff;
-  border-radius: 20rpx;
-  font-size: 16px;
-  font-weight: 600;
-  margin-top: 28rpx;
-}
-.btn-ghost {
-  min-height: 44px;
-  line-height: 40rpx;
-  padding: 24rpx 20rpx;
-  text-align: center;
-  border: 1rpx solid var(--border-color);
-  border-radius: 20rpx;
-  font-size: 14px;
-  color: var(--text-primary);
-  margin-top: 18rpx;
-}
-.btn-disabled {
-  opacity: 0.55;
-}
-
-/* ============ 空态 / 加载 ============ */
-.empty {
-  font-size: 26rpx;
-  color: var(--text-secondary);
-  padding: 20rpx 0;
-  line-height: 40rpx;
-}
-/* 注：卡片内的空态直接复用 .empty —— .card 自带 padding: 24rpx，
-   不要再给空态加左右内边距，否则文字会比同卡的标题/输入框更靠里。 */
-
-/* ============ 弹窗（明细 / 记一笔） ============ */
-.mask {
-  position: fixed;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 9;
-}
-.dialog {
-  position: fixed;
-  left: 28rpx;
-  right: 28rpx;
-  top: 6%;
-  max-height: 86%;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 32rpx;
-  z-index: 10;
-  box-sizing: border-box;
-  overflow-y: auto;
-  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
-}
-.dialog-title {
-  display: block;
-  font-size: 31rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 12rpx;
-  overflow-wrap: anywhere;
-}
-/* 明细弹窗顶部的合计（"这张单多少钱"第一眼就要看到） */
-.slip-hero {
-  text-align: center;
-  padding: 16rpx 0 20rpx;
-}
-.slip-hero-amount {
-  display: block;
-  font-size: 52rpx;
-  font-weight: 700;
-  color: var(--primary-color);
-  line-height: 1.2;
-}
-.slip-hero-label {
-  font-size: 23rpx;
-  color: var(--text-secondary);
-}
-.kv {
-  display: flex;
-  align-items: flex-start;
-  padding: 8rpx 0;
-}
-.kv-k {
-  width: 120rpx;
-  font-size: 25rpx;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.kv-v {
-  flex: 1;
-  font-size: 26rpx;
-  color: var(--text-primary);
-  word-break: break-all;
-}
-.detail-scroll {
-  max-height: 520rpx;
-  margin-top: 8rpx;
-}
-
-.payroll-search { padding:18rpx; background:var(--primary-bg); border-radius:12rpx; margin:12rpx 0; }
-.payroll-date-row { display:flex; flex-wrap:wrap; gap:16rpx; align-items:center; font-size:24rpx; margin:18rpx 0; }.payroll-date-row picker { padding:14rpx; background:var(--primary-bg); border-radius:10rpx; }
-
-/* 原生 button 的默认边框/边距会挤窄双按钮；只约束本页。 */
-.page button { margin-left: 0; margin-right: 0; box-sizing: border-box; }
-button::after { border: none; }
-button[disabled] { background: #F0F2F5 !important; color: #637083 !important; opacity: 0.7; }
-/* style v2 的 button:not([size='mini']) 自带固定宽度；单类选择器在原生页会输给它。 */
-.page button.btn-primary, .page button.btn-ghost, .page button.retry-button { width: 100%; }
-.product-list { margin-top: 24rpx; }
-.product-card { display: flex; align-items: center; gap: 24rpx; padding: 24rpx; border: 2rpx solid var(--border-color); border-radius: 22rpx; margin-top: 18rpx; background: #fff; }
-.product-default { background: #F8F9FC; }
-.product-selected { border: 3rpx solid var(--primary-color); padding: 23rpx; }
-.product-image { width: 100rpx; height: 128rpx; border-radius: 14rpx; flex-shrink: 0; background: #F0F2F5; }
-.product-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6rpx; color: var(--text-secondary); font-size: 24rpx; }
-.default-image { display: flex; align-items: center; justify-content: center; background: #E8F0F8; color: var(--primary-color); font-size: 48rpx; font-weight: 600; }
-.product-copy { flex: 1; min-width: 0; }
-.product-name { display: block; font-size: 29rpx; font-weight: 600; color: var(--text-primary); line-height: 40rpx; overflow-wrap: anywhere; }
-.product-spec, .product-price { display: block; font-size: 24rpx; line-height: 34rpx; margin-top: 4rpx; overflow-wrap: anywhere; color: var(--text-regular); }
-.product-spec { color: var(--text-secondary); }
-.product-check { width: 44rpx; height: 44rpx; line-height: 44rpx; text-align: center; border-radius: 50%; background: var(--primary-color); color: #fff; font-size: 28rpx; flex-shrink: 0; }
-.configured-rate { padding: 24rpx; border: 2rpx solid var(--border-color); border-radius: 20rpx; margin-top: 20rpx; }
-.configured-rate:last-child { border-bottom: 2rpx solid var(--border-color); }
-.configured-default, .configured-default:last-child { background: #F8F9FC; border-color: #F8F9FC; }
-.slip-person { flex: 1; min-width: 0; }
-.slip-label { display: block; font-size: 24rpx; color: var(--text-secondary); margin-bottom: 6rpx; }
-.slip-money { text-align: center; padding: 32rpx 0; border-top: 2rpx solid #E8ECF1; border-bottom: 2rpx solid #E8ECF1; margin: 24rpx 0; }
-.slip-action { flex: 1; min-width: 180rpx; min-height: 88rpx; padding: 24rpx 12rpx; line-height: 40rpx; font-size: 26rpx; border-radius: 20rpx; }
-.slip-action-main { background: var(--primary-color); color: #fff; font-weight: 600; }
-.slip-action-pay { background: var(--primary-color); color: #fff; font-weight: 600; }
-.slip-action-detail { border: 2rpx solid var(--border-color); background: #fff; color: var(--text-regular); }
-.page button.slip-action { width: 0; }
-.direction-options { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.direction-option { flex: 1; min-width: 160rpx; min-height: 88rpx; padding: 22rpx; line-height: 40rpx; font-size: 28rpx; border: 2rpx solid transparent; border-radius: 20rpx; background: #F0F2F5; color: var(--text-regular); }
-.direction-selected { border-color: var(--primary-color); color: var(--text-primary); }
-.page button.direction-option { width: 0; }
-.item-card, .item-card:last-child { padding: 28rpx; border: 2rpx solid var(--border-color); border-radius: 28rpx; margin-top: 24rpx; }
-.item-card .row-title { font-weight: 600; font-size: 30rpx; flex: 1; min-width: 0; }
-.item-card .actions-row { display: flex; flex-wrap: nowrap; gap: 20rpx; margin-top: 24rpx; }
-.item-record { flex: 1; min-width: 0; min-height: 88rpx; padding: 24rpx 12rpx; line-height: 40rpx; border-radius: 20rpx; font-size: 28rpx; background: var(--primary-color); color: #fff; font-weight: 600; }
-.item-more { width: 88rpx; height: 88rpx; line-height: 80rpx; padding: 0; border: 2rpx solid var(--border-color); border-radius: 20rpx; color: var(--text-secondary); background: #fff; font-size: 40rpx; flex-shrink: 0; }
-.page button.item-record { width: 0; }
-.page button.item-more { width: 88rpx; }
-.item-more-hint { display: block; font-size: 24rpx; color: var(--text-secondary); border-top: 2rpx solid #E8ECF1; padding-top: 18rpx; margin-top: 20rpx; line-height: 34rpx; }
-.menu-mask { z-index: 20; }
-.item-menu { position: fixed; z-index: 21; left: 0; right: 0; bottom: 0; padding: 28rpx 32rpx calc(24rpx + env(safe-area-inset-bottom)); border-radius: 28rpx 28rpx 0 0; background: #fff; box-sizing: border-box; max-height: 85%; overflow-y: auto; }
-.menu-title { display: block; font-size: 28rpx; font-weight: 600; padding: 8rpx 0 24rpx; overflow-wrap: anywhere; }
-.menu-action, .menu-cancel { width: 100%; background: #fff; color: var(--text-primary); font-size: 30rpx; line-height: 44rpx; padding: 24rpx; border-top: 2rpx solid #E8ECF1; border-radius: 0; }
-.menu-danger { color: var(--error-color); }
-.menu-cancel { background: #F0F2F5; border: none; border-radius: 20rpx; margin-top: 20rpx; }
-.page button.menu-action, .page button.menu-cancel { width: 100%; }
-.menu-hint { display: block; text-align: center; color: var(--text-secondary); font-size: 23rpx; padding: 12rpx; line-height: 34rpx; }
-.load-error { background: var(--bg-gray); color: var(--text-regular); padding: 24rpx; border-radius: 20rpx; margin-bottom: 24rpx; font-size: 25rpx; line-height: 38rpx; overflow-wrap: anywhere; border-left: 4rpx solid var(--primary-color); }
-.retry-button { background: #fff; color: var(--primary-color); font-size: 14px; line-height: 40rpx; padding: 20rpx; margin-top: 16rpx; }
-.hint { color: var(--text-secondary); font-size: 23rpx; line-height: 36rpx; margin: 12rpx 0; }
-@media (max-width: 350px) {
-  .tab { font-size: 24rpx; }
-  .tab-help { width: 100%; text-align: right; line-height: 56rpx; box-sizing: border-box; }
-  .product-card { gap: 18rpx; padding: 20rpx; }
-  .product-selected { padding: 19rpx; }
-  .product-image { width: 88rpx; height: 112rpx; }
-  .slip-actions { flex-direction: column; align-items: stretch; }
-  .slip-action { flex: none; }
-  .page button.slip-action { width: 100%; }
-}
-
-/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
-
-page { background: var(--bg-color); }
-.page { padding: 24rpx 24rpx calc(40rpx + env(safe-area-inset-bottom)); }
-.tabs,.card { border-radius: 12rpx; box-shadow: none; margin-bottom: 20rpx; }.card { padding: 24rpx; }
-.tab,.tab-help { min-height: 88rpx; box-sizing: border-box; display: flex; align-items: center; justify-content: center; line-height: 1.6; border-radius: 8rpx; }
-.tab { min-width: 150rpx; padding: 16rpx 8rpx; }.tab-on { background: var(--primary-color); }
-.product-card,.configured-rate,.item-card,.item-card:last-child { border: 0; border-top: 1rpx solid var(--border-color); border-radius: 0; padding: 22rpx 0; margin-top: 0; }
-.product-selected { border-left: 6rpx solid var(--primary-color); background: var(--primary-bg); padding-left: 16rpx; padding-right: 16rpx; }
-.product-image { background: var(--bg-color); border-radius: 6rpx; }
-.configured-default,.configured-default:last-child { background: var(--bg-color); border-color: var(--border-color); padding-left: 16rpx; }
-.card-sub,.row-sub,.hint,.slip-label { color: var(--text-regular); font-size: 25rpx; line-height: 1.6; }
-.slip-money { text-align: left; padding: 20rpx 0; margin: 16rpx 0; border-color: var(--border-color); }
-.slip-period { display: block; line-height: 1.6; margin-top: 8rpx; }
-.pay-caution { display: block; background: var(--bg-gray); color: var(--warning-color); padding: 16rpx; font-size: 25rpx; line-height: 1.6; margin-bottom: 16rpx; border-left: 4rpx solid var(--warning-color); }
-.page button { min-height: 44px; height: auto; white-space: normal; word-break: break-all; border-radius: 8rpx; }
-.page button.btn-primary { background: var(--primary-color); }
-.direction-option,.menu-cancel { background: var(--bg-color); }.direction-selected { background: var(--primary-bg); }
-button[disabled] { background: var(--bg-color) !important; color: var(--text-secondary) !important; }
-.dialog,.item-menu { border-radius: 12rpx; }.slip { border-radius: 10rpx; box-shadow: none; }.slip-actions { flex-wrap: wrap; }
-.payroll-date-row picker,.payroll-date-row > text[bindtap] { min-height: 88rpx; box-sizing: border-box; display: flex; align-items: center; padding: 16rpx; }.payroll-search { height: 88rpx; box-sizing: border-box; background: var(--bg-color); }
-
-.btn-primary,.btn-ghost { min-height: 48px; height: auto; line-height: 1.6; padding: 20rpx; box-sizing: border-box; white-space: normal; word-break: break-all; }
+.menu-action::after,.menu-cancel::after { border:0; }

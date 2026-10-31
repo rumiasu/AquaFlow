@@ -1,0 +1,1549 @@
+{
+  "version": "visual-all-RC2-final",
+  "frozenZipSha256": "596c3a335f8f927b04930e9eb0c49c46eb46916fe41943d09cd9d11e5ec29397",
+  "files": [
+    {
+      "path": "miniapp-delivery/app.wxss",
+      "before": "9c9f50942eb9c48526be063c2f6e09905b26fd05a8c774bdfe06bd8dd723ac21",
+      "after": "939a4b36cdf758249fb05549b42dbe7631fe9fb832ac9c5c73199e41e21cf371",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/app.wxss",
+      "before": "29959cb4e125c4dc5a449827751283735a8f5a838276982944429157a9caaf4b",
+      "after": "f0687d11d75ea4ed19b42d5d6fc1bbe7b9f0ffc90d05bb66132ae5034cea3d40",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/behaviors/stationNavbar.js",
+      "before": "726c61bb32f039d0261400d804b2dc0f4f7bec3f3c4d4da11992fad4c4975cea",
+      "after": "bc2b8105f4ae3f955d14dca308040259fc03ad37a11e245889f21a3287533d74",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/styles/actions.wxss",
+      "before": null,
+      "after": "1ae2c9f70eedf9b09c8dbab9ecc56a8540fc131b8c2875e0dbad9c82b0907f63",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/styles/presentation.wxss",
+      "before": null,
+      "after": "7cf74779c752112022ed72c021e481a79bbd28e235197262d5ab5eb029b62f67",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/styles/setup-module-tasks.wxss",
+      "before": "604a77d07beca6ceef94c8531acf33e86fe91c8cad7e981b176f5677157f6fed",
+      "after": "373b7f8be2d967713b808b5f3020ce84e70d408bf54decdf248c5e31660c163f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/styles/station-navbar.wxss",
+      "before": "06e3ffc0424c4f78fb33c88255d958311a470c8aa79e54a796e5a83af5b938e7",
+      "after": "5ec707a3ab42a4ed2bdc1114e53f3acd36e218661824899de20e6f153f7c2dfc",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/templates/setup-module-tasks.wxml",
+      "before": "13136c0d7b767d4fc75e93cad964831681a88a15cbb24b48f3c5f13002df1735",
+      "after": "64b0a05370b047d07e47553534f5f0fb0388b206727a479903cf21a55fce2a43",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/templates/station-navbar.wxml",
+      "before": "5d9b23cbfef104e82e20a484dfd4ee8127b540e16d079ac625f31d2c887f9f55",
+      "after": "38c04d0e6053286518faaa6db48a820050239d09386a06028d7995046b9c5ab5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/utils/adjustment-customer.wxml",
+      "before": "13ebcf8fb6a212daf47ef0ed02a81a4cd3589fa8f5b1fa7aabd340978aeec139",
+      "after": "8c46dd55939c983095dc2b47767bf3a2d81e9af23e01aca2a49b11f3e617a2bc",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/utils/setup-progress.js",
+      "before": "3cd41df6b9b5438db820e0acab7367f9940e4ca3cdaecd8e8d2956bfbdf0aefa",
+      "after": "03df32dfd827c0eaad99a5acc707130cf87503d1435810218c19c7547ffcf214",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/utils/station-history-customer.wxml",
+      "before": "98a2e64928539ccb4844e28cac87472838008fd6b9054186189b41e74b6fc3c8",
+      "after": "88df398cfe572763e04341fa5b42150c83424c699c313caf6c3da7702e1340a1",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/assets/ui/empty-order.webp",
+      "before": null,
+      "after": "14e6d152798ef675a156d2c720044b4d1a17ce781f3ed498beae83afd1227fd6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/assets/ui/scene-station-delivery.webp",
+      "before": null,
+      "after": "6efd1d2a93feaf515fad437ab552d44d05d9d97eb58fe9bf3704eff8c5c3ebe6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/BusinessDialog/index.wxml",
+      "before": "464bf108bb2ac7297573305f0d83899a0643c978feed45e913d5480d329c5d6e",
+      "after": "ef5691ddcffbfaf63c1ef5e9145e55e1c963a8252d7d528b3b086fd5f4d60303",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/BusinessDialog/index.wxss",
+      "before": "fe7a829ad7b12af9320bf3b6b6b99a9e0cc9193a5e2a59e7e0fa18caf3912e6b",
+      "after": "66de8fa4c9f3eda3794f0848419cc90d303b2f27eaba517cab470b4b52a91574",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/HelpTip/index.wxml",
+      "before": "3f0fcf53417c8d0688109b9e02394c119ca5530884e8631eba7f9877be56ce11",
+      "after": "a16d3d49436ce1a1d9823b6a9e984246c67ce778401002a686ca6f32d92757fd",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/HelpTip/index.wxss",
+      "before": "e8b773d36ebb9cb7eea31535c731590a6100a7eeeb6e4ce6b69562c5e47f0f64",
+      "after": "59f87902ab49f101830ab2d3fa6efb90720eb8170d4494f48aa1dedad6fb372f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/Icon/index.js",
+      "before": null,
+      "after": "7782b72d4e9a8230f4a2e5830a00e0992e07eaa49e1ec22e9bdb1e30cab61fd0",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/Icon/index.json",
+      "before": null,
+      "after": "a86141b3fc9036835f80ed60a03bec91271f26da944e18c7ead57ce95dd9ad67",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/Icon/index.wxml",
+      "before": null,
+      "after": "7f45517a667a2b8bfc08d28f342609b47b4515bf2bd657eaca10c6387ae1625b",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/Icon/index.wxss",
+      "before": null,
+      "after": "b85c98a4e08cbca2e467dd8b9f04edcc07bd289250ce95336f9a8406e498ae35",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/IntegerStepper/index.wxss",
+      "before": "65e396a2cb7b838898b7affba2e1e439ff468bd23a679398d310f2c869eab42b",
+      "after": "4b325b2288ecb2befbb613136ca97ea1d4e55011c1a63dd72afc393342c81862",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/PrivacyPopup/index.wxss",
+      "before": "259c310b22f4e4c46808fe35922936cac993aad98e6840dbf9bd41cd688305d3",
+      "after": "855dc9a349e1bface58f019790df7f8aa9009629744990ebeb8c4e48855d41df",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/ProductSelector/index.wxml",
+      "before": "1077082d18ec4390313ee32334867e6d037e8fc04764197cc8d448651f3db1a1",
+      "after": "bd46e96db715a444565c2d2d3a6178b47525dc3661b141aefd68c2aebb9803c4",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/components/ProductSelector/index.wxss",
+      "before": "33343fcd05cf7f2d9ac87b57ef6ddce0f205e4969e8b27f5b983f9997c2f1f85",
+      "after": "775c1cf229b83197d73820b5da3909b0ce406d726b580648e87701e50e7f338a",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/barrel-records/index.json",
+      "before": "8b82751b75a5575accfaca2f8479ffe307622217c2dd6292d4958422d4275437",
+      "after": "f16422e9a88297148f6a80e3d94143a4fba90a76a6a0a04ce18bc83977f740ac",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/barrel-records/index.wxml",
+      "before": "a50bdbd060389b70ec61fccd34586ddb5a363c053618c8e776b245da766ec0f4",
+      "after": "27379fad7fee0b856369b96ec8986c18ada01de0efc9e1910ba4a176fa054beb",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/barrel-records/index.wxss",
+      "before": "9bbb2e9504011fc5a677a6d85e1dae334d7a84214be95389e70954243578a435",
+      "after": "894718d552ba764047b524dd8026ff708f9ecea88452aae67f205c8b0ed54553",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/bind-wait/index.js",
+      "before": "fc98871312164b9ed034cf298e280b5f4d921adfd049d8bee195d86f12740124",
+      "after": "3fc356758e7db8bb338b41f7b6a22b1e635e410deab15bd60f890eb7839840e6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/bind-wait/index.json",
+      "before": "12208cb047548fd85fedded8211a5ac8cb6e7f73716b962d411a12b5a9287b60",
+      "after": "bb10bb0967d6ef6196589f50cf0551c9561e3f769f2c67548370e2985c3cdd2c",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/bind-wait/index.wxml",
+      "before": "a8c7e380583204f3c2cc94fed48e485b6bc96c7dc01218257488b31924e26363",
+      "after": "72b3870cf7ec04220e870599dfb43539f996000f075356173b69d85c139c2909",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/bind-wait/index.wxss",
+      "before": "92c1fd6728b3a7a284552f96cd84055ebca6ba24150a4a8be49c865131b76894",
+      "after": "334a43f3b04dc05a274590a4838f0cd545ba38a50865399ec77881ef79423106",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/coordination/index.js",
+      "before": "137b6d643dc4f8d80afa5c26fba5a1b03e3958c3c6e430b9b7d94b2bb6dc1448",
+      "after": "c3f859c89176c67b533f40f494cc5600ea46326ddda8220787a42471a8d5009f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/coordination/index.json",
+      "before": "18dfec6d2e20ebf3f02bf8bb7bc3b4bdeb621b087c549f107300dc8de172a81e",
+      "after": "6363ad70282bde530b06ca6fa0342ee34729259c5ca3229a5e84380a330ec6c7",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/coordination/index.wxml",
+      "before": "69ab802ca909f7c3e61ea6c0ebab946b91968d43938edb2f563f6cbf51a9f0b5",
+      "after": "721205d2323c31172e49a43f72064fa67d4a9682fe092401246699c7ed0bdca3",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/coordination/index.wxss",
+      "before": "8c7fa4f3fe8e1f324f01ddc82a395eaa6dc926fb4433b321f7dd53f9d0b32be1",
+      "after": "c8178505f10db17d28cffc489f14a0d1fe43aeecf37391062f36e95ca7f22fd4",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/history/index.js",
+      "before": "d2fa450047380550026a82512a02cf5a53cff944d788709cd1bad3330179b5ed",
+      "after": "7c0b1bf881eda61e6ca400c5d2f5c048770f76694c2e1e36445bf17555cb06a4",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/history/index.json",
+      "before": "197deb5a66632cb8f235ecc3bfd95f119c5dc088d6ee0fb2d22c9b2c84f71915",
+      "after": "98917b026eccec3706fc386c1c723526d2262078095df509a47b474af3d0659a",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/history/index.wxml",
+      "before": "f656aede261381ca293ab3daa4f5a56cded484e2d075ac61ebfdd292f5c8492b",
+      "after": "b13d056f876d0c7250f738516151b2a40ed4be647bd8292e6a96a78bf52115d7",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/history/index.wxss",
+      "before": "ccc58decfa9ed1cc876662fd4e35d98faa06eea536a80a508a4ae8994898f413",
+      "after": "15f6fee0e39dbe6a3b8306ca5e4876f1cbead6f5ce3538d50a1812c34d872fdf",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/home/index.wxml",
+      "before": "d3953082488ce140e3851f029dcf54c2d20fad63b2d9a22271273c56783928f3",
+      "after": "7506bbd180d7a55616d65bd8d0ee8c203b76ddfbb3b847585e732c36bc0ced4d",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/home/index.wxss",
+      "before": "77dc78bb7b15dff6a0da3ebccb2bd16b61fcb19ba0da459dc8d3d825750c0e6c",
+      "after": "a346cb6ba3db694145d42efe87cb923bcf51a72d2a6dacd1c6485546e2657e7d",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/login/index.json",
+      "before": "5a6c83589c707e5589caf500ff084d84665b84fb912fe4b25dbeefa706929efb",
+      "after": "f65b442f5c2ef1e0d12c4e72b7ce58bedda59b8b36d833e21739a1ed7522882f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/login/index.wxml",
+      "before": "7b257d884cfe90512d8ea84c922eba625b5f57fa8332388fc628a09d8a3ea9c9",
+      "after": "5e2b586d39d4496e28221ad2789bc58ad2234265348e0aa87c783e90d0f4f5f2",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/login/index.wxss",
+      "before": "8ed40021c61f8f163fa16084732b983de9842836eeb1d9d78bb9063ea407daab",
+      "after": "3373b6858040689d89de9d030b8a200fca56e3e47a4745bba6f253d7c72ae7d2",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/edit.json",
+      "before": "ef42093a4d9f0636bafc8dcf6103472b5e32f72ef454fc2d990cac00abf4e5c8",
+      "after": "8e65622a019cd98d287e8e05f481cfe4c3f15fbb164f664b122184466cd747ee",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/edit.wxml",
+      "before": "4e679a29583ea873703ab37260fa7874b692f9c2be026ee053d4ea16f12a6498",
+      "after": "15b2fbd2bf1d9ce8dc38904ce277c0d7761819c37da33f7cddd7dc296b4a458f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/edit.wxss",
+      "before": "4260518aac0715034ab84ab63389271052eef48bf2bbb5286ef0ec48a4752380",
+      "after": "06c8ebce9d402764b2456b60f88925eac37acea88e9cd3de4ae45d2cccd7efb6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/index.json",
+      "before": "13dafb04008fface28b125da44691fbbdfc356ae60312d754503fb239347ec05",
+      "after": "5c0d81912f109c09e68de0abd83fee2b4b5ab86af89cd98bd2e6f188056ea95f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/index.wxml",
+      "before": "5e728220ea82359b707bb92d44869ca03f098bae65c691d53ca5ab76e5967981",
+      "after": "b55d0f20bad621ed43b8c6c0aef1d28d007a477751f4211b53214dc3c142afca",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/index.wxss",
+      "before": "2556db3f56148045b20a7998b4acad8e10a2cf9db6c7226e077e9331e02148f3",
+      "after": "c167466a9c58820ad14930c7d53c50ac1592d40a7581ff0304d55640fbed3dd9",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/my-earnings/index.json",
+      "before": "803f01ca8797f1b8a25de2c1b3e1df0079c995bcd88bdce022f5ff4e77bab958",
+      "after": "14e3c253830a365624e0098fd41a10752db0bc0863ed51a010e1b4513bb32168",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/my-earnings/index.wxml",
+      "before": "00c0de2060b2a34c93678d5c9ee51431e17c376ef50832fbb6f31db185e3c228",
+      "after": "0dbd42f8a85f27a7ababc1ee45e3f7022ff1ae614a04b46f7acf803013f0a6b5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/my-earnings/index.wxss",
+      "before": "ef6169b623395d22b25d42c30fa3e29d827d363d0a0bebfd61c4b431fe230bb5",
+      "after": "6ba9e82f9721063d55075bca6c824df53bc4b8138b56efe6f48ea07dd256a1f3",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/order/complete.js",
+      "before": "58d771be2798ca26b9b7d5b35db512fe3866e57e7e6464f9a432ed260409a062",
+      "after": "bf89ff0094cedf6551e747b4f5615477d78708dcc1d32e1c16d3da75c0f54d91",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/order/complete.json",
+      "before": "b2bbdac2084f872f807bf100a7dac5efafc2b632c0c69e38bc77e449b2f9810d",
+      "after": "09bb3c9b2e1d88dd0dfc64498fbae410bb81e127ef61ed0c2243a0829215ace7",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/order/complete.wxml",
+      "before": "6c5cc6fde6146206ffa2ca118ed40baaf3eaa1edc70b4fcc1be2e8b6317cbc8d",
+      "after": "a179599707a8c7a82c1200f0eb37983b22a77e816260c9e50c52567d2558e3a4",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/order/complete.wxss",
+      "before": "2f54321205f532a39de72ac718792aed5039ae877402a2964abffb366dd1c0e8",
+      "after": "30d9266dd5fbb326c7b4a767c1f3a519d03ab88d9bad4a6cac155a5051742040",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/order/detail.json",
+      "before": "035b5d4599a49e5be6ef6db2f28bd7d6e0a17cf2537342daaf8c473fe6cb5ca6",
+      "after": "f2f6246af154387b496cf38e2bd4accea87834ed5baaf61927c69a4a6a319f32",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/order/detail.wxml",
+      "before": "193f8a620f2efaed95d8d981877f287c714e44382859c20464d7ba76bf990d15",
+      "after": "01aa5190e518c9a7f4141cd0abeccef14b469d04c0156a0ee962ba1b88401fe6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/order/detail.wxss",
+      "before": "41d8a43e20ff64eb3a3786e32a293309215acb9a30057ca9dff56d5e97fae5b4",
+      "after": "7d5b68d5e2ed4c6ab717dd25fe2142027fec8d5f5fe081536b518bd18cf627a2",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/report/index.json",
+      "before": "c025a56b2ec1773851cd29344fb147f9cc286fe4143f097b99871a46c0266165",
+      "after": "63f366f0e96c4060f3765f13e2b59620f78fb5288e71bc502addd20b19887d95",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/report/index.wxml",
+      "before": "011250cda468436e7ffb06722d972af786bb510cce966edceb89a705586d0513",
+      "after": "5c24382087447700df9eb2f6f44099a5a82af69044c7f04d49a23b1e04113d4b",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/report/index.wxss",
+      "before": "19c085b1523021857a1c292a0428307107c4eb1b064ef49df577ae204db225f6",
+      "after": "7faf81c177f232ed5eff16ac6d074d9c91854a32fa52c72ae1111611cbb937ba",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/role-select/index.json",
+      "before": "52eb841f9183824116f97d68bbb93b6f62711bf8e71fc204641af91ebce28ae1",
+      "after": "b7198d075db7eecb1012643ec212982f25f90413046047eacb811f1b3cdde919",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/role-select/index.wxml",
+      "before": "22ccfd1e4fdd4f64cbde78ee5baea2b03469375d484618a1f81c632cd4ce0bbc",
+      "after": "78806017502eb63f1f13e7f33e564fae4606a084e3cbefc8803720e122fac2f0",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/role-select/index.wxss",
+      "before": "0662523bc30f2de5de1b57d0ac72b5635f324ab3309ca4b1d223c94bcc20d629",
+      "after": "cab122f404410779d9d8d685c1f682c0abd62e45c7819e92d65ad53803c5f4a3",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/settings/index.json",
+      "before": "161cf61467946d5836ebaaf7db7cdf682e8f4f28a91873aa9315718dafaf7b45",
+      "after": "8f3787cebfa2ed2093cb5f38e5d2ccb483ea141f4cce7f7341e2c3cc253de283",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/settings/index.wxml",
+      "before": "19ce838eefa7dc33bd1d37d7e4ff3cbf94fa8896f3663a9a06711422833ea698",
+      "after": "560515e76f97758c6dff05df675cc680a380972430ae6b2d23120c6bf9a1147b",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/settings/index.wxss",
+      "before": "c79c99568319963ffbec5a56b106324c8ede28872568304861a7d5a61a4c4024",
+      "after": "271c883c96f23bf04ba23629a2fa9f9668a331663aa98d7b3b0006dab35fced8",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/index.js",
+      "before": "26d88216fdb631ba972d7c20c2377ae6f3366ee2ab1f6e7c47a3a70022450a53",
+      "after": "1715838a18027cc5c0e516cee27d02123bb7687e055085b442fbc8b6e06c39c0",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/index.json",
+      "before": "f9420a9b8f7f87e5e1aadbacba23f25f045bba052a980f78fe68ef12212cb357",
+      "after": "18fbfd2a8f0282c32485e1141a2f4c6e085d40916d3818b08b9f68e1589e2d28",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/index.wxml",
+      "before": "141ad725663bd75b22247d8ece526077d4bca2e990359b362ea4e4759d075128",
+      "after": "f3d86f0626040297405eca09dbfdab17380647e040c9ec1983461e1c1dc68f10",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/index.wxss",
+      "before": "a834848c20ab6f989dc3dab69a2422e1481d39c47ae8dfe7ae42050f826c5e1d",
+      "after": "e43853357777a9fd12d4e6d10473af8c70e02e4158f73ee5a81be9e9196f25ea",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/transfer/index.json",
+      "before": "e9a13339f4e82988fdb715a7dac6830611eefb277eb1efac0dfecf4c4b2862d3",
+      "after": "0953536c00a1e1f71bed873973de1b4209b6bc0ae086af74543b4e2b98695a54",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/transfer/index.wxml",
+      "before": "5ca91f969a62356bf58a1f78cf5438e69482cc33e689f7479548d62d55eacf2a",
+      "after": "848089494d28b1c8bb520ad1dec168a4edadc88d7ac8394a98173d9a854d707d",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/transfer/index.wxss",
+      "before": "b137a44b688e3aba2d5f32dad8b6b03389a4f199349d7f3f5dbe454da08f4570",
+      "after": "aeb3de686ea5d6f74c83f2bbcab13fb43cd14b087fc52b79aaf18ab6fa010973",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/account-data/index.json",
+      "before": "0f17833384fad141ea8913df00d9256b71f3d555823f302670ac6b0253445c95",
+      "after": "92995db6b23e1ad2aa99fd5aa3b674e9f53e6052e40ede94cd123b05424fcd69",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/account-data/index.wxml",
+      "before": "c546d65559a85805efa4a5b350d2646cf24f5c8760acb066b22702fbe5d078f2",
+      "after": "2a58bb99472665af4fcbd4f833e117692de828dee498e380c75848211c6004f2",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/account-data/index.wxss",
+      "before": "47eaeaaa8db01f6b6226e908c22b45ad3d907cd9af81bb2d4f296b5700945c4b",
+      "after": "ca2313fc370431e0e05deeae6845a40224409d054c3094afa2fb25974335a882",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/agreement/index.wxml",
+      "before": "1f430c5f881efdc8ee27391d71bef65b43990c29678ea3c4ace801a93068f28f",
+      "after": "af1210cc16ce96318671274086641924fc90abb29481330ccc2227c40d77324a",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/mine/agreement/index.wxss",
+      "before": "4d834453ae69bbf35f49f8cb7f4e311f905374fe3d8c8ec03608aafd72dbb843",
+      "after": "74559c7f7f82945935c726c05c3e3938b62c5f0389e0b98027f605c7876c1651",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/apply-bind/index.json",
+      "before": "c27d8cfd9c46a45476a8322ce092b429914d64af088ac146823e51d8966de97f",
+      "after": "25a8b0f47cc589bbbe22769fcbcf45e4bb5fe0795ff0811041d78a6f746823ba",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxml",
+      "before": "db91832e1bddf110aab908f5500ebf437c93ad4c8821fbcf018b074460b64bcd",
+      "after": "410e5c91c15a5455540549ce8fb085b2a362920daeb824b07c8b09951ec3b6d5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/apply-bind/index.wxss",
+      "before": "ee7ddc307a571765a18288a0532e979a49d83b1ecfaa95a223686f5264f56640",
+      "after": "8854e741c7091526268ab5329472c9758c6b010d1dc436cb7a7d2c6cf31d91de",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/asset-claims/index.json",
+      "before": "70080895fa4ae563bbc278595655761560db21a5893a4ab8979a661bdffae26f",
+      "after": "1a8837173dae5cb6a272c87b35f3c0809cad9ec503e9b75be2fe8b61ea71f4d5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxml",
+      "before": "60d9fe2f4f7e0f9152730b2cc6eb7324052afb4c4f0bcdb9efcba58f8a0c1f33",
+      "after": "01b341dd4bd2cd91043e6e98db411409042016a39d7e4814549f9d060c2e54c6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/asset-claims/index.wxss",
+      "before": "82287d1d7ae2fbcdc9f20bd7c4834e98f79184da9cd2f48622466150aac96494",
+      "after": "9b6f58496cedd49729c2955fe60036ebfa5473c00bd6492172357fb33be9afda",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxml",
+      "before": "63738763572d53bb730b79eb97abec14c8fe8fe61cc75671e6ac0029ccc781bb",
+      "after": "55567608caf9e537c23640346ba3c9d05015e0ab1f75a95032bf7bca050a05d2",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss",
+      "before": "e25a2553697838f376078841be2ddba36ce8a69cfc4276d49846611acb02255c",
+      "after": "53f15d959cdcc212e20cbb690c384f2fa5d45a71a9fd190e33dffc61cb2e4eda",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxml",
+      "before": "c24d51bb2df8c7f62f69d3c16f15a1ed9133e09a8b526d78a9c4bcb368efb016",
+      "after": "14cb31c4d73074660659ed34d0870a47ffd97c0c1eee89c65c79c79bfcd39a8a",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/business-waiting/index.wxss",
+      "before": "4f2986492885432a969046c29b8b01faf62f2ab8be9c669889a1eb9e0b0b0e26",
+      "after": "39268e14c45e15ba58350c5ae4a6ae984577cb6e34f28421e042cd2252e62612",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/create-station/index.json",
+      "before": "7940fb60bb1072b9a009f874783c2a24ff9544103484b3391d08edda7709f7fc",
+      "after": "4007b60099d42d9a709eb2c2e0d6a659aa02631a8597b8d39f1fd9425567a3bd",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/create-station/index.wxml",
+      "before": "cacf8d6169507b7fd92835368c90b392c4828572c82850087def2cf20a892d54",
+      "after": "54860ad57acc8b3e8b9e5def182776acc74eea8193cf219338327e20ab4d5e83",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/create-station/index.wxss",
+      "before": "7416ea0b6739ebe19b545d7e052f89634d5e6a9a08f694c57946230b59a30324",
+      "after": "a39ad551b1e1c61b01a3134f35f1edc267bbf9b31ea4cddf6878c462371cf28d",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxml",
+      "before": "031cf0fa5275ede0812c39ba266efe3ea0810754cb97267ecb7e046f5dc09670",
+      "after": "9ed23b4b45b4d492b50d2e92f03dc471a4700de3f6a29d947201fb0a3593a042",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customer-feedback/index.wxss",
+      "before": "fff7045e7d04322489d69f615741d718743bc62c16af44611ddabd5c38a8f059",
+      "after": "a0ccdac302ee2fac3a1c9373c0da0fb92b6620c671473c5c34fb14cf7456f579",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/index.wxml",
+      "before": "b75a02cc7c644778c288713e20264a098a5668746e463913f4de0b2a973e9b39",
+      "after": "824dd548a866d83f7f3d729dc69f54f882db8ac6319fde50ae19d8ffc7fbb607",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/index.wxss",
+      "before": "ecb01fe84b3cd7ab942d821c268207af8b7df6fa132f1005c87263f22e0652ee",
+      "after": "524bdd39f28658dd2edbf8c540a73dd87f9f24639aa31d33ea38115f317b70a3",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.wxml",
+      "before": "f2707ee3622ee9a5c752f3419e2ade751a2acaa6498200422bb12d657b164e3e",
+      "after": "0fbd76bd023b3147a5a368bcb78cb830d28fba43df5020bf8850801d31ca2b0b",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/dashboard/index.wxss",
+      "before": "7f59c82574d89cb22a4c751f8ab35384beec39dd53d48de04c97857f49eb62d0",
+      "after": "020de466af588597d7e8e4fb10251aa22ea0988bcf114fac3322793cecdc0979",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxml",
+      "before": "b10c1205e2da79986bc7157d8baf6e6f6352e4d4747d8c5df26571ccd1ec00e6",
+      "after": "203374cfe93a47091eba1fc1ca193edf0c67bdbc1bee57ac81e10d7e4577535c",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/delivery-config/index.wxss",
+      "before": "6978a0480011617956f1794210f6cd9b161a1cc836d4abb42efad890940273e4",
+      "after": "49256a449086bf3b6ba330adde73795ea2e943315fe0b80001b3dd6dc87eec03",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/exceptions/index.wxml",
+      "before": "00fa21dcbdeb46272e3f5c3a289178b8b94eb7678459bede971c98f9c19b384a",
+      "after": "69d8c41c364b1935d9b85580f20e78ced0215166ba476dc8ae985b7e875db1d0",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/exceptions/index.wxss",
+      "before": "33ad370fe18abb26b871ca4e1a468a7f50c284d66f24226c1887c6277e86a8d4",
+      "after": "80a5979a897afb9a3143ad7ee712981e4cf4b82c41b9ece85f57293b20f53b51",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.js",
+      "before": "127d28bb2f3d5ce58e75ac9da1c13c885eaf7e1bd6a07ada418ee5d4bf98ea14",
+      "after": "450f587b94373c25d755f2efbe1319c0d936e62d4e174d9cdeb20eee97394edf",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.json",
+      "before": "b8f0e2294ad95134e3d546a0160e883cf7250773dc2d62175a99d95993badd47",
+      "after": "bf956206fe33b981ae57629f190f0fd2a748be8e08e54c6dbe411d914a568ad5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxml",
+      "before": "32ba84be386a4a5d1134bd168300cd29c7358b1ee7a24664c8bd341906773f5d",
+      "after": "8f21548ddea3f41f2676fe51ee34762e9dfc23458987d393923aea513192ca61",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/gross-profit/index.wxss",
+      "before": "8decbd8b023dca72625975966223764f56bb67ac413e8ccc2f8ca13361c9aabb",
+      "after": "54794f62199dd0836532dd4610a121049d59b71d5c5a7f0236d6e8559af27430",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/inter-station/index.json",
+      "before": "64711222953503ee9a4eb4b60b8184d70268f71398bf59171613ffa24e37e8e5",
+      "after": "541cfe311d636f9121e1d43e72053bf3caaab6dba0b573dc85e3226e9b7f09a9",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/inter-station/index.wxml",
+      "before": "ef30c07acdeb0a5b36f774f01876669138061aee793ba95af7f3a9c005e460e6",
+      "after": "27c261cd65bf5692bcaecee7d95031271ddd005f418c6cbaa3d6d66cbafa6af8",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/inter-station/index.wxss",
+      "before": "694b62c187268eedf261cc319832555455dd5bf237828b077747c1e1430942a6",
+      "after": "958b51214b4b43b3f9c77cdffffe925300c8076fcc94860c3495413c59c08070",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/orders/index.wxml",
+      "before": "a84e0236dc427e19cd2fabbe30c879d2d8f86f4ea179a76ae0fe62ca2b2753f0",
+      "after": "180d828100e3261e4a46729476d60530c13d86cedfd7f1ec0aa987f07f9fbb8b",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/orders/index.wxss",
+      "before": "a916d41719c647eefa3c564449e1b0647c8fa18fb4d02d18bf04c23680230c7d",
+      "after": "6ed0754648883f67b236273d8b8cc89fd155ff82f5fbe3342e64c80acafb5f41",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/owed-barrels/index.wxml",
+      "before": "31b6b474a75e443b8e8d7fe489400d11edb2007a5d3b727dd5500ca9831997b5",
+      "after": "4e00ec2d5259965b041c0f5f02905c267347f9879587039cda6a7fe9a8c277a8",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/owed-barrels/index.wxss",
+      "before": "07f1696cc853bc9552d782079436cdacc6ee42800f849bf65071d68319b9f249",
+      "after": "2784e565754eb8ccc8ec18a8386e51de033347824e228a97e1254decf03e6bdc",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/payments/index.json",
+      "before": "fe2e36add9e5757f27c6f9641557d9e9a04a4c01f6492716b513c2eb8e151d95",
+      "after": "b0fe0004b0e91fc278e0b283a86cbaaa8e1c3cc792be5fd901a2f63e4f57bb1c",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/payments/index.wxml",
+      "before": "06045bf96140c1de1cd1c8e962bcf39a9ea11623d3ce88d98db4cdb86f4c8ea5",
+      "after": "8f0ed92913e9082cb184659e803df6a2208f03fdb709f2aa54192cd2792920e5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/payments/index.wxss",
+      "before": "1a234522c15dec8fe594993fa0f395cf40e425d11c325374f0a03482bd0c4765",
+      "after": "c87b172ac8232d0f9f63f80a812d4e7394200729fa36f6a159e53b8005bede16",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/payroll/index.js",
+      "before": "3f208acccd64f64ff2e028858d53f082ff49f61f6adc73b0c02db27582cf7c12",
+      "after": "5c3b6a57fad828ed6a961bd6ec52a523a35d217f363c020ac13b0e15ab811af7",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/payroll/index.json",
+      "before": "7c4a8cc405ec1c19d3c80464a9f375644618141d6ca01993f3a6c71546e8b876",
+      "after": "9c6e576f11a1b98df6c4f59d750964a2ce951a46664953cd87d05cc699758a2a",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/payroll/index.wxml",
+      "before": "abffb48b54eee3511a2b04cc99fae70c1470db66e9da49358740142d31dae60d",
+      "after": "48b001d45697bc3c331d380281622067c9e9f4d549461d0d39c83cde3d1f1ddb",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/payroll/index.wxss",
+      "before": "a3378f533eabae7c2db8d2101f8cfc991396ddaf8f9a356f6b4d22c9d6e41ee7",
+      "after": "749b285c2dab5636bab5ad580b4db87677e031acb344125ddd3c165518297bf0",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/place-order/index.wxml",
+      "before": "5e8745051feae59a2cb84fcad54aa20b74df1793eca92c14b580b4cae9ad0ccd",
+      "after": "a53d9085896f0f09647f4a6c5427a0ec3e9303658745fb283afe9ab669f2a689",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/place-order/index.wxss",
+      "before": "ca2761af477a6d8c3ae0ab62d8a7fdaa3119d9f4bb73c9c38042bc6df3ac6cd8",
+      "after": "25e9340be0a3b342b7dd72bcc043d977035b34cad534390d0cc175de41a316a1",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/products/index.js",
+      "before": "3e72bc2ae54cb34f83eb89604e5b66d9ca31def4fcea63c8708d44c877b49f6f",
+      "after": "01161812596aee2f4c57eefd5fa2b6de81dd19b995f8fa79cc566bc942d18275",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/products/index.wxml",
+      "before": "0673ae5255ed258d052d8dd82916fc8036d747a33ce16c2229bd3a631a2ca398",
+      "after": "d498201602ee772df47aebad6a6f6db2d0fdb47ff5d2173cf23632912979d34e",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/products/index.wxss",
+      "before": "b8c189898005c50aaf5e8cfcc96f38fa151056e096ef3b5f859d686f59a96603",
+      "after": "4a0c13e56fc87c8c26ab62122b34bf68fbb8944c08c8f35e8cb165f06ed858ce",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/receivables/index.json",
+      "before": "2abde6d43e3aeae31923c5e3c1884c11a7d8a9570f613b104bc16941d40df278",
+      "after": "15f8b23d933ab47570a7004c61693ee5e83cdc2f43234439d7f9aa330239e4f2",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/receivables/index.wxml",
+      "before": "e02dd2a0e0d66a16c2571cdddd62e74018b866eb04ccdaa23015e514f177e95a",
+      "after": "6ca19379b97e3bddeeb47fe4e65509f7f485d669e6970f6c702426d1ba15e1b4",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/receivables/index.wxss",
+      "before": "985eef4853a1c97e2bc932d8473c172749c52503f487afa06ee29a9858d1e601",
+      "after": "0a757f7006834e8bfa0b09a6ed9c9a56fda491192be60c5c917dfe392b86cc87",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/staff/index.wxml",
+      "before": "74caff4374c388395d8525c93e7012a166a69d01106828ce316f0d2f00463e54",
+      "after": "b34697b140e70dd46e01ac4151659da322de278c2e07f2882ff365072dc7f9d5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/staff/index.wxss",
+      "before": "cbe5a132180ffacb83dcddc604c4bb82365b819b9db4fcf8ed9fd3e4732869bd",
+      "after": "091c4691ea4589dd7ad97c1411880b55c6ea0f31b350e79b7c6e3b759c4318c8",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/station-info/index.wxml",
+      "before": "abb9aebb1d84315a65898914d68c582826d508fedafc333ce45bf31614bd043c",
+      "after": "76d54c4460662ea9417ded5658f0f43d4b1be7fd44bb945c50414d6ee8915546",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/station-info/index.wxss",
+      "before": "6783e855c0ef926ae972bb447b3724c176ab19d02039f258fe21c2a6c1cbc4d2",
+      "after": "8d75cb1810c21c5641b325d6abe7f1e6e8e448eea94519bc04f00d01c83e1d05",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/station-status/index.wxml",
+      "before": "1ef27f878cc3e0bc40514e901232a8dd9f99a6b528e81899662642f4f758e5a9",
+      "after": "c3788ec11e8e4d80f8b52c8ab52b8012d96bb009446233defdc94c3d2a690709",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/station-status/index.wxss",
+      "before": "d7dbaa5c68894403c8d244988f059a237f5083931f1adeedce8e235e84b1ee4c",
+      "after": "3cd63cd11c784dfa388450ed40a8d2f5580d12676e13dda675cab7e03692fbf2",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxml",
+      "before": "f0aeb01df5bc43e019f60ae0a2ecd28b9b2b4c68d49f2e7cbc4bb76ceb7e3738",
+      "after": "586e63920e665ce55b88073aaa257f253b0b4b28fb01aef3077991baf0deab98",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/ticket-packages/index.wxss",
+      "before": "d7c268f751420ac768b9f30c0d820cf0025bf5cff4fcc31e56494344e72579c7",
+      "after": "e97a0163cb1bda5f7cc66faa6cafea0395a0ff2cd1990ccc8774012b84601744",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxml",
+      "before": "6b194c03f39c95e4434af5aa7f5fc28a56d969010ec9e3626618299d9123eecb",
+      "after": "74b682f94620b8d48afc213c7682e26f9fc093a438238174defc64f1634dc0a1",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/index.wxss",
+      "before": "a21f81cd078f1447d93fc52e146758d14a2f6780a7ab42e4dfa8fc6bf4b93e83",
+      "after": "4d320c3fda43d4686502fd2f2685f92d7c18bb8b77dc546c32cee5e4b8aaf7cc",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxml",
+      "before": "6bfe0223c64ab2fb6caf192407c1f7f1fe87b75df41b626fcf4990fd9fb17b53",
+      "after": "213621293e94bce23a6792cc78fd5f774661b34951d3e074c0457d0b2bb16505",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/detail/index.wxss",
+      "before": "6917164b7ccb1a7253d37afc748c7ff5f8439a3dd7fad5ef54bfddbb57aac8f6",
+      "after": "4e95e3f6f80b049adbe5087bc2be1a43c976e64d4b68861a2d3cf14c4217487f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxml",
+      "before": "0a1bcf343488813c20167f250bde103e8429efb715316c5492d7d30a67c2ce96",
+      "after": "70d2cb85d1f1979e37a873a0a9fbb5cbbb8d95f3144b4d221b4937a378c47972",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.wxss",
+      "before": "51308aa333bf906b0390b8a1515b3641f08d3faba25638d472bb1d3d5fc8adb6",
+      "after": "1fd3335468a7a60883743562c70d74d2d2d605802aefc21317119879ef2389af",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxml",
+      "before": "16dd9698965adb12d85f9499a8ae56e4f5ab10d334304c0e04016ed46b181c79",
+      "after": "f1717277e02d200b0ac38aa2441e44096ec0c0d19ce1a32422c2c4263e22fb21",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/customers/adjust/edit/index.wxss",
+      "before": "dc05df4ca735e8de6e25350beae1720f5774b5fb3a5f32043527f6bacb7d9664",
+      "after": "8eefdbc9ea83c1bfc9c62bb91dbb71c7de663fa4019d04666622d0ae6c7550d1",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/staff/profile/index.wxml",
+      "before": "77729828f4e1e4cbdbe9f25b2c3e7f06a463aa997d33e6c336fe25d897abcaa4",
+      "after": "9648bb7141fb9008baa6ad38b4a803684b405318e6a6e1ebc7d682bda814c4e6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-delivery/pages/station-mgmt/staff/profile/index.wxss",
+      "before": "eef75ec83064a1520e1b24a16d750507093ef65af88af4d7344086a7085fa704",
+      "after": "5959933477e65fb424a3f82e23430dd043ef429edfaf11dec26e5b9a307672e4",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/styles/actions.wxss",
+      "before": null,
+      "after": "1ae2c9f70eedf9b09c8dbab9ecc56a8540fc131b8c2875e0dbad9c82b0907f63",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/styles/common.wxss",
+      "before": "5ad163e5e8589fb68a52f80f2b18313c0da3a9aa6f32c82cb86ff5c522915076",
+      "after": "78fa3ca733db7d21d83c5ad84e7e642e666584f438ce8eecffbdb81b2ecc0b36",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/styles/presentation.wxss",
+      "before": null,
+      "after": "7cf74779c752112022ed72c021e481a79bbd28e235197262d5ab5eb029b62f67",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/assets/ui/empty-order.webp",
+      "before": null,
+      "after": "14e6d152798ef675a156d2c720044b4d1a17ce781f3ed498beae83afd1227fd6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/assets/ui/entry-repeat-water.svg",
+      "before": null,
+      "after": "dcd2fd579fd5282d1aa85874fe517bba261018c10d8b0ff2c8cd5a4329e98f2b",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/assets/ui/guide-claim-material.svg",
+      "before": null,
+      "after": "c07725de5e1c6f10b937bd4ac774250057ab0c4feac957e176349a0c38d3b398",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/assets/ui/scene-home-water.webp",
+      "before": null,
+      "after": "05a0d694e65cae08d647fc4756cd7f5106d7bb2d536fcc411a0a96b9b4e6f85e",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/AssetStationView/index.wxml",
+      "before": "a13d576eb87e7dba6cc6457d58a8b68ec65dffdea165496ad23c3221c9a54e35",
+      "after": "f2fe774748e1b6c67a607a488f664df0998cbdb235e2959c1c9dad9f02c95af8",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/AssetStationView/index.wxss",
+      "before": "928ef8abbde8471a57e67479ce2beb12de96fb823f8069b98351fc2d12f4450c",
+      "after": "e638c929814a46c9c10b37db6a511a502ee717d47de3703a1892ea86c6f9bb8f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/BusinessDialog/index.wxml",
+      "before": "464bf108bb2ac7297573305f0d83899a0643c978feed45e913d5480d329c5d6e",
+      "after": "ef5691ddcffbfaf63c1ef5e9145e55e1c963a8252d7d528b3b086fd5f4d60303",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/BusinessDialog/index.wxss",
+      "before": "fe7a829ad7b12af9320bf3b6b6b99a9e0cc9193a5e2a59e7e0fa18caf3912e6b",
+      "after": "66de8fa4c9f3eda3794f0848419cc90d303b2f27eaba517cab470b4b52a91574",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/Icon/index.js",
+      "before": "a50d37041e346b2a6f233823bc51c7df36127d45c31676dd2c7d2f08ca09da90",
+      "after": "7782b72d4e9a8230f4a2e5830a00e0992e07eaa49e1ec22e9bdb1e30cab61fd0",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/IntegerStepper/index.wxss",
+      "before": "65e396a2cb7b838898b7affba2e1e439ff468bd23a679398d310f2c869eab42b",
+      "after": "4b325b2288ecb2befbb613136ca97ea1d4e55011c1a63dd72afc393342c81862",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/OrderCard/index.wxml",
+      "before": "9e0a53287365d1112e890a163af5e62ae3fffa48dcfca64ef2426feade71ad25",
+      "after": "a232fee59f201fdec4caecd9825c1279663471dbc2f2b0d8af1a7656faa3d261",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/OrderCard/index.wxss",
+      "before": "79d4635d309a250038b859e3f1083b42a9e149f6648507f2b6ae789347367e21",
+      "after": "4d83d77a406480fbe22bbbcab7ccde2c701b4a80d58deae4f8f1130730339c7a",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/PrivacyPopup/index.wxml",
+      "before": "6253b05815a93f21ab8ccff6fae2db015cb2db20bf657de255791f804e3f278b",
+      "after": "bc75857eed80d1ebd69705598069bea8e41adeddb44b5d0901cd4c3d217e4345",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/PrivacyPopup/index.wxss",
+      "before": "ac985bd0ae5ae88cec00f7bde95a61afe76f299c9d7d784d312e74b03eec49cc",
+      "after": "53c34b249a7e63b13e8a7e797864e1a28fd4a2ac0320e45535e1e057acd3a63f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/ProductSelector/index.wxml",
+      "before": "1077082d18ec4390313ee32334867e6d037e8fc04764197cc8d448651f3db1a1",
+      "after": "bd46e96db715a444565c2d2d3a6178b47525dc3661b141aefd68c2aebb9803c4",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/components/ProductSelector/index.wxss",
+      "before": "33343fcd05cf7f2d9ac87b57ef6ddce0f205e4969e8b27f5b983f9997c2f1f85",
+      "after": "775c1cf229b83197d73820b5da3909b0ce406d726b580648e87701e50e7f338a",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/address/edit.wxml",
+      "before": "1f0aa07c63ca31e9c0a588eaf03626cfa6aeb3f41da955c82be21d5bc07c6955",
+      "after": "f3210964895dcdfcfde9b1a2eaa0d0e9a44d0a08c08875d47595613cdf9b4348",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/address/edit.wxss",
+      "before": "e50c6407bfc287bbec73080ce541f698ec5307c418d2fa1e9bbb31e0e734f215",
+      "after": "c7fd7be27354a0b712bcab3231b8e043adfbfae2ff8e3987eb7c2b010d6b5212",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/address/list.wxml",
+      "before": "c8b4c4af0d655ec945e628e550c7cdff14825b6d31590a3ed5ac92a837612cea",
+      "after": "844ec31c098ac5d65c514d7629712a70b5ac7271a95b3dc53a90614923d3c8da",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/address/list.wxss",
+      "before": "fa110492882c30d39b1de7728981080cdb328064e27a7c0de004b46d500e7214",
+      "after": "354c6f6890654974d59ad63cf97f3f7db79534fda0f39619c5f72f7fc42e3db1",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/barrel/index.wxml",
+      "before": "41716fb9d7c8f12552c8a74ddd56751fb1bb54760efe6a1ebc3d83bebddb87c5",
+      "after": "98acb7139e7fdb09c45c72cdef7718d2be48a9b3392fe8a99863e114d14e4379",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/barrel/index.wxss",
+      "before": "62d0d9b34e222c7e0f537df46fd9e0d773c6842fa7a4f36e9ae30b0468f652e7",
+      "after": "08a6693617b8bfd5fbd4c86b335f3208657026732ea91c937377722f982ad8b5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/barrel/purchase.wxml",
+      "before": "6727afe6e0adf2bda69bca10505e25f14c9c557a792a34aeafbcff3f63cb4c6a",
+      "after": "21e65828bf29214ce467a717c59d3d9b5039abc59ffeeb3eaf5af450625d2dd5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/barrel/purchase.wxss",
+      "before": "43fa7b300c8c1de7c0b30e75a07de7ea48411afadec1aca7c190c6a82c3d4fc9",
+      "after": "bd9526796088d9f8269425f349e03f12eff7b8bb86dc06e906f701874fcbc5da",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/home/index.js",
+      "before": "c854b145c3b3f8c718b35caeb581295ff0b7e9401001651765d6123397d5baaa",
+      "after": "b49d7d420c5fda3004d9c96e49365077414ca982fffdc7dec07844a941363a27",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/home/index.wxml",
+      "before": "ef8fae7524507a94d72a355daa266e07e75a359cb98c14305183022bc80a3588",
+      "after": "5be10059a17358b4b1c616b0092ce81ab3aaa3a81ba23f2055b09e56ca945f09",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/home/index.wxss",
+      "before": "5357e4b6563d5f1afff051d057566f7ae264a85e0f3eed6b933d08611af0c28e",
+      "after": "fd14e0e8c4d53915b7dbd9b21ab8e8cf87868790420fd11682958b5a86132f0c",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/home/notice.wxml",
+      "before": "33d8f6e71a342f0eb21560f67260f70efdae92e06b41e2ac45513451c72e2030",
+      "after": "90acaec4c2334872863b3fc95d73991d9313097c6e4cd41fd3bf0986b5cb5d41",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/home/notice.wxss",
+      "before": "0faa56d82ba8f42a90b2c132322031e56eaed447d5971fb7d9088253004a1737",
+      "after": "f2f1c28e5fa932de73da8a40627aefb82138efa669569a215ad3bd0ed5b9c6e8",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/login/index.wxml",
+      "before": "de7f38e9a8becdf3d084d043d2bb7970caeef5c5306e53d8d13ca24cbb91d244",
+      "after": "7f209a006c633915cd3bd4857daca667bc6aef002aa411489d653e5072d32aee",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/login/index.wxss",
+      "before": "52c3425eb7b88951f3262b98ee128dbc0906b5f0e0301b91f2df2f873b8f4de6",
+      "after": "f5cb0eb95b9f78ba1c2e8a5ee3feccce8f0e3b3f456d608f3ba9cb23565ce19c",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/about.wxml",
+      "before": "dcea97aa83aee9284f08199770df32611625922ae07b0ab3701b9c92c86228f9",
+      "after": "7bc59bf6b5e3514a8158b4750b92c18e7e5c83ea527ba2b8952f5546a38223b4",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/about.wxss",
+      "before": "52fc1aecd0e7e71088bf4df239ac90f8e53029497f8a887d692757ac2c9ead5f",
+      "after": "c966573d19d6df06a7b1038523202c6192da10a1fd8ad69d23af3770288717fe",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/company.wxml",
+      "before": "0144b5109ce4a65ae1dc94971ea1b6423f2fce51c70dfaa938a1ccb4138aa021",
+      "after": "3f837390b367596295dd350128ad6730013c93655cbfe0a88857b18a7f858619",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/company.wxss",
+      "before": "f132e34ad358fb677b04bc025f5fb79364c88fbe53c2a6ea503c272c9396a9f8",
+      "after": "762fbcb14a965ab34dbc15b34d2c8cf664a67c9a149a9ae62ba4a93ee0e8b285",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/edit.wxml",
+      "before": "f05681f7dea183ac178267d1271b74d7b0e74c3fdfbeab76347bdde0055ff6ee",
+      "after": "e849c40bb2154920b97cf41a1117f7f76378732b8fff8153acb45a03e8c3b4dd",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/edit.wxss",
+      "before": "026ac815996655686759564a1a7d621f0bf5d81c4dcdaaf610a78366b2ad6183",
+      "after": "a17d4266048515ed7d985a470ee1eb9c9b1a5572969bcbb849be41c5f03fc20e",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/index.js",
+      "before": "8ecf59d128d8173b0c8270b51b00fbc95f48f2a08150b97d14cbb05fd9114560",
+      "after": "68909e5f8d3b9b55c31c2ccd8192a0be3239476738bd3d3018983d13ee8e6d24",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/index.wxml",
+      "before": "6d3039762afdcc7289a3dd3c3db6837db6c6f48c3e2ac75587f5834994f90e49",
+      "after": "c6f8933ddcaf25f54403f0482f289e1eaf3310d16dd34381871089d78e1e5db8",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/index.wxss",
+      "before": "fbce12bc259c9ff21f5165c681c0d4c2ca8ff6148c13c0b4aadb1d1d279e6b48",
+      "after": "1a8622753cdb31c84c4204ee4eaabf10e8b44d1ae0fc1c9f02939379fcb9bafa",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/notice/index.wxml",
+      "before": "b8c5d50aa66a60323918c69335f52e433ba86f8376de415252e9aa01b5f676c0",
+      "after": "7959ec6a24f93adf115d2ee8e6cff21ca72f91159619877331351c5d0c438bd8",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/notice/index.wxss",
+      "before": "38942a6d51eec5f9fa892ecbaf59afeb201fbb167b42b1830a456f4bbbad96b2",
+      "after": "0f186f23490dc6e0c6d59f00e3bef50ca9d613f7aa32528214c29a47563fef47",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/create.wxml",
+      "before": "15bf7b93ce975041a5e80c924f7eb91b2f98d02f144b88c20776bf7c6beeb167",
+      "after": "714c0c54d1b9f41bc746a155bb81e67b40d225e2b216787ba72c46dd71851f97",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/create.wxss",
+      "before": "9bd92c79cf7c5265b8ce6b04923dae8730a6dc2deff1d3f66d7e054e0b0fb06f",
+      "after": "cc4ce36f34816f553c5e021acaecb851d6024bce6d48a476e781c6397899c431",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/detail.wxml",
+      "before": "c5e42841a27f4b19d475a276363384b643f48f70881348c8599b53762eed5ab3",
+      "after": "70a74c3afcef8be8af32e372d22df65da6e7fdb943db5e596d62e33315bac306",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/detail.wxss",
+      "before": "1fd018dd31ec73ebea74a746dd9d2bd30625fb5fc12ff7d02b505b1552ee1275",
+      "after": "28633a632f14936f63478153696f69774e1d74409d1b7accc18d3a03835e2919",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/list.js",
+      "before": "619697086222f67127e11871d4489deee0cbaceb68a89342df4ed80f1f23c456",
+      "after": "3cbfa46fec15b39781a8945194b454b1e470833e316efc2c827ff6402c6ab3b7",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/list.json",
+      "before": "eada66f6110e94cc7c6e7c76acb7a1b4fbd9d6c9e56e444d5cdeeb24a2e3d2d5",
+      "after": "facfa60965f7c9d854ae2dce6fb0d854219908a2c52519b7ad314eb673c17234",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/list.wxml",
+      "before": "877befb32cdede3fefc4c124c2ef918a21778e420a3f7016545763db9c56afc6",
+      "after": "1d2f62ffbe0e2ddbbbfae29906f9a4fb6f506672ea4371f3a5e53bf94ac4073d",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/list.wxss",
+      "before": "8cfe943e47db91e37f9f5be1f8138861255d568841b4d63ca63aaafd71055f86",
+      "after": "b477e815ab79f35d2ddd5eedeb9964f1a1c3e3f1a1f08dd174b44d3e7745aee0",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/success.wxml",
+      "before": "870e74e9c76d0cdd7b367bcc6d6cff55924305bdf8122b8ce07c4955cf28b812",
+      "after": "1a329529f17563ed13e6b1735f001247163a0f7686db5af38d7cbdf924d24ba7",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/order/success.wxss",
+      "before": "d3efe07f6a97a6ee457686f225c73de9d72d785a0d47ebe725c878f8b4266aac",
+      "after": "c9880d7ad8707e5ca01f3c74d012f7c4a27fcf45c3c22f95c7ed660c157d5862",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/payment/records.js",
+      "before": "38714b74b8b62d6904315a69b320bd68b1db32d3141ae2abd6b5fc7a3a9860d9",
+      "after": "923cbd2f17506fd3c613e4b9a372d052a4ce3dd019a066e78d1ebe658cfba9e0",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/payment/records.wxml",
+      "before": "5185028e03caeb1e52033d157207fb43dc53975bfd08f0fc873189bbe85df50c",
+      "after": "1a3d904ee1bbce7b06d46cf474b55c7a9a850452fb679d1089bd6ace2eff57c8",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/payment/records.wxss",
+      "before": "95deace0ca4e21ddcecdd4d0a64d356245c2f414e4f1f11dbbf9cf9d61b1c38d",
+      "after": "ace6dd0ad4af69b4a616590e16e3970dcaa8e8af590f4b4770f7a06c64d73ccb",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/service/index.json",
+      "before": "c75fc46f08d9a88ec9c9b00164f0d9ee32d3e2b9da454e77445e482d906a6476",
+      "after": "a9160d33003c3a384f7f72d67cf6b6092b5ce959b03bc272b85fc52f0d15f2c7",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/service/index.wxml",
+      "before": "1c5bca11329c8443bd2546b2533013cd89d69e5409f7b580a962361f6a6ea143",
+      "after": "bb3f27515f9338b1b7cdf9b1bd29b2cacd9600bc4bfbe73c4e30f0b091babec6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/service/index.wxss",
+      "before": "4b13c28086ab3a99a44a9da898a91546100788435c24b541a551bc806c2b038b",
+      "after": "be430b1c2df629eb025dddbababe8a68a9b3598f9cabc87372113161de43adfc",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/shop/index.wxml",
+      "before": "7e25f1c51c3b64ba59f28be087c46a151b0d80ec4c2677fac845037395459e89",
+      "after": "b273e47e00a6ebb8deec5ee8e851bbe65e804eb4967d1e8d99b842d09791ac23",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/shop/index.wxss",
+      "before": "ad554dfa25ac01fae0fa6f2ee769b7b1839488611b4d739aadc68f67875e214d",
+      "after": "261965c31cb82e5dab64a8e5d206f568f56d6c925429300f1ce04512002e5ecd",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/template/index.js",
+      "before": "16c64238fa74f28199230e262d8d8256eaa21220e4a52741ab74b763b9a47f3f",
+      "after": "f598df24248cd24f0df664762d75adaa37cdac99c37618a83e5d668be7b4b5a5",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/template/index.json",
+      "before": "4244199625469179431e89eb5b5b583b817dd4bd94edfac6fd5862118c7888b7",
+      "after": "6afeb78e4565a46b1e7d555a3f22b25f1d2f19ec4a89b9c3621d52f0150b2e1f",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/template/index.wxml",
+      "before": "c0b6307f2580b9df671a02829dcef5223c6bc3077516783470c032c5d647c33a",
+      "after": "143286f5aa0701d609d5838a4b33c3d654c9b4cf0e80ea64fe767a00f90a9f40",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/template/index.wxss",
+      "before": "fa74fcc3a14f7d72d6b4b8061e94bf77ee89ae5e8e0d6cae6580e77dbc2ad720",
+      "after": "c7726c5b511a8b384ded02df4c3f0740cc53db5b9bd8a59b71e3cfcccf5d6ce7",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/ticket/index.json",
+      "before": "160abe2dcefa07d0255bf81979e11bca0d5463e1eaa84bae83674b6fce3f8270",
+      "after": "fc624dd78fc9c0215fe73639aa0f950fdb8529c5e82a90f8f8982dd418717c14",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/ticket/index.wxml",
+      "before": "d50130ebd1778fee208f1576f65c6039dc26603bbf4b84e27c7c97d0911879f3",
+      "after": "146d7f6f339fa601085a410a50f9824af188b3ff5311c3e300bc87d7b75c4fdf",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/ticket/index.wxss",
+      "before": "1aae78b40b7b29daba2378eadea55152b3e76787a7d79f495f8903678144e659",
+      "after": "d54d0e617fc6dd9e9c592f7e90edbfe22021a24d1295e6462a392713b57087d4",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/deposit/records/index.js",
+      "before": "5ca8d0e5b208053ef3f7fef03c03ffa7e11d85238372e3c128698b28e35e7a56",
+      "after": "f7775da067cc5fc38ea58ccace811f13b19016a2d96bce6e44bb9faa1422f9f6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/deposit/records/index.wxml",
+      "before": "63ff59450f09df16a84f2dd23bd12fd096362f23484ad39a0d36bc37e60b7e9f",
+      "after": "ad0ea83689164f598ac075b916624a290a55d49858ac2056b05c623b6e0875e1",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/deposit/records/index.wxss",
+      "before": "53969372ae509f82eb830aca89e862eb59d979b12f5c9c4e6c45291989b50dd9",
+      "after": "78adf5e26748967524fd062d28e16cc8c240c6d29733e730f3d9f80c7ea4be27",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/exception/list/list.wxml",
+      "before": "c725e60288c5e68334d15d2aca3a3fb01fe987fdc8d54a4a96970046492c3145",
+      "after": "5209d3ff78213e97a635273e8ab236df5337b837d6485a0d0affee6906790d12",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/exception/list/list.wxss",
+      "before": "9df8bdf39d150deefcaf947b6cae89ea46f41cf2c70450067fbf1ed9821d8a55",
+      "after": "d4dd52fcd37884378a273991e15f199985073d478aff43b11db1f863b73eacb6",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/account-data/index.wxml",
+      "before": "54d7f677856f8ade0b3312054c1247f624492b000e482f029ade1f23827eec45",
+      "after": "fee2240304b2972093841dec040cfd70309b93f6b9ef6191df2b111c88bb00c0",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/account-data/index.wxss",
+      "before": "36fc7ccb3ff440cc931111f6f2a3f676417faee75f5eff9839aa94b3ecbcc3fc",
+      "after": "6f749cdcdf62d39bcfa00254affd35050bd18f4f976879f2eb8c8f1ffdb3bd45",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/agreement/index.wxml",
+      "before": "379e80546acf435b9b08a88a20e508ada261d242e777d8447f64ea9369e18fac",
+      "after": "ca9351764de2ca515634eb34fd4213a9a23ec65b6d3b0fa55192a0422f9531fb",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/agreement/index.wxss",
+      "before": "119e512d1507736d621bbc8fd5cdfcf191d8e42e8ca10ddd516240de8af3993c",
+      "after": "21e4fa25d1a4801ebbc6635df3cb1c4fe4286bff9a26ad7fea76ebac519e92bc",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/asset-claims/index.js",
+      "before": "a78862b5288b631659d926c4ec5374d69b58f4ac8dbdf10f144e02720706d6ce",
+      "after": "7841926a823abad83a9ac3ae2ebe76c579c2b3f4a12575add64cd333d3b37edb",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/asset-claims/index.json",
+      "before": "855fce07c10c1db08a34d239f2de70eb0d456a97d9b6dba2c7f59db89cc3085d",
+      "after": "caebb190f170f80a8e8ae6891fd76400223e7a77f6c2955729ddc7781d5349fe",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/asset-claims/index.wxml",
+      "before": "775da05f1f38c2e28c273df65d860526286684e127917d8471d577b6cda64858",
+      "after": "beaf64ac01ccde386f3106865f05005da572c0aaab22898b863e7ce08a39c84a",
+      "kind": "frontend"
+    },
+    {
+      "path": "miniapp-user/pages/mine/asset-claims/index.wxss",
+      "before": "df3c0e190b9410ad0bee9f9daab31b9555fb629bcfa27cdf5da36c311051519e",
+      "after": "c6fd9d22b029eb08c53984d2a26568a393f1172070d48ea2423cc0aa50c2e39a",
+      "kind": "frontend"
+    },
+    {
+      "path": "tests/js/a01-muted-text-contrast.test.js",
+      "before": "b04f93f1562ae7b15b9c0a441ea76eadde1f90cb9022b9d042ab2d5a3125efdb",
+      "after": "d23d90542490f390829953884f897ed375b91dcd6e87a086311f475bb9965fcf",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/customer-assets-hierarchy.test.js",
+      "before": "8b85ddf425dc09f265eba8b7a0fc35c2e12a056a1c3c8e1c6368206e01cb5b3e",
+      "after": "10c68d9d5ef4e59e5f928a334c042074e67193c70681be2fd8697504af6c2559",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/customer-home-cart-persistence.test.js",
+      "before": "452862180fa9cb164abdf051da4c378ef2e8a9258b80b32fb8b03bf2daa1667e",
+      "after": "3aa79f87132e279cfbe0f0befe6073bb0509278aeee78484deebf2c17f6966b2",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/customer-home-quote-debounce.test.js",
+      "before": "cb36943963a153fef4fcbb7c1753f24189730affa639debf39e31da176e75643",
+      "after": "c116880945411bce675465a8e0124741ec6b8279e13c0a406bcad5e8afc265e9",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/customer-home-recovery-view.test.js",
+      "before": "57113520d6730ff5b9c828817f79f052ffd131a30572a1ec0b37f2ec02017cab",
+      "after": "e78a67355fceb5ed22fbee0890827e6e14ed64141ec49b27dfcfbc0ac9ff15d3",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/customer-order-receivables-truth.test.js",
+      "before": "9ea1f76da5e7748818bfa641334b5aa7564c65d095b97b2242af13dbc15868f1",
+      "after": "1a3d5f84b8b1bb97431c8ace36600fd8379fcf3418854c07c79990053cdceae7",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/delivery-config-layout.test.js",
+      "before": "6a133ddc03b82ad5cba017749bd2debcd9319ed8cb3ef4f7a59cf214162dcbde",
+      "after": "429ca84caab8c02b324854fde564804182d6c50fabe4946f03e69c643fe3ae91",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/delivery-g04-typography-contrast.test.js",
+      "before": "855c50a83b64209d3f33782c8d9869cbe3a1e418700df5c710e55995dcd37d15",
+      "after": "b45ec32cfead6bba915a4e6b2893cc4840b37f1398f26e741181e1f2e5155a2a",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/gross-profit-presentation.test.js",
+      "before": "71779a37a9c61afce8021b69912b84cce30112741c3d017e7a5c59eba2883492",
+      "after": "380cfdb908edc8793705d1fc4da910dc99c98e2a2850c0cd2484c259a97c6258",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/key-text-readability.test.js",
+      "before": "e5e464cf52c98a305ad5112b3c3ea393c84788f7322b864afa23ebbad953dc19",
+      "after": "6165919eab2c007f920d7eb7df9e08a347fc12b7b5c8c7390677ccbe0d9c6bc5",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/light-entry-flow.test.js",
+      "before": "b70eaf31c62bc98cdce551e900f6f198d8457806eb3bb459cdcb5c5659a5c489",
+      "after": "51e37558477081ba2d87fa558a75ceabcdf81093209596e10b0a584b6ea87449",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/order-create-flow.test.js",
+      "before": "6a45a612a3f9c8d5ca881ddef9396fca10175e71a978335d1511d8b437a1a53f",
+      "after": "7414d97fdfb5bd91ca68cea34d1e9f08855f5a7f2fe3e18bb79a834d08376b28",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/payroll-redesign.test.js",
+      "before": "02c53ceb91993aec2f4548056c2f74d0d63e2f1f0ca0609681c1f6f53a06a68d",
+      "after": "b081f2f8666882e580d8637e1c643cdb81aafdf2b2782335f01d90852ff29901",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/phone-catalog-home.test.js",
+      "before": "e1aec87aa080f2e57e9a205b18d85a82a9b067b7d94ce925f3a6a8632321b57b",
+      "after": "f6279db058aced3c46f2e6f1ee509c02090347968ee0461a8b25d2d7a140df79",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/product-editor-unification.test.js",
+      "before": "7820d1686668ff899d466c63e373ffdfb1164941652fe5cf7a33173e0642b4f9",
+      "after": "71b1c81cefa8403e9fa0bb5d429c24b4fc7ba5e45564f149a505f828c4f32636",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/product-inventory-host.test.js",
+      "before": "53463eac9e9cdb99f73c9fac7b05bb81a48ea03a5b193fed29f3cf81352219af",
+      "after": "42e164e7ee8c1379fa87854835491428df8ba513dadb7eecfb6a657e8a1fd638",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/product-sheet-recovery.test.js",
+      "before": "fa69c7a49016683d6cf5a23407342fcea880bcb57db5573a402842af17144c9b",
+      "after": "c70829758ea2af7f2bc6abb5bbd2d6c542b24017b50118ee7647f5ff0ee24582",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/profit-visual-feedback.test.js",
+      "before": "b7896e0d9500c48a763f24c7fb680aabb12b85f0eeb8edaac1b477248b80b55e",
+      "after": "0b2058d2dddabeb217643131fb78073e84f998bd7129c5552733e57310f6dec6",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/run-all.js",
+      "before": "688265f245efcf2f6610f00dc6353fb8091eecd3dbd0cb99214e954be4b8f2a9",
+      "after": "9013a6f51a8da012688da6a52b9941fd9cea02d5a9ba1af9f2083914a80259bc",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/scoped-receivables-login.test.js",
+      "before": "850dda1f1819a7c794c801cabb513ffb719de2dc854fec3dec631c7509c10016",
+      "after": "50787ddd885e4aad3c984e726ae2ba18cf68e0c8f77658ef1cdba61249c60867",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/settings-feedback.test.js",
+      "before": "5d227808160d938ac0b5a7651a8f6cd7e3324e08ddaa1fc8ec9b87a729ef1000",
+      "after": "03feb1e78c57f7755bebb21622182a51fc157494d167d2ead3ee0a47d673bd5f",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/setup-navigation.test.js",
+      "before": "cbf298e3860e66a3e5df04cc05e7d444e59001a4f16227575b931d3eb31162f0",
+      "after": "73f3413716c30927b7d57fd309169a9b6e64460ddd6c7e9f66900c367c800048",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/u22-date-display.test.js",
+      "before": null,
+      "after": "8ea11b4588e64ed92e05d88556a43cc6263764c0504966964c3f39f10110b16f",
+      "kind": "related-test-or-script"
+    },
+    {
+      "path": "tests/js/visual-v2-contract.test.js",
+      "before": null,
+      "after": "ed84441fecb0ff231fb8b032b5830f436b8ff82654394bac843656d266f8c846",
+      "kind": "related-test-or-script"
+    }
+  ],
+  "excludes": "backend, Git metadata, routes/config/private credentials/runtime caches; actual installation receipt is separate"
+}

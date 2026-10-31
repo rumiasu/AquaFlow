@@ -1,29 +1,33 @@
 <view class="container">
   <view class="page-intro">
-    <text class="eyebrow">客户资产 · 退还办理</text>
-    <text class="page-title">退桶审批</text>
-    <text class="page-caption">批准安排、实际交接、退款交付分别核对</text>
+    
+    <text class="page-title">退桶与退款</text>
+    
     <text class="source-hint" wx:if="{{recordId}}">原申请 #{{recordId}}</text>
     <!-- 2026-10-19 M03：清单页也就近显示真实角色与办理站，经理一眼分辨「谁在办、办哪个站」 -->
     <text class="page-scope" wx:if="{{operatorScopeText}}">{{operatorScopeText}} · {{scopeStationText}}</text>
   </view>
   <view class="read-state search-controls">
-    <button class="secondary-button" size="mini" data-scope="ACTIVE" bindtap="onScopeChange" disabled="{{actionBusy}}">未结申请{{scope === 'ACTIVE' && !recordId ? ' · 当前' : ''}}</button>
-    <button class="secondary-button" size="mini" data-scope="ALL" bindtap="onScopeChange" disabled="{{actionBusy}}">全部历史{{scope === 'ALL' && !recordId ? ' · 当前' : ''}}</button>
-    <input type="number" placeholder="退还申请编号" value="{{recordSearch}}" bindinput="onRecordSearchInput" disabled="{{actionBusy}}" />
-    <button class="secondary-button" size="mini" bindtap="onRecordSearch" disabled="{{actionBusy}}">按编号查询</button>
-    <button class="secondary-button" size="mini" wx:if="{{recordId}}" bindtap="onClearRecordSearch" disabled="{{actionBusy}}">返回清单</button>
+    <view class="b3-return-segments">
+      <button class="af-choice b3-on-scope-change {{scope === 'ACTIVE' && !recordId ? 'af-choice--selected' : ''}}" data-scope="ACTIVE" bindtap="onScopeChange" disabled="{{actionBusy}}"><view class="af-choice__face">未结申请</view></button>
+      <button class="af-choice b3-on-scope-change {{scope === 'ALL' && !recordId ? 'af-choice--selected' : ''}}" data-scope="ALL" bindtap="onScopeChange" disabled="{{actionBusy}}"><view class="af-choice__face">全部历史</view></button>
+    </view>
+    <view class="b3-return-query">
+      <input type="number" placeholder="退还申请编号" value="{{recordSearch}}" bindinput="onRecordSearchInput" disabled="{{actionBusy}}" aria-label="退还申请编号" />
+      <button class="af-action af-action--quiet b3-on-record-search" bindtap="onRecordSearch" disabled="{{actionBusy}}"><view class="af-action__face">查询</view></button>
+    </view>
+    <button class="af-action af-action--quiet b3-on-clear-record-search" wx:if="{{recordId}}" bindtap="onClearRecordSearch" disabled="{{actionBusy}}"><view class="af-action__face">返回清单</view></button>
     <text class="error" wx:if="{{searchError}}">{{searchError}}</text>
   </view>
   <view class="read-state" wx:if="{{loading}}"><text>正在核对申请…</text></view>
   <view class="read-state error" wx:if="{{loadError}}">
     <text>{{loadError}}</text>
-    <button class="secondary-button" bindtap="onRetry" disabled="{{loading}}">重新核对原申请</button>
+    <button class="af-action af-action--quiet b3-on-retry" bindtap="onRetry" disabled="{{loading}}" hover-class="af-action--pressed"><view class="af-action__face">重新核对原申请</view></button>
   </view>
   <view class="read-state error" wx:if="{{actionError && !sheetOpen}}"><text>{{actionError}}</text></view>
   <view class="read-state" wx:if="{{refundRecoveryNeeded && !sheetOpen}}">
     <text>原申请结果待核实，请勿再次交款。</text>
-    <button class="secondary-button" bindtap="onReconcileCash" disabled="{{actionBusy || loading || !recordsReady}}">核实并同步原登记</button>
+    <button class="af-action af-action--quiet b3-on-reconcile-cash" bindtap="onReconcileCash" disabled="{{actionBusy || loading || !recordsReady}}" hover-class="af-action--pressed"><view class="af-action__face">核实并同步原登记</view></button>
   </view>
 
   <view class="alert-card" wx:if="{{undeliveredCount > 0}}">
@@ -35,11 +39,11 @@
     <view wx:if="{{undeliveredExpanded}}">
       <view class="alert-row" wx:for="{{undelivered}}" wx:key="id">
         <text class="alert-row-text">{{item.customerText}} · {{item.quantity}} 份 · {{item.depositRefund === null || item.depositRefund === undefined ? '金额待核实' : '¥' + item.depositRefund}}</text>
-        <button class="small-button" data-id="{{item.id}}" bindtap="onConfirmPaid" disabled="{{actionBusy || !recordsReady || loading || recoveryNeeded}}">登记已交付</button>
+        <button class="af-action af-action--primary b3-on-confirm-paid af-action--grow" data-id="{{item.id}}" bindtap="onConfirmPaid" disabled="{{actionBusy || !recordsReady || loading || recoveryNeeded}}" hover-class="af-action--pressed">登记已交付</button>
       </view>
     </view>
   </view>
-  <view class="read-state error" wx:if="{{undeliveredError}}"><text>{{undeliveredError}}</text><button class="text-button" bindtap="onRetryUndelivered">重新核对历史交付</button></view>
+  <view class="read-state error" wx:if="{{undeliveredError}}"><text>{{undeliveredError}}</text><button class="af-action af-action--quiet b3-on-retry-undelivered" bindtap="onRetryUndelivered" hover-class="af-action--pressed"><view class="af-action__face">重新核对历史交付</view></button></view>
 
   <view class="record-card {{selectedId === item.id ? 'selected-card' : ''}}" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="onSelectRecord">
     <view class="card-header">
@@ -47,7 +51,7 @@
       <text class="status {{item.statusTone}}">{{item.isReturn ? (item.statusText || '状态待核实') : item.typeText}}</text>
     </view>
     <text class="product-name">{{item.productText}}</text>
-    <text class="muted" wx:if="{{item.refundProgress}}">已实退 ¥{{item.paidText}} · 剩余待退 ¥{{item.remainingText}}</text>
+    <view class="refund-progress" wx:if="{{item.refundProgress}}"><text>已实退 ¥{{item.paidText}}</text><text>待退 ¥{{item.remainingText}}</text></view>
     <view class="summary-row" wx:if="{{item.isReturn}}">
       <view class="quantity-summary"><text>{{item.quantity}} 份权益</text><text class="muted">{{item.requiredText}}</text></view>
       <view class="money-summary"><text class="muted">应退押金</text><text class="refund-amount"><text class="currency">¥</text>{{item.amountText}}</text></view>
@@ -57,24 +61,26 @@
   </view>
   <view class="empty" wx:if="{{recordsReady && !loading && list.length === 0}}"><text class="empty-title">{{scope === 'ACTIVE' ? '暂无未结退还申请' : '暂无退还申请记录'}}</text></view>
   <view class="read-state error" wx:if="{{moreError}}"><text>{{moreError}}</text></view>
-  <button class="secondary-button" wx:if="{{nextBeforeId && !recordId}}" bindtap="onMoreRecords" loading="{{loading}}" disabled="{{loading || actionBusy}}">{{moreError ? '重试更早申请' : '更多申请'}}</button>
+  <button class="af-action af-action--quiet b3-on-more-records" wx:if="{{nextBeforeId && !recordId}}" bindtap="onMoreRecords" loading="{{loading}}" disabled="{{loading || actionBusy}}" hover-class="af-action--pressed"><view class="af-action__face">{{moreError ? '重试更早申请' : '更多申请'}}</view></button>
 </view>
 
 <view class="sheet-mask" wx:if="{{sheetOpen && selected}}" bindtap="onCloseSheet" catchtouchmove="noop">
   <view class="approval-sheet" catchtap="noop">
     <view class="sheet-grip"></view>
-    <view class="sheet-heading"><view class="flex-text"><text class="sheet-title">办理退还申请</text><text class="record-number">#{{selected.id}} · {{selected.returnDetail ? '申请制退还' : '历史申请'}}</text></view><button class="close-button" bindtap="onCloseSheet" disabled="{{actionBusy}}" aria-label="关闭办理详情">×</button></view>
+    <view class="sheet-heading"><view class="flex-text"><text class="sheet-title">办理退还申请</text><text class="record-number">#{{selected.id}} · {{selected.returnDetail ? '申请制退还' : '历史申请'}}</text></view><button class="af-action af-action--cancel b3-on-close-sheet" bindtap="onCloseSheet" disabled="{{actionBusy}}" aria-label="关闭办理详情" hover-class="af-action--pressed">×</button></view>
     <!-- 2026-10-19 M03：就近显示真实角色与办理站，经理一眼分辨「谁在办、办哪个站的哪条申请」 -->
     <view class="sheet-scope" wx:if="{{operatorScopeText}}"><text>{{operatorScopeText}} · {{selected.stationText}}</text></view>
     <scroll-view class="sheet-content" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+      <view class="b3-current-state"><text class="b3-current-label">当前办理状态</text><text class="b3-current-title">{{selected.statusText || '状态待核实'}}</text></view>
       <view class="sheet-summary">
-        <view class="card-header"><text class="customer-name flex-text">{{selected.customerText}}</text><text class="status {{selected.statusTone}}">{{selected.statusText || '状态待核实'}}</text></view>
+        <view class="card-header"><text class="customer-name flex-text">{{selected.customerText}}</text></view>
         <text class="product-name">{{selected.productText}}</text>
         <view class="sheet-amount"><text class="muted">应退押金</text><text class="large-amount"><text class="currency">¥</text>{{selected.amountText}}</text></view>
         <view class="summary-chips"><text>{{selected.quantity}} 份权益</text><text>{{selected.requiredText}}</text></view>
+        <view class="refund-progress" wx:if="{{selected.refundProgress}}"><text>已实退 ¥{{selected.paidText}}</text><text>剩余待退 ¥{{selected.remainingText}}</text></view>
       </view>
-      <view class="notice error" wx:if="{{loadError}}"><text>{{loadError}}</text><button class="text-button" bindtap="onRetry" disabled="{{loading}}">重新核对原申请</button></view>
-      <view class="arrangement-card" wx:if="{{selected.returnDetail}}">
+      <view class="notice error" wx:if="{{loadError}}"><text>{{loadError}}</text><button class="af-action af-action--quiet b3-on-retry" bindtap="onRetry" disabled="{{loading}}" hover-class="af-action--pressed"><view class="af-action__face">重新核对原申请</view></button></view>
+      <view class="arrangement-card" wx:if="{{selected.returnDetail}}"><text class="section-label">费用与交桶</text>
         <view class="detail-row"><text class="muted">交接方式</text><text class="detail-value">{{selected.returnDetail.pickupModeText || '方式待核实'}}</text></view>
         <view class="detail-row" wx:if="{{selected.returnDetail.companionOrderId}}"><text class="muted">随送水订单</text><text>#{{selected.returnDetail.companionOrderId}}</text></view>
         <view class="detail-row"><text class="muted">独立收桶服务费</text><text>¥{{selected.feeText}} · {{selected.feeStateText}}</text></view>
@@ -85,32 +91,33 @@
       <view class="notice" wx:elif="{{selected.storageQty > 0}}">该商品有 {{selected.storageQty}} 个空桶寄存在水站。</view>
       <view class="notice warning" wx:if="{{selected.noDeliveryRecord}}">这笔押金没有交付登记。请核实钱是否已交给客户，勿再次退款。</view>
       <view class="timeline">
-        <text class="section-label">办理进度</text>
-        <view class="timeline-step {{step.done ? 'completed' : ''}}" wx:for="{{selected.timeline}}" wx:for-item="step" wx:key="key"><view class="timeline-dot"></view><view class="timeline-copy"><text>{{step.title}}</text><text class="time-label">{{step.time || '尚无登记时间'}}</text></view></view>
+        <button class="af-action af-action--quiet b3-on-toggle-return-progress" bindtap="onToggleReturnProgress" hover-class="af-action--pressed"><view class="af-action__face">办理记录 · {{returnProgressExpanded ? '收起' : '查看已有记录'}}</view></button>
+        <view class="timeline-step {{step.done ? 'completed' : ''}}" wx:for="{{selected.timeline}}" wx:for-item="step" wx:key="key" wx:if="{{returnProgressExpanded && step.done}}"><view class="timeline-dot"></view><view class="timeline-copy"><text>{{step.title}}</text><text class="time-label">{{step.time}}</text></view></view>
       </view>
       <view class="note-block" wx:if="{{selected.note}}"><text class="section-label">申请备注</text><text>{{selected.note}}</text></view>
       <view class="note-block" wx:if="{{selected.handleNote}}"><text class="section-label">办理备注</text><text>{{selected.handleNote}}</text></view>
       <view class="notice" wx:if="{{selected.needsRefund && eligibilityLoading}}">正在核对原收款方式，请勿提前交付退款。</view>
       <view class="notice" wx:if="{{eligibility.expiredOriginalCash}}">本次包含已核超期的原微信押金；核对桶数和应退额后登记实际线下交付，不表示原渠道自动退款。</view>
       <view class="notice warning" wx:if="{{eligibility.channelPendingRefundAmount > 0}}">另有 ¥{{eligibility.channelPendingRefundAmount}} 原渠道或凭据仍待核对，保留在原申请中，不代表已退。{{eligibility.pendingChannelReason}}</view>
-      <view class="notice error" wx:if="{{eligibilityError}}"><text>{{eligibilityError}}</text><button class="text-button" bindtap="onRetryEligibility" disabled="{{actionBusy}}">重新核对退款资格</button></view>
+      <view class="notice error" wx:if="{{eligibilityError}}"><text>{{eligibilityError}}</text><button class="af-action af-action--quiet b3-on-retry-eligibility" bindtap="onRetryEligibility" disabled="{{actionBusy}}" hover-class="af-action--pressed"><view class="af-action__face">重新核对退款资格</view></button></view>
       <view class="notice error" wx:if="{{actionError}}"><text>{{actionError}}</text></view>
       <view class="notice warning" wx:if="{{selected.rejectNeedsFeeRefund}}">未交接申请若需驳回，请先实际退还已收服务费，再办理驳回。</view>
     </scroll-view>
     <view class="sheet-footer">
       <text class="step-hint">{{recoveryNeeded ? '正在核对原办理结果，请勿再次交款或重复办理。' : loading ? '正在重新核对原申请，请稍候。' : selected.stepHint}}</text>
-      <button class="primary-button" wx:if="{{selected.primaryLabel}}" bindtap="onPrimary" loading="{{actionBusy}}" disabled="{{!selected.primaryAction || actionBusy || eligibilityLoading || !recordsReady || loading || recoveryNeeded}}">{{selected.primaryLabel}}</button>
+      <button class="af-action af-action--primary b3-on-primary af-action--grow" wx:if="{{selected.primaryLabel}}" bindtap="onPrimary" loading="{{actionBusy}}" disabled="{{!selected.primaryAction || actionBusy || eligibilityLoading || !recordsReady || loading || recoveryNeeded}}" hover-class="af-action--pressed">{{selected.primaryLabel}}</button>
       <view class="secondary-actions">
-        <button class="text-button" wx:if="{{selected.needsRefund}}" bindtap="onRetryEligibility" disabled="{{actionBusy || eligibilityLoading || !recordsReady || recoveryNeeded}}">重新核对原款</button>
-        <button class="text-button" wx:if="{{selected.canChangeArrangement || selected.canReject || selected.canRefundFee || selected.rejectNeedsFeeRefund}}" bindtap="onMore" disabled="{{actionBusy || !recordsReady || loading || recoveryNeeded}}">{{showMore ? '收起' : '更多操作 ⋯'}}</button>
-        <button class="text-button" wx:if="{{recoveryNeeded}}" bindtap="onRetry" disabled="{{loading}}">核对原申请结果</button>
-        <button class="text-button" wx:if="{{refundRecoveryNeeded}}" bindtap="onReconcileCash" disabled="{{actionBusy || loading || !recordsReady}}">核实并同步原登记</button>
+        <button class="af-action af-action--quiet b3-on-retry-eligibility" wx:if="{{selected.needsRefund}}" bindtap="onRetryEligibility" disabled="{{actionBusy || eligibilityLoading || !recordsReady || recoveryNeeded}}" hover-class="af-action--pressed"><view class="af-action__face">重新核对原款</view></button>
+        <button class="af-action af-action--quiet b3-on-more" wx:if="{{selected.canChangeArrangement || selected.canReject || selected.canRefundFee || selected.rejectNeedsFeeRefund}}" bindtap="onMore" disabled="{{actionBusy || !recordsReady || loading || recoveryNeeded}}" hover-class="af-action--pressed"><view class="af-action__face">{{showMore ? '收起' : '更多操作 ⋯'}}</view></button>
+        <button class="af-action af-action--quiet b3-on-retry" wx:if="{{recoveryNeeded}}" bindtap="onRetry" disabled="{{loading}}" hover-class="af-action--pressed"><view class="af-action__face">核对原申请结果</view></button>
+        <button class="af-action af-action--quiet b3-on-reconcile-cash" wx:if="{{refundRecoveryNeeded}}" bindtap="onReconcileCash" disabled="{{actionBusy || loading || !recordsReady}}" hover-class="af-action--pressed"><view class="af-action__face">核实并同步原登记</view></button>
       </view>
       <view class="more-actions" wx:if="{{showMore}}">
-        <button class="secondary-button" wx:if="{{selected.canChangeArrangement}}" data-id="{{selected.id}}" bindtap="onChangeArrangement" disabled="{{actionBusy}}">提出新的收桶安排</button>
-        <button class="secondary-button" wx:if="{{selected.canRefundFee}}" data-id="{{selected.id}}" bindtap="onRefundPickupFee" disabled="{{actionBusy}}">单独退收桶服务费</button>
-        <button class="reject-button" wx:if="{{selected.canReject}}" data-id="{{selected.id}}" bindtap="onReject" disabled="{{actionBusy}}">驳回{{selected.returnDetail ? '未交接' : '历史'}}申请</button>
+        <button class="af-action af-action--quiet b3-on-change-arrangement" wx:if="{{selected.canChangeArrangement}}" data-id="{{selected.id}}" bindtap="onChangeArrangement" disabled="{{actionBusy}}" hover-class="af-action--pressed"><view class="af-action__face">提出新的收桶安排</view></button>
+        <button class="af-action af-action--quiet b3-on-refund-pickup-fee" wx:if="{{selected.canRefundFee}}" data-id="{{selected.id}}" bindtap="onRefundPickupFee" disabled="{{actionBusy}}" hover-class="af-action--pressed"><view class="af-action__face">单独退收桶服务费</view></button>
+        <button class="af-action af-action--secondary b3-on-reject" wx:if="{{selected.canReject}}" data-id="{{selected.id}}" bindtap="onReject" disabled="{{actionBusy}}" hover-class="af-action--pressed">驳回{{selected.returnDetail ? '未交接' : '历史'}}申请</button>
       </view>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const imageDisplay = require('../../behaviors/imageDisplay')
 const { getTodayStats } = require('../../api/delivery')
 const { get, post } = require('../../utils/request')
@@ -227,28 +228,20 @@ Page({
     }
   },
 
-  /**
-   * 净利 → 展示模型。
-   *
-   * ⚠️ `netProfit` 为 null = 有商品没填进货成本，**必须显示「未填成本」**：
-   *   · 把它当 0 相减会让站长以为自己净赚了整整一个售价（同利润报表页的判据）；
-   *   · 只说「算不出」等于让站长自己猜原因。这一格就长在首页上，
-   *     [2026-09-26 产品口径] 要求的是"没填成本就说没填成本、算不出来的利润不给数字"，
-   *     **不是**把这一格藏起来（藏了他只会以为功能没了）。
-   *   · 字段缺失（undefined，旧版后端）显示「—」：那是"没数"，不能编成"你没填成本"。
-   * 金额格式化放在 js 里做（wxml 不能调方法）。
-   */
+  /** 成本不完整时展示已知收入；未知接口字段不能冒充成本缺失。 */
   _decorateProfit(d) {
-    const missing = d.netProfit === null
-    const unknown = !missing && !((typeof d.netProfit === 'number' || typeof d.netProfit === 'string') && String(d.netProfit).trim() !== '' && Number.isFinite(Number(d.netProfit)))
+    const finiteMoney = v => (typeof v === 'number' || typeof v === 'string') && String(v).trim() !== '' && Number.isFinite(Number(v))
+    const complete = d.costComplete === true && finiteMoney(d.netProfit)
+    const amount = complete ? d.netProfit : d.totalIncome
+    const known = finiteMoney(amount)
     const countKnown = this._knownCount(d.orderCount)
     return {
-      netProfitText: missing ? '未填成本' : (unknown ? '待核实' : '¥' + Number(d.netProfit).toFixed(2)),
-      netProfitWarn: missing || unknown,
-      // 缺成本才多显示一行说明（见 wxml）；「没拉到数据」不给这种解释，那是另一回事
-      costMissing: missing,
+      netProfitText: known ? '¥' + Number(amount).toFixed(2) : '待核实',
+      metricLabel: complete ? '今日净利' : '今日收入',
+      netProfitWarn: !known,
+      costMissing: false,
       orderCount: countKnown ? Number(d.orderCount) : '待核实',
-      readFailed: unknown || !countKnown
+      readFailed: !known || !countKnown
     }
   },
 
@@ -441,7 +434,7 @@ Page({
 
   // 配送员申请解绑(需站长审批通过后 station_id=NULL)
   onApplyUnbind() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '申请解绑',
       content: '确认向站长提交解绑申请？站长确认前仍可正常配送；确认后将进入未绑定状态。',
       confirmText: '提交申请',
@@ -492,7 +485,7 @@ Page({
   async onRemoveStaff(e) {
     const id = e.currentTarget.dataset.id
     const list = this.data.staffList
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '解除配送员',
       content: '确定解除该配送员？该操作不可撤销。',
       confirmColor: '#BD3328',
@@ -557,7 +550,7 @@ Page({
   },
 
   onLogout() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '退出登录',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '退出登录',
       title: '退出登录',
       content: '确定要退出登录吗？',
       success: (res) => {

@@ -46,6 +46,7 @@ Page({
     // 跨站履约单（本站是履约站、归属站是别站）：默认**归并成一行**，点开才看逐单明细。
     // 后端一次给全（总数/金额合计/按状态分类/明细），明细里没有客户画像（后端已掩码）。
     crossStation: null,
+    crossState: 'idle',
     crossExpanded: false
   },
 
@@ -57,6 +58,8 @@ Page({
     }
     this.loadData()
   },
+
+  onToggleFilters() { this.setData({ filtersExpanded: !this.data.filtersExpanded }) },
 
   onPullDownRefresh() {
     this.loadData().then(() => wx.stopPullDownRefresh())
@@ -98,7 +101,7 @@ Page({
     const query = this.orderQuerySnapshot()
     if (query.startDate && query.endDate && query.startDate > query.endDate) {
       this.setData({ list: [], page: 0, hasMore: false, loading: false, loadingMore: false,
-        crossStation: null, listError: '开始日期不能晚于结束日期' }); return
+        crossStation: null, crossState: 'idle', listError: '开始日期不能晚于结束日期' }); return
     }
     const page = reset ? 1 : this.data.page + 1
     const stationId = query.stationId
@@ -108,7 +111,9 @@ Page({
     const status = statusMap[query.currentTab]
 
     this.setData({ loading: !!reset, loadingMore: !reset, listError: '' })
-    if (reset) this.setData({ list: [], hasMore: false, page: 0, crossStation: null })
+    if (reset) this.setData({ list: [], hasMore: false, page: 0, crossStation: null, crossState: 'loading' })
+    // 2026-10-28：跨站读取原先依赖本站列表成功，失败时还静默消失；两份结果独立呈现。
+    const crossRead = reset ? this.loadCrossStation(seq, query) : Promise.resolve()
     try {
       const res = await getOrders({ stationId, status, customerId: query.customerId || undefined,
         createTimeStart: query.startDate || undefined, createTimeEnd: query.endDate || undefined,
@@ -128,31 +133,38 @@ Page({
       this.setData({ list: prior.concat(added), page,
         hasMore: list.length === query.pageSize })
       if (!reset && list.length && !added.length) this.setData({ hasMore: false, listError: '列表未更新，请重新查询' })
-      // 跨站履约单：与本站单是两套口径（本站单按归属站、跨站单按履约站），失败不影响主列表
-      if (reset) try {
-        const cs = await getCrossStationOrders()
-        if (seq !== this._ordersSeq || !this.orderQueryMatches(query)) return
-        const d = cs.data || {}
-        const orders = (d.orders || []).map(o => ({
-          ...o,
-          statusText: o.statusText || '未知',
-          statusCls: STATUS_CLASS_MAP[o.status] || 'default'
-        }))
-        this.setData({ crossStation: { ...d, orders } })
-      } catch (err) {
-        // 归并行拿不到就不显示：它只是附加信息，不该让整个订单页报错
-        console.warn('[cross-station] 取跨站履约单失败:', err && err.message)
-        if (seq === this._ordersSeq && this.orderQueryMatches(query)) this.setData({ crossStation: null })
-      }
     } catch (err) {
       if (seq === this._ordersSeq && this.orderQueryMatches(query)) this.setData({ listError: err.message || '订单加载失败，请重试' })
     } finally {
+      await crossRead
       if (seq === this._ordersSeq) {
         if (!this.orderQueryMatches(query)) this.setData({ list: [], page: 0, hasMore: false,
-          crossStation: null, listError: '筛选条件已变化，请重新查询' })
+          crossStation: null, crossState: 'idle', listError: '筛选条件已变化，请重新查询' })
         this.setData({ loading: false, loadingMore: false })
       }
     }
+  },
+
+  async loadCrossStation(seq, query) {
+    const version = this._crossVersion = (this._crossVersion || 0) + 1
+    const current = () => version === this._crossVersion && seq === this._ordersSeq && this.orderQueryMatches(query)
+    try {
+      const cs = await getCrossStationOrders()
+      if (!current()) return
+      const d = cs && cs.data
+      if (!d || d.count === null || d.count === undefined || d.count === '' || !Number.isInteger(Number(d.count)) || Number(d.count) < 0 || (d.orders != null && !Array.isArray(d.orders)) || (Number(d.count) > 0 && !Array.isArray(d.orders))) throw new Error('跨站记录不完整')
+      const orders = (d.orders || []).map(o => ({ ...o, statusText: o.statusText || '未知',
+        statusCls: STATUS_CLASS_MAP[o.status] || 'default' }))
+      this.setData({ crossStation: { ...d, count: Number(d.count), orders }, crossState: 'ready' })
+    } catch (err) {
+      if (current()) this.setData({ crossStation: null, crossState: 'error' })
+    }
+  },
+
+  onRetryCrossStation() {
+    const query = this.orderQuerySnapshot(), seq = this._ordersSeq
+    this.setData({ crossState: 'loading' })
+    return this.loadCrossStation(seq, query)
   },
 
   /** 展开/收起跨站履约单明细（归并行点击）。 */

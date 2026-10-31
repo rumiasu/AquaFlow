@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "客户画像",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": { "integer-stepper": "/components/IntegerStepper/index" }
 }

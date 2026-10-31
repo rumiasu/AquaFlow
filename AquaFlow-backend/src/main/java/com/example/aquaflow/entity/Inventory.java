@@ -30,6 +30,9 @@ public class Inventory {
     /** 库存数量 */
     private Integer quantity;
 
+    /** 当前实物库存总成本；NULL表示含未计价存货，不使用旧的当前成本价回填。 */
+    private BigDecimal costAmount;
+
     /** 是否在商城销售: 0 不在商城销售 1 在商城销售 */
     private Integer enabled;
 
@@ -40,6 +43,9 @@ public class Inventory {
      * {@code util/PriceUtil#calcUnitPrice}，不要各处自己 if。</p>
      */
     private BigDecimal salePrice;
+
+    /** 本站已成功确认定价设置；独立于是否覆盖参考价，0押金/继承参考价也可确认。 */
+    private Integer pricingConfirmed;
 
     /** 本站图片覆盖；NULL使用商品原图，不修改公共模板。 */
     private String imageObjectNameOverride;

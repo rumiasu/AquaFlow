@@ -9,6 +9,10 @@ app:
   time-zone: ${APP_TIME_ZONE:Asia/Shanghai}
   # 开发模式登录开关：默认关闭（生产必须关闭，防止未授权获取角色 JWT）；开发需要时用环境变量 DEV_LOGIN_ENABLED=true 开启
   dev-login-enabled: ${DEV_LOGIN_ENABLED:false}
+  # 临时测试账号只读环境映射；同时要求显式全测试付款模式及实际 aquaflow_trial 库。默认不开放。
+  test-login:
+    enabled: ${TEST_LOGIN_ENABLED:false}
+    accounts-json: ${TEST_LOGIN_ACCOUNTS_JSON:[]}
   # P4-3: CORS 允许的来源列表（逗号分隔），生产环境必须配置实际域名
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173}
   # 登录类端点的按 IP 限流（见 interceptor/RateLimitInterceptor.java）。
@@ -37,7 +41,7 @@ app:
     wechat-pay-timeout-minutes: ${WECHAT_PAY_TIMEOUT_MINUTES:30}
   payment:
     # 微信支付**模拟渠道**（2026-09-20）：开启后顾客选「微信支付」点一下就成功，
-    # 用于真实支付渠道接入前的全链路联调。**生产必须保持 false** —— 开启等于零元购。
+    # 用于隔离开发测试，未发生真实扣款；生产必须 false，单开旧开关也会拒启。
     #
     # 它**只**取代"真实付款"这一下（把 payment_record 由 PENDING 直接置为 PAID）：
     # 金额服务端重算、活跃流水唯一键 uk_payment_active_order、水票扣减、押金入账
@@ -45,8 +49,13 @@ app:
     # 全部照跑，一个字没放宽。退款路径随之联动，见 PaymentService 接口头的说明。
     #
     # ⚠️ 真实渠道接入时应**删掉**这个开关与 PaymentServiceImpl.isMockWechatPay，
-    #    而不是把它留成"永真"。本地默认在 application-local.yml 里打开。
+    #    而不是把它留成"永真"。旧 local 配置仍走下面的合成测试兼容约束。
+    # 全测试部署沿用现有启动方式，仅显式开启此变量；不改变登录、金额及事务确认。
+    test-mode: ${PAYMENT_TEST_MODE:false}
     mock-wechat-pay: ${MOCK_WECHAT_PAY:false}
+    # test 只允许受限本机合成库；payment-sandbox 另验明确部署/实例/标记，见 deployment/payment-sandbox。
+    mock-isolated-environment: ${MOCK_PAYMENT_ISOLATED:false}
+    mock-customer-ids: ${MOCK_PAYMENT_CUSTOMER_IDS:}
 
 spring:
   application:
@@ -98,6 +107,8 @@ wechat:
     # 正常换码与 40029 另一端诊断共用；必须为正毫秒数。不是整次登录的硬截止时间。
     connect-timeout-ms: ${WX_CONNECT_TIMEOUT_MS:3000}
     read-timeout-ms: ${WX_READ_TIMEOUT_MS:5000}
+    # 2026-10-27：显式登记已有 TLS 桥接开关，保持默认关闭；不改变现有证书或主机名校验。
+    cloud-call-tls-enabled: ${WECHAT_MINIAPP_CLOUD_CALL_TLS_ENABLED:false}
 
 jwt:
   # JWT 签名密钥泄露 = 任何人可伪造任意身份的 token。必须外部注入，且长度 >= 32。

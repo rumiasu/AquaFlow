@@ -1,33 +1,45 @@
 // 编辑资料页
 const { updateProfile } = require('../../api/auth')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
+const { captureSession, currentSession } = require('../../utils/request')
 
 Page({
   data: {
     nickname: '',
     phone: '',
-    submitting: false
+    submitting: false, error: ''
   },
 
   onLoad() {
+    this._session = captureSession()
     const app = getApp()
     const userInfo = app.globalData.userInfo || {}
-    this.setData({
-      nickname: userInfo.nickname || userInfo.nickName || '',
-      phone: userInfo.phone || ''
-    })
+    const nickname = userInfo.nickname || userInfo.nickName || '', phone = userInfo.phone || ''
+    this._saved = { nickname, phone }
+    this.setData({ nickname, phone, error: '', submitting: false })
+  },
+
+  onShow() {
+    if (this._session && !currentSession(this._session)) { this._unloaded = false; this.onLoad(); this.updateLeaveAlert() }
+  },
+  onUnload() { this._unloaded = true; if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload() },
+  updateLeaveAlert() {
+    if (!this._saved) return
+    const dirty = this.data.nickname !== this._saved.nickname || this.data.phone !== this._saved.phone
+    if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '资料尚未保存，确定离开吗？' })
+    else if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
   },
 
   onNicknameInput(e) {
-    this.setData({ nickname: e.detail.value })
+    this.setData({ nickname: e.detail.value, error: '' }); this.updateLeaveAlert()
   },
 
   onPhoneInput(e) {
-    this.setData({ phone: e.detail.value })
+    this.setData({ phone: e.detail.value, error: '' }); this.updateLeaveAlert()
   },
 
   async onSubmit() {
-    if (this.data.submitting) return
+    if (this.data.submitting || !currentSession(this._session)) return
     const { nickname, phone } = this.data
     if (!nickname.trim()) {
       wx.showToast({ title: '请输入昵称', icon: 'none' })
@@ -38,9 +50,11 @@ Page({
       return
     }
 
-    this.setData({ submitting: true })
+    const session = this._session
+    this.setData({ submitting: true, error: '' })
     try {
       await updateProfile({ nickname: nickname.trim(), phone: phone.trim() })
+      if (this._unloaded || !currentSession(session)) return
       // 更新本地
       const app = getApp()
       const userInfo = app.globalData.userInfo || {}
@@ -49,12 +63,13 @@ Page({
       app.globalData.userInfo = userInfo
       wx.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo)
 
+      this._saved = { nickname: nickname.trim(), phone: phone.trim() }; this.updateLeaveAlert()
       wx.showToast({ title: '保存成功', icon: 'success' })
-      setTimeout(() => wx.navigateBack(), 1500)
+      setTimeout(() => { if (!this._unloaded && currentSession(session)) wx.navigateBack() }, 1500)
     } catch (err) {
-      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+      if (!this._unloaded && currentSession(session)) this.setData({ error: err.message || '保存失败，请重试。' })
     } finally {
-      this.setData({ submitting: false })
+      if (!this._unloaded && currentSession(session)) this.setData({ submitting: false })
     }
   }
 })

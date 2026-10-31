@@ -1,36 +1,50 @@
-<import src="../../../templates/setup-module-tasks.wxml" />
-<page-meta page-style="{{showEdit || showSetting || showInventory ? 'overflow: hidden;' : ''}}" />
+<page-meta page-style="{{showEdit || showSetting || showInventory || showRecords ? 'overflow: hidden;' : ''}}" />
 <view class="container">
-  <template is="setupModuleTasks" data="{{tasks:moduleSetupTasks,loading:moduleSetupLoading,ready:moduleSetupReady,error:moduleSetupError}}" />
+  <view class="product-setup-guide" wx:if="{{moduleSetupLoading || moduleSetupError || (moduleSetupReady && moduleSetupTasks.length)}}">
+    <view class="product-setup-guide-head">
+      <view class="product-setup-guide-heading"><text class="product-setup-guide-title">商品库存上线准备</text><text class="product-setup-guide-summary" wx:if="{{moduleSetupReady && !moduleSetupLoading && !moduleSetupError && productSetupRequiredPending !== null && productSetupRequiredTasks.length}}">已完成 {{productSetupRequiredTasks.length - productSetupRequiredPending}}/{{productSetupRequiredTasks.length}}</text></view>
+      <text class="product-setup-guide-toggle" wx:if="{{moduleSetupReady && !moduleSetupError}}" bindtap="onToggleProductSetupGuide">{{productSetupGuideExpanded ? '收起' : '展开'}}</text>
+    </view>
+    <view class="s-setup-track" wx:if="{{moduleSetupReady && !moduleSetupLoading && !moduleSetupError && productSetupRequiredPending !== null && productSetupRequiredTasks.length}}"><view class="s-setup-progress" style="width:{{(productSetupRequiredTasks.length - productSetupRequiredPending) * 100 / productSetupRequiredTasks.length}}%"></view></view>
+    <view wx:if="{{moduleSetupLoading}}" class="product-setup-guide-loading">正在核对商品与水票设置…</view>
+    <view wx:elif="{{moduleSetupError}}" class="product-setup-guide-error"><text>{{moduleSetupError}}</text><button size="mini" bindtap="refreshModuleSetup" class="af-action af-action--quiet"><view class="af-action__face">重新核对</view></button></view>
+    <block wx:elif="{{productSetupGuideExpanded}}">
+      <block wx:for="{{productSetupRequiredTasks}}" wx:key="key"><view class="product-setup-task" wx:if="{{!item.done}}"><view class="product-setup-task-head"><text class="b3-setup-mark">○</text><text class="product-setup-task-name">{{item.label}}</text><text class="product-setup-state is-pending">待完善</text></view><text class="product-setup-task-copy">{{item.suggestion || item.why}}</text><button data-key="{{item.key}}" bindtap="onModuleSetupTask" class="af-action af-action--quiet"><view class="af-action__face">去上架商品</view></button></view></block>
+      <view class="s-setup-done-toggle" wx:if="{{productSetupRequiredTasks.length > productSetupRequiredPending}}" bindtap="onToggleProductSetupDone">已完成 {{productSetupRequiredTasks.length - productSetupRequiredPending}} 项 · {{productSetupDoneExpanded ? '收起' : '查看'}} ›</view>
+      <block wx:if="{{productSetupDoneExpanded}}"><block wx:for="{{productSetupRequiredTasks}}" wx:key="key"><view class="s-setup-done" wx:if="{{item.done}}"><text aria-label="{{item.label + '，已完成'}}">{{item.label}} ✓</text><button data-key="{{item.key}}" bindtap="onModuleSetupTask" class="af-action af-action--quiet"><view class="af-action__face">查看</view></button></view></block></block>
+      <view class="s-setup-optional" wx:if="{{productSetupOptionalTask}}"><text>水票设置 · 选填</text><button data-key="ticketPackage" bindtap="onModuleSetupTask" class="af-action af-action--quiet"><view class="af-action__face">查看</view></button></view>
+      <button class="af-action af-action--quiet product-setup-refresh" bindtap="refreshModuleSetup"><view class="af-action__face">重新核对</view></button>
+    </block>
+  </view>
   <!-- 隐私授权弹窗：本页用 wx.chooseImage 传商品图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
   <view class="work-read-error" wx:if="{{productCreationRecovery}}">
     <text>{{productCreationRecovery.productId ? '原商品已创建，建档尚未全部完成' : '原商品创建结果待核实'}}</text>
     <text>{{productCreationRecovery.message}}</text>
-    <button wx:if="{{productCreationRecovery.phase === 'packages-pending'}}" bindtap="onContinueCreatedProduct" disabled="{{saving || inboundBusy}}">继续原商品档位</button>
-    <button wx:else bindtap="onVerifyProductCreation" disabled="{{saving || inboundBusy}}">重新读取商品目录</button>
+    <button wx:if="{{productCreationRecovery.phase === 'packages-pending'}}" bindtap="onContinueCreatedProduct" disabled="{{saving || inboundBusy}}" class="af-action af-action--quiet b3-on-continue-created-product" hover-class="af-action--pressed"><view class="af-action__face">继续原商品档位</view></button>
+    <button wx:else bindtap="onVerifyProductCreation" disabled="{{saving || inboundBusy}}" class="af-action af-action--quiet b3-on-verify-product-creation" hover-class="af-action--pressed"><view class="af-action__face">重新读取商品目录</view></button>
   </view>
   <!-- 顶部：分段 + 搜索 + 分类筛选 -->
   <view class="top-bar">
     <view class="tabs">
-      <text class="tab {{tab === 'all' ? 'active' : ''}}" bindtap="onTabChange" data-tab="all">全部目录</text>
-      <text class="tab {{tab === 'selected' ? 'active' : ''}}" bindtap="onTabChange" data-tab="selected">已选用</text>
-      <text class="tab {{tab === 'mine' ? 'active' : ''}}" bindtap="onTabChange" data-tab="mine">我的商品</text>
+      <view class="af-choice b3-on-tab-change {{tab === 'all' ? 'af-choice--selected' : ''}}" bindtap="onTabChange" data-tab="all"><view class="af-choice__face">全部目录</view></view>
+      <view class="af-choice b3-on-tab-change {{tab === 'selected' ? 'af-choice--selected' : ''}}" bindtap="onTabChange" data-tab="selected"><view class="af-choice__face">已选用</view></view>
+      <view class="af-choice b3-on-tab-change {{tab === 'mine' ? 'af-choice--selected' : ''}}" bindtap="onTabChange" data-tab="mine"><view class="af-choice__face">我的商品</view></view>
     </view>
     <input class="search-input" placeholder="搜索名称/品牌/规格" value="{{keyword}}" bindinput="onKeywordInput" />
     <view class="chips category-filters">
-      <text class="chip {{category === 0 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="0">全部</text>
-      <text class="chip {{category === 1 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="1">桶装水</text>
-      <text class="chip {{category === 2 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="2">瓶装水</text>
-      <text class="chip {{category === 3 ? 'active' : ''}}" bindtap="onCategoryFilter" data-value="3">饮水器</text>
+      <view class="af-choice b3-on-category-filter {{category === 0 ? 'af-choice--selected' : ''}}" bindtap="onCategoryFilter" data-value="0"><view class="af-choice__face">全部</view></view>
+      <view class="af-choice b3-on-category-filter {{category === 1 ? 'af-choice--selected' : ''}}" bindtap="onCategoryFilter" data-value="1"><view class="af-choice__face">桶装水</view></view>
+      <view class="af-choice b3-on-category-filter {{category === 2 ? 'af-choice--selected' : ''}}" bindtap="onCategoryFilter" data-value="2"><view class="af-choice__face">瓶装水</view></view>
+      <view class="af-choice b3-on-category-filter {{category === 3 ? 'af-choice--selected' : ''}}" bindtap="onCategoryFilter" data-value="3"><view class="af-choice__face">饮水器</view></view>
     </view>
     <!-- 快捷筛选：一眼找到"该处理的"（未上架 / 低库存 / 已开水票 / 我改过价的） -->
     <scroll-view class="quick-scroll" scroll-x enhanced show-scrollbar="{{false}}">
       <view class="chips quick-filters">
-        <text class="chip quick {{quick === 'offShelf' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="offShelf">未上架</text>
-        <text class="chip quick {{quick === 'lowStock' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="lowStock">库存少于20</text>
-        <text class="chip quick {{quick === 'ticket' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="ticket">已开水票</text>
-        <text class="chip quick {{quick === 'priceOverridden' ? 'active' : ''}}" bindtap="onQuickFilter" data-value="priceOverridden">我改过价</text>
+        <view class="af-choice b3-on-quick-filter {{quick === 'offShelf' ? 'af-choice--selected' : ''}}" bindtap="onQuickFilter" data-value="offShelf"><view class="af-choice__face">未上架</view></view>
+        <view class="af-choice b3-on-quick-filter {{quick === 'lowStock' ? 'af-choice--selected' : ''}}" bindtap="onQuickFilter" data-value="lowStock"><view class="af-choice__face">库存少于20</view></view>
+        <view class="af-choice b3-on-quick-filter {{quick === 'ticket' ? 'af-choice--selected' : ''}}" bindtap="onQuickFilter" data-value="ticket"><view class="af-choice__face">已开水票</view></view>
+        <view class="af-choice b3-on-quick-filter {{quick === 'priceOverridden' ? 'af-choice--selected' : ''}}" bindtap="onQuickFilter" data-value="priceOverridden"><view class="af-choice__face">我改过价</view></view>
       </view>
     </scroll-view>
     <view class="hint-row">
@@ -44,9 +58,9 @@
 
 
 
-  <view class="price-warning" wx:if="{{warningsInline.length}}"><text class="price-warning-title">已保存，请核对价格</text><text wx:for="{{warningsInline}}" wx:key="index">{{item}}</text><button size="mini" bindtap="onDismissPriceWarnings">收起提醒</button></view>
+  <view class="price-warning" wx:if="{{warningsInline.length}}"><text class="price-warning-title">已保存，请核对价格</text><text wx:for="{{warningsInline}}" wx:key="index">{{item}}</text><button size="mini" bindtap="onDismissPriceWarnings" class="af-action af-action--quiet b3-on-dismiss-price-warnings" hover-class="af-action--pressed"><view class="af-action__face">收起提醒</view></button></view>
   <!-- 选品 / 我的商品列表 -->
-  <view class="work-read-error" wx:if="{{!loading && loadError}}"><text>{{loadError}}</text><text>商品尚未核实，这不代表没有商品。</text><button bindtap="loadData">重新加载商品</button></view>
+  <view class="work-read-error" wx:if="{{!loading && loadError}}"><text>{{loadError}}</text><text>商品加载失败，请重试。</text><button bindtap="loadData" class="af-action af-action--quiet b3-load-data" hover-class="af-action--pressed"><view class="af-action__face">重新加载商品</view></button></view>
   <view class="list" id="setup-products" wx:if="{{!loading && !loadError}}">
     <view class="card" wx:for="{{viewList}}" wx:key="id" data-item="{{item}}" data-id="{{item.id}}" bindtap="onOpenSetting">
       <view class="thumb" wx:if="{{item.imageUrl && !brokenImages[item.imageUrl]}}">
@@ -57,40 +71,41 @@
       <view class="info">
         <view class="name-row">
           <text class="name">{{item.displayName}}</text>
+          <text class="tag off" wx:if="{{item.status === 0 || item.status === 2}}">{{item.status === 2 ? '已停售' : '已停用'}}</text>
+          <text class="tag on" wx:if="{{item.selected && item.enabled === 1 && item.status !== 0 && item.status !== 2}}">已上架</text>
+          <text class="tag off" wx:if="{{item.selected && item.enabled !== 1 && item.status !== 0 && item.status !== 2}}">未上架</text>
           <text class="tag platform" wx:if="{{!item.ownerStationId}}">平台</text>
           <text class="tag mine" wx:if="{{item.ownerStationId}}">自定义</text>
           <text class="tag submit" wx:if="{{item.submission}}">上报·{{item.submission.statusText}}</text>
         </view>
         <text class="sub" wx:if="{{item.brand || item.spec}}">{{item.brand}} {{item.spec}}</text>
         <text class="water-template-hint" wx:if="{{item.imageUrl === templateImage}}">{{imageNotice}}</text>
-        <text class="sub muted">{{item.categoryLabel}} · 参考价 ¥{{item.refPriceText}}<text wx:if="{{item.deposit > 0 && item.category === 1}}"> · 参考押金 ¥{{item.refDepositText}}</text></text>
+        <!-- 2026-10-31：金额缺失时曾显示“¥待核实”或悬空符号；仅已知金额显示货币符。 -->
+        <view class="sub muted"><text>{{item.categoryLabel}}</text><text wx:if="{{item.pricingConfirmed !== 1}}"> · 参考价 {{item.refPriceText && item.refPriceText !== '待核实' ? '¥' + item.refPriceText : '待核实'}}<text wx:if="{{item.deposit > 0 && item.category === 1}}"> · 参考押金 ¥{{item.refDepositText}}</text></text></view>
 
         <view class="tags">
           <text class="tag stock" wx:if="{{item.selected}}">库存 {{item.stockText}}</text>
-          <text class="tag off" wx:if="{{item.status === 0 || item.status === 2}}">{{item.status === 2 ? '已停售' : '已停用'}}</text>
-          <text class="tag on" wx:if="{{item.selected && item.enabled === 1 && item.status !== 0 && item.status !== 2}}">已上架</text>
-          <text class="tag off" wx:if="{{item.selected && item.enabled !== 1 && item.status !== 0 && item.status !== 2}}">未上架</text>
-          <text class="tag price" wx:if="{{item.selected}}">本站价 ¥{{item.effectivePriceText}}</text>
-          <text class="tag ticket" wx:if="{{item.selected && item.ticketEnabled === 1}}">水票 ¥{{item.ticketPrice}}</text>
+          <text class="tag price" wx:if="{{item.selected}}">{{item.pricingConfirmed === 1 ? '本站已保存' : '当前使用价'}} {{item.effectivePriceText && item.effectivePriceText !== '待核实' ? '¥' + item.effectivePriceText : '待核实'}}</text>
+          <text class="tag ticket" wx:if="{{item.selected && item.ticketEnabled === 1}}">水票 {{item.ticketPrice == null || item.ticketPrice === '' || item.ticketPrice === '待核实' ? '待核实' : '¥' + item.ticketPrice}}</text>
           <text class="tag star" wx:if="{{item.selected && item.priorityDisplay === 1}}">优先展示</text>
         </view>
+      </view>
         <view class="action">
           <block wx:if="{{item.status === 0 || item.status === 2}}">
-            <button class="product-card-primary" wx:if="{{item.ownerStationId}}" catchtap="onRestoreProduct" data-item="{{item}}" disabled="{{saving}}">恢复商品</button>
-            <button class="product-card-secondary" wx:if="{{item.selected || item.ownerStationId}}" catchtap="onOpenInventory" data-item="{{item}}">库存操作</button>
-            <button class="product-card-more" wx:if="{{!item.ownerStationId && item.selected}}" catchtap="onProductMore" data-item="{{item}}">更多</button>
+            <button class="af-action af-action--primary b3-on-open-inventory" wx:if="{{item.selected || item.ownerStationId}}" catchtap="onOpenInventory" data-item="{{item}}" hover-class="af-action--pressed">库存操作</button>
+            <button class="af-action af-action--secondary b3-on-restore-product" wx:if="{{item.ownerStationId}}" catchtap="onRestoreProduct" data-item="{{item}}" disabled="{{saving}}" hover-class="af-action--pressed">恢复商品</button>
+            <button class="af-action af-action--danger-quiet b3-on-request-remove-product" wx:if="{{!item.ownerStationId && item.selected}}" catchtap="onRequestRemoveProduct" data-item="{{item}}" hover-class="af-action--pressed">移除</button>
           </block>
           <block wx:else>
-            <button class="product-card-primary" wx:if="{{!item.selected}}" catchtap="onSelectProduct" data-id="{{item.id}}">选用商品</button>
-            <button class="product-card-primary" wx:else catchtap="onOpenSetting" data-item="{{item}}">编辑商品</button>
-            <button class="product-card-secondary" wx:if="{{item.selected || item.ownerStationId}}" catchtap="onOpenInventory" data-item="{{item}}">库存操作</button>
-            <button class="product-card-more" wx:if="{{item.selected}}" catchtap="onProductMore" data-item="{{item}}">更多</button>
+            <button class="af-action af-action--primary b3-on-open-inventory" wx:if="{{item.selected || item.ownerStationId}}" catchtap="onOpenInventory" data-item="{{item}}" hover-class="af-action--pressed">库存操作</button>
+            <button class="af-action af-action--secondary b3-on-select-product" wx:if="{{!item.selected}}" catchtap="onSelectProduct" data-id="{{item.id}}" hover-class="af-action--pressed">选用商品</button>
+            <button class="af-action af-action--secondary b3-on-open-setting" wx:else catchtap="onOpenSetting" data-item="{{item}}" hover-class="af-action--pressed">编辑商品</button>
+            <button class="af-action af-action--danger-quiet b3-on-request-remove-product" wx:if="{{item.selected}}" catchtap="onRequestRemoveProduct" data-item="{{item}}" hover-class="af-action--pressed">移除</button>
           </block>
         </view>
-      </view>
     </view>
 
-    <view class="empty" wx:if="{{viewList.length === 0}}">
+    <view class="empty" wx:if="{{viewList.length === 0}}"><view class="s-inventory-empty-icon" aria-hidden="true"><view class="s-inventory-empty-box"></view></view>
       <text wx:if="{{tab === 'mine'}}">还没有自定义商品，点下面的「＋ 自定义商品」添加</text>
       <text wx:else>没有匹配的商品</text>
     </view>
@@ -99,7 +114,7 @@
 
   <!-- 模板属于新建入口，主动展开，不在正常目录里重复铺商品。 -->
   <view class="water-templates" wx:if="{{showWaterTemplates && !loading && !loadError}}">
-    <view class="water-template-heading"><text class="water-template-title">从模板新建</text><button class="water-template-close" bindtap="onToggleWaterTemplates">收起</button></view>
+    <view class="water-template-heading"><text class="water-template-title">从模板新建</text><button class="af-action af-action--quiet b3-on-toggle-water-templates" bindtap="onToggleWaterTemplates" hover-class="af-action--pressed"><view class="af-action__face">收起</view></button></view>
     <text class="water-template-hint">选好模板后，按实物填写规格、金额和库存，默认不上架。</text>
     <view class="water-template-row" wx:for="{{waterTemplates}}" wx:key="id">
       <image class="water-template-image" wx:if="{{!brokenImages[item.imageUrl]}}" src="{{item.imageUrl}}" mode="aspectFit" binderror="onDisplayImageError" data-src="{{item.imageUrl}}" /><view wx:else class="water-template-image ui-image-fallback">商品示意图暂无法显示</view>
@@ -109,7 +124,7 @@
         <text class="water-template-hint">{{item.imageNotice}}</text>
       </view>
       <view class="water-template-actions">
-        <button class="water-template-use" bindtap="onUseWaterTemplate" data-id="{{item.id}}" disabled="{{saving || uploading}}">使用模板</button>
+        <button class="af-entry b3-on-use-water-template" bindtap="onUseWaterTemplate" data-id="{{item.id}}" disabled="{{saving || uploading}}" hover-class="af-action--pressed"><view class="af-entry__body">使用模板</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
         <text class="water-template-edit" bindtap="onEditWaterTemplate" data-id="{{item.id}}">按实物修改</text>
       </view>
     </view>
@@ -117,50 +132,52 @@
 
   <view class="product-editor-resume" wx:if="{{productEditorResume && !showEdit}}">
     <text>上次编辑尚未保存，仅在本页暂存。</text>
-    <button bindtap="onResumeProductEditor" disabled="{{saving || inboundBusy}}">继续未保存编辑</button>
+    <button bindtap="onResumeProductEditor" disabled="{{saving || inboundBusy}}" class="af-action af-action--quiet b3-on-resume-product-editor" hover-class="af-action--pressed"><view class="af-action__face">继续未保存编辑</view></button>
   </view>
 
   <view class="inventory-draft-resume" wx:if="{{inventoryDraftAvailable && !showInventory}}">
     <text>「{{inventoryDraftName}}」有未提交的库存数量。</text>
-    <button bindtap="onResumeInventoryDraft">继续库存操作</button>
-    <button class="discard-draft" bindtap="onDiscardInventoryDraft">丢弃草稿</button>
+    <button bindtap="onResumeInventoryDraft" class="af-action af-action--quiet b3-on-resume-inventory-draft" hover-class="af-action--pressed"><view class="af-action__face">继续库存操作</view></button>
+    <button class="af-action af-action--cancel b3-on-discard-inventory-draft" bindtap="onDiscardInventoryDraft" hover-class="af-action--pressed">丢弃草稿</button>
   </view>
 
-  <view class="footer" wx:if="{{!showEdit && !showSetting && !showInventory && !showRecords && !showSubmissions && !showPresetPicker}}">
-    <button class="btn-template" bindtap="onToggleWaterTemplates" disabled="{{loading || !!loadError}}">{{showWaterTemplates ? '收起模板' : '从模板新建'}}</button>
-    <button class="btn-define" bindtap="openAdd">＋ 自定义商品</button>
+  <view class="b3-create-entries" wx:if="{{!showEdit && !showSetting && !showInventory && !showRecords && !showSubmissions && !showPresetPicker}}">
+    <text class="b3-entry-heading">添加商品</text>
+    <button class="af-entry b3-on-toggle-water-templates" bindtap="onToggleWaterTemplates" disabled="{{loading || !!loadError}}" hover-class="af-action--pressed"><text class="b3-entry-icon" aria-hidden="true">▤</text><view class="af-entry__body">{{showWaterTemplates ? '收起模板' : '从模板新建'}}</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
+    <button class="af-entry b3-open-add" bindtap="openAdd" hover-class="af-action--pressed"><text class="b3-entry-icon" aria-hidden="true">＋</text><view class="af-entry__body">自定义商品</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
   </view>
 
-  <!-- 2026-10-25：全部选用商品复用下面的编辑面板；移除只从卡片“更多”进入。 -->
+  <!-- 2026-10-26：全部选用商品复用下面的编辑面板；卡片直接提供带确认的移除入口。 -->
 
   <!-- ============ 自己定义商品 ============ -->
-  <!-- Native container owns Back; no synthetic page-stack entry or global navigation interception. -->
-  <page-container show="{{showEdit}}" position="bottom" overlay="{{true}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onProductEditorBeforeLeave" bindclickoverlay="closeEdit">
+  <!-- 2026-10-26: only one native page-container per page. A second inventory container
+       never opened while page-meta still locked scrolling. Both tasks share this host. -->
+  <page-container show="{{showEdit || showInventory || showRecords}}" position="bottom" overlay="{{true}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onProductPanelBeforeLeave" bindclickoverlay="closeProductPanel">
   <view class="product-editor-stage" wx:if="{{showEdit}}">
   <view class="modal-mask product-editor-dismiss-area" catchtouchmove="preventMove" bindtap="closeEdit"></view>
   <view class="modal product-edit-modal" wx:if="{{showEdit}}" style="{{productEditSheetStyle}}" catchtap="stopPropagation">
       <view class="product-edit-header">
         <view class="product-edit-heading">
         <view class="modal-header">{{isAdd ? '自己定义商品' : productInactive ? '商品资料' : '编辑商品'}}</view>
-          <button class="product-edit-close" bindtap="closeEdit" disabled="{{saving || inboundBusy}}" aria-label="关闭编辑">关闭 ×</button>
+          <button class="af-action af-action--cancel b3-close-edit" bindtap="closeEdit" disabled="{{saving || inboundBusy}}" aria-label="关闭编辑" hover-class="af-action--pressed">关闭 ×</button>
         </view>
         <text class="modal-sub">{{productInactive ? '商品停用中，资料与价格只读；可从商品卡片进入库存操作。' : '修改在本站生效；库存需从商品卡片独立办理，保存不改变当前库存。'}}</text>
       </view>
       <view class="product-section-nav">
-        <button class="{{productEditorSection === 'details' ? 'active' : ''}}" data-section="details" bindtap="onProductSectionTap">资料与图片</button>
-        <button class="{{productEditorSection === 'pricing' ? 'active' : ''}}" data-section="pricing" bindtap="onProductSectionTap">价格与展示</button>
+        <button class="af-choice b3-on-product-section-tap {{productEditorSection === 'details' ? 'af-choice--selected' : ''}}" data-section="details" bindtap="onProductSectionTap" hover-class="af-action--pressed"><view class="af-choice__face">资料与图片</view></button>
+        <button class="af-choice b3-on-product-section-tap {{productEditorSection === 'pricing' ? 'af-choice--selected' : ''}}" data-section="pricing" bindtap="onProductSectionTap" hover-class="af-action--pressed"><view class="af-choice__face">价格与销售</view></button>
       </view>
       <scroll-view class="product-edit-body" scroll-y enhanced show-scrollbar scroll-into-view="{{productScrollTarget}}" scroll-with-animation bindscroll="onProductEditorScroll">
         <view class="product-edit-content">
           <view class="ui-state" wx:if="{{productCreationPending}}">
             <text class="ui-state-copy">{{productCreationRecovery.message}}</text>
-            <button wx:if="{{productCreationRecovery.phase === 'packages-pending'}}" bindtap="onContinueCreatedProduct" disabled="{{saving || inboundBusy}}">继续原商品档位</button>
-            <button wx:else bindtap="onVerifyProductCreation" disabled="{{saving || inboundBusy}}">重新读取商品目录</button>
+            <button wx:if="{{productCreationRecovery.phase === 'packages-pending'}}" bindtap="onContinueCreatedProduct" disabled="{{saving || inboundBusy}}" class="af-action af-action--quiet b3-on-continue-created-product" hover-class="af-action--pressed"><view class="af-action__face">继续原商品档位</view></button>
+            <button wx:else bindtap="onVerifyProductCreation" disabled="{{saving || inboundBusy}}" class="af-action af-action--quiet b3-on-verify-product-creation" hover-class="af-action--pressed"><view class="af-action__face">重新读取商品目录</view></button>
           </view>
           <view class="ui-state" wx:if="{{productSaveError}}"><text class="ui-state-copy">{{productSaveError}}</text></view>
           <view class="template-edit-note" wx:if="{{editTemplateId}}">
             <text>已带入名称与图片，规格以实物标签为准；金额和库存由本站填写，默认不上架。</text>
-            <button class="edit-help-toggle" bindtap="onToggleEditHelp">{{editHelpExpanded ? '收起说明' : '查看建档说明'}}</button>
+            <button class="af-action af-action--quiet b3-on-toggle-edit-help" bindtap="onToggleEditHelp" hover-class="af-action--pressed"><view class="af-action__face">{{editHelpExpanded ? '收起说明' : '查看建档说明'}}</view></button>
             <text class="edit-help-detail" wx:if="{{editHelpExpanded}}">模板用于快速填写商品资料，不代表当前实物规格或官方定价。请核对商品包装、净容量和本站售价；需要时可换成实际商品图。</text>
           </view>
 
@@ -179,13 +196,13 @@
             <text class="product-image-status {{productImageState === 'failed' ? 'is-warning' : ''}}" wx:if="{{productImageHint}}">{{productImageHint}}</text>
             <view class="product-image-actions">
               <block wx:if="{{!productImageBusy}}">
-                <button class="product-image-action" wx:if="{{productImageState === 'failed' && productImagePreviewUrl}}" bindtap="onRetryProductImage" disabled="{{productInactive || saving}}">重试上传</button>
-                <button class="product-image-action {{productImageState === 'failed' ? 'secondary' : ''}}" bindtap="uploadImage" disabled="{{productInactive || saving || (showSetting && !stationImageEditable)}}">{{productImageState === 'failed' ? '重新选择图片' : editForm.imageUrl ? '更换商品图片' : '上传商品图片'}}</button>
-                <button class="product-image-action secondary" bindtap="openPresetPicker" disabled="{{productInactive || saving || (showSetting && !stationImageEditable)}}">从图库选择</button>
+                <button class="af-action af-action--quiet b3-on-retry-product-image" wx:if="{{productImageState === 'failed' && productImagePreviewUrl}}" bindtap="onRetryProductImage" disabled="{{productInactive || saving}}" hover-class="af-action--pressed"><view class="af-action__face">重试上传</view></button>
+                <button class="af-action af-action--quiet b3-upload-image" bindtap="uploadImage" disabled="{{productInactive || saving || (showSetting && !stationImageEditable)}}" hover-class="af-action--pressed"><view class="af-action__face">{{productImageState === 'failed' ? '重新选择图片' : editForm.imageUrl ? '更换商品图片' : '上传商品图片'}}</view></button>
+                <button class="af-action af-action--quiet b3-open-preset-picker" bindtap="openPresetPicker" disabled="{{productInactive || saving || (showSetting && !stationImageEditable)}}" hover-class="af-action--pressed"><view class="af-action__face">从图库选择</view></button>
               </block>
-              <button class="product-image-action secondary" wx:if="{{showSetting && (stationImageOverridden || restorePlatformImage || editForm.imageObjectName !== platformImageObjectName)}}" bindtap="onRestorePlatformImage" disabled="{{productInactive || saving || productImageBusy || !stationImageEditable}}">恢复公共原图</button>
+              <button class="af-action af-action--quiet b3-on-restore-platform-image" wx:if="{{showSetting && (stationImageOverridden || restorePlatformImage || editForm.imageObjectName !== platformImageObjectName)}}" bindtap="onRestorePlatformImage" disabled="{{productInactive || saving || productImageBusy || !stationImageEditable}}" hover-class="af-action--pressed"><view class="af-action__face">恢复公共原图</view></button>
             </view>
-            <button class="product-image-help" wx:if="{{productImageState === 'failed'}}" bindtap="onCopyProductImageProblem">复制问题信息</button>
+            <button class="af-action af-action--quiet b3-on-copy-product-image-problem" wx:if="{{productImageState === 'failed'}}" bindtap="onCopyProductImageProblem" hover-class="af-action--pressed"><view class="af-action__face">复制问题信息</view></button>
             <text class="water-template-hint" wx:if="{{editForm.imageUrl === templateImage}}">{{imageNotice}}</text>
           </view>
 
@@ -226,12 +243,17 @@
       <view class="form-row">
         <view class="form-item half">
           <text class="label">本站售价(元)</text>
-          <text class="product-field-help" wx:if="{{showSetting}}">参考价 ¥{{setting.refPriceText}}</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="{{showSetting ? '留空不改；0 恢复参考价' : '0.00'}}" value="{{editForm.price}}" data-field="price" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
+          <text class="product-field-help" wx:if="{{showSetting && !setting.pricingConfirmed}}">参考价 {{setting.refPriceText && setting.refPriceText !== '待核实' ? '¥' + setting.refPriceText : '待核实'}}</text>
+          <text class="product-field-help" wx:elif="{{showSetting}}">本站已保存 {{setting.effectivePriceText && setting.effectivePriceText !== '待核实' ? '¥' + setting.effectivePriceText : '待核实'}}</text>
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="{{showSetting ? '留空保留当前价；0使用商品默认价' : '0.00'}}" value="{{editForm.price}}" data-field="price" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
         </view>
         <view class="form-item half" wx:if="{{editForm.category === 1}}">
           <text class="label">押金(元)</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="{{showSetting ? '留空不改；0 恢复参考押金' : '0'}}" value="{{editForm.deposit}}" data-field="deposit" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
+          <text class="product-field-help" wx:if="{{!showSetting}}">请核对桶装商品押金；改为非桶装时不收押金。</text>
+          <text class="product-field-help product-field-help-slot" wx:if="{{showSetting && setting.pricingConfirmed}}">本站已保存 {{setting.effectiveDepositText && setting.effectiveDepositText !== '待核实' ? '¥' + setting.effectiveDepositText : '待核实'}}</text>
+          <text class="product-field-help product-field-help-slot" wx:elif="{{showSetting && setting.hasRefDeposit}}">参考押金 {{setting.refDepositText && setting.refDepositText !== '待核实' ? '¥' + setting.refDepositText : '待核实'}}</text>
+          <view class="product-field-help product-field-help-slot" wx:elif="{{showSetting}}" aria-hidden="true"></view>
+          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="{{showSetting ? '留空保留当前押金；0使用商品默认值' : '0'}}" value="{{editForm.deposit}}" data-field="deposit" bindinput="onEditFieldInput"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
         </view>
 
       </view>
@@ -250,40 +272,40 @@
           <switch checked="{{editForm.ticketEnabled}}" bindchange="onEditSwitchChange" data-field="ticketEnabled"  disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
         </view>
       </view>
+      <text class="product-field-help" wx:if="{{editForm.enabled && editForm.category !== 1}}">商品可先保存上架。若配送计费设置了桶数门槛，请在「配送计费」补齐对应金额门槛；上线准备会提示缺项。</text>
       <!-- 档位：与「本站设置」共用同一份行数据（新建商品时用 create 返回的 id 挂上去） -->
       <view class="pkg-block" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
+        <text class="product-field-help">开关不会自动生成票价。已有单张价可保留；新票价可设置1张或多张套餐，也可到「水票档位」设置适用的统一折扣。未填写的默认草稿不阻止保存商品。</text>
         <view class="pkg-head">
           <view class="pkg-title-row">
-            <text class="pkg-title">水票档位</text>
+            <text class="pkg-title">水票套餐</text>
             <!-- [2026-09-24] 这段说明原来在本文件里**原样出现了两次**（另一处在独立档位模块），
                  每次都平铺一整行。现在统一收进「?」；两处文字必须保持逐字一致 ——
                  改一处要一起改，否则同一条规则两个说法。 -->
-            <help-tip title="水票档位" text="填「张数 + 总价」，例如 10 张 190 元；清空总价 = 删除该档位（保存后生效）。没有档位时客户只能按单张价购买。" />
+            <help-tip title="水票档位" text="填写每份张数和套餐总价，1 张也可以。只有点删除才会移除旧套餐；未填写的默认草稿不会保存。" />
           </view>
           <text class="link" catchtap="onOpenTicketPackages">更多档位设置 ›</text>
         </view>
-        <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}" wx:for="{{pkgRows}}" wx:key="key">
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
-          <text class="pkg-unit">张</text>
-          <text class="pkg-arrow"></text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="总价" />
-          <text class="pkg-unit">元</text>
-          <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销' : '删除'}}</text>
+        <view class="pkg-row-wrap" wx:for="{{pkgRows}}" wx:key="key">
+          <view class="pkg-row-labels"><text>每份张数</text><text>套餐总价</text><text class="pkg-draft-badge" wx:if="{{item.defaultDraft && !item.touched}}">未保存草稿</text></view>
+          <view class="pkg-row {{item.deleted ? 'pkg-row-deleted' : ''}}">
+            <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input qty" type="number" value="{{item.qty}}" data-index="{{index}}" bindinput="onPkgQtyInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="张数" />
+            <text class="pkg-unit">张 / 份</text>
+            <text class="pkg-arrow"></text>
+            <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="pkg-input price" type="digit" value="{{item.price}}" data-index="{{index}}" bindinput="onPkgPriceInput" disabled="{{productInactive || saving || inboundBusy || (showEdit && productCreationPending) || pkgLoading || pkgError || !pkgReady}}" placeholder="价格待填写" />
+            <text class="pkg-unit">元</text>
+            <text class="pkg-del" data-index="{{index}}" catchtap="onRemovePkgRow">{{item.deleted ? '撤销删除' : '删除'}}</text>
+          </view>
+          <view class="pkg-shelf" wx:if="{{!item.deleted && !item.defaultDraft}}"><text>{{item.onShelf === false ? '已下架' : '在售'}}</text><switch checked="{{item.onShelf !== false}}" data-index="{{index}}" bindchange="onPkgShelfChange" disabled="{{productInactive || saving || inboundBusy || pkgLoading || pkgError}}" /></view>
+          <text class="pkg-delete-pending" wx:if="{{item.deleted}}">待删除，保存后移除；点“撤销删除”可恢复</text>
         </view>
+        <text class="pkg-validation-error" wx:if="{{pkgValidationError}}">{{pkgValidationError}}</text>
         <text class="pkg-empty" wx:if="{{pkgLoading}}">正在读取水票档位…</text>
-        <view class="ui-state" wx:elif="{{pkgError}}"><text class="ui-state-copy">{{pkgError}}</text><button size="mini" bindtap="onRetryPkgRows">重新读取档位</button></view>
+        <view class="ui-state" wx:elif="{{pkgError}}"><text class="ui-state-copy">{{pkgError}}</text><button size="mini" bindtap="onRetryPkgRows" class="af-action af-action--quiet b3-on-retry-pkg-rows" hover-class="af-action--pressed"><view class="af-action__face">重新读取档位</view></button></view>
         <text class="pkg-empty" wx:elif="{{pkgReady && !pkgRows.length}}">尚无水票档位</text>
         <text class="link" wx:if="{{pkgReady && !pkgLoading && !pkgError}}" catchtap="onAddPkgRow">＋ 加一档</text>
       </view>
 
-      <view class="ticket-retail-setting" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
-        <view class="product-section-heading"><text class="product-section-title">单张购买</text><text class="product-section-caption">可选设置</text></view>
-        <text class="product-field-help">水票档位优先展示；需要单张购买时，再设置单张价格。</text>
-        <view class="form-item">
-          <text class="label">单张价（元/张）</text>
-          <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="digit" placeholder="如：20" value="{{editForm.ticketPrice}}" data-field="ticketPrice" bindinput="onEditFieldInput" disabled="{{productInactive || saving || inboundBusy || productCreationPending}}" />
-        </view>
-      </view>
 
           </view>
           <view class="product-edit-group product-form-section stock-editor product-initial-stock" wx:if="{{isAdd}}">
@@ -297,9 +319,9 @@
         </view>
       </scroll-view>
       <view class="modal-footer product-edit-footer">
-        <button class="btn-cancel" wx:if="{{!productInactive}}" bindtap="closeEdit" disabled="{{saving}}">取消</button>
-        <button class="btn-save" wx:if="{{!productInactive}}" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving || inboundBusy || productCreationPending || productImageBusy || (editForm.ticketEnabled && (pkgLoading || pkgError))}}">{{saving ? '保存中…' : productCreationPending ? '先完成原建档' : isAdd ? '创建商品' : '保存修改'}}</button>
-        <button class="btn-save" wx:else bindtap="closeEdit" disabled="{{saving || inboundBusy}}">关闭</button>
+        <button class="af-action af-action--cancel b3-close-edit af-action--form" wx:if="{{!productInactive}}" bindtap="closeEdit" disabled="{{saving}}" hover-class="af-action--pressed">取消</button>
+        <button class="af-action af-action--primary b3-on-save-edit af-action--grow" wx:if="{{!productInactive}}" bindtap="onSaveEdit" loading="{{saving}}" disabled="{{saving || inboundBusy || productCreationPending || productImageBusy || (editForm.ticketEnabled && (pkgLoading || pkgError))}}" hover-class="af-action--pressed">{{saving ? '保存中…' : productCreationPending ? '先完成原建档' : isAdd ? '创建商品' : '保存修改'}}</button>
+        <button class="af-action af-action--cancel b3-close-edit af-action--form" wx:else bindtap="closeEdit" disabled="{{saving || inboundBusy}}" hover-class="af-action--pressed">关闭</button>
       </view>
   </view>
   </view>
@@ -311,7 +333,7 @@
       <view class="modal-sub">通用桶装水示意图，不代表具体品牌包装；选中后可更换为实际商品图</view>
 
       <view class="preset-loading" wx:if="{{presetLoading}}"><text>加载中...</text></view>
-      <view class="ui-state" wx:elif="{{presetError}}"><text class="ui-state-copy">{{presetError}}</text><button size="mini" bindtap="openPresetPicker">重新读取图库</button></view>
+      <view class="ui-state" wx:elif="{{presetError}}"><text class="ui-state-copy">{{presetError}}</text><button size="mini" bindtap="openPresetPicker" class="af-action af-action--quiet b3-open-preset-picker" hover-class="af-action--pressed"><view class="af-action__face">重新读取图库</view></button></view>
       <view class="preset-empty" wx:elif="{{presetReady && presetImages.length === 0}}"><text>暂无可选图片</text></view>
 
       <view class="preset-grid" wx:else>
@@ -329,62 +351,70 @@
       </view>
 
       <view class="modal-footer">
-        <button class="btn-save" bindtap="closePresetPicker">关闭</button>
+        <button class="af-action af-action--cancel b3-close-preset-picker af-action--form" bindtap="closePresetPicker" hover-class="af-action--pressed">关闭</button>
       </view>
     </view>
   </view>
-  </page-container>
-
   <!-- ============ 独立库存操作面板 ============ -->
-  <page-container show="{{showInventory}}" position="bottom" overlay="{{true}}" close-on-slide-down="{{false}}" duration="{{0}}" custom-style="height:100%;background:transparent;" bindbeforeleave="onProductInventoryBeforeLeave" bindclickoverlay="closeInventory">
     <view class="product-editor-stage" wx:if="{{showInventory}}">
       <view class="modal-mask product-editor-dismiss-area" catchtouchmove="preventMove" bindtap="closeInventory"></view>
       <view class="modal product-edit-modal inventory-sheet" style="{{productEditSheetStyle}}" catchtap="stopPropagation">
         <view class="product-edit-header">
           <view class="product-edit-heading">
             <view class="modal-header">商品库存</view>
-            <button class="product-edit-close" bindtap="closeInventory" disabled="{{saving || inboundBusy || stockOperationBusy}}" aria-label="关闭库存操作">关闭 ×</button>
+            <button class="af-action af-action--cancel b3-close-inventory" bindtap="closeInventory" disabled="{{saving || inboundBusy || stockOperationBusy}}" aria-label="关闭库存操作" hover-class="af-action--pressed">关闭 ×</button>
           </view>
-          <text class="modal-sub">{{setting.name}} · 当前库存 {{setting.quantity == null ? '尚未读取' : setting.quantity + ' 件'}}</text>
+          <view class="inventory-summary"><view><text class="inventory-eyebrow">{{setting.name}}</text><text class="inventory-stock-number">{{setting.quantity == null ? '—' : setting.quantity}}<text> 件</text></text><text class="inventory-stock-label">{{setting.quantity == null ? '库存尚未读取' : '当前实物库存'}}</text><view class="inventory-change-preview" wx:if="{{stockAfterText && !inboundRecovery}}"><text class="inventory-change-label">库存变化预览</text><text class="inventory-change-line">本次预计变化 {{stockDeltaText}}</text><text class="inventory-change-line">调整后库存 {{stockAfterNumber}} 件</text></view></view><button class="af-action af-action--quiet b3-on-filter-records-by-current" bindtap="onFilterRecordsByCurrent" disabled="{{inboundBusy || stockOperationBusy}}" hover-class="af-action--pressed"><view class="af-action__face">查看流水 ›</view></button></view>
         </view>
         <scroll-view class="product-edit-body inventory-body" scroll-y enhanced show-scrollbar>
           <view class="inventory-content">
             <view class="ui-state" wx:if="{{inboundRecovery}}">
-              <text class="ui-state-copy">原入库 {{inboundRecovery.quantity}} 件尚待完成，请继续原入库，勿另记一笔。</text>
-              <button bindtap="onContinueOriginalInbound" loading="{{inboundBusy}}" disabled="{{saving || inboundBusy || stockOperationBusy}}">继续原入库</button>
+              <text class="ui-state-copy">原入库 {{inboundRecovery.quantity}} 件（{{inboundRecovery.costText}}）尚待完成，请继续原入库，勿另记一笔。</text>
+              <button bindtap="onContinueOriginalInbound" loading="{{inboundBusy}}" disabled="{{saving || inboundBusy || stockOperationBusy}}" class="af-action af-action--secondary b3-on-continue-original-inbound" hover-class="af-action--pressed">继续原入库</button>
             </view>
             <view class="ui-state" wx:if="{{inboundError}}"><text class="ui-state-copy">{{inboundError}}</text></view>
-            <view class="inventory-operation-nav">
-              <button class="{{stockMode === 'in' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="in" disabled="{{saving || inboundBusy || stockOperationBusy}}">入库</button>
-              <button class="{{stockMode === 'check' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="check" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}">核对</button>
-              <button class="{{stockMode === 'loss' ? 'active' : ''}}" bindtap="onStockModeChange" data-mode="loss" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}">短缺</button>
-              <button class="inventory-history" bindtap="onFilterRecordsByCurrent" disabled="{{inboundBusy || stockOperationBusy}}">流水</button>
+            <view class="inventory-primary-nav" wx:if="{{stockMode !== 'loss'}}">
+              <button class="af-choice b3-on-stock-mode-change {{stockMode === 'in' ? 'af-choice--selected' : ''}}" bindtap="onStockModeChange" data-mode="in" disabled="{{saving || inboundBusy || stockOperationBusy}}" hover-class="af-action--pressed"><view class="af-choice__face">补货入库</view></button>
+              <button class="af-choice b3-on-stock-mode-change {{stockMode === 'check' ? 'af-choice--selected' : ''}}" bindtap="onStockModeChange" data-mode="check" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}" hover-class="af-action--pressed"><view class="af-choice__face">盘点校正</view></button>
+            </view>
+            <view class="inventory-loss-context" wx:if="{{stockMode === 'loss'}}">
+              <text class="inventory-loss-title">登记短缺 / 报损</text>
+              <text class="inventory-loss-copy">实盘数低于当前数时，系统会按订单需要顺序减少预留。受影响订单需后续补货、协商延期或取消退款；登记会保留原因、库存流水和审计记录。</text>
+              <text class="inventory-loss-copy">请先填写实物剩余总数，再核对受影响订单并填写短缺原因后确认。</text>
+              <button class="af-entry b3-on-stock-mode-change" bindtap="onStockModeChange" data-mode="check" disabled="{{saving || inboundBusy || stockOperationBusy}}" hover-class="af-action--pressed"><view class="af-entry__body">返回日常盘点操作</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
             </view>
             <view class="inventory-operation-card">
               <view class="product-section-heading">
-                <text class="product-section-title">{{stockMode === 'in' ? '进货入库' : stockMode === 'check' ? '核对库存' : '登记商品短缺'}}</text>
-                <text class="product-section-caption">{{setting.quantity == null ? '库存待读取' : '现有 ' + setting.quantity + ' 件'}}</text>
+                <text class="product-section-title">{{stockMode === 'in' ? '补货入库' : stockMode === 'check' ? '盘点校正' : '登记短缺 / 报损'}}</text>
+                <text class="product-section-caption">{{stockMode === 'in' ? '增加数量' : stockMode === 'check' ? '录入实物总数' : '异常库存处理'}}</text>
               </view>
-              <text class="product-field-help">{{stockMode === 'in' ? '填写本次到货数量，库存会在现有数量上增加。' : stockMode === 'check' ? '填写实物总数，不是增减数量；确认后会记录差额。' : '填写实物剩余总数；登记前需填写短缺原因，并提示受影响订单。'}}</text>
-              <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="number" placeholder="{{stockMode === 'in' ? '本次到货数量' : '实际剩余总数'}}" value="{{stockInput}}" bindinput="onStockInput" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy || setting.quantity == null}}" />
-              <view class="stock-preview" wx:if="{{stockAfterText}}"><text>{{stockAfterText}}</text></view>
-              <text class="inventory-submit-note">本次操作立即登记，不修改商品资料或售价。</text>
+              <text class="product-field-help" wx:if="{{stockMode !== 'in'}}">{{stockMode === 'check' ? '低于订单预留量时校正会被拒绝，请使用下方异常处理。' : '实物剩余总数必须低于当前库存。'}}</text>
+              <input adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" class="input" type="number" placeholder="{{stockMode === 'in' ? '本次到货数量' : stockMode === 'check' ? '实盘库存总数' : '实盘剩余总数'}}" value="{{stockInput}}" bindinput="onStockInput" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy || setting.quantity == null}}" />
+              <view wx:if="{{stockMode === 'in'}}" class="inventory-cost-field">
+                <text class="product-field-label">本次进货总成本（选填）</text>
+                <input class="input" type="digit" value="{{stockCostInput}}" bindinput="onStockCostInput" placeholder="不填记为未知；实际零成本填 0" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}" adjust-position="{{false}}" bindkeyboardheightchange="onProductKeyboardHeightChange" bindblur="onProductKeyboardBlur" />
+                <text class="product-field-help">按本次到货合计填写，不影响入库和经营；成本不完整时只显示收入。</text>
+              </view>
+              <view class="stock-preview" wx:if="{{stockAfterText && inboundRecovery}}"><text>{{stockAfterText}}</text></view>
+              <text class="inventory-submit-note">{{stockMode === 'loss' ? '下一步将先核对订单影响，再填写原因并确认登记。' : '商品资料与售价保持不变。'}}</text>
+            </view>
+            <view class="inventory-loss-entry" wx:if="{{stockMode !== 'loss'}}">
+              <view class="inventory-loss-heading"><text class="inventory-loss-title">异常处理</text><text class="inventory-loss-label">登记短缺 / 报损</text></view>
+              <text class="inventory-loss-copy">实物短缺可能减少订单预留，并影响后续订单处理。登记时会提示受影响订单。</text>
+              <button class="af-entry b3-on-stock-mode-change" bindtap="onStockModeChange" data-mode="loss" disabled="{{inboundRecovery || saving || inboundBusy || stockOperationBusy}}" hover-class="af-action--pressed"><view class="af-entry__body">登记短缺 / 报损</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
             </view>
           </view>
         </scroll-view>
         <view class="modal-footer product-edit-footer">
-          <button class="btn-cancel" bindtap="closeInventory" disabled="{{inboundBusy || stockOperationBusy}}">关闭</button>
-          <button class="btn-save" bindtap="onSubmitStock" loading="{{inboundBusy || stockOperationBusy}}" disabled="{{saving || inboundBusy || stockOperationBusy || stockConfirmPending || (setting.quantity == null && !inboundRecovery)}}">{{stockMode === 'in' ? (inboundRecovery ? '继续原入库' : '确认入库') : stockMode === 'loss' ? '登记短缺' : '确认实际数量'}}</button>
+          <button class="af-action af-action--cancel b3-close-inventory af-action--form" bindtap="closeInventory" disabled="{{inboundBusy || stockOperationBusy}}" hover-class="af-action--pressed">关闭</button>
+          <button class="af-action af-action--primary b3-on-submit-stock af-action--grow" bindtap="onSubmitStock" loading="{{inboundBusy || stockOperationBusy}}" disabled="{{saving || inboundBusy || stockOperationBusy || stockConfirmPending || (setting.quantity == null && !inboundRecovery)}}" hover-class="af-action--pressed">{{stockMode === 'in' ? (inboundRecovery ? '继续原入库' : '确认入库') : stockMode === 'loss' ? '核对影响并登记' : '确认盘点数量'}}</button>
         </view>
       </view>
     </view>
-  </page-container>
-
   <!-- ============ 库存流水 ============ -->
-  <view class="modal-mask" wx:if="{{showRecords}}" catchtouchmove="preventMove" bindtap="closeRecords">
-    <view class="modal" catchtap="stopPropagation">
-      <view class="modal-header">库存流水</view>
-      <view class="modal-sub">入库、库存核对、商品短缺和配送出库均有记录；下单预留及取消释放不改变实物</view>
+  <view class="modal-mask records-mask" wx:if="{{showRecords}}" bindtap="closeRecords">
+    <view class="modal inventory-records-sheet" catchtap="stopPropagation">
+      <view class="records-heading"><view><view class="modal-header">库存流水</view><text class="records-subtitle">按时间查看实物库存变化</text></view><button class="af-action af-action--cancel b3-close-records" bindtap="closeRecords" hover-class="af-action--pressed">关闭 ×</button></view>
 
       <view class="filter-row">
         <text class="filter-chip" wx:if="{{recordsFilterName}}">
@@ -394,28 +424,28 @@
         <text class="filter-hint" wx:else>本站全部商品（编辑商品时可只看单品）</text>
       </view>
 
-      <view class="ui-state" wx:if="{{recordsError}}"><text class="ui-state-copy">{{recordsError}}</text><button size="mini" bindtap="loadRecords">重新读取流水</button></view>
-      <view class="records" wx:elif="{{recordsReady && !recordsLoading}}">
-        <view class="record" wx:for="{{records}}" wx:key="id">
+      <view class="ui-state" wx:if="{{recordsError}}"><text class="ui-state-copy">{{recordsError}}</text><button size="mini" bindtap="loadRecords" class="af-action af-action--quiet b3-load-records" hover-class="af-action--pressed"><view class="af-action__face">重新读取流水</view></button></view>
+      <scroll-view class="records inventory-records-body" scroll-y enhanced show-scrollbar wx:elif="{{recordsReady && !recordsLoading}}">
+        <view class="record inventory-record {{item.direction}}" wx:for="{{records}}" wx:key="id">
           <view class="record-main">
             <text class="record-product">{{item.productText}}</text>
             <text class="record-meta">{{item.timeText}} · {{item.refText}}</text>
           </view>
-          <text class="record-type">{{item.typeText}}</text>
-          <text class="record-delta {{item.delta > 0 ? 'plus' : 'minus'}}">{{item.deltaText}}</text>
+          <view class="record-change"><text class="record-type">{{item.typeText}}</text><text class="record-delta {{item.delta > 0 ? 'plus' : 'minus'}}">{{item.deltaText}}<text> 件</text></text></view>
+          <view class="record-detail"><text>{{item.note || '已登记库存变化'}}</text><text>{{item.resultText}}</text></view>
         </view>
         <view class="empty" wx:if="{{records.length === 0}}"><text>暂无流水</text></view>
         <view class="load-more" wx:if="{{records.length >= recordsLimit}}" bindtap="onLoadMoreRecords">
           <text>加载更多（当前 {{records.length}} 条）</text>
         </view>
-      </view>
+      </scroll-view>
       <view class="loading" wx:elif="{{recordsLoading}}">正在读取库存流水…</view>
 
-      <view class="modal-footer">
-        <button class="btn-save" bindtap="closeRecords">关闭</button>
-      </view>
+
     </view>
   </view>
+
+  </page-container>
 
   <!-- ============ 上报记录（自定义商品上报通用库的处理进度）============ -->
   <view class="modal-mask" wx:if="{{showSubmissions}}" catchtouchmove="preventMove" bindtap="closeSubmissions">
@@ -423,7 +453,7 @@
       <view class="modal-header">上报记录</view>
       <view class="modal-sub">上报后由开发者人工处置：已纳入通用库的商品，别站也能选到</view>
       <view class="loading" wx:if="{{submissionsLoading}}">正在读取上报记录…</view>
-      <view class="ui-state" wx:elif="{{submissionsError}}"><text class="ui-state-copy">{{submissionsError}}</text><button size="mini" bindtap="onOpenSubmissions">重新读取上报记录</button></view>
+      <view class="ui-state" wx:elif="{{submissionsError}}"><text class="ui-state-copy">{{submissionsError}}</text><button size="mini" bindtap="onOpenSubmissions" class="af-action af-action--quiet b3-on-open-submissions" hover-class="af-action--pressed"><view class="af-action__face">重新读取上报记录</view></button></view>
       <view class="records" wx:elif="{{submissionsReady && submissions.length}}">
         <view class="record" wx:for="{{submissions}}" wx:key="id">
           <view class="record-main">
@@ -434,11 +464,12 @@
         </view>
       </view>
       <view class="empty" wx:elif="{{submissionsReady}}"><text>还没有上报记录，可选择本站商品上报</text></view>
-      <button class="report-product-entry" bindtap="onChooseReportProduct" disabled="{{submissionsLoading || !reportableProducts.length}}">选择本站商品上报</button>
+      <button class="af-action af-action--quiet b3-on-choose-report-product" bindtap="onChooseReportProduct" disabled="{{submissionsLoading || !reportableProducts.length}}" hover-class="af-action--pressed"><view class="af-action__face">选择本站商品上报</view></button>
       <view class="modal-footer">
-        <button class="btn-save" bindtap="closeSubmissions">关闭</button>
+        <button class="af-action af-action--cancel b3-close-submissions af-action--form" bindtap="closeSubmissions" hover-class="af-action--pressed">关闭</button>
       </view>
     </view>
   </view>
 
 </view>
+<business-dialog id="business-dialog" />

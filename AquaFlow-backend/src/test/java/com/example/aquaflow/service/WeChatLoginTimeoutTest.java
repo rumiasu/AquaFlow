@@ -39,6 +39,8 @@ class WeChatLoginTimeoutTest {
         var context = new AnnotationConfigApplicationContext();
         context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("synthetic", Map.of(
                 "wechat.miniapp.connect-timeout-ms", connect,
+                // Loopback timeout fixtures exercise the ordinary transport; cloud TLS has its own scoped tests.
+                "wechat.miniapp.cloud-call-tls-enabled", false,
                 "wechat.miniapp.read-timeout-ms", read,
                 "wechat.miniapp.appid", "synthetic-customer", "wechat.miniapp.secret", SECRET,
                 "wechat.miniapp.staff-appid", "synthetic-staff", "wechat.miniapp.staff-secret", SECRET)));

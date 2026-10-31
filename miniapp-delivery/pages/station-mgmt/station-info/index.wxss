@@ -2,7 +2,7 @@
 @import "../../../styles/setup-module-tasks.wxss";
 .container { background: var(--bg-color); min-height: 100vh; padding: 24rpx; }
 
-.card { background: var(--bg-card); border-radius: 20rpx; padding: 28rpx; margin-bottom: 24rpx; box-shadow: var(--shadow-sm); }
+.card { background: var(--bg-card); border-radius: 20rpx; padding: 28rpx; margin: 0 0 24rpx; box-shadow: var(--shadow-sm); }
 .card-head { display: flex; align-items: center; gap: 12rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; color: var(--text-primary); }
 /* 卡片标题 + 「?」（2026-09-24，同 delivery-config）：说明藏进问号，页面只剩字段本身。
@@ -55,3 +55,39 @@
 .field-textarea { border:1rpx solid var(--border-color); border-radius:10rpx; font-size:30rpx; line-height:1.6; }
 .field-hint,.card-sub { color:var(--text-regular); font-size:28rpx; line-height:1.6; overflow-wrap:anywhere; }
 .btn-primary,.btn-danger-ghost { min-height: 48px; height:auto; line-height:1.5; border-radius:10rpx; padding:20rpx; box-sizing:border-box; font-size: 16px; }
+
+/* 2026-10-28：本页信息层级、小屏长字与触控下限；业务语义由原数据决定。 */
+button:not(.af-action):not(.af-choice):not(.af-entry) { min-height:44px; height:auto; line-height:1.45; white-space:normal; box-sizing:border-box; }
+.btn-primary,.primary-button,.btn-confirm { min-height:48px; }
+
+.draft-status { display:block; margin-top:16px; padding:12px; border-left:3px solid #1264d6; background:#edf4ff; color:#334b69; font-size:14px; line-height:1.6; }
+.field-input { min-height:48px; height:auto; }
+.field-textarea { min-height:100px; font-size:16px; }
+.btn-secondary { width:100%; margin-top:16px; padding:14px; color:#1264d6; background:#edf4ff; border:1px solid #c6d9f5; font-size:16px; }
+.btn-danger-ghost { border-color:transparent; text-align:left; font-size:14px; }
+.badge { font-size:14px; line-height:1.6; }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Visual v2: page-specific information and action grouping. */
+ #info-basics,#setup-station-position { border-radius:14px; box-shadow:none; } .card-title { color:var(--af2-ink-neutral); } .field { margin-top:16px; } .field-input,.field-textarea { background:var(--af2-surface); } .draft-status { color:var(--af2-ink-neutral); }
+
+/* Action spacing is owned by its form container. */
+.layout-submit-group { margin-top:16px; }
+
+.layout-coordinate-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:16px; }

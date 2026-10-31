@@ -1,0 +1,2 @@
+<image wx:if="{{!iconFailed}}" class="icon" src="{{src}}" mode="aspectFit" style="width:{{size}};height:{{size}};" binderror="onImageError" />
+<view wx:else class="icon-fallback" style="width:{{size}};height:{{size}};color:{{color}};">{{fallback}}</view>

@@ -1,30 +1,32 @@
-const { wxLoginStaff, devLogin } = require('../../api/auth')
+const { showBusinessModal } = require('../../utils/business-dialog')
+const { wxLoginStaff, testLogin } = require('../../api/auth')
 const { UserInfoKey } = require('../../utils/constant')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
-const { isDevelopEnv } = require('../../config/api')
+const { isTestLoginClientEnv } = require('../../config/api')
 const agreementApi = require('../../api/agreements')
 const { drafts, validCatalog, loginEvidence, find } = require('../../utils/agreements')
 
 const app = getApp()
+
+function testLoginMessage(error) {
+  const message = error && typeof error.message === 'string' ? error.message : ''
+  return /[\u3400-\u9fff]/.test(message) && !/(?:Exception|Error:|\bSQL\b|https?:\/\/|request:fail|errno|stack)/.test(message)
+    ? message : '测试登录未完成，请重试'
+}
 
 Page({
   data: {
     loading: false,
     agreementCatalog: drafts,
     agreementNotice: drafts.notice,
-    // [2026-09-20] 「开发者登录」是否显示。默认 false、在 onLoad 里再纠正 ——
-    // 正式版永远不会闪一下这个按钮；开发版/体验版晚一帧出现，肉眼看不出来。
-    //
-    // 为什么正式版必须藏：它直连 /api/auth/dev-login，而该端点带 @Profile("!prod")，
-    // 正式版**根本不存在**；露出来既是事故级观感，也等于告诉外人"这里有个后门"。
-    // 为什么开发版/体验版必须**保留**：真机联调时它是微信登录不通时的唯一退路（AGENTS §9.4）；
-    // 判断用 envVersion 而不是 platform === 'devtools' —— 真机预览的 platform 是
-    // ios/android，按 devtools 判会把真机联调的退路一起藏掉。
-    showDevLogin: false
+    // 仅开发/体验版显示账号表单，是否能登录仍由服务端决定。
+    showTestLogin: false,
+    testAccount: '',
+    testPassword: ''
   },
 
   onLoad() {
-    this.setData({ showDevLogin: isDevelopEnv() })
+    this.setData({ showTestLogin: isTestLoginClientEnv() })
     this.loadAgreements()
     this.checkAutoLogin()
   },
@@ -52,11 +54,12 @@ Page({
     if (this._agreementFlight && this._agreementFlight.finished) this._agreementFlight = null
   },
 
-  onHide() { this._agreementHidden = true },
+  onHide() { this._agreementHidden = true; this.clearTestPassword() },
 
   onUnload() {
     this._agreementHidden = true
     this._agreementUnloaded = true
+    this.clearTestPassword()
     this._agreementFlight = null
   },
 
@@ -136,30 +139,41 @@ Page({
       this.loadAgreements()
       console.error('[wx-login] login failed')
       const msg = (error && error.message) || '登录失败'
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '登录失败', content: msg, showCancel: false })
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '登录失败', content: msg, showCancel: false })
     } finally {
       this.setData({ loading: false })
     }
   },
 
-  // 开发者登录（跳过微信验证）。同样不再要求先勾协议 —— 见 onWxLogin 上面的说明。
-  onDevLogin() {
-    if (this.data.loading) return
-    this.setData({ loading: true })
-
-    devLogin('DELIVERY').then(result => {
-      if (result.code === 200 || result.code === 0) {
-        this.handleLoginSuccess(result.data)
-      } else {
-        wx.showToast({ title: result.message || '登录失败', icon: 'error' })
-      }
-    }).catch(err => {
-      wx.showToast({ title: err.message || '登录失败', icon: 'error' })
-    }).finally(() => {
-      this.setData({ loading: false })
-    })
+  onTestAccountInput(e) { this.setData({ testAccount: e.detail.value }) },
+  onTestPasswordInput(e) { this.setData({ testPassword: e.detail.value }) },
+  clearTestPassword() {
+    const pending = this._testLoginFlight
+    this._testLoginFlight = null
+    this.setData(pending ? { testPassword: '', loading: false } : { testPassword: '' })
   },
 
+  // 不保存密码；离页后丢弃迟到结果，避免旧身份覆盖新的微信登录。
+  async onTestLogin() {
+    if (this.data.loading || this._loginComplete || !this.data.showTestLogin || !isTestLoginClientEnv()) return
+    const account = (this.data.testAccount || '').trim(), password = this.data.testPassword || ''
+    if (!account || !password) { wx.showToast({ title: '请输入测试账号和密码', icon: 'none' }); return }
+    const flight = this._testLoginFlight = {}
+    this.setData({ loading: true, testPassword: '' })
+    try {
+      const res = await testLogin(account, password)
+      if (this._testLoginFlight !== flight || this._agreementHidden || this._agreementUnloaded) return
+      if (!res || res.code !== 0 || !res.data || !res.data.accessToken) throw new Error(res && res.message || '测试登录失败，请重试')
+      if (res.data.userType !== 'staff') throw new Error('请使用员工测试账号')
+      this._loginComplete = true
+      this.handleLoginSuccess(res.data)
+    } catch (error) {
+      if (this._testLoginFlight === flight && !this._agreementHidden && !this._agreementUnloaded)
+        wx.showToast({ title: testLoginMessage(error), icon: 'none' })
+    } finally {
+      if (this._testLoginFlight === flight) { this._testLoginFlight = null; this.setData({ loading: false }) }
+    }
+  },
   handleLoginSuccess(data) {
     const payload = data || {}
     const u = app.setLoginState(payload)

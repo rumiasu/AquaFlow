@@ -58,11 +58,6 @@
   flex-shrink: 0;
 }
 
-.call-btn {
-  background: var(--primary-color);
-  color: #fff;
-  box-shadow: none;
-}
 
 .copy-btn {
   background-color: var(--bg-gray);
@@ -149,9 +144,11 @@
   color: var(--text-primary);
 }
 
+/* 2026-10-28 RC3：320px视口88rpx只有约37.5px，输入触控框固定至少48px。 */
 .contact-input {
   width: 100%;
-  height: 88rpx;
+  height: 48px;
+  min-height: 48px;
   background: var(--bg-gray);
   border-radius: var(--radius-sm);
   padding: 0 20rpx;
@@ -193,26 +190,6 @@
   line-height: 1.7;
 }
 
-.feedback-btn {
-  height: auto;
-  background: var(--primary-color);
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 24rpx;
-  box-shadow: none; min-height:44px; display:flex; align-items:center; justify-content:center; }
-
-.feedback-btn text {
-  color: #fff;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.feedback-btn.disabled {
-  background: var(--text-placeholder);
-  box-shadow: none;
-}
 
 .history-main {
   flex: 1;
@@ -236,7 +213,6 @@
 .page-intro-title { display: block; font-size: 36rpx; font-weight: 700; line-height: 1.4; color: var(--text-primary); }
 .page-intro-note { display: block; margin-top: 10rpx; font-size: 26rpx; line-height: 1.6; color: var(--text-regular); }
 
-.service-section button, .history-main button { min-height: 44px; height: auto; padding: 18rpx 24rpx; border-radius: var(--radius-sm); color: var(--primary-color); background: var(--primary-bg); font-size: 14px; line-height: 1.6; white-space: normal; }
 .service-label { line-height: 1.7; word-break: break-all; }
 .service-section > textarea:not(.content-input) { width: 100%; min-height: 180rpx; box-sizing: border-box; padding: 20rpx; background: var(--bg-gray); font-size: 28rpx; margin: 20rpx 0; }
 
@@ -251,9 +227,49 @@
 .history-content { white-space: pre-wrap; overflow-wrap: anywhere; }
 .service-section picker { min-height: 88rpx; display: flex; align-items: center; padding: 12rpx 0; }
 .dispute-reason { display: block; width: 100%; height: 180rpx; padding: 20rpx; margin: 20rpx 0; font-size: 28rpx; line-height: 1.65; background: var(--bg-gray); border-radius: 8rpx; color: var(--text-primary); box-sizing: border-box; }
-.feedback-btn.disabled { background: var(--bg-gray); }
-.feedback-btn.disabled text { color: var(--text-regular); }
 .refund-purpose { margin: 28rpx 0 16rpx; }
 .refund-purpose-title { display: block; color: var(--text-primary); font-size: 28rpx; font-weight: 600; line-height: 1.5; }
 .refund-purpose-note { display: block; margin-top: 8rpx; color: var(--text-regular); font-size: 26rpx; line-height: 1.65; }
 .refund-action-history { margin-top: 32rpx; padding-top: 24rpx; border-top: 1rpx solid var(--border-light); }
+
+/* 先填写反馈，退款关联与记录作为次级入口。 */
+.field-label { display: block; margin: 20rpx 0 12rpx; font-size: 28rpx; font-weight: 600; color: var(--text-primary); }
+.contact-input { margin-top: 0; }
+.refund-option { display: flex; align-items: center; min-height: 88rpx; color: var(--primary-color); font-size: 28rpx; border-bottom: 1rpx solid var(--border-light); }
+.category-item { min-height: 88rpx; }
+.anonymous-row { align-items: center; }
+
+.service-tabs { display: flex; margin: 24rpx 24rpx 0; background: #fff; border-radius: var(--radius-md); padding: 4rpx; }
+.service-tab { flex: 1; min-height: 44px; display: flex; align-items: center; justify-content: center; color: var(--text-regular); font-size: 28rpx; }
+.service-tab.active { color: var(--primary-color); font-weight: 600; border-bottom: 4rpx solid var(--primary-color); }
+.refund-note-toggle { min-height: 44px; display: flex; align-items: center; color: var(--primary-color); font-size: 28rpx; border-top: 1rpx solid var(--border-light); margin-top: 24rpx; }
+.category-item, .refund-option, .dispute-record, .history-toggle, .service-section picker { min-height: 44px; }
+
+/* 客服页布局：触控容器与内部可见选择面分开；动作外观由共享合同提供。 */
+.service-contact-title { display:flex; align-items:center; gap:8px; margin-bottom:8px; color:var(--af-strong); font-size:16px; font-weight:600; }
+.call-btn { min-width:64px; }
+.service-tabs { padding:4px; background:var(--af-soft); border-radius:8px; }
+.service-tab { min-height:44px; padding:6px 4px; box-sizing:border-box; border:0; }
+.service-tab.active { border:0; }
+.category-list { gap:0 8px; margin:0 0 12px; }
+.category-item { min-height:44px; padding:6px 0; border:0; background:transparent; }
+.category-label { padding:0 10px; }
+.category-item.active { border:0; background:transparent; }
+
+.content-input, .contact-input { background:var(--af-surface); border:1px solid var(--af-border); border-radius:8px; }
+.feedback-btn { min-height:48px; margin-top:24px; border-radius:8px; }
+.refund-option { min-height:52px; margin-top:12px; }
+
+/* 水站联系方式与反馈填写分层，原有费用争议说明保留。 */
+.page-intro { padding:20px 16px 4px; }
+.service-item { background:var(--af2-surface-order); padding:14px; border-radius:12px; }
+.service-contact-title { color:var(--af2-ink-order); }
+.service-tabs { margin:12px 16px 0; background:var(--af2-surface-neutral); }
+.service-section { border-radius:14px; }
+.contact-input { min-height:44px; box-sizing:border-box; }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.category-list { display:flex; flex-wrap:wrap; }
+.category-item { flex:0 1 auto; }
+.field-label { margin-top:20px; }
+.content-input { box-sizing:border-box; }

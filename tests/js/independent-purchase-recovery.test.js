@@ -1,3 +1,4 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 // F-77：真实页面/App/token及适用的实际api/request旅程；可控transport/API替身不代表真实付款或MySQL。
 const assert = require('assert'), path = require('path'), fs = require('fs')
 const { createWx, loadPage, armWatchdog, ROOT } = require('./harness')
@@ -54,6 +55,11 @@ function setup(scenario = {}, wire = false) {
       if (!scenario.holdQuery) options.success({ statusCode: 200, data: { code: 0, data: [] } })
     } else if (options.url.endsWith('/barrel-rights/purchase')) calls.purchase.push(options)
   }
+  // Current develop transport is cloudContainer; forward its fake SDK to the existing controlled request queue.
+  if (wire) wx.cloud = { Cloud: function() {
+    this.init = async () => {}
+    this.callContainer = options => new Promise((resolve, reject) => wx.request({ ...options, url: options.path, success: resolve, fail: reject }))
+  } }
   if (terminalBaseline) Object.assign(stubs, {
     'utils/independent-purchase-intent': I, 'utils/token': token,
     'utils/storage': require('../../miniapp-user/utils/storage'),
@@ -262,15 +268,15 @@ test('同周期另一页面已选择新原件，迟到原响应只更新原条�
   assert.equal(registry(t).activeKey, second.idempotencyKey); assert.deepStrictEqual(registry(t).entries[1].body, second)
 })
 test('实际api/request：旧客户迟到401不刷新、不重发或擦原件', async () => {
-  const t = setup({}, true); await t.page.onLoad({ stationId: 1 }); const pending = t.page.onPurchase(), body = original(t)
+  const t = setup({}, true); await t.page.onLoad({ stationId: 1 }); const pending = t.page.onPurchase(), body = original(t); await flush()
   const old = t.calls.purchase[0]; t.login(8, 'B'); t.page.syncRecovery()
   old.success({ statusCode: 401, data: { code: 401 } }); await pending
   assert.equal(t.calls.purchase.length, 1); assert.equal(t.sent.filter(o => o.url.endsWith('/auth/refresh')).length, 0)
   assert.deepStrictEqual(original(t), body); assert.equal(t.wx.getStorageSync(I.PREFIX + '8'), '')
 })
 test('实际api/request：同周期正常续期重发原body一次并保留完整原件', async () => {
-  const t = setup({}, true); await t.page.onLoad({ stationId: 1 }); const pending = t.page.onPurchase(), body = original(t)
-  t.calls.purchase[0].success({ statusCode: 401, data: { code: 401 } })
+  const t = setup({}, true); await t.page.onLoad({ stationId: 1 }); const pending = t.page.onPurchase(), body = original(t); await flush()
+  t.calls.purchase[0].success({ statusCode: 401, data: { code: 401 } }); await flush()
   const refresh = t.sent.find(o => o.url.endsWith('/auth/refresh'))
   refresh.success({ statusCode: 200, data: { code: 0, data: { accessToken: 'access-A2', refreshToken: 'refresh-A2' } } }); await flush()
   assert.equal(t.calls.purchase.length, 2); assert.deepStrictEqual(t.calls.purchase[1].data, body)
@@ -278,15 +284,15 @@ test('实际api/request：同周期正常续期重发原body一次并保留完�
   assert.equal(registry(t).entries[0].record.status, 'PENDING'); assert.equal(t.app.globalData.accessToken, 'access-A2')
 })
 test('实际api/request：同客户重登后旧成功响应不写入购买结果', async () => {
-  const t = setup({}, true); await t.page.onLoad({ stationId: 1 }); const pending = t.page.onPurchase(), body = original(t)
+  const t = setup({}, true); await t.page.onLoad({ stationId: 1 }); const pending = t.page.onPurchase(), body = original(t); await flush()
   t.app.clearLoginInfo(); t.login(); t.page.syncRecovery()
   t.calls.purchase[0].success({ statusCode: 200, data: receipt(body) }); await pending
   assert.equal(registry(t).entries[0].record, null); assert.equal(t.wx.__calls.modal.length, 0)
 })
 test('实际api/request：A到B到A旧查询不应用购买结果', async () => {
-  const t = setup({}, true); await t.page.onLoad({ stationId: 1 }); const pending = t.page.onPurchase(), body = original(t)
+  const t = setup({}, true); await t.page.onLoad({ stationId: 1 }); const pending = t.page.onPurchase(), body = original(t); await flush()
   t.calls.purchase[0].fail({ errMsg: 'request:fail timeout' }); await pending
-  t.scenario.holdQuery = true; const query = t.page.onQueryOriginal(), old = t.calls.history.at(-1)
+  t.scenario.holdQuery = true; const query = t.page.onQueryOriginal(); await flush(); const old = t.calls.history.at(-1)
   t.login(8, 'B'); t.page.syncRecovery(); t.login(); t.page.syncRecovery(); t.page.setData({ recoveryHint: 'current hint' })
   old.success({ statusCode: 200, data: { code: 0, data: [receipt(body).data.purchase] } }); await query
   assert.equal(registry(t).entries[0].record, null); assert.equal(t.page.data.recoveryHint, 'current hint')

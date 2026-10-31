@@ -73,3 +73,13 @@
 .save-error { font-size: 28rpx; line-height: 1.65; color: var(--text-regular); background: var(--bg-gray); padding: 24rpx; border-radius: 12rpx; border-left: 4rpx solid var(--error-color); }
 .submit-btn.disabled { background: var(--bg-gray); }
 .submit-btn.disabled text { color: var(--text-regular); }
+
+.draft-notice { margin-bottom: 24rpx; }
+.draft-notice .af-action { margin: 6px 8px 0 0; }
+
+.container > .af-action--block { margin-top: 16px; }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.form-section { border-radius:14px; }
+.form-item { min-height:52px; }
+.form-input { min-height:44px; box-sizing:border-box; }

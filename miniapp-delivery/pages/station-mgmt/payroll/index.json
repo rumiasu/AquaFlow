@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "计件工资",
-  "usingComponents": {}
+  "usingComponents": {
+    "icon": "../../../components/Icon/index"
+  }
 }

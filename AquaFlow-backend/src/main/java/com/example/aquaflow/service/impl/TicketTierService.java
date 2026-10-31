@@ -77,7 +77,11 @@ public class TicketTierService {
         }
         boolean enabled = Integer.valueOf(1).equals(inv.getTicketEnabled());
         BigDecimal price = inv.getTicketPrice();
-        return enabled && price != null && price.compareTo(BigDecimal.ZERO) > 0;
+        // 2026-10-26: package-only configuration must remain usable without inventing
+        // a retail price. Existing retail-only configurations keep their original gate.
+        return enabled && ((price != null && price.compareTo(BigDecimal.ZERO) > 0)
+                || (inv.getStationId() != null && product.getId() != null
+                && !ticketPackageMapper.listAll(inv.getStationId(), product.getId()).isEmpty()));
     }
 
     /**
@@ -87,6 +91,11 @@ public class TicketTierService {
      * 定制档带 {@code packageId}（购买时回传），统一档带 {@code discountPerMille}（购买时回传 qty）。</p>
      */
     public List<Map<String, Object>> customerTiers(Long stationId, Long productId) {
+        return customerTiers(stationId, productId, false);
+    }
+
+    /** New clients opt in to a virtual one-ticket tier; old response shapes stay unchanged. */
+    public List<Map<String, Object>> customerTiers(Long stationId, Long productId, boolean includeRetail) {
         List<Map<String, Object>> out = new ArrayList<>();
         if (stationId == null || productId == null) {
             return out;
@@ -107,6 +116,17 @@ public class TicketTierService {
                 item.put("unitPrice", pkg.getUnitPrice());
                 item.put("title", pkg.getTitle() != null ? pkg.getTitle() : (pkg.getQty() + " 张"));
                 out.add(item);
+            }
+            if (includeRetail && inv.getTicketPrice() != null && inv.getTicketPrice().signum() > 0
+                    && ticketPackageMapper.getByStationProductQty(stationId, productId, 1) == null) {
+                Map<String, Object> retail = new LinkedHashMap<>();
+                retail.put("source", "RETAIL");
+                retail.put("packageId", null);
+                retail.put("qty", 1);
+                retail.put("price", inv.getTicketPrice());
+                retail.put("unitPrice", inv.getTicketPrice());
+                retail.put("title", "1 张");
+                out.add(0, retail);
             }
             return out;
         }

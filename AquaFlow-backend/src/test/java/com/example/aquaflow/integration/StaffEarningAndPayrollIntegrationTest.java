@@ -180,7 +180,7 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("计件单价防护：负值归零、按站隔离、跨站看不到也改不了")
+    @DisplayName("计件单价防护：负值拒绝、明确0有效、按站隔离、跨站看不到也改不了")
     void pieceRateGuards() {
         long stationA = createStation("计件A站");
         long stationB = createStation("计件B站");
@@ -189,15 +189,18 @@ class StaffEarningAndPayrollIntegrationTest extends AbstractIntegrationTest {
         String a = staffToken(mgrA, "STATION_MANAGER", stationA);
         String b = staffToken(mgrB, "STATION_MANAGER", stationB);
 
-        // 负值一律归零：负数工钱会让站长倒欠配送员，属"能少付钱"的输入
-        assertEquals(0, put("/api/manager/piece-rate", a,
+        // 2026-10-27：负值或缺值不能静默保存为0，防止未配置被误认为明确不计件。
+        assertEquals(1, put("/api/manager/piece-rate", a,
                 "{\"perBucketAmount\":-5.00,\"floorBonusPerLevel\":-3.00,\"floorFreeLevel\":-2}").code());
+        assertEquals(0, intOf("SELECT COUNT(*) FROM staff_piece_rate WHERE station_id=?", stationA));
+        assertEquals(0, put("/api/manager/piece-rate", a,
+                "{\"perBucketAmount\":0,\"floorBonusPerLevel\":0,\"floorFreeLevel\":0}").code());
         assertEquals(0, new BigDecimal("0.00").compareTo(
                         decimalOf("SELECT per_bucket_amount FROM staff_piece_rate WHERE station_id=? AND product_id=0",
-                                stationA)), "负的计件价必须归零");
+                                stationA)), "明确填写0计件价有效");
         assertEquals(0, new BigDecimal("0.00").compareTo(
                         decimalOf("SELECT floor_bonus_per_level FROM staff_piece_rate WHERE station_id=? AND product_id=0",
-                                stationA)), "负的楼层补贴必须归零");
+                                stationA)), "明确填写0楼层补贴有效");
 
         // 按站隔离：B 站看不到 A 站的配置
         assertEquals(0, get("/api/manager/piece-rate", b).data().path("rates").size(),

@@ -18,6 +18,9 @@ function declarations(css, selector) {
 }
 
 function rgb(value) {
+  const token = /^var\((--[\w-]+)\)$/.exec(value)
+  if (token) { assert.ok(tokens[token[1]], 'missing color token ' + token[1]); return rgb(tokens[token[1]]) }
+
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value)
   if (hex) {
     const digits = hex[1].length === 3 ? hex[1].split('').map((part) => part + part).join('') : hex[1]
@@ -62,7 +65,8 @@ const rendered = [
   read('miniapp-delivery/pages/station-mgmt/barrel-return/index.wxml')
 ].join('\n')
 const app = read('miniapp-delivery/app.wxss')
-const tokens = declarations(app, 'page')
+const actions = read('miniapp-delivery/styles/actions.wxss')
+const tokens = { ...declarations(app, 'page'), ...declarations(actions, 'page, :host') }
 
 let passed = 0
 function test(name, check) {
@@ -84,16 +88,16 @@ test('退桶时间辅助文字不低于 12px', () => assert.ok(px(returns, '.tim
 test('首页与详情线下标签均达到普通文字 4.5:1', () => {
   const foreground = rgb(declarations(home, '.aux-tag.aux-offline').color)
   const homeBackground = composite(rgb(declarations(home, '.aux-tag.aux-offline').background), rgb('#FFFFFF'))
-  const detailBackground = rgb(tokens['--warning-bg'])
+  const detailBackground = rgb(declarations(detail, '.aux-tag.aux-offline').background)
   assert.ok(contrast(foreground, homeBackground) >= 4.5)
   assert.ok(contrast(rgb(declarations(detail, '.aux-tag.aux-offline').color), detailBackground) >= 4.5)
 })
 test('完成配送按钮达到普通文字 4.5:1', () => {
-  const rule = declarations(home, '.btn-complete')
+  const rule = declarations(actions, '.af-action--primary, button.af-action--primary')
   assert.ok(contrast(rgb(rule.color), rgb(rule.background)) >= 4.5)
 })
 test('受检样式均绑定到当前 WXML', () => {
-  for (const className of ['stat-label', 'stat-unit', 'aux-tag', 'aux-offline', 'btn-complete', 'time-label', 'step-hint']) {
+  for (const className of ['stat-label', 'stat-unit', 'aux-tag', 'aux-offline', 'af-action--primary', 'time-label', 'step-hint']) {
     assert.ok(rendered.includes(className), 'WXML 未使用 .' + className)
   }
 })

@@ -28,7 +28,7 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
     private String mgrToken;
 
     private void seed() {
-        station = createStation("引导目录站");
+        station = createUnconfiguredStation("引导目录站");
         manager = createStaff("引导目录站长", "STATION_MANAGER", station, 1);
         mgrToken = staffToken(manager, "STATION_MANAGER", station);
         // 电话是建站必填项之一（2026-09-19 起），夹具直接落库所以要自己给上
@@ -108,7 +108,7 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
         // 夹具站是"正常运营 + 还有必填没配"（AbstractIntegrationTest.createStation 显式写 operating_status=1）：
         // 这时说"配好就能上线"是**假话** —— 它早就在营业了。必须说"不影响接单"。
         String hintNormal = g.path("onlineHint").asText("");
-        assertTrue(hintNormal.contains("不填也能接单"),
+        assertTrue(hintNormal.contains("配送计费完善前顾客暂不能下单"),
                 "已在营业的站不许说'配好就能上线'（会让人以为自己的站还没上线），实际=" + hintNormal);
 
         // 同一份清单、只把营业状态改成「待上线」→ 文案必须跟着变
@@ -134,16 +134,19 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
         JsonNode g = guide();
         assertEquals(0, g.path("p0PendingCount").asInt(),
                 "三项都补了 → P0 应归零，实际清单=" + g.path("items"));
-        assertTrue(g.path("summaryText").asText("").contains("都已配好"),
+        assertEquals("已具备上线条件", g.path("summaryText").asText(""),
                 "汇总文案要跟着变，实际=" + g.path("summaryText"));
-        // 必填都齐了 → 那句话要指向**可执行的下一步**（面板底部就有那个按钮），
-        // 不能只说"已完成"（本仓口径：文案要给出下一步）
-        assertTrue(g.path("onlineHint").asText("").contains("设置营业状态"),
-                "配齐后应指向「设置营业状态」这个动作，实际=" + g.path("onlineHint"));
+        // 2026-10-27：已营业站展示真实状态，不能继续断言旧的统一「设置营业状态」提示。
+        assertEquals("必填准备已具备，当前状态：正常运营", g.path("onlineHint").asText(""));
+        jdbc.update("UPDATE station SET operating_status=3 WHERE id=?",station);
+        JsonNode pendingLaunch=guide();
+        assertEquals(0,pendingLaunch.path("p0PendingCount").asInt());
+        assertEquals("已具备上线条件，可到营业状态开始营业",pendingLaunch.path("onlineHint").asText(""),
+                "待上线站配齐后仍须给出开始营业的下一步");
     }
 
     @Test
-    @DisplayName("有配送员但没配计件单价 → 工资结构未完善（真实库正是这个状态）")
+    @DisplayName("有配送员但没配计件单价 → 工资结构未完善，应发待核实")
     void payrollItemRequiresPieceRateWhenStaffExists() {
         seed();
         long delivery = createStaff("引导目录配送员", "DELIVERY", station, 1);
@@ -151,8 +154,8 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
 
         JsonNode before = guide();
         assertFalse(done(before, "staffPayroll"), "有员工 + 没单价 → 未完善");
-        assertTrue(why(before, "staffPayroll").contains("0 元"),
-                "后果要说清（送的水会按 0 元记工钱），实际=" + why(before, "staffPayroll"));
+        assertTrue(why(before, "staffPayroll").contains("需要核实"),
+                "后果应明确待核实，不能把缺规则当0元，实际=" + why(before, "staffPayroll"));
         // 本条是「条件项刚成立」的样板：本站原来没有配送员（工资结构算完成），
         // 加了一个人之后它才变成未完成。徽标用的是 pendingCount（含 P1），
         // 所以它 **大于** p0PendingCount —— 把徽标接到 p0PendingCount 上会在这里被测出来。
@@ -169,7 +172,7 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
     void ticketPackageItemTracksOnShelfPackages() {
         seed();
         long water = createProduct("引导目录票水", 1, "20.00", "50.00", 1, "20.00");
-        createInventoryFull(station, water, 100, 1, "20.00");   // ticket_enabled=1
+        createInventoryFull(station, water, 100, 1, "0.00");   // 未提供单张价，也没有在售套餐
 
         JsonNode before = guide();
         assertFalse(done(before, "ticketPackage"), "开了票但没档位 → 未完善");
@@ -181,6 +184,15 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
                 station, water, 10, new java.math.BigDecimal("180.00"),
                 new java.math.BigDecimal("18.00"), "10 张超值装");
         assertTrue(done(guide(), "ticketPackage"), "配了上架档位 → 该项完成");
+    }
+
+    @Test
+    void retailTicketPriceDoesNotRequireAnOptionalDiscountPackage() {
+        seed();
+        long water=createProduct("可散买票水",1,"20.00","0.00",0,"0.00");
+        createInventoryFull(station,water,100,1,"18.00");
+        assertTrue(done(guide(),"ticketPackage"));
+        assertTrue(why(guide(),"ticketPackage").contains("单张"));
     }
 
     @Test

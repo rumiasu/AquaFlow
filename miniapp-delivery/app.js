@@ -146,6 +146,7 @@ App({
   },
 
   setLoginState(data) {
+    this._uiDraftCleanup = require('./utils/draft-guard').endSessionDrafts(this, wx)
     // 显式重新登录即开启新会话；普通令牌续期不经过这里。
     this._loginGeneration = (this._loginGeneration || 0) + 1
     // 2026-10-21：红点缓存不含身份，曾将前一站待办带入新会话；同时作废在途刷新。
@@ -175,6 +176,7 @@ App({
   },
 
   clearLoginState() {
+    this._uiDraftCleanup = require('./utils/draft-guard').endSessionDrafts(this, wx)
     this._loginGeneration = (this._loginGeneration || 0) + 1
     require('./utils/pending-reminder').syncTabBarDot(false)
     this._logoutAttempt = null
@@ -297,6 +299,8 @@ App({
         stationId: d.stationId,
         bindStatus: d.bindingStatus || current.bindStatus
       })
+      const previous = this.globalData.userInfo || {}
+      if (['staffId', 'stationId', 'role', 'bindStatus'].some(key => String(previous[key] == null ? '' : previous[key]) !== String(normalized[key] == null ? '' : normalized[key]))) this._uiDraftCleanup = require('./utils/draft-guard').endSessionDrafts(this, wx)
       this.globalData.userInfo = normalized
       wx.setStorageSync(STORAGE_KEYS.USER_INFO, normalized)
       if (navigation.sessionKey() !== session) {

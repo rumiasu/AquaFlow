@@ -34,7 +34,7 @@
   - **只有收到钱的单才进站长/配送员视野**：判据两条 —— `payment_status = 2`，或 `payment_method = 2`（现金＝货到付款；没开通时**下单即被拒**）。水票在支付请求里扣，**别**改成下单时扣票（票不够的客户连单都下不出）。**判据三处必须一致**（两张列表 SQL + 接单/分配闸门）；未付微信单"当不存在"，回调置 2 即出现（`TODO(微信支付接入)` 在那三处）。转单状态一律查 `order_transfer`，`special_note LIKE` 只许出现在「外派」列表（`listDispatchedOrders`，且必须排除 `[指定退回待确认]`）
   - **未分配的单不进配送员视野，配送员只能接「派给自己」的单**：`GET /api/delivery/orders/pending`（本站未分配）**站长专属**；配送员「待配送」只有 `assigned-to-me`。**接单闸门与列表一起守**：`OrderWorkflowServiceImpl.acceptOrder` 对 `AuthContext.isDelivery()` 要求 `delivery_staff_id` 非空（否则拿 id 编造照样接走）；**站长不在此限**。用例 `PaidBeforeDispatchIntegrationTest` + `DeliveryConsoleAndSelfServiceIntegrationTest.unassignedOrderCannotBeSeenOrTakenByDelivery`；链路用例里配送员接单必须先 `assign`（`CashOrderLifecycleScenarioTest`）。
 - **订单状态**以 `constant/OrderStatus.java` 为准：`1 待配送 / 2 配送中 / 3 已送达 / 4 已完成 / 5 已取消`（连续编号；历史 1/3/4/5/6 已废弃）；`isValidTransition` 定义合法迁移，但并非所有命令已接线；实际守卫看专用 CAS 与流程门槛，F-10 仍 OPEN，不能宣称统一拒绝。
-- **支付方式**以 `constant/PayMethod.java` 为准：`1 微信 / 2 现金(货到付款) / 3 水票`（**水票 = 扣票成功即视同已付**）。**微信渠道未接入**：本地只有模拟渠道（`app.payment.mock-wechat-pay`，生产关闭）= **新客户第一单唯一自助通道**；判据见 `PayMethod.availableMethods`（**别再当"新客户死锁"报**）。
+- **支付方式**以 `constant/PayMethod.java` 为准：`1 微信 / 2 现金(货到付款) / 3 水票`（**水票 = 扣票成功即视同已付**）。**真实微信渠道未接入**：全测试部署可开 `PAYMENT_TEST_MODE`，顾客仅模拟支付本人订单；旧 `app.payment.mock-wechat-pay` 仍受隔离与白名单约束。真实业务必须全关，`prod` 不代表真实付款。正本 `MockPaymentPolicy`、`deployment/limited-trial/README.md`（**别再当"新客户死锁"报**）。
 - **支付状态**以 `constant/PaymentStatus.java` 为准：`0 未付 / 1 待收款 / 2 已付 / 3 已退款 / 4 已取消`；唯一真值是 `orders.payment_status`。
 - **桶账唯一写入口是 `BarrelLedgerService`**；权益真相源 `customer_barrel_lot.remain_qty`，`customer_barrel_over` 可为负（= 水站暂存）。
 - **新模型桶数**：E=已付有效权益，H=E+over=客户实物，R=订单/退还数量占用，可用量扣除活跃用途及遗留占用。买 q 份令 E+q、over−q，H 不变；购票看有效权益，兑水看可用量；可用容量不足时，客户明确确认逐商品数量和价格后随水单补购押金，也可独立办理或等待已有占用释放。未收到押金不形成生效容量，现金到门必须收齐后激活并交付；已付未交付取消只退本单新增且尚未被占用的容量，先前独立资产保留。旧“权益送达入账/持有含配送中/shortage 收押金”仅用于未采用新凭据的历史路径，不能指导新单。正本 `docs/architecture/02-领域模型.md`。
@@ -97,9 +97,9 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 .\gradlew.bat bootRun
 ```
 
-- **环境变量**：清单权威来源是 **`AquaFlow-backend/.env.example`**（⚠️ 注意在**后端子目录**下，不在仓库根 —— 只查根目录会误判成"文件不存在"）。**启动期硬校验只有 3 项**（`config/RequiredConfigChecker.java`）：`JWT_SECRET`（**长度 < 32 也拒绝启动**）、`WX_APP_ID`、`WX_APP_SECRET`，缺一跳 `IllegalStateException` 拒绝启动。⚠️ **另有两道只在 `prod` profile 生效的启动期校验**（同一个 `RequiredConfigChecker`，非 prod 一律跳过）：① `checkProdSafetySwitches()` —— `app.payment.mock-wechat-pay` 与 `app.dev-login-enabled` 必须为 `false`（读**解析后**的值 ⇒ 写死 yml 也拦不住命令行 / `SPRING_APPLICATION_JSON` 覆盖）；② `checkProdDatasource()` —— `spring.datasource.url/username/password` 必须解析出真值（Spring 7 起 Hikari 懒初始化，缺 `DB_URL` 照样 `Started`，故显式兜底）。【仓】
-- **其余变量的缺失后果由「profile + 各自组件」决定 —— 别写成一句「缺一即启动失败」**：`application-prod.yml` 里凡写成 `${VAR}`（**无默认值**）的，Spring 解析占位符时就失败。**发布物 jar 逐项实测（13 场景，门禁 `scripts/prod-startup-check.js`）**：**必需** = `DB_URL`/`DB_USERNAME`/`DB_PASSWORD`/`JWT_SECRET`/`WX_APP_ID`/`WX_APP_SECRET`/`WX_STAFF_APP_ID`/`WX_STAFF_APP_SECRET`/`CORS_ALLOWED_ORIGINS`（JWT 另有长度 ≥ 32 那道）；**可选** = **COS 四件套**（缺任一项只降级：上传回"对象存储未配置"，**不阻断启动**；`COS_REGION`/`COS_BUCKET_NAME` 无人读、声明了也不失败）；`DEV_LOGIN_ENABLED`（**生产必须 `false`**，且 prod 下该 Bean 不存在 ⇒ 路径 404）/ `MYBATIS_LOG_IMPL` / `RATE_LIMIT_*` 同理不影响启动。【仓】
-- 本地默认 profile `local`，密钥读 `src/main/resources/application-local.yml`（**已 gitignore，含真实密钥，禁止提交、禁止回显**）；生产用 `--spring.profiles.active=prod` + 纯环境变量。该文件还开着 `dev-login` 与微信**模拟支付渠道**、并按 IP **关掉了登录限流**（真机联调与手机共用出口 IP）；仅本地如此，生产不受影响。
+- **环境变量**：正本在 **`AquaFlow-backend/.env.example`**，不要误查仓库根。`RequiredConfigChecker` 硬校验 `JWT_SECRET`（长度 ≥ 32）、`WX_APP_ID`、`WX_APP_SECRET`，缺失拒启。`prod` 另核最终解析值（含命令行 / `SPRING_APPLICATION_JSON` 覆盖）：`app.dev-login-enabled` 必须 false；旧模拟开关仅显式 `app.payment.test-mode` 可例外；`spring.datasource.url/username/password` 须真值，防懒初始化假启动。全测试部署沿用 prod 配置名，边界见 `deployment/limited-trial/README.md`。【仓】
+- **其余变量的缺失后果由「profile + 各自组件」决定 —— 别写成一句「缺一即启动失败」**：`application-prod.yml` 里凡写成 `${VAR}`（**无默认值**）的，Spring 解析占位符时就失败。**发布物 jar 逐项实测（13 场景，门禁 `scripts/prod-startup-check.js`）**：**必需** = `DB_URL`/`DB_USERNAME`/`DB_PASSWORD`/`JWT_SECRET`/`WX_APP_ID`/`WX_APP_SECRET`/`WX_STAFF_APP_ID`/`WX_STAFF_APP_SECRET`/`CORS_ALLOWED_ORIGINS`（JWT 另有长度 ≥ 32 那道）；**可选** = **COS 四件套**（缺任一项只降级：上传回"对象存储未配置"，**不阻断启动**；`COS_REGION`/`COS_BUCKET_NAME` 被实际读取，缺省使用配置默认值）；`DEV_LOGIN_ENABLED`（**生产必须 `false`**，且 prod 下该 Bean 不存在 ⇒ 路径 404）/ `MYBATIS_LOG_IMPL` / `RATE_LIMIT_*` 同理不影响启动。【仓】
+- 本地默认 profile `local`，密钥读 `src/main/resources/application-local.yml`（**已 gitignore，含真实密钥，禁止提交、禁止回显**）；生产用 `--spring.profiles.active=prod` + 纯环境变量。旧 local 文件可能同时开启开发登录和未经隔离的模拟支付，当前护栏会拒启；普通调试须显式关闭旧模拟开关，步骤见 `docs/operations/2026-10-31-local-startup-and-delivery-boundaries.md`。不以开启全测试模式或绕过结构守卫救启动。
 - 小程序：微信开发者工具分别打开 `miniapp-user` / `miniapp-delivery` 目录（无 npm 构建步骤）。
 - PowerShell 里**用 `;` 分隔多条命令，不要用 `&&`**。长任务（Gradle 构建、测试）放后台任务。【仓】
 
@@ -203,7 +203,7 @@ cd D:\backend\project\AquaFlow\AquaFlow-backend
 ## 7. 协作注意：不要动 / 属于生成物
 
 - **动手前先 `git status` 核对；不要顺手混入无关改动，也不要替用户提交**；工作区常有大量未提交改动，先 review。
-- 未获明确要求**不要 `git commit` / `git push`**；改动留在工作区供 review。当前分支 **`main`**；用户已授权在独立仓库汇总全部可恢复历史线，并把作者/提交日期对齐原记录（2026-10-02 修正）；先备份上一版，远端替换须用本次核对的精确 force-with-lease。原工作区和旧历史保留，远端默认分支以 `git ls-remote --symref origin HEAD` 的本次结果为准；**提交数不要硬编码**（以 `git rev-list --count main` 为准）。
+- 未获明确要求**不要 `git commit` / `git push`**；改动留在工作区供 review。分支须以本次 `git branch --show-current` 为准；用户已授权在独立仓库汇总全部可恢复历史线，并把作者/提交日期对齐原记录（2026-10-02 修正）；先备份上一版，远端替换须用本次核对的精确 force-with-lease。原工作区和旧历史保留，远端默认分支以 `git ls-remote --symref origin HEAD` 的本次结果为准；**提交数不要硬编码**（以 `git rev-list --count main` 为准）。
 - **提交粒度与信息**：一次提交只做一件事；message 写「改了什么 + 为什么」，**不写过程叙述**，**不记录工具、环境或个人账号变动**。判据：对三个月后排查问题的人有用吗？
 - **提交规范 hook 已入库但默认未启用**（`.githooks/`）：`commit-msg` 强制 `<type>(<scope>): <subject>`；`pre-commit` 暂存文件数 > 30 拒绝提交。启用：`git config core.hooksPath .githooks`。⚠️ 受限沙箱下 Git 自带 `sh.exe` 起不来，启用会让 commit 失败。
 - **不要改 `archive/**`**（`legacy-web-frontend`、`miniapp-station` 均历史留档，后者缺 `app.js`、页面残缺）。**不要引用 `miniapp-station`**。

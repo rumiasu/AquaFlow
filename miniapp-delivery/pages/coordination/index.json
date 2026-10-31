@@ -1,5 +1,8 @@
 {
   "navigationStyle": "custom",
   "enablePullDownRefresh": true,
-  "navigationBarTitleText": "首页"
+  "navigationBarTitleText": "首页",
+  "usingComponents": {
+    "icon": "/components/Icon/index"
+  }
 }

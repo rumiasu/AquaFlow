@@ -6,6 +6,7 @@ const app = getApp()
 
 Page({
   data: {
+    emptyOrderImageFailed: false,
     currentTab: 0,
     tabs: [
       { name: '全部', status: 0 },
@@ -22,12 +23,15 @@ Page({
     // 此前只有 wx.showToast：toast 一消失，屏幕上是空列表 + empty「暂无订单」，
     // 与"确实没有订单"完全无法区分（AGENTS §8.22 的同一类坑）。
     loading: true,        // 页面还没有数据时的加载态（首屏 / 上次失败后的重试）
-    loadError: '',        // 非空 = 这次没取到，渲染成页面顶部的 .load-error 提示条
+    loadError: '',        // 非空 = 这次没取到，失败范围由 loadErrorMore 区分
+    loadErrorMore: false,
     page: 0,
     pageSize: 20,
     hasMore: false,
     loadingMore: false
   },
+
+  onEmptyOrderImageError() { this.setData({ emptyOrderImageFailed: true }) },
 
   onLoad() {
     if (!app.globalData.isLogin) {
@@ -71,6 +75,7 @@ Page({
     const params = { page, pageSize: this.data.pageSize }
     if (status !== undefined) params.status = status
     const version = this._readVersion = (this._readVersion || 0) + 1
+    this.setData({ loadErrorMore: false })
     this._listSession = session
     this._listStatus = status
     if (append) {
@@ -97,7 +102,7 @@ Page({
       const msg = errorText(err, '网络暂时不可用')
       if (append) {
         // 下一页失败保留已经读到的页码；重试仍请求同一页。
-        this.setData({ loadingMore: false, loadError: '更多订单没加载出来（' + msg + '），继续上滑可重试' })
+        this.setData({ loadingMore: false, loadErrorMore: true, loadError: '更多订单没加载出来（' + msg + '），继续上滑可重试' })
       } else {
         this.setData({ orders: previous ? previous.orders.map(order => ({ ...order, canRepay: false, canCancel: false })) : [], page: previous ? previous.page : 0,
           hasMore: previous ? previous.hasMore : false, loading: false, loadingMore: false,
@@ -162,7 +167,7 @@ Page({
       notifyPayResult(res.data)
       await this.loadOrders()
     } catch (err) {
-      if (isCurrentSession(session) && !this._destroyed) this.setData({ loadError: errorText(err, '支付结果尚未确认，请先重新查询原订单') })
+      if (isCurrentSession(session) && !this._destroyed) this.setData({ loadErrorMore: false, loadError: errorText(err, '支付结果尚未确认，请先重新查询原订单') })
     } finally {
       if (this._payFlight === flight) this._payFlight = null
     }

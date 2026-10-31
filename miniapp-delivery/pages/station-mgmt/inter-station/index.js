@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 // 站长端「站间结算」台账（v67 / 2026-09-27 产品拍板 4.a + 4.b）。
 //
 // **这一页回答什么**：跨站单的钱收在**归属站**（票钱/微信款在它手上）、营收却算**接单站**
@@ -34,7 +35,7 @@ const exactMoney = value => (typeof value === 'string' || typeof value === 'numb
 
 Page({
   data: {
-    loading: true,
+    settlementView: 'ledger', loading: true,
     loaded: false, ledgerError: '',
     // 三个数：别人欠本站 / 本站欠别人 / 净额（正 = 净收）
     summary: { receivableText: '待核实', payableText: '待核实', netText: '待核实', netPositive: true },
@@ -47,6 +48,7 @@ Page({
     aftercareAction: '', aftercareAmount: '', aftercareReason: '', aftercarePending: false
   },
 
+  onSettlementView(e) { const view = e.currentTarget.dataset.view; if (['ledger', 'aftercare'].includes(view)) this.setData({ settlementView: view }) },
   onShow() {
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
@@ -166,7 +168,7 @@ Page({
     const snapshot = this.aftercareSession(), version = this._ledgerSeq
     const row = this.data.items.find(item => String(item.orderId) === String(e.currentTarget.dataset.id))
     const expectedAmount = row && row.amount
-    const action = { used: false, stage: 'facts' }
+    const action = { used: false, stage: 'receipt' }
     const current = () => this._settleAction === action && !action.used && this.aftercareCurrent(snapshot)
       && this.aftercareCurrent(this._ledgerReadSession) && version === this._ledgerSeq
       && this.data.loaded && !this.data.loading && !this.data.ledgerError
@@ -179,17 +181,25 @@ Page({
       return
     }
     const id = row.orderId, amount = row._amountText
-    const showReceipt = () => wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    const receiptKey = JSON.stringify([snapshot.identity, id])
+    if (this._settleReceiptKey !== receiptKey) this._settleReceiptDraft = ''
+    this._settleReceiptKey = receiptKey
+    const showReceipt = () => showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '登记这笔已结清',
       // editable 的输入框用于凭据说明（转账流水号/经手人）：可留空，
       // 因为"什么时候算办完"靠的是时间与登记人，凭据说明是加分项而不是门槛。
       editable: true,
       placeholderText: '凭据说明：转账流水号 / 经手人（可留空）',
-      content: '',
+      // 2026-10-28：一次确认同时列清双方与金额、接收凭据；取消或回退不能提交。
+      initialValue: this._settleReceiptDraft || '',
+      description: '请核对双方和本笔金额。仅登记已经实际结清的款项，不执行转账。凭据说明可留空。',
+      details: [{ label: '订单', value: '#' + id }, { label: '本笔结清', value: '¥' + amount },
+        { label: '付款站', value: row.fromStationName || '水站（编号' + row.fromStationId + '）' },
+        { label: '收款站', value: row.toStationName || '水站（编号' + row.toStationId + '）' }],
       confirmText: '登记结清',
       success: async (res) => {
         if (this._settleAction !== action || action.used || action.stage !== 'receipt') return
-        if (!res.confirm) { this._settleAction = null; return }
+        if (!res.confirm) { if (typeof res.content === 'string') this._settleReceiptDraft = res.content; this._settleAction = null; return }
         if (!current()) {
           this._settleAction = null
           wx.showToast({ title: '台账或身份已变化，请重新核对后办理', icon: 'none' })
@@ -200,6 +210,7 @@ Page({
         try {
           await settleInterStation(id, res.content || '')
           if (!this.aftercareCurrent(snapshot)) return
+          this._settleReceiptDraft = ''
           wx.showToast({ title: `已登记 ¥${amount} 结清`, icon: 'none' })
           await this.loadData()
         } catch (err) {
@@ -214,32 +225,13 @@ Page({
       },
       complete: () => { if (!action.used && this._settleAction === action) this._settleAction = null }
     })
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-      title: '核对站间结清',
-      content: '订单 #' + id + '\n结清金额：¥' + amount
-        + '\n付款站：' + (row.fromStationName || '水站（编号' + row.fromStationId + '）')
-        + '\n收款站：' + (row.toStationName || '水站（编号' + row.toStationId + '）')
-        + '\n仅登记已经实际结清的这一笔，不执行转账。核对后可补充凭据，最终确认才登记。',
-      confirmText: '继续登记', cancelText: '暂不登记',
-      success: res => {
-        if (this._settleAction !== action || action.used || action.stage !== 'facts') return
-        if (!res.confirm) { this._settleAction = null; return }
-        if (!current()) {
-          this._settleAction = null
-          wx.showToast({ title: '台账或身份已变化，请重新核对后办理', icon: 'none' })
-          return
-        }
-        action.stage = 'receipt'
-        showReceipt()
-      },
-      complete: () => { if (action.stage === 'facts' && this._settleAction === action) this._settleAction = null }
-    })
+    showReceipt()
   },
 
   /** 卖出站改按挂牌价结这一单（差价由本站承担）——**是站长点，系统不会自动改**。 */
   onPriceByListed(e) {
     const id = e.currentTarget.dataset.id
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '按挂牌价结这一单',
       content: '改成按挂牌价结后，接单站能拿到更多，多出来的差价由本站承担。'
         + '系统不会自动改价，也不会改动客户已付的钱。确定要改吗？',
@@ -264,10 +256,10 @@ Page({
   onReverse(e) {
     const id = e.currentTarget.dataset.id
     const amount = e.currentTarget.dataset.amount
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '冲销这一笔',
       content: `这一单已经取消或退款，¥${amount} 这笔站间应付不再成立。`
-        + '冲销只改状态、不删记录，事后仍查得到。若钱**已经真的付给对方**了，请先与对方协商，不要直接冲销。',
+        + '冲销只改状态、不删记录，事后仍查得到。若钱已经实际付给对方，请先与对方协商，不要直接冲销。',
       confirmText: '冲销',
       success: async (res) => {
         if (!res.confirm) return
@@ -303,12 +295,13 @@ Page({
     try {
       const id = wx.getStorageSync(aftercareFocus(snapshot.actor))
       if (id && !positiveId(id)) throw new Error('上次责任订单编号无法识别，请保留记录核实')
-      if (id) return this.loadAftercare(id)
+      if (id) { this.setData({ settlementView: 'aftercare' }); return this.loadAftercare(id) }
     } catch (err) { this.setData({ aftercareError: err.message }) }
   },
   onOpenAftercare(e) {
     if (this.data.aftercareBusy) return
     const id = e.currentTarget.dataset.id
+    this.setData({ settlementView: 'aftercare' })
     return this.loadAftercare(id)
   },
   onAftercareSearchInput(e) { this.setData({ aftercareSearch: e.detail.value }) },
@@ -388,7 +381,7 @@ Page({
       if (String(wx.getStorageSync(aftercareFocus(snapshot.actor))) !== String(this.data.aftercareOrderId)) throw new Error('原订单定位未能保存，请勿办理交付')
       this.setData({ aftercarePending: true })
       if (action === 'PAID') {
-        const confirm = await new Promise(resolve => wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '仅登记已实际交付', content: '原退款 #' + row.refundPaymentId + '，原责任款 ¥' + intent.context.amount.toFixed(2) + '。仅核对已经实际交给对方的这一笔并同步原登记，不执行转账；已交过请勿再次交款。', confirmText: '仅登记', cancelText: '暂不登记', success: res => resolve(res.confirm), fail: () => resolve(false) }))
+        const confirm = await new Promise(resolve => showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '仅登记已实际交付', content: '原退款 #' + row.refundPaymentId + '，原责任款 ¥' + intent.context.amount.toFixed(2) + '。仅核对已经实际交给对方的这一笔并同步原登记，不执行转账；已交过请勿再次交款。', confirmText: '仅登记', cancelText: '暂不登记', success: res => resolve(res.confirm), fail: () => resolve(false) }))
         if (!this.aftercareCurrent(snapshot)) return
         if (!confirm) { if (!prior) { intents.clear(intent); this.setData({ aftercarePending: false }) } return }
       }

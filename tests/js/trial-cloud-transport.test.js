@@ -66,6 +66,11 @@ for (const side of ['miniapp-user', 'miniapp-delivery']) {
     t.calls[1].resolve(ok([])); await flush(); assert(get.settled && !get.error)
     assert.strictEqual(t.inits.length, 1); assert.strictEqual(t.http.length, 0)
   })
+  test(side + ': current develop route uses cloud SDK without HTTPS fallback', async () => {
+    const t = setup(side, { version: 'develop' }), state = observed(t.request.get('/api/test')); await flush()
+    assert.strictEqual(t.calls.length, 1); assert.strictEqual(t.http.length, 0)
+    t.calls[0].resolve(ok({ verified: true })); await flush(); assert.strictEqual(state.value.data.verified, true)
+  })
   for (const kind of ['business', 'HTTP', 'malformed']) test(side + ': ' + kind + ' failure is not a cloud success', async () => {
     const t = setup(side), state = observed(t.request.get('/api/test')); await flush()
     t.calls[0].resolve(kind === 'business' ? { statusCode: 200, data: { code: 1, message: 'synthetic rejection' } }
@@ -156,7 +161,7 @@ for (const side of ['miniapp-user', 'miniapp-delivery']) {
     t.calls[0].resolve(ok()); await flush(); assert(state.error && state.error.sessionChanged)
   })
   for (const version of ['develop', 'trial', 'release']) test(side + ': ' + version + ' HTTPS retains original wx.request path/task', async () => {
-    const t = setup(side, { version }); t.config.API_CONFIG.trial.transport = 'https'
+    const t = setup(side, { version }); t.config.API_CONFIG.trial.transport = 'https'; t.config.API_CONFIG.dev.transport = 'https'
     t.config.API_CONFIG.trial.baseUrl = 'https://synthetic-trial.invalid'; t.config.API_CONFIG.prod.baseUrl = 'https://synthetic-prod.invalid'
     const state = observed(t.request.get('/api/test', { q: 'a b' })); await flush()
     assert.strictEqual(t.http.length, 1); assert.strictEqual(t.calls.length, 0); assert.strictEqual(t.resources.length, 0)

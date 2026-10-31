@@ -1,3 +1,4 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 /** Actual request/API/customer App/token; wx callbacks are invoked on a later event-loop turn, no network. */
 const assert = require('assert')
 const fs = require('fs')
@@ -16,8 +17,13 @@ function observed(promise) {
   return state
 }
 function setup(side) {
-  const wx = createWx(), sent = []
-  wx.request = options => sent.push(options)
+  const wx = createWx(), sent = [], capabilities = []
+  wx.request = options => {
+    if (options.url.endsWith('/api/payments/capabilities')) {
+      capabilities.push(options)
+      options.success({ statusCode: 200, data: { code: 0, data: { wechatPay: { method: 1, enabled: true, simulated: false, label: '渠道夹具' } } } })
+    } else sent.push(options)
+  }
   wx.__modalAutoConfirm = false
   global.wx = wx
   global.__wxConfig = { envVersion: 'develop' }
@@ -25,7 +31,7 @@ function setup(side) {
   let app = { globalData: { accessToken: 'access-old', refreshToken: 'refresh-old', userInfo: { staffId: 7, role: 'DELIVERY', stationId: 1 }, isLogin: true } }
   global.getApp = () => app
   const files = [side + '/utils/request.js', side + '/api/' + (side === 'miniapp-user' ? 'ticket.js' : 'delivery.js')]
-  if (side === 'miniapp-user') files.push(side + '/app.js', side + '/utils/token.js')
+  if (side === 'miniapp-user') files.push(side + '/app.js', side + '/utils/token.js', side + '/utils/payment-channel.js')
   for (const file of files) delete require.cache[require.resolve(path.join(ROOT, file))]
   // Override only the two authorized sources when replaying saved red bytes. Dependencies stay actual modules.
   const file = path.join(ROOT, side, 'utils/request.js')
@@ -43,7 +49,7 @@ function setup(side) {
   wx.setStorageSync(K.ACCESS_TOKEN, 'access-old'); wx.setStorageSync(K.REFRESH_TOKEN, 'refresh-old')
   if (side === 'miniapp-user') wx.setStorageSync(K.CUSTOMER_ID, 7)
   const api = require(path.join(ROOT, side, 'api', side === 'miniapp-user' ? 'ticket.js' : 'delivery.js'))
-  return { wx, sent, app, K, request: wrapper.exports, api, side }
+  return { wx, sent, capabilities, app, K, request: wrapper.exports, api, side }
 }
 async function success(call, response) {
   let thrown = null
@@ -183,6 +189,8 @@ for (const side of ['miniapp-delivery', 'miniapp-user']) {
   test(side + ' actual API exposes readable delayed malformed rejection', async () => {
     const t = setup(side)
     const state = observed(side === 'miniapp-user' ? t.api.purchaseTicket(body()) : t.api.getDeliveryHistory())
+    await advance()
+    if (side === 'miniapp-user') assert.strictEqual(t.capabilities.length, 1)
     rejected(state, await success(t.sent[0], envelope(null)))
   })
 }

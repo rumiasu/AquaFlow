@@ -1,5 +1,5 @@
-<view class="container">
-  <view class="history-tabs"><view class="{{view === 'pending' ? 'active' : ''}}" bindtap="onSetView" data-key="pending">待确认收款</view><view class="{{view === 'ticketHistory' ? 'active' : ''}}" bindtap="onSetView" data-key="ticketHistory">水票购买收款历史</view></view>
+<view class="container af2-page finance-page payments-page">
+  <view class="history-tabs"><view class="af-choice {{view === 'pending' ? 'af-choice--selected' : ''}}" bindtap="onSetView" data-key="pending"><text class="af-choice__face">待确认收款</text></view><view class="af-choice {{view === 'ticketHistory' ? 'af-choice--selected' : ''}}" bindtap="onSetView" data-key="ticketHistory"><text class="af-choice__face">水票购买收款历史</text></view></view>
   <view class="history-controls" wx:if="{{view === 'ticketHistory'}}">
     <include src="../../../utils/station-history-customer.wxml" />
     <view class="history-date-row"><picker mode="date" value="{{startDate}}" data-field="startDate" bindchange="onPaymentHistoryDate"><view>{{startDate || '开始日期'}}</view></picker><text>至</text><picker mode="date" value="{{endDate}}" data-field="endDate" bindchange="onPaymentHistoryDate"><view>{{endDate || '结束日期'}}</view></picker><text bindtap="onClearPaymentDates">清除日期</text></view>
@@ -15,7 +15,7 @@
     现在按事实写：钱还没核实到账，确认动作才是"核对之后登记"。
     文案口径与页面按钮（确认已到账）一致，不再自造一个没有证据的"已到账"状态。
   -->
-  <view class="hint payment-caution" wx:if="{{view === 'pending'}}"><text class="caution-title">核实实际到账后再登记</text>这里列出「还没核实到账」的款项：订单的现金/微信待收款、独立桶押金、上门收桶费，以及客户线上购买水票的待确认收款（微信支付渠道未接入）。客户买水票不需要你同意，你只需在确实收到这笔钱之后再确认。</view>
+  <view class="hint payment-caution af2-tone-panel af2-tone-money" wx:if="{{view === 'pending'}}"><view class="finance-section-head"><icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="caution-title">待核实到账</text></view><text>待确认不代表已到账。核对收款方及款项后登记。</text></view>
 
   <!--
     [2026-09-27 走查 U01 同族修] 加载失败**常驻可见**（原来只有一句会消失的 toast，
@@ -27,18 +27,9 @@
   </view>
 
   <view class="record-card" wx:for="{{list}}" wx:key="id">
-    <view class="info-row amount-row">
-      <text class="label">{{view === 'pending' ? '应收金额' : '流水金额'}}</text>
-      <text class="amount">¥{{item.amountText}}</text>
-    </view>
-    <view class="card-header">
-      <text class="status pending">{{view === 'pending' ? '待确认' : item.statusText}}</text>
-      <text class="status ticket" wx:if="{{item.isTicketPurchase}}">线上购票</text>
-    </view>
-    <view class="info-row">
-      <text class="label">客户</text>
-      <text>{{item.customerName || ('客户编号：' + item.customerId)}}</text>
-    </view>
+    <view class="card-header"><view class="record-icon"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /></view><text class="payment-person">{{item.customerName || ('客户编号：' + item.customerId)}}</text><text class="status pending" wx:if="{{view === 'pending'}}">待确认</text><text class="status history-status" wx:else>{{item.statusText}}</text></view>
+    <view class="info-row amount-row"><text class="label">{{view === 'pending' ? '本笔待确认金额' : '流水金额'}}</text><text class="amount">¥{{item.amountText}}</text></view>
+    <text class="status ticket" wx:if="{{item.isTicketPurchase}}">线上购票</text>
     <view class="info-row" wx:if="{{item.customerPhone}}">
       <text class="label">电话</text>
       <text>{{item.customerPhone}}</text>
@@ -62,12 +53,13 @@
     <view class="info-row" wx:if="{{item.isTicketPurchase}}"><text class="label">购票数量</text><text>{{item.ticketQty}} 张</text></view>
     <view class="info-row" wx:if="{{item.isTicketPurchase}}"><text class="label">购票商品</text><text>{{item.productName || (item.ticketWaterTypeId ? '商品 #' + item.ticketWaterTypeId : '商品信息未核对')}}</text></view>
     <view class="card-actions" wx:if="{{view === 'pending'}}">
-      <button class="btn-confirm" data-id="{{item.id}}" bindtap="onConfirm">确认已到账</button>
+      <button class="af-action af-action--primary" data-id="{{item.id}}" bindtap="onConfirm">确认已到账</button>
     </view>
   </view>
 
   <view class="history-more" wx:if="{{view === 'ticketHistory' && historyHasMore}}" bindtap="onHistoryMore">显示更多已取回记录</view>
   <view class="empty" wx:if="{{!loading && !loadError && list.length === 0}}">
-    <text>{{view === 'pending' ? '暂无待确认收款' : '当前查询范围内暂无线上购票收款记录'}}</text>
+    <icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text>{{view === 'pending' ? '暂无待确认收款' : '当前范围内暂无购票收款记录'}}</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

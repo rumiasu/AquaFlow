@@ -1,4 +1,27 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { submitFeedback, getMyFeedbacks } = require('../../api/feedback')
+const { createDraftGuard } = require('../../utils/draft-guard')
+
+// 类型是固定选项，其他自由文字及联系方式不进入草稿存储。
+// WeakMap 仅跨页面实例保留当前登录内的类型，不写入设备存储。
+const categorySlots = new WeakMap()
+const categories = ['bug', 'feature', 'ui', 'other']
+function reportScope() {
+  const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
+  if (!g.isLogin || !u.staffId) return null
+  return { app: 'miniapp-delivery', actor: String(u.staffId), station: u.stationId == null ? 'unbound' : String(u.stationId), route: 'pages/report/index', entity: 'new', generation: app._loginGeneration || 0 }
+}
+function categorySlot(app, identity) {
+  let slot = categorySlots.get(app)
+  if (slot && slot.identity !== identity) { slot.values.clear(); categorySlots.delete(app); slot = null }
+  if (!slot) {
+    const values = new Map()
+    slot = { identity, values, version: 0 }
+    slot.storage = { getStorageSync: key => values.get(key), setStorageSync: (key, value) => { slot.version++; values.set(key, value) }, removeStorageSync: key => { if (values.has(key)) slot.version++; values.delete(key) } }
+    categorySlots.set(app, slot)
+  }
+  return slot
+}
 
 function feedbackOwner() {
   const app = getApp(), data = app.globalData || {}, user = data.userInfo || {}
@@ -18,11 +41,12 @@ Page({
     submitting: false,
     historyList: [],
     historyError: '',
-    historyLoading: true
+    historyLoading: true, historyExpanded: false, submitNotice: '', categoryDraftAvailable: false, categoryDraftBlocked: false, categoryDraftNotice: ''
   },
 
   onLoad() {
     this._syncFeedbackOwner()
+    this._initCategoryDraft()
   },
 
   onShow() {
@@ -31,6 +55,7 @@ Page({
     this._pageGeneration = (this._pageGeneration || 0) + 1
     this._feedbackConfirmation = null
     this._syncFeedbackOwner()
+    if (!this._categoryGuard) this._initCategoryDraft()
     this._applyFeedbackSuccess()
     this.setData({ submitting: !!this._feedbackFlight })
     return this.loadHistory()
@@ -40,6 +65,8 @@ Page({
   onUnload() {
     this._unloaded = true
     this._leaveFeedbackPage()
+    if (this._categorySlot && !sameOwner(this._feedbackOwner, feedbackOwner())) { this._categorySlot.values.clear(); if (this._categoryApp && categorySlots.get(this._categoryApp) === this._categorySlot) categorySlots.delete(this._categoryApp) }
+    if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
   },
 
   _leaveFeedbackPage() {
@@ -54,16 +81,51 @@ Page({
   _syncFeedbackOwner() {
     const owner = feedbackOwner()
     if (this._feedbackOwner && !sameOwner(this._feedbackOwner, owner)) {
+      if (this._categorySlot) this._categorySlot.values.clear()
+      if (this._categoryApp && categorySlots.get(this._categoryApp) === this._categorySlot) categorySlots.delete(this._categoryApp)
+      this._categoryGuard = null; this._categoryToken = null; this._categorySlot = null; this._categoryApp = null
       this._feedbackConfirmation = null
       this._historyVersion = (this._historyVersion || 0) + 1
       this._feedbackFlight = null
       this._feedbackSuccess = null
       if (this._feedbackLoading) { wx.hideLoading(); this._feedbackLoading = false }
       this.setData({ category: 'bug', content: '', contact: '', submitting: false,
-        historyList: [], historyError: '当前身份的反馈记录尚未读取，请重新读取', historyLoading: false })
+        historyList: [], historyError: '当前身份的反馈记录尚未读取，请重新读取', historyLoading: false, submitNotice: '', categoryDraftAvailable: false, categoryDraftBlocked: false, categoryDraftNotice: '' })
     }
     this._feedbackOwner = owner
     return owner
+  },
+
+  _initCategoryDraft() {
+    const scope = reportScope(), app = getApp(), user = (app.globalData || {}).userInfo
+    if (!scope || !user || typeof user !== 'object') { this.setData({ categoryDraftNotice: '当前身份未核实，反馈类型不能暂存。' }); return }
+    const identity = JSON.stringify([scope.actor, scope.station, scope.generation])
+    this._categoryApp = app; this._categorySlot = categorySlot(app, identity)
+    this._categoryGuard = createDraftGuard(reportScope, this._categorySlot.storage)
+    this._categoryToken = this._categoryGuard.begin()
+    const result = this._categoryGuard.read(this._categoryToken)
+    if (result.state === 'saved' && result.draft && categories.includes(result.draft.category)) this.setData({ categoryDraftAvailable: true, categoryDraftBlocked: false, categoryDraftNotice: '本次登录有可恢复的反馈类型。' })
+    else if (result.state !== 'empty') this.setData({ categoryDraftAvailable: false, categoryDraftBlocked: true, categoryDraftNotice: '反馈类型草稿尚未核实，请先处理后再暂存。' })
+  },
+
+  _saveCategoryDraft() {
+    if (!this._categoryGuard || !this._categoryToken) { this.setData({ categoryDraftNotice: '反馈类型尚未暂存。' }); return }
+    if (this.data.categoryDraftAvailable || this.data.categoryDraftBlocked) { this.setData({ categoryDraftNotice: '已有类型草稿，请先恢复或放弃后再暂存新选择。' }); return }
+    const result = this._categoryGuard.save(this._categoryToken, { category: this.data.category })
+    this.setData({ categoryDraftNotice: result.state === 'saved' ? '反馈类型已在本次登录中暂存。' : '反馈类型尚未确认保存。', categoryDraftBlocked: result.state !== 'saved' })
+  },
+
+  onRestoreCategoryDraft() {
+    if (this.data.submitting || !this._categoryGuard) return
+    const result = this._categoryGuard.read(this._categoryToken)
+    if (result.state !== 'saved' || !result.draft || !categories.includes(result.draft.category)) { this.setData({ categoryDraftAvailable: false, categoryDraftBlocked: true, categoryDraftNotice: '类型草稿尚未核实，未覆盖当前内容。' }); return }
+    this.setData({ category: result.draft.category, categoryDraftAvailable: false, categoryDraftBlocked: false, categoryDraftNotice: '已恢复反馈类型；内容和联系方式未保存。' })
+  },
+
+  onDiscardCategoryDraft() {
+    if (this.data.submitting || !this._categoryGuard) return
+    const result = this._categoryGuard.clear(this._categoryToken)
+    this.setData({ categoryDraftAvailable: false, categoryDraftBlocked: result.state !== 'empty', categoryDraftNotice: result.state === 'empty' ? '已放弃类型草稿。' : '类型草稿尚未确认清除。' })
   },
 
   _feedbackCurrent(owner, generation) {
@@ -79,7 +141,9 @@ Page({
     // 明确成功属于原请求；返回时只处理其原稿，不能清掉后来恢复的新草稿。
     const draft = completed.draft
     if (this.data.category === draft.category && this.data.content === draft.content && this.data.contact === draft.contact) {
-      this.setData({ content: '', contact: '', category: 'bug' })
+      this.setData({ content: '', contact: '', category: 'bug', submitNotice: '反馈已提交。' })
+      if (this._categoryGuard && this._categorySlot && this._categorySlot.version === completed.categoryDraftVersion) { const result = this._categoryGuard.clear(this._categoryToken); this.setData({ categoryDraftAvailable: false, categoryDraftBlocked: result.state !== 'empty', categoryDraftNotice: result.state === 'empty' ? '' : '类型草稿尚未确认清除。' }) }
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
     }
     wx.showToast({ title: '反馈已提交，感谢！', icon: 'success' })
   },
@@ -127,11 +191,18 @@ Page({
     this._syncFeedbackOwner()
     if (changed) return // 不接纳身份切换前已经排队的输入事件。
     this._feedbackConfirmation = null
-    this.setData(patch)
+    this.setData(Object.assign({ submitNotice: '' }, patch))
+    const dirty = this.data.content || this.data.contact
+    if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '反馈尚未提交，确定离开吗？' })
+    else if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
   },
 
+  onToggleHistory() { this.setData({ historyExpanded: !this.data.historyExpanded }) },
+
   onSelectCategory(e) {
-    this._updateFeedbackDraft({ category: e.currentTarget.dataset.category })
+    const category = e.currentTarget.dataset.category
+    if (!categories.includes(category) || this._unloaded || this._hidden || this.data.submitting || (this._feedbackOwner && !sameOwner(this._feedbackOwner, feedbackOwner()))) return
+    this._updateFeedbackDraft({ category }); this._saveCategoryDraft()
   },
 
   onContentInput(e) {
@@ -145,55 +216,21 @@ Page({
   async onSubmit() {
     if (this._unloaded || this._hidden) return
     const owner = this._syncFeedbackOwner()
-    if (this.data.submitting || this._feedbackFlight || this._feedbackConfirmation) return
+    if (this.data.submitting || this._feedbackFlight) return
     const { category, content, contact } = this.data
-
-    if (!content.trim()) {
-      wx.showToast({ title: '请填写反馈内容', icon: 'none' })
-      return
-    }
-
+    if (!content.trim()) { wx.showToast({ title: '请填写反馈内容', icon: 'none' }); return }
     const draft = { category, content, contact }
-    const confirmation = { owner, generation: this._pageGeneration || 0, draft }
-    this._feedbackConfirmation = confirmation
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-      title: '提交反馈',
-      content: '感谢您的反馈，我们会尽快处理',
-      confirmText: '确认提交',
-      success: async (res) => {
-        if (this._feedbackConfirmation !== confirmation) return
-        this._feedbackConfirmation = null
-        if (res.confirm) {
-          // request只能保护调用API之后的身份变化；原生确认返回前也必须复核。
-          if (!this._feedbackCurrent(confirmation.owner, confirmation.generation)) {
-            if (!this._unloaded && !this._hidden) this._syncFeedbackOwner()
-            return
-          }
-          if (this.data.category !== draft.category || this.data.content !== draft.content || this.data.contact !== draft.contact) {
-            wx.showToast({ title: '内容已变化，请重新确认', icon: 'none' })
-            return
-          }
-          if (this.data.submitting || this._feedbackFlight) return
-          const flight = this._feedbackFlight = confirmation
-          this.setData({ submitting: true })
-          this._feedbackLoading = true
-          wx.showLoading({ title: '提交中...' })
-          try {
-            await submitFeedback(draft)
-            if (this._feedbackFlight !== flight || this._unloaded || !sameOwner(flight.owner, feedbackOwner())) return
-            // 已发出请求的明确成功不因hide丢失；页面再可见时消费一次结果。
-            this._feedbackSuccess = flight
-            this._applyFeedbackSuccess()
-            if (!this._hidden) this.loadHistory()
-          } catch (err) {
-            if (this._feedbackFlight !== flight || !this._feedbackCurrent(flight.owner, flight.generation)) return
-            wx.showToast({ title: err.message || '提交失败', icon: 'none' })
-          } finally {
-            this._releaseFeedbackFlight(flight)
-          }
-        }
-      },
-      fail: () => { if (this._feedbackConfirmation === confirmation) this._feedbackConfirmation = null }
-    })
+    const flight = this._feedbackFlight = { owner, generation: this._pageGeneration || 0, draft, categoryDraftVersion: this._categorySlot && this._categorySlot.version }
+    this.setData({ submitting: true, submitNotice: '' })
+    try {
+      await submitFeedback(draft)
+      if (this._feedbackFlight !== flight || !sameOwner(flight.owner, feedbackOwner())) return
+      if (this._unloaded) { if (this._categoryGuard && this._categorySlot && this._categorySlot.version === flight.categoryDraftVersion) this._categoryGuard.clear(this._categoryToken); return }
+      this._feedbackSuccess = flight
+      this._applyFeedbackSuccess()
+      if (!this._hidden) this.loadHistory()
+    } catch (err) {
+      if (this._feedbackFlight === flight && this._feedbackCurrent(flight.owner, flight.generation)) this.setData({ submitNotice: err && (err.businessRejected || err.requestMayHaveOccurred === false) ? (err.message || '提交未完成，请重试。') : '提交结果尚未确认，请先查看反馈记录再决定是否重试。' })
+    } finally { this._releaseFeedbackFlight(flight) }
   }
 })

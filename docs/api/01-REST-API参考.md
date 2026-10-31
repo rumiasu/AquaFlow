@@ -88,11 +88,12 @@
 | 员工微信登录 | `POST /api/auth/wx-login-staff` | 站长 / 配送员端 |
 | 姓名 + 密码 | `POST /api/auth/login` | 员工 |
 | 开发登录 | `POST /api/auth/dev-login` | **仅非生产环境**，且需 `DEV_LOGIN_ENABLED=true` |
+| 临时测试登录 | `POST /api/auth/test-login` | 顾客 / 员工；仅受限测试环境，默认关闭，见 `deployment/limited-trial/TEMPORARY-TEST-LOGIN.txt` |
 
 > ⚠️ `wx.login` 的 code 只能用**签发它的那个 appid + secret** 换取 openid，
 > 配置错配只回 `40013 invalid appid`，日志没有指向性。故代码强制显式指定端（`CUSTOMER` / `STAFF`）。
 
-**登录限流**：`/api/auth/{login,wx-login,wx-login-staff,dev-login,refresh,change-password}`
+**登录限流**：`/api/auth/{login,test-login,wx-login,wx-login-staff,dev-login,refresh,change-password}`
 按**来源 IP** 限流（默认 20 次/分钟），超限返回 **HTTP 429 + `{code:1,message}`**。
 ⚠️ 计数是**单实例内存态**，多实例部署前必须换成集中式计数器。
 
@@ -104,8 +105,9 @@
 
 | 免登录路径 | 用途 |
 |---|---|
-| `/api/auth/login`、`/api/auth/wx-login`、`/api/auth/wx-login-staff`、`/api/auth/dev-login`、`/api/auth/refresh`、`/api/auth/bind-staff` | 登录与续期 |
+| `/api/auth/login`、`/api/auth/test-login`、`/api/auth/wx-login`、`/api/auth/wx-login-staff`、`/api/auth/dev-login`、`/api/auth/refresh`、`/api/auth/bind-staff` | 登录与续期 |
 | `/api/agreements/current`、`/api/agreements/documents/{versionId}` | 打包协议目录/指定正文只读；确认记录与资料请求仍须认证 |
+| `/api/ui-assets/scene-home-water` | 固定场景图临时地址；公开读取、仅固定对象，受公开接口限流 |
 | `/api/stations/public`、`/api/station/public` | 选站列表 |
 | `/api/stations/search`、`/api/station/search` | 搜站 |
 | `/api/stations/{id}/public-phone`、`/api/station/{id}/public-phone` | 水站公开电话 |
@@ -153,6 +155,7 @@
 | `POST` | `/api/auth/create-station` | — | `LoginController.createStationAndBind` |
 | `POST` | `/api/auth/dev-login` | — | `DevLoginController.devLogin` |
 | `POST` | `/api/auth/login` | — | `LoginController.login` |
+| `POST` | `/api/auth/test-login` | — | `LoginController.testLogin` |
 | `POST` | `/api/auth/logout` | — | `LoginController.logout` |
 | `GET` | `/api/auth/me` | — | `LoginController.me` |
 | `POST` | `/api/auth/refresh` | — | `LoginController.refresh` |
@@ -210,6 +213,8 @@
 |---|---|---|---|
 | `GET` | `/api/inventory` | {"STATION_MANAGER"} | `InventoryController.list` |
 | `POST` | `/api/inventory/inbound` | {"STATION_MANAGER"} | `InventoryController.inbound` |
+| `POST` | `/api/inventory/inbound-with-receipt` | {"STATION_MANAGER"} | `InventoryController.inboundWithReceipt` |
+| `POST` | `/api/inventory/inbound-with-cost-receipt` | {"STATION_MANAGER"} | `InventoryController.inboundWithReceipt` |
 | `GET` | `/api/inventory/records` | {"STATION_MANAGER"} | `InventoryController.records` |
 | `GET` | `/api/manager/catalog` | "STATION_MANAGER" | `ManagerCatalogController.list` |
 | `GET` | `/api/manager/catalog/preset-images` | "STATION_MANAGER" | `ManagerCatalogController.presetImages` |
@@ -339,9 +344,10 @@
 | `GET` | `/api/payments/all` | {"STATION_MANAGER"} | `PaymentController.listAllBackup` |
 | `GET` | `/api/payments/by-customer` | {"STATION_MANAGER"} | `PaymentController.listByCustomerId` |
 | `GET` | `/api/payments/by-order` | {"STATION_MANAGER"} | `PaymentController.listByOrderId` |
+| `GET` | `/api/payments/capabilities` | 客户会话 | `PaymentController.capabilities`；身份仅取登录态，只读本人 `wechatPay` 能力，不创建/确认收款。模拟授权含 version、scope、customerId；云 sandbox 另含 environmentId/serviceId/bindingId，不含凭据或数据库目标。 |
 | `GET` | `/api/payments/customer/{customerId}` | {"STATION_MANAGER"} | `PaymentController.listByCustomerIdForStaff` |
 | `GET` | `/api/payments/pending` | {"STATION_MANAGER"} | `PaymentController.listPending` |
-| `POST` | `/api/payments/quote` | {"STATION_MANAGER"} | `PaymentController.quote` |
+| `POST` | `/api/payments/quote` | 客户会话 | `PaymentController.quote`；仅试算本人订单，客户编号取登录态。 |
 | `PUT` | `/api/payments/{id}/cash-confirm` | {"STATION_MANAGER"} | `PaymentController.confirmCashById` |
 | `PUT` | `/api/payments/{id}/confirm` | {"STATION_MANAGER"} | `PaymentController.confirm` |
 | `PUT` | `/api/payments/{id}/refund` | {"STATION_MANAGER"} | `PaymentController.refund` |
@@ -415,6 +421,10 @@
 | `POST` | `/api/manager/earning-items/{id}/status` | {"STATION_MANAGER"} | `ManagerPayrollController.setEarningItemStatus` |
 | `GET` | `/api/manager/earnings` | {"STATION_MANAGER"} | `ManagerPayrollController.listEarnings` |
 | `GET` | `/api/manager/payroll` | {"STATION_MANAGER"} | `ManagerPayrollController.listPayrolls` |
+| `GET` | `/api/manager/payroll/preview` | {"STATION_MANAGER"} | `ManagerPayrollController.previewPayroll` |
+| `POST` | `/api/manager/payroll/settle` | {"STATION_MANAGER"} | `ManagerPayrollController.settlePayroll` |
+| `GET` | `/api/manager/payroll/{id}/settlement-preview` | {"STATION_MANAGER"} | `ManagerPayrollController.historicalSettlementPreview` |
+| `POST` | `/api/manager/payroll/{id}/settle` | {"STATION_MANAGER"} | `ManagerPayrollController.settleHistoricalPayroll` |
 | `POST` | `/api/manager/payroll` | {"STATION_MANAGER"} | `ManagerPayrollController.generatePayroll` |
 | `POST` | `/api/manager/payroll/adjust` | {"STATION_MANAGER"} | `ManagerPayrollController.adjustEarning` |
 | `POST` | `/api/manager/payroll/{id}/confirm` | {"STATION_MANAGER"} | `ManagerPayrollController.confirmPayroll` |
@@ -509,6 +519,7 @@
 | `POST` | `/api/common/upload` | — | `CommonController.upload` |
 | `GET` | `/api/search` | {"STATION_MANAGER"} | `SearchController.search` |
 | `GET` | `/api/system/health` | — | `SystemController.health`（公开，见 §3 白名单；静态存活探针，不查库） |
+| `GET` | `/api/ui-assets/scene-home-water` | — | `UiSceneController.scene`（公开、固定场景图；返回短期 URL 与刷新时间） |
 
 通用上传成功仍以`data`返回临时预览URL，另附顶级`objectName`为本次实际上传的对象键。商品保存应传`imageObjectName: objectName`，不能把临时URL或`cloud://`文件标识当对象键；未收到可靠对象键时，员工商品上传保持结果待核实。旧的仅预览/证据调用方继续读取字符串`data`，鉴权、上传目录和公共商品归属权限不变。
 
@@ -668,6 +679,12 @@
 `POST /api/manager/payroll/adjust`须带`idempotencyKey`，站级同键同内容重放原工资条目；改员工、条目、金额或说明拒绝，金额最多两位小数并受现有列精度约束。发布前须装v79，历史清结权限沿用。通用订单列表/详情按当前角色、本人任务和履约站过滤，跨站保留收件快照而抹客户档案；指定退回必须有真实申请，等待期间不越过履约闸门，批准/拒绝核原状态与精确申请。正式协议及资料处理仍关闭。统一验证进行中，不以作者静态检查冒称HTTP/MySQL通过。
 
 
+## 2026-10-28 可选入库成本与收入视图
+
+`POST /api/inventory/inbound-with-cost-receipt?stationId=...` 为本站站长入口，与原入库回执契约一致：`clientRequestId` 必填，每个 `items` 行带 `productId/quantity`，可选 `costAmount` 表示本次该行的进货总成本。省略或 `null` 保持未知；0 有效；金额非负、最多两位小数且不得超过数据库金额精度。同编号同数量同成本重放原回执，改成本也视为改内容并拒绝；结果未知时沿原编号和内容核对。旧 `/inbound-with-receipt` 保留兼容，新员工端使用独立的新路径，避免旧后台忽略成本后误报成功。
+
+`GET /api/inventory` 与 `/api/inventory/records` 新增的 `costAmount` 只向本站站长返回，站号取登录态；顾客可售商品使用不含成本字段的 `StationProductVO`。`GET /api/manager/gross-profit` 新增 `costComplete`；所选期间任一商品缺实际出库成本时，`totalCost/totalProfit/netProfit` 与所有明细的 `profit` 均为 `null`，收入仍沿原订单、真实票款与退款口径给出。商品目录中无关的未填成本不影响完整期间。旧 `PUT /cost` 保留路径并返回业务拒绝，提示入库时选填；`GET /missing-cost` 保留兼容，不再形成补价任务。
+
 ## 2026-10-11 合作款经营摘要与停业站接入边界
 
 `GET /api/manager/gross-profit`保留原路径、站长权限和销售利润字段；站别只取登录态，`from/to`仍按原订单创建日期（含结束日）筛选。新增`cooperation`：`available`说明结构是否已安装；不可用时只有说明，不编零金额。已安装时分别给出原接受报酬`agreedPayAmount/agreedReceiveAmount`、本站外派原报价差额`quoteDifferenceAmount`、客户消费登记实收/实际退款`customerReceivedAmount/customerRefundedAmount`、待结`pendingPayAmount/pendingReceiveAmount`、历史交款`settledPayAmount/settledReceiveAmount`、返还待交/待收`recoveryPendingPayAmount/recoveryPendingReceiveAmount`、已登记交出/已确认收到`recoverySentPayAmount/recoveryReceivedAmount`及待收方确认`recoveryAwaitingConfirmationAmount`。`recordedCashNetAmount`是这些合作订单截至查询时的登记消费及站间净现金，只加减已登记收退/交款/已确认收到返还；约定、报价差额及待结不参加净现金计算。它不是期间现金发生额或净利润；`rows/scopeNote`供页面原样展示。押金、桶款、买票款、渠道成本和责任分摊不纳入此摘要。冲销不抹原结清时间及历史交款；未收到返还确认不计为收到。
@@ -682,6 +699,9 @@
 | `POST` | `/api/asset-claims` | 客户本人 | `HistoricalAssetClaimController.submit`；客户ID只取登录态，未绑定可申请，不立即绑定／记账 |
 | `GET` | `/api/asset-claims` | 客户本人 | `HistoricalAssetClaimController.mine`；必填stationId，最近100条原申请结果 |
 | `GET` | `/api/asset-claims/{id}` | 客户本人 | `HistoricalAssetClaimController.detail`；跨客户及员工访问拒绝 |
+| `POST` | `/api/asset-claims/photo` | 客户本人 | `HistoricalAssetClaimController.uploadPhoto`；multipart字段stationId/clientToken/file，单张JPG/PNG/WebP不超过5MB；按本人及原申请凭据幂等保存私有对象，已提交无照申请不能事后追加 |
+| `GET` | `/api/asset-claims/photo` | 客户本人 | `HistoricalAssetClaimController.myPhoto`；stationId/clientToken必填，只读本人照片状态；返回exists及一小时签名url，签名暂不可用时exists=true/url=null |
+| `GET` | `/api/manager/asset-claims/{id}/photo` | STATION_MANAGER | `HistoricalAssetClaimController.claimPhoto`；先核本站原申请权限，再取其凭证的私有短期链接；跨站、客户与配送员拒绝 |
 | `GET` | `/api/manager/asset-claims` | STATION_MANAGER | `HistoricalAssetClaimController.pending`；本站最早100条待核对，只返回主动提交的材料 |
 | `GET` | `/api/manager/asset-claims/{id}` | STATION_MANAGER | `HistoricalAssetClaimController.managerDetail`；只查本站原申请和决定，供未知结果恢复 |
 | `POST` | `/api/manager/asset-claims/{id}/review` | STATION_MANAGER | `HistoricalAssetClaimController.review`；通过时核对／绑定／期初账同事务，无第三次客户确认 |
@@ -699,7 +719,7 @@
 
 | 方法 | 路径 | 身份 | 处理 |
 |---|---|---|---|
-| `GET` | `/api/asset-claims/products` | 客户本人 | `HistoricalAssetClaimController.products`；必填stationId且站须存在；返回本站已配置、属通用库／本站的商品，含下架／停售；只含id/name/spec/category，不给未选用通用商品或异站私有商品 |
+| `GET` | `/api/asset-claims/products` | 客户本人 | `HistoricalAssetClaimController.products`；必填stationId且站须存在；返回本站已配置、属通用库／本站的商品，含下架／停售；含id/name/spec/category及可空imageUrl，图片优先本站覆盖；不返回价格、库存、未选用通用商品或异站私有商品 |
 
 申请响应新增服务端`statusText`，两端不重复定义状态中文。提交校验与目录所有权一致，遗留异常库存引用不扩大异站商品资格。站长名称复用既有`getCatalog`。本批无新迁移／交易入口，沿f76859f事务，v80必需；新页面须配本批目录／文案增量。旧f76859f的products路径可被{id}匹配而返回“参数格式不正确：id”，前端已按服务不可用处理；缺能力／越权／畸形结果不冒充成功或0。核心页只增加静态入口。
 
@@ -743,3 +763,14 @@
 成功响应 `data={id, orderId, clientRequestId}`，`id` 为原异常记录。按同员工/订单/编号作用域重试返回同记录，即使原异常已经处理也不重开；同键改内容、回执损坏/重复或原异常缺失均明确拒绝，不能自动另建。订单行锁与回执当前读串行化，异常、备注和专用 `DELIVERY_REPORT / RECEIPT` 回执同事务提交；该回执必须永久保留，见[运维责任](../operations/01-部署与运维.md)。
 
 新前端仅凭三项匹配的回执结束原意图；超时不表示失败，原键POST可核实或完成原反馈。无键旧请求仍兼容原行为，不保证重试幂等；旧无键未知记录不能自动补键重放。本契约仅普通配送反馈，不改变客户拒付、资金处理或补偿流程。后端应先支持此契约再同步对应小程序版本；本说明不代表已部署或真实渠道验收。
+
+## 库存入库原编号回执（2026-10-27 补登记）
+
+员工端 `POST /api/inventory/inbound-with-receipt?stationId=<本站>` 仅允许本站站长。
+请求体为 `clientRequestId`（16–80 位字母、数字、横线或下划线）与 `items`；每项包含
+`productId` 和正整数 `quantity`，每次 1–200 个不重复商品。首次入库仍核对通用/本站商品权限。
+
+成功 `data={clientRequestId, stationId, items, status:"APPLIED"}`，商品按编号排序。
+同一员工、站别、原编号及相同内容重试返回原回执，不再增加库存、流水或补位；同键改内容、
+重复或损坏回执均拒绝。站行锁与库存、流水和回执处于同一事务，未知结果应保存原编号核实，
+不能自动换编号另开入库。旧 `POST /api/inventory/inbound` 继续兼容原行为，不提供该原编号保证。

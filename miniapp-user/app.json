@@ -30,7 +30,7 @@
   "window": {
     "backgroundTextStyle": "dark",
     "navigationBarBackgroundColor": "#F5F6F7",
-    "navigationBarTitleText": "AquaFlow",
+    "navigationBarTitleText": "艾泉订水",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#F5F6F7"
   },
@@ -71,7 +71,10 @@
   },
   "usingComponents": {
     "privacy-popup": "/components/PrivacyPopup/index",
-    "icon": "/components/Icon/index"
+    "icon": "/components/Icon/index",
+    "business-dialog": "/components/BusinessDialog/index",
+    "integer-stepper": "/components/IntegerStepper/index",
+    "product-selector": "/components/ProductSelector/index"
   },
   "sitemapLocation": "sitemap.json"
 }

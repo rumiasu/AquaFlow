@@ -94,8 +94,8 @@ test('failed catalog retains the saved cart and offers actual retry and station-
   assert.equal(t.page.data.catalogState, 'error'); assert(texts(t.page).includes('原选购数量已保留'))
   assert(!texts(t.page).includes('该水站暂无可订商品')); assert(!hasClass(t.page, 'checkout'))
   assert.deepStrictEqual(t.carts[1], { 10: 2 })
-  const buttons = visible(t.page).filter(n => n.tag === 'button')
-  assert(buttons.some(n => n.text === '重新加载' && n.attrs.bindtap === 'onRetryHome'))
+  const nodes = visible(t.page), retry = nodes.findIndex(n => n.tag === 'button' && n.attrs.bindtap === 'onRetryHome')
+  assert(retry >= 0 && nodes[retry + 1].tag === 'text' && nodes[retry + 1].text === '重新加载')
   assert(!hasClass(t.page, 'catalog-state'), 'the shared failure banner replaces the duplicate catalog card')
 })
 test('business failure and malformed catalog payload never masquerade as successful empty', async () => {
@@ -155,7 +155,7 @@ test('asset read failure is explicit beside selected cart and never called a ver
 })
 test('unverified home quote keeps the amount caveat and confirmation destination without claiming payment', async () => {
   const t = fixture({ quote: async () => { throw Error('offline') } }); await t.page.loadData()
-  assert.equal(t.page.data.homeQuoteState, 'error'); assert(texts(t.page).includes('费用暂未核实'))
+  assert.equal(t.page.data.homeQuoteState, 'error'); assert(texts(t.page).includes('费用待确认，请在确认页查看'))
   assert(t.page.data.total.detailText.includes('未核实'))
   t.page.onSubmit(); assert(t.wx.__calls.nav[0].url.startsWith('/pages/order/create?'))
   assert(!t.wx.__calls.nav[0].url.includes('pay=true'))
@@ -300,10 +300,11 @@ test('an old address response cannot overwrite a newer explicit choice', async (
 
 test('WB-07 partially restored cart discloses an unavailable SKU while preserving both original quantities', async () => {
   const t = fixture(); t.carts[1][11] = 1; await t.page.loadData()
-  assert.equal(t.page.data.unavailableCartCount, 1); assert(texts(t.page).includes('1 种已选商品暂不可订'))
+  assert.equal(t.page.data.unavailableCartCount, 1); assert(texts(t.page).includes('1 种商品暂不可订，已保留选择'))
   assert.equal(t.carts[1][11], 1); assert.equal(t.page.data.total.count, 2)
   assert.deepEqual(t.page.collectCartItems(), [{ productId: 10, quantity: 2 }])
-  assert(visible(t.page).some(n => n.tag === 'button' && n.text === '重新核对商品' && n.attrs.bindtap === 'onRetryHome'))
+  const nodes = visible(t.page), retry = nodes.findIndex(n => n.tag === 'button' && n.attrs.bindtap === 'onRetryHome' && n.className.includes('af-action--quiet'))
+  assert(retry >= 0 && nodes[retry + 1].tag === 'text' && nodes[retry + 1].text === '重新核对商品')
 })
 test('unavailable cart hint clears and original quantity returns when the catalog includes that SKU again', async () => {
   let rows = [water]

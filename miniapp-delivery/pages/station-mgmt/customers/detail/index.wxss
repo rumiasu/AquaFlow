@@ -342,11 +342,12 @@
 }
 .modal-tip .strong { color: var(--text-primary); font-weight: 600; }
 .return-item {
-  display: flex; align-items: center; justify-content: space-between; gap: 20rpx;
+  /* 2026-10-28 RC3：全宽步进器独占下一行，窄屏不再挤压商品说明。 */
+  display: flex; flex-direction: column; align-items: stretch; gap: 12rpx;
   padding: 20rpx 0; border-bottom: 1rpx solid var(--border-color);
 }
-.return-item-main { display: flex; flex-direction: column; gap: 6rpx; flex: 1; min-width: 0; }
-.return-item-name { font-size: 26rpx; color: var(--text-primary); }
+.return-item-main { display: flex; flex-direction: column; gap: 6rpx; flex: none; width: 100%; min-width: 0; }
+.return-item-name { font-size: 26rpx; color: var(--text-primary); overflow-wrap: anywhere; word-break: break-all; }
 .return-item-hint { font-size: 24rpx; color: var(--text-secondary); }
 .return-item-input {
   width: 140rpx; height: 64rpx; text-align: center;
@@ -368,7 +369,7 @@
 .avatar { width:80rpx; height:80rpx; border-radius:12rpx; font-size:34rpx; }
 .name-row,.section-title-row,.sub-title-row { flex-wrap:wrap; gap:12rpx; }
 .name { font-size:36rpx; overflow-wrap:break-word; }
-.phone { display:flex; align-items:center; min-height:88rpx; font-size:30rpx; color:var(--primary-color); }
+.phone { display:flex; align-items:center; min-height:44px; font-size:30rpx; color:var(--primary-color); }
 .section-title { border-left:0; padding-left:0; line-height:1.5; font-size:30rpx; }
 .link-btn,.priv-btn,.asset-retry,.record-toggle { min-height: 44px; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; padding:16rpx; font-size: 14px; border-radius:8rpx; }
 .link-row .link-btn { display:flex; width:100%; background:var(--primary-color); color:#fff; font-weight:600; }
@@ -388,3 +389,47 @@
 /* 资产明细的两个次动作独占一行，窄屏不把“资产调整”拆成单字。 */
 .sub-title-row .link-row { width: 100%; display: flex; flex-wrap: wrap; gap: 12rpx; }
 .sub-title-row .link-row .link-btn { flex: 1; width: auto; min-width: 180rpx; white-space: nowrap; color: var(--primary-color); background: #fff; border: 1rpx solid var(--primary-color); }
+.consumption-toggle, .order-item { min-height: 44px; box-sizing: border-box; }
+.modal-close { min-width: 44px; min-height: 44px; }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Page-specific role grouping. */
+
+.sub-title-row .link-row { width:100%; display:flex; flex-wrap:wrap; gap:8px 20px; }
+.sub-title-row .link-row .af-entry { flex:none; min-width:110px; }
+.link-row .b3-on-place-order { width:100%; }
+.modal-footer { gap:8px; }
+
+/* Asset types keep consistent blue, teal and money surfaces. */
+.asset-grid .s-asset-physical { background:var(--af2-surface-physical); }
+.asset-grid .s-asset-order { background:var(--af2-surface-order); }
+.metric-grid.second .s-asset-money { background:var(--af2-surface-money); }
+.s-asset-physical .metric-value,.s-asset-physical .metric-label { color:var(--af2-ink-physical); }
+.s-asset-order .metric-value,.s-asset-order .metric-label { color:var(--af2-ink-order); }
+.s-asset-money .metric-value,.s-asset-money .metric-label { color:var(--af2-ink-money); }
+.asset-grid .metric,.metric-grid.second .s-asset-money { border-radius:14px; padding:12px; box-sizing:border-box; }
+.return-item { display:flex; flex-direction:column; align-items:stretch; gap:8px; }
+
+
+
+/* Recent-order identifiers and amounts may be long; keep the row actionable. */
+.order-item .order-no { flex:0 1 100px; width:auto; min-width:0; overflow-wrap:anywhere; }
+.order-item .order-status { min-width:0; }
+.order-item .order-amount { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+.order-item > text:last-child { margin-left:auto; flex:none; }

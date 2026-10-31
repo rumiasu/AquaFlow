@@ -89,4 +89,32 @@
 
 .work-read-error { padding:24rpx; margin:20rpx 0; background: var(--bg-gray); border-left: 4rpx solid var(--primary-color); border-radius:8rpx; color: var(--text-regular); font-size:28rpx; line-height:1.6; }
 .work-read-error text { display:block; }
-.work-read-error button { min-height: 44px; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size: 14px; }
+.work-read-error button:not(.af-action):not(.af-choice):not(.af-entry) { min-height: 44px; line-height:1.5; padding:20rpx; box-sizing:border-box; border-radius:10rpx; color:var(--primary-color); background:#fff; margin-top:20rpx; font-size: 14px; }
+.form-label { display:block; margin:18rpx 0 8rpx; color:var(--text-primary); font-size:28rpx; font-weight:600; }
+.btn-detach { background:#fff; color:var(--text-secondary); border:1rpx solid var(--border-color); }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Visual v2: page-specific information and action grouping. */
+ .tabs { background:var(--af2-surface-order); border-radius:10px; } .staff-card { border:0; border-bottom:1px solid var(--af-border); border-radius:0; box-shadow:none; } .card-actions { gap:8px; } .modal-content { border-radius:20px 20px 0 0; max-height:90vh; overflow-y:auto; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
+
+
+/* Padding and the safe area are part of the sheet's 90vh ceiling. */
+.modal-content { box-sizing:border-box; }
+.staff-modal-actions { display:flex; flex-direction:column; align-items:stretch; gap:8px; }
+.staff-modal-actions .b3-on-close-modal { align-self:flex-start; }

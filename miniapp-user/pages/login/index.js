@@ -1,7 +1,7 @@
-const { wxLogin, devLogin } = require('../../api/auth')
+const { wxLogin, testLogin } = require('../../api/auth')
 const { storage } = require('../../utils/storage')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
-const { isDevelopEnv } = require('../../config/api')
+const { isTestLoginClientEnv } = require('../../config/api')
 const agreementApi = require('../../api/agreements')
 const { drafts, validCatalog, loginEvidence, find } = require('../../utils/agreements')
 
@@ -19,19 +19,14 @@ Page({
     loginError: '',
     agreementCatalog: drafts,
     agreementNotice: drafts.notice,
-    // [2026-09-20] 「测试账号直接登录」是否显示。**默认 false、在 onLoad 里再纠正** ——
-    // 这样正式版永远不会闪一下这个按钮；开发版/体验版晚一帧出现，肉眼看不出来。
-    //
-    // 为什么正式版必须藏：它直连 /api/auth/dev-login，而那个端点带 @Profile("!prod")，
-    // 正式版**根本不存在** —— 露出来纯属事故级观感（顾客看到"测试账号直接登录"）。
-    // 为什么开发版/体验版必须**保留**：真机联调时它是微信登录不通时的唯一退路（AGENTS §9.4）；
-    // 判断用 envVersion 而不是 platform === 'devtools'，因为真机预览的 platform 是
-    // ios/android —— 按 devtools 判会把真机联调的退路一起藏掉。
-    showDevLogin: false
+    // 仅开发/体验版显示账号表单，是否能登录仍由服务端决定。
+    showTestLogin: false,
+    testAccount: '',
+    testPassword: ''
   },
 
   onLoad() {
-    this.setData({ showDevLogin: isDevelopEnv() })
+    this.setData({ showTestLogin: isTestLoginClientEnv() })
     this.loadAgreements()
     const accessToken = storage.get(STORAGE_KEYS.ACCESS_TOKEN)
     if (accessToken) {
@@ -40,8 +35,8 @@ Page({
   },
 
   onShow() { this._agreementHidden = false; this.loadAgreements() },
-  onHide() { this._agreementHidden = true },
-  onUnload() { this._agreementUnloaded = true },
+  onHide() { this._agreementHidden = true; this.clearTestPassword() },
+  onUnload() { this._agreementUnloaded = true; this.clearTestPassword() },
   async loadAgreements() {
     if (this._catalogFlight || this._agreementUnloaded) return
     this._catalogFlight = true
@@ -52,7 +47,7 @@ Page({
         this.setData({ agreementCatalog: res.data, agreementNotice: res.data.notice })
     } catch (error) {
       if (!this._agreementUnloaded && !this._agreementHidden)
-        this.setData({ agreementCatalog: drafts, agreementNotice: '协议草稿尚未启用；当前无法核实最新正文，本次登录不会自动记录正式接受。' })
+        this.setData({ agreementCatalog: drafts, agreementNotice: '最新协议暂未加载，本次登录不会记录正式协议接受。' })
     } finally { this._catalogFlight = false }
   },
 
@@ -85,7 +80,6 @@ Page({
 
       if (!loginRes.code) {
         this.setData({ loginError: '微信暂时未能完成登录，请稍后手动重试。' })
-        wx.showToast({ title: '微信登录失败', icon: 'none' })
         return
       }
 
@@ -110,51 +104,47 @@ Page({
         }, 800)
       } else {
         this.setData({ loginError: viewError(res, '暂时无法登录，请稍后重试。') })
-        wx.showToast({ title: viewError(res, '登录失败'), icon: 'none' })
       }
     } catch (error) {
       this.loadAgreements()
       console.error('微信登录失败')
       this.setData({ loginError: viewError(error, '微信登录未完成，请检查网络后手动重试。') })
-      wx.showToast({ title: viewError(error, '微信登录失败'), icon: 'none', duration: 2500 })
     } finally {
       this.setData({ loading: false })
     }
   },
 
-  // 开发模式登录（跳过微信验证）。同样不再要求先勾协议 —— 见 onWxLogin 上面的说明。
-  async onDevLogin() {
-    if (this.data.loading || this._loginComplete) return
-    this.setData({ loading: true, loginError: '' })
+  onTestAccountInput(e) { this.setData({ testAccount: e.detail.value }) },
+  onTestPasswordInput(e) { this.setData({ testPassword: e.detail.value }) },
+  clearTestPassword() {
+    const pending = this._testLoginFlight
+    this._testLoginFlight = null
+    this.setData(pending ? { testPassword: '', loading: false } : { testPassword: '' })
+  },
 
+  // 不保存密码；离页后丢弃迟到结果，避免旧身份覆盖新的微信登录。
+  async onTestLogin() {
+    if (this.data.loading || this._loginComplete || !this.data.showTestLogin || !isTestLoginClientEnv()) return
+    const account = (this.data.testAccount || '').trim(), password = this.data.testPassword || ''
+    if (!account || !password) { wx.showToast({ title: '请输入测试账号和密码', icon: 'none' }); return }
+    const flight = this._testLoginFlight = {}
+    this.setData({ loading: true, testPassword: '' })
     try {
-      const res = await devLogin('测试用户')
-
-      if (res.data && res.data.accessToken) {
-        this._loginComplete = true
-        const app = getApp()
-        app.setLoginInfo(res.data.accessToken, res.data.refreshToken, {
-          nickname: res.data.nickname || '测试用户',
-          phone: res.data.phone || ''
-        })
-        if (res.data.customerId) {
-          wx.setStorageSync(STORAGE_KEYS.CUSTOMER_ID, res.data.customerId)
-        }
-
-        wx.showToast({ title: '登录成功', icon: 'success' })
-        setTimeout(() => {
-          wx.switchTab({ url: '/pages/home/index' })
-        }, 500)
-      } else {
-        this.setData({ loginError: viewError(res, '暂时无法登录，请稍后重试。') })
-        wx.showToast({ title: viewError(res, '登录失败'), icon: 'none' })
-      }
+      const res = await testLogin(account, password)
+      if (this._testLoginFlight !== flight || this._agreementHidden || this._agreementUnloaded) return
+      if (!res || res.code !== 0 || !res.data || !res.data.accessToken) throw new Error(res && res.message || '测试登录失败，请重试')
+      if (res.data.userType !== 'customer') throw new Error('请使用顾客测试账号')
+      this._loginComplete = true
+      const app = getApp()
+      app.setLoginInfo(res.data.accessToken, res.data.refreshToken, { nickname: res.data.nickname || '', phone: res.data.phone || '' })
+      wx.setStorageSync(STORAGE_KEYS.CUSTOMER_ID, res.data.customerId)
+      wx.switchTab({ url: '/pages/home/index' })
     } catch (error) {
-      console.error('开发登录失败')
-      this.setData({ loginError: viewError(error, '测试账号登录未完成，请稍后手动重试。') })
-      wx.showToast({ title: '登录失败: ' + (viewError(error, '网络错误')), icon: 'none', duration: 3000 })
+      if (this._testLoginFlight === flight && !this._agreementHidden && !this._agreementUnloaded)
+        wx.showToast({ title: viewError(error, '测试登录未完成，请重试'), icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (this._testLoginFlight === flight) { this._testLoginFlight = null; this.setData({ loading: false }) }
     }
-  }
+  },
+
 })

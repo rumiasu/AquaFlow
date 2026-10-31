@@ -1,3 +1,5 @@
+@import "./styles/presentation.wxss";
+@import "./styles/actions.wxss";
 /* ========== AquaFlow 配送员小程序 设计系统 ========== */
 /*
  * [2026-09-26 轨道 D] 品牌色统一：色值照抄 miniapp-user/styles/variable.wxss，
@@ -73,6 +75,15 @@ page {
   --font-lg: 32rpx;
   --font-xl: 36rpx;
   --font-xxl: 40rpx;
+
+  /* 2026-10-27 层级与触控（与用户端同值；页面只引用）：
+     可点控件最小 88rpx（≈44px）；配送现场主动作 96rpx（≈48px）；
+     页面/卡片主标题 36rpx；正文 28rpx；辅助说明最小 24rpx。 */
+  --control-h: 88rpx;
+  --control-h-main: 96rpx;
+  --text-title: 36rpx;
+  --text-body: 28rpx;
+  --text-note: 24rpx;
 
   /* 阴影（极少，仅分层用） */
   --shadow-sm: 0 2rpx 12rpx rgba(43, 42, 38, 0.04);
@@ -181,6 +192,10 @@ page {
 /* 2026-10-22：主动作保持完整触控高度，长文字允许换行。 */
 .btn-primary, .btn-outline, .btn-gradient, .btn-success { box-sizing: border-box; min-height: 48px; display: flex; align-items: center; justify-content: center; line-height: 1.45; white-space: normal; }
 
+/* 骨架：扁平浅灰块，不做渐变与持续动画（减少动态效果）。高度由使用处的真实结构决定。 */
+.skeleton-line { height: 28rpx; border-radius: var(--radius-sm); background: var(--bg-gray); }
+.skeleton-block { border-radius: var(--radius-md); background: var(--bg-gray); }
+
 /* 2026-10-22：仅留言省略一行，地址、商品、金额与动作仍按原规则完整展示。 */
 .customer-note-preview {
   display: block;
@@ -197,9 +212,10 @@ page {
 
 /* 员工界面：恢复状态与正文层级。仅本端使用，不承载业务状态判断。 */
 page { color: var(--text-primary); font-size: 28rpx; line-height: 1.55; background: var(--bg-color); }
-button { box-sizing:border-box; min-height:44px; padding:16rpx 24rpx; font-size:14px; line-height:1.5; white-space:normal; word-break:break-all; border-radius:8rpx; color:var(--primary-color); background:var(--primary-bg); }
+button { box-sizing:border-box; display:flex; align-items:center; justify-content:center; min-height:44px; padding:16rpx 24rpx; font-size:14px; line-height:1.5; white-space:normal; word-break:break-all; text-align:center; border-radius:8rpx; color:var(--primary-color); background:var(--primary-bg); }
+button[size="mini"] { display:inline-flex; vertical-align:middle; }
 button::after { border:0; }
-button[disabled],button[disabled][class] { color:var(--text-regular) !important; background:var(--bg-gray) !important; border-color:var(--border-color) !important; }
+button[disabled]:not(.af-action):not(.af-choice):not(.af-entry),button[disabled][class]:not(.af-action):not(.af-choice):not(.af-entry) { color:var(--text-regular) !important; background:var(--bg-gray) !important; border-color:var(--border-color) !important; }
 input, textarea { color: var(--text-primary); box-sizing: border-box; }
 .ui-state { box-sizing: border-box; margin: 24rpx; padding: 28rpx; border: 1rpx solid var(--border-color); border-radius: 12rpx; background: var(--bg-white); }
 .ui-state-title { display: block; color: var(--text-primary); font-size: 32rpx; font-weight: 600; line-height: 1.45; }

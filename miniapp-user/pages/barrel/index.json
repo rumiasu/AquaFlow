@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "我的水桶",
+  "navigationBarTitleText": "水桶与押金",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "empty": "../../components/Empty/index",

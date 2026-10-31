@@ -73,8 +73,8 @@
 }
 
 .fact-pay-need {
-  background: var(--warning-bg);
-  color: var(--warning-color);
+  background: var(--af-soft);
+  color: var(--af-text-secondary);
   font-weight: 600;
 }
 
@@ -101,8 +101,8 @@
 }
 
 .status-pending {
-  background: var(--warning-bg);
-  color: var(--warning-color);
+  background: var(--af-soft);
+  color: var(--af-text-secondary);
 }
 
 .status-delivered {
@@ -121,8 +121,8 @@
 }
 
 .status-warning {
-  background: var(--warning-bg);
-  color: var(--warning-color);
+  background: var(--af-soft);
+  color: var(--af-text-secondary);
 }
 
 .aux-tag {
@@ -136,8 +136,8 @@
 }
 
 .aux-tag.aux-offline {
-  background: var(--warning-bg);
-  color: #8A4B00;
+  background: var(--af-soft);
+  color: var(--af-text-secondary);
 }
 
 .aux-tag.aux-transfer {
@@ -295,7 +295,7 @@
 }
 
 .note-icon {
-  color: var(--warning-color);
+  color: var(--af-text-secondary);
   font-size: var(--font-md);
   margin-right: var(--spacing-sm);
   flex-shrink: 0;
@@ -495,9 +495,9 @@
   margin-left: 12rpx;
   padding: 4rpx 14rpx;
   font-size: 24rpx;
-  color: var(--warning-color);
+  color: var(--af-text-secondary);
   background: var(--bg-gray);
-  border-radius: 999rpx; border-left:4rpx solid var(--warning-color); }
+  border-radius: 999rpx; border-left:4rpx solid var(--af-text-secondary); }
 
 .floor-proof-head {
   display: flex;
@@ -618,7 +618,7 @@
 .sheet-item, .pay-refund, .floor-proof-add { min-height: 96rpx; box-sizing: border-box; }
 .sheet-item-info { min-width: 0; }
 .sheet-item-name, .sheet-item-desc, .info-value { white-space: normal; word-break: break-all; }
-.info-card button { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.info-card button:not(.af-action):not(.af-choice) { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 .pay-refund, .floor-proof-add { display: inline-flex; align-items: center; justify-content: center; }
 
 .customer-note-full {
@@ -632,6 +632,44 @@
 
 .write-recovery { font-size: 28rpx; line-height: 1.6; color: var(--text-regular); }
 .write-recovery text { display: block; white-space: normal; }
-.write-recovery button { margin: 16rpx 0 0; min-height: 44px; padding: 16rpx 24rpx; }
+.write-recovery button:not(.af-action):not(.af-choice) { margin: 16rpx 0 0; min-height: 44px; padding: 16rpx 24rpx; }
 .sheet-item:active, .sheet-cancel:active { background: var(--bg-gray); }
 .press-feedback { background: var(--bg-gray); opacity: 0.82; }
+
+/* 2026-10-28 B2: local layout only; B0 owns action/choice faces and tokens. */
+ .b2-page { --primary-color: var(--af-primary); --primary-bg: var(--af-soft); --text-primary: var(--af-ink); --text-regular: var(--af-text-secondary); --text-secondary: var(--af-text-secondary); --bg-gray: var(--af-soft); --success-color: var(--af-positive); --error-color: var(--af-danger); --error-bg: var(--af-danger-soft); --bg-color: var(--af-canvas); --bg-card: var(--af-surface); --border-color: var(--af-border); }
+ .action-bar { gap: 8px; flex-wrap: wrap; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--af-border); } .action-bar .af-action { margin: 0; } .action-bar .af-action--grow { flex: 1 1 130px; } .action-bar .af-action--quiet { flex: 0 0 auto; } .container { padding-bottom: calc(176px + env(safe-area-inset-bottom)); } .contact-card > .af-action { margin: 0 0 8px; } .fact-card { border-left: 4px solid var(--af-primary); } .status-badge { font-size: 22px; line-height: 30px; background: transparent; padding: 0; color: var(--af-strong); } .sheet-actions .af-entry { gap: 8px; }
+
+/* 2026-10-29 visual-L: fact/detail rhythm, not a second dashboard. */
+.lv2-page { --bg-color:var(--af2-page); --bg-card:var(--af2-surface); --border-color:var(--af2-line); --text-primary:var(--af2-ink); --text-regular:var(--af2-muted); background:var(--af2-page); }
+.lv2-detail .fact-card, .lv2-detail .info-card, .lv2-detail .section { margin:12px 16px; border:0; border-radius:16px; padding:16px; box-shadow:none; }
+.lv2-detail .fact-card { background:var(--af2-surface-order); border-left:0; }
+.lv2-detail .fact-top { gap:8px; flex-wrap:wrap; }
+.lv2-detail .fact-status-row { gap:10px; align-items:center; }
+.lv2-detail .status-badge { font-size:23px; line-height:32px; color:var(--af2-ink-order); }
+.lv2-detail .fact-no { color:var(--af2-muted); font-size:13px; }
+.lv2-detail .lv2-fact-money { margin-top:14px; padding:12px; border-radius:12px; background:var(--af2-surface-money); flex-wrap:wrap; gap:8px; }
+.lv2-detail .fact-amount { color:var(--af2-ink); font-size:28px; line-height:36px; }
+.lv2-detail .contact-card .info-row { gap:10px; padding:10px 0; }
+.lv2-detail .contact-card .info-text { flex:1; }
+.lv2-detail .contact-card > .af-action { margin:8px 0 0; }
+.lv2-detail .lv2-product-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--af2-line); }
+.lv2-sku-thumb { width:56px; height:56px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--af2-surface-neutral); border-radius:12px; overflow:hidden; }
+.lv2-sku-thumb image { width:100%; height:100%; }
+.lv2-sku-fallback { display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
+.lv2-product-copy { min-width:0; flex:1; }
+.lv2-detail .content-name { display:block; font-size:15px; line-height:22px; }
+.lv2-detail .content-spec { display:block; font-size:13px; line-height:20px; margin-top:4px; }
+.lv2-detail .content-qty { font-size:16px; line-height:24px; max-width:35%; white-space:normal; flex:none; }
+.lv2-detail .lv2-fact-physical { padding:12px; gap:10px; border-radius:12px; background:var(--af2-surface-physical); color:var(--af2-ink-physical); }
+.lv2-detail .lv2-fact-physical .info-label { flex:1; color:inherit; }
+.lv2-detail .lv2-fact-physical .info-value { color:inherit; }
+.lv2-detail .sheet { border-radius:20px 20px 0 0; box-sizing:border-box; max-height:82vh; padding:16px 20px calc(20px + env(safe-area-inset-bottom)); }
+.lv2-sheet-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.lv2-detail .sheet-title { font-size:18px; line-height:26px; margin:0; padding:0; }
+.lv2-detail .sheet-actions { max-height:62vh; }
+.lv2-detail .sheet-item { padding:12px 0; min-height:60px; border-bottom:1px solid var(--af2-line); }
+.lv2-detail .sheet-item-name { font-size:15px; line-height:22px; }
+.lv2-detail .sheet-item-desc { font-size:13px; line-height:20px; margin-top:4px; }
+@media(max-width:340px) { .lv2-sku-thumb { width:48px; height:48px; } .lv2-detail .lv2-product-row { gap:8px; } }
+.lv2-detail .fact-no, .lv2-detail .fact-amount, .lv2-detail .pay-amount { max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-all; }

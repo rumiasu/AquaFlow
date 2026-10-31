@@ -1,34 +1,36 @@
-<view class="login-page">
+<view class="login-page b2-page b2-d01 af2-page lv2-page lv2-login">
   <view class="logo-area">
-    <view class="logo-icon"></view>
-    <text class="title">员工登录</text>
-    <text class="subtitle">请使用微信登录</text>
+    <view class="lv2-login-mark"><image class="aiquan-login-mark" src="/assets/logo/aiquan-mark.png" mode="aspectFit" /></view>
+    <text class="title">艾泉工作台</text>
+    <text class="subtitle">AquaFlow · 员工登录</text>
+
   </view>
 
   <view class="btn-area">
     <!-- 微信一键登录：仅 wx.login 静默换 openid，不弹任何授权框 -->
-    <button class="btn-primary" bindtap="onWxLogin" loading="{{loading}}" disabled="{{loading}}">
+    <button bindtap="onWxLogin" loading="{{loading}}" disabled="{{loading}}" class="af-action af-action--primary af-action--block">
       <text wx:if="{{loading}}">登录中...</text>
-      <text wx:else>微信一键登录</text>
+      <text wx:else>微信登录</text>
     </button>
 
     <!-- 当前草稿如实告知未启用；仍不新增强制复选框或把登录视为全部隐私处理授权。 -->
     <view class="agreement">
       <text class="agreement-text">{{agreementNotice}}</text>
-      <text class="agreement-text agreement-strong" data-type="user" bindtap="onOpenAgreement">《用户协议》</text>
+      <text data-type="user" bindtap="onOpenAgreement" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">《用户协议》</text></text>
       <text class="agreement-text">和</text>
-      <text class="agreement-text agreement-strong" data-type="privacy" bindtap="onOpenAgreement">《隐私政策》</text>
+      <text data-type="privacy" bindtap="onOpenAgreement" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">《隐私政策》</text></text>
     </view>
 
-    <!-- [2026-09-20] 仅非正式版显示：直连 /api/auth/dev-login，该端点在 prod 下不存在。
-         开发版/体验版保留（真机联调微信登录不通时的唯一退路），判断见 index.js 的注释。 -->
-    <button class="btn-dev" bindtap="onDevLogin" disabled="{{loading}}" wx:if="{{showDevLogin}}">
-      开发者登录
-    </button>
+    <view class="test-login" wx:if="{{showTestLogin}}">
+      <text class="test-login-title">测试账号登录</text>
+      <input class="test-login-input" value="{{testAccount}}" placeholder="测试账号" maxlength="48" bindinput="onTestAccountInput" disabled="{{loading}}" />
+      <input class="test-login-input" value="{{testPassword}}" placeholder="密码" password="{{true}}" maxlength="72" bindinput="onTestPasswordInput" disabled="{{loading}}" />
+      <button class="af-action af-action--quiet af-action--block" bindtap="onTestLogin" loading="{{loading}}" disabled="{{loading}}">登录测试账号</button>
+    </view>
   </view>
 
   <view class="tips">
-    <text class="tip-text">已绑定员工可直接登录</text>
-    <text class="tip-text">未绑定请联系站长录入</text>
+    <text class="tip-text">首次登录后选择身份</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 // ⚠️ 直接用 utils/request，不引 api/station-mgmt.js 与 config/api.js：
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
 // 路径常量写在本文件里，理由同上。
@@ -10,6 +11,25 @@ const PRODUCTS_PATH = '/api/products/sale-by-station'
 const ORDER_CREATE_PATH = '/api/orders/create'
 // 来源：1电话 / 2微信 / 3小程序。站长代录属于"电话叫水"这一类，固定 1。
 const SOURCE_PHONE = 1
+function ownerKey() {
+  const app = getApp(), u = app.globalData.userInfo || {}
+  return JSON.stringify([app._loginGeneration || 0, u.staffId || u.id, u.role, u.stationId])
+}
+function referencePrice(price) {
+  const validType = typeof price === 'number' || typeof price === 'string'
+  return validType && String(price).trim() !== '' && Number.isFinite(Number(price)) ? '参考价 ¥' + price : '参考价待核实'
+}
+function productOptionsOf(products) {
+  return products.map(p => {
+    const price = p.salePrice != null ? p.salePrice : p.price
+    return { id: p.id, name: p.name, spec: p.spec, priceText: referencePrice(price), image: p.imageUrl,
+      disabled: !Number.isSafeInteger(Number(p.id)) || Number(p.id) <= 0 }
+  })
+}
+function selectedProduct(products, id) {
+  if (id === '' || id === null || id === undefined) return null
+  return products.find(p => String(p.id) === String(id)) || null
+}
 
 /**
  * 代客下单（站长）：电话/口头订单当场录进系统。规格见 docs/design/20 §5。
@@ -45,6 +65,7 @@ Page({
     addressId: null,
     addressText: '',
     products: [],
+    productOptions: [], selectedProductId: '', activeProduct: null,
     cartLines: [],
     totalQty: 0,
     methods: [],
@@ -75,12 +96,23 @@ Page({
       app.routeByRole(true)
       return
     }
-    const stationId = (app.globalData.userInfo || {}).stationId
+    const user = app.globalData.userInfo || {}, stationId = user.stationId
+    const owner = ownerKey()
     if (!stationId) {
       this.setData({ loading: false, stationError: '所属水站尚未核实，请返回客户列表后重新进入' })
       wx.showToast({ title: '未识别到所属水站', icon: 'none' })
       return
     }
+    if (this._pageOwner && owner !== this._pageOwner && this._originalOrderRequest) {
+      this._quoteSeq = (this._quoteSeq || 0) + 1
+      this.setData({ stationError: '办理身份已变化，请返回原身份核对原下单请求。', unknownOrder: true })
+      return
+    }
+    if (this._pageOwner && owner !== this._pageOwner) {
+      this._quoteSeq = (this._quoteSeq || 0) + 1
+      this.setData({ step: 1, customer: null, addresses: [], addressId: null, addressText: '', products: [], productOptions: [], selectedProductId: '', activeProduct: null, cartLines: [], totalQty: 0, quote: null, methods: [], selectedMethod: null, presetApplied: true })
+    }
+    this._pageOwner = owner
     this.setData({ stationId, stationError: '' })
     this.loadCustomers()
     this.loadProducts()
@@ -112,17 +144,31 @@ Page({
 
   async loadProducts() {
     const seq = this._productsSeq = (this._productsSeq || 0) + 1
+    const owner = ownerKey(), current = () => seq === this._productsSeq && owner === ownerKey()
     this.setData({ productsLoading: true, productError: '' })
     try {
       const res = await get(PRODUCTS_PATH + '?stationId=' + this.data.stationId)
-      if (seq !== this._productsSeq) return
+      if (!current()) return
       if (!Array.isArray(res.data)) throw new Error('商品资料尚未读取')
-      this.setData({ products: res.data })
+      const products = res.data.map(p => ({ ...p, selectedQty: (this.data.cartLines.find(l => String(l.productId) === String(p.id)) || {}).quantity || 0 }))
+      const first = products.find(p => Number.isSafeInteger(Number(p.id)) && Number(p.id) > 0)
+      const previous = selectedProduct(products, this.data.selectedProductId)
+      const active = previous && Number.isSafeInteger(Number(previous.id)) && Number(previous.id) > 0 ? previous : (first || null)
+      this.setData({ products, productOptions: productOptionsOf(products), selectedProductId: active ? active.id : '', activeProduct: active })
     } catch (err) {
-      if (seq !== this._productsSeq) return
+      if (!current()) return
       this.setData({ productError: '商品列表尚未读取，请重试后选择商品' })
       wx.showToast({ title: err.message || '商品加载失败', icon: 'none' })
-    } finally { if (seq === this._productsSeq) this.setData({ productsLoading: false }) }
+    } finally { if (current()) this.setData({ productsLoading: false }) }
+  },
+
+  onSelectProduct(e) {
+    if (this.data.submitting || this.data.unknownOrder || this.data.stationError || this.data.productError || this.data.productsLoading
+      || (this._pageOwner && this._pageOwner !== ownerKey())) return
+    const id = e.detail && e.detail.id
+    const product = selectedProduct(this.data.products, id)
+    if (!product || !Number.isSafeInteger(Number(product.id)) || Number(product.id) <= 0) return
+    this.setData({ selectedProductId: product.id, activeProduct: product })
   },
 
   onKeyword(e) {
@@ -134,6 +180,7 @@ Page({
   },
 
   async onPickCustomer(e) {
+    if (this.data.submitting || this.data.unknownOrder) return
     const id = Number(e.currentTarget.dataset.id)
     const customer = this.data.customers.find(c => c.id === id)
     if (!customer) return
@@ -160,6 +207,8 @@ Page({
 
   /** 选定客户后的公共流程（列表点选与「带客户进来」共用，别再写第二份）。 */
   async pickCustomer(customer) {
+    this._quoteSeq = (this._quoteSeq || 0) + 1
+    const changedCustomer = this.data.customer && String(this.data.customer.id) !== String(customer.id)
     const seq = this._addressesSeq = (this._addressesSeq || 0) + 1
     // 换客户要清空下游选择：地址与报价都是"跟着客户走"的
     this.setData({
@@ -170,7 +219,8 @@ Page({
       addressText: '',
       quote: null,
       methods: [],
-      selectedMethod: null
+      selectedMethod: null, quoting: false,
+      ...(changedCustomer ? { cartLines: [], totalQty: 0, products: this.data.products.map(p => ({ ...p, selectedQty: 0 })), activeProduct: this.data.activeProduct ? { ...this.data.activeProduct, selectedQty: 0 } : null } : {})
     })
     try {
       const res = await get(ASSIST + '/customers/' + customer.id + '/addresses')
@@ -189,30 +239,49 @@ Page({
   },
 
   onPickAddress(e) {
+    if (this.data.submitting || this.data.unknownOrder) return
     const id = Number(e.currentTarget.dataset.id)
     const addr = this.data.addresses.find(a => a.id === id)
     // 摘要里要显示"送到哪"：wxml 里不做字符串拼接，统一在这里拼好
     const addressText = addr
       ? ((addr.name || '') + ' ' + (addr.phone || '') + ' ' + (addr.detail || '')).trim()
       : ''
-    this.setData({ addressId: id, addressText, step: 3, quote: null })
+    this._quoteSeq = (this._quoteSeq || 0) + 1
+    this.setData({ addressId: id, addressText, step: 3, quote: null, quoting: false })
   },
 
   onBackStep() {
+    if (this.data.submitting || this.data.unknownOrder) return
+    this._quoteSeq = (this._quoteSeq || 0) + 1
     const step = Math.max(1, this.data.step - 1)
-    this.setData({ step, quote: null })
+    this.setData({ step, quote: null, quoting: false })
+  },
+
+  onChangeCustomer() {
+    if (this.data.submitting || this.data.unknownOrder) return
+    this._quoteSeq = (this._quoteSeq || 0) + 1
+    this.setData({ step: 1, quote: null, quoting: false })
+  },
+
+  onChangeAddress() {
+    if (this.data.submitting || this.data.unknownOrder) return
+    this._quoteSeq = (this._quoteSeq || 0) + 1
+    this.setData({ step: 2, quote: null, quoting: false })
   },
 
   /** 购物车加减。数量 0 即从车里移除（不留 0 行，避免提交空明细）。 */
   onQty(e) {
+    if (this.data.submitting || this.data.unknownOrder || this.data.stationError || this.data.productError || this.data.productsLoading
+      || (this._pageOwner && this._pageOwner !== ownerKey())) return
     const id = Number(e.currentTarget.dataset.id)
     const delta = Number(e.currentTarget.dataset.delta)
+    if (!Number.isSafeInteger(id) || id <= 0 || ![-1, 1].includes(delta)) return
     this.mutateCart(id, delta)
   },
 
   mutateCart(productId, delta) {
     const products = this.data.products
-    const p = products.find(x => x.id === productId)
+    const p = products.find(x => String(x.id) === String(productId))
     if (!p) return
     const line = this.data.cartLines.find(l => l.productId === productId)
     const current = line ? line.quantity : 0
@@ -228,13 +297,17 @@ Page({
         quantity: next
       })
     }
+    cartLines = cartLines.map(line => ({ ...line, priceText: referencePrice(line.price) }))
     const totalQty = cartLines.reduce((s, l) => s + l.quantity, 0)
     // 数量一变，之前的报价就失效了 —— 宁可让站长重新试算，也不要展示过期金额
-    this.setData({ cartLines, totalQty, quote: null })
+    this._quoteSeq = (this._quoteSeq || 0) + 1
+    const updated = products.map(item => ({ ...item, selectedQty: (cartLines.find(line => String(line.productId) === String(item.id)) || {}).quantity || 0 }))
+    this.setData({ cartLines, totalQty, quote: null, quoting: false, products: updated, activeProduct: selectedProduct(updated, this.data.selectedProductId) })
   },
 
   /** 服务端试算：金额、配送费/楼层费、门槛提示、以及**由服务端下发的支付方式选项**。 */
   async onQuote() {
+    if (this.data.submitting || this.data.unknownOrder) return
     const { customer, addressId, cartLines, selectedMethod } = this.data
     if (!customer) {
       wx.showToast({ title: '请先选择客户', icon: 'none' })
@@ -249,6 +322,7 @@ Page({
       return
     }
 
+    const seq = this._quoteSeq = (this._quoteSeq || 0) + 1
     this.setData({ quoting: true, quote: null, barrelPurchaseConfirmed: false })
     try {
       const body = {
@@ -260,6 +334,7 @@ Page({
         items: cartLines.map(l => ({ productId: l.productId, quantity: l.quantity }))
       }
       const res = await post(ASSIST + '/quote?customerId=' + customer.id, body)
+      if (seq !== this._quoteSeq) return
       const d = res.data || {}
       if (d.independentRights === true && (!Array.isArray(d.barrelPurchases)
         || d.barrelPurchases.some(l => !l || !Number.isInteger(l.productId) || !Number.isInteger(l.quantity) || l.quantity < 1
@@ -275,14 +350,15 @@ Page({
       const nextMethod = stillOk ? this.data.selectedMethod : (d.defaultMethod || (methods[0] && methods[0].id))
       this.setData({ quote: d, methods, selectedMethod: nextMethod })
     } catch (err) {
-      wx.showToast({ title: err.message || '试算失败', icon: 'none' })
+      if (seq === this._quoteSeq) wx.showToast({ title: err.message || '试算失败', icon: 'none' })
     } finally {
-      this.setData({ quoting: false })
+      if (seq === this._quoteSeq) this.setData({ quoting: false })
     }
   },
 
   /** 换支付方式要重新试算：水票/现金的押金与可用性口径不同，金额可能变。 */
   onPickMethod(e) {
+    if (this.data.submitting || this.data.unknownOrder) return
     const id = Number(e.currentTarget.dataset.id)
     const m = this.data.methods.find(x => x.id === id)
     if (!m || m.enabled === false) return
@@ -299,12 +375,12 @@ Page({
     if (quote.blocked) {
       // 后端把"起送量/配送范围"配成不接单时会下发 blocked + 原因，这里直接展示，
       // 不要让站长提交后才看到一个失败
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '本单不能下', content: quote.blockReason || '不满足本站配送条件', showCancel: false })
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '本单不能下', content: quote.blockReason || '不满足本站配送条件', showCancel: false })
       return
     }
     if ((quote.barrelPurchases || []).length && !this.data.barrelPurchaseConfirmed) {
       const busy = quote.barrelPurchases.some(l => Number(l.busyRights) > 0)
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '客户确认本次新增押金',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '客户确认本次新增押金',
         content: quote.barrelPurchases.map(l => (l.productName || '桶装水') + '：新增 ' + l.quantity + ' 份押金 ¥' + l.amount).join('；')
           + '。请向客户确认与水款一起支付，收齐款项后生效。' + (busy ? '客户也可等待已有容量释放。' : '也可单独办理押金。'),
         confirmText: '已确认', cancelText: busy ? '等待释放' : '返回修改',
@@ -319,6 +395,7 @@ Page({
 
   async doCreate(confirmShortage) {
     if (this.data.submitting) return
+    if (this._pageOwner && ownerKey() !== this._pageOwner) return
     const { customer, addressId, cartLines, selectedMethod, stationId } = this.data
     // 幂等键在"一次提交动作"内保持稳定：缺货确认后重提必须复用同一个键，
     // 否则"第一次其实建成功了、只是响应丢了"会变成两单。
@@ -351,6 +428,7 @@ Page({
       if (confirmShortage) body.confirmShortage = true
 
       const res = await post(ORDER_CREATE_PATH, body)
+      if (this._pageOwner && ownerKey() !== this._pageOwner) { this.setData({ unknownOrder: true }); return }
       const d = res.data || {}
 
       if (d.needConfirm) {
@@ -358,7 +436,7 @@ Page({
           .map(s => (s.productName || ('商品' + s.productId)) + ' 需 ' + s.requested + '，库存 ' + s.stock)
           .join('\n')
         const that = this
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '库存不足',
           content: (lines || '存在缺货商品') + '\n\n仍要下单吗？缺货部分后续补送。',
           confirmText: '仍然下单',
@@ -371,12 +449,12 @@ Page({
 
       if (!Number.isInteger(d.orderId) || d.orderId <= 0) {
         this.setData({ unknownOrder: true })
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '下单结果待核实', content: '未收到有效订单号，请重试原请求核实，避免重复下单。', showCancel: false })
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '下单结果待核实', content: '未收到有效订单号，请重试原请求核实，避免重复下单。', showCancel: false })
         return
       }
       const warnings = Array.isArray(d.warnings) ? d.warnings : []
       this.setData({ unknownOrder: false })
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '查看订单',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '查看订单',
         title: '下单成功',
         content: '订单号 ' + d.orderId + (warnings.length ? '\n\n' + warnings.join('\n') : ''),
         showCancel: false,
@@ -385,6 +463,7 @@ Page({
         }
       })
     } catch (err) {
+      if (this._pageOwner && ownerKey() !== this._pageOwner) { this.setData({ unknownOrder: !!this._originalOrderRequest }); return }
       if (err && err.businessRejected) this._originalOrderRequest = null
       this.setData({ unknownOrder: !!this._originalOrderRequest })
       wx.showToast({ title: err.message || '下单失败', icon: 'none' })

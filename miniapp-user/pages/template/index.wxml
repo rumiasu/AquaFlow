@@ -8,11 +8,12 @@
       console 一下就完了：列表显示「还没有常用订单」、弹窗里商品与地址一片空白，与"确实没有"
       无法区分（AGENTS §8.22）。样式复用 styles/common.wxss 的 .load-error。
     -->
-    <view class="load-error" wx:if="{{loadError}}">{{loadError}}<button wx:if="{{!needLogin}}" bindtap="onRetry">重新加载配置</button></view>
-    <button class="add-btn" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}<button class="af-action af-action--quiet" wx:if="{{!needLogin}}" bindtap="onRetry"><text class="af-action__face">重新加载配置</text></button></view>
+    <button class="af-action af-action--secondary" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
 
+    <view class="draft-bar" wx:if="{{formDirty && !showEditModal}}"><text>有未保存的配置</text><button class="af-action af-action--quiet" bindtap="onResumeDraft"><text class="af-action__face">继续编辑</text></button><button class="af-action af-action--quiet" bindtap="onDiscardDraft"><text class="af-action__face">放弃</text></button></view>
     <view class="info-bar">
-      <text class="info-text">保存常用商品、数量与地址，保存配置不会创建订单。首页「照上次订」使用最近一笔已送达订单。</text>
+      <text class="info-text">保存商品、数量和地址，不会下单。首页「照上次订」使用最近送达的订单。</text>
     </view>
 
     <view class="section" wx:if="{{templates.length > 0}}">
@@ -23,14 +24,15 @@
               <text class="template-name">{{item.name || '常用订单'}}</text>
               <text class="template-default" wx:if="{{item.isDefault === 1}}">默认</text>
             </view>
-            <view class="template-right">
-              <view class="toggle-btn {{item.enabled === 1 ? 'on' : ''}}" bindtap="onToggleTemplate" data-id="{{item.id}}" data-enabled="{{item.enabled}}">
+            <view class="template-right" bindtap="onToggleTemplate" data-id="{{item.id}}" data-enabled="{{item.enabled}}">
+              <text class="toggle-label">{{item.enabled === 1 ? '已启用' : '已停用'}}</text><view class="toggle-btn {{item.enabled === 1 ? 'on' : ''}}">
                 <view class="toggle-dot"></view>
               </view>
             </view>
           </view>
           <view class="template-items" wx:if="{{item.items && item.items.length > 0}}">
             <view class="template-item-row" wx:for="{{item.items}}" wx:for-item="itm" wx:key="id">
+              <icon name="products" size="20px" color="#244F82" variant="duotone" />
               <text class="item-name">{{itm.productName || itm.waterTypeName}}</text>
               <text class="item-qty">×{{itm.quantity}} 件</text>
             </view>
@@ -39,16 +41,16 @@
             <text>备注：{{item.specialNote}}</text>
           </view>
           <view class="template-actions">
-            <text class="action-edit" bindtap="onEditTemplate" data-template="{{item}}">编辑</text>
-            <text class="action-delete" bindtap="onDeleteTemplate" data-id="{{item.id}}">删除</text>
+            <view class="af-action af-action--quiet" bindtap="onEditTemplate" data-template="{{item}}"><text class="af-action__face">编辑</text></view>
+            <view class="af-action af-action--danger-quiet" bindtap="onDeleteTemplate" data-id="{{item.id}}">删除</view>
           </view>
         </view>
       </view>
     </view>
 
-    <view class="local-empty" wx:elif="{{loaded && !loadError}}"><text>还没有常用订水配置</text></view>
+    <view class="local-empty" wx:elif="{{loaded && !loadError}}"><view class="empty-template-art"><image wx:if="{{!emptyTemplateImageFailed}}" src="{{sceneImageUrl}}" data-src="{{sceneImageUrl}}" mode="aspectFit" binderror="onEmptyTemplateImageError" /><icon wx:else name="barrel" size="36px" color="#244F82" /></view><text>还没有常用订水配置</text></view>
 
-    <view class="add-btn" wx:if="{{!needLogin && !accessDenied}}" bindtap="onAddTemplate">
+    <view class="template-add af-action af-action--secondary" wx:if="{{!needLogin && !accessDenied}}" bindtap="onAddTemplate">
       <text>+ 新建常用订单</text>
     </view>
   </block>
@@ -62,6 +64,7 @@
     </view>
 
     <view class="modal-body">
+      <view class="form-draft" wx:if="{{storedDraft || draftNotice}}"><text>{{draftNotice}}</text><button class="af-action af-action--quiet" wx:if="{{storedDraft}}" bindtap="onRestoreStoredDraft"><text class="af-action__face">恢复上次输入</text></button><button class="af-action af-action--quiet" wx:if="{{storedDraft}}" bindtap="onDiscardStoredDraft"><text class="af-action__face">放弃上次输入</text></button><button class="af-action af-action--quiet" wx:else bindtap="onRetryFormDraft"><text class="af-action__face">重试读取</text></button></view>
       <view class="form-section">
         <text class="form-label">订单名称</text>
         <input class="form-input" placeholder="如：每周一桶" value="{{form.name}}" bindinput="onNameInput" disabled="{{submitting}}" />
@@ -75,36 +78,18 @@
         <!-- [2026-09-20] 商品没拉到时要说明白：否则这里是**一片空白**，用户点"+"也选不出东西，
              最后被"请选择至少一种商品"拦住，看起来像界面坏了。 -->
         <text class="form-status" wx:if="{{formLoading}}">正在读取商品与地址…</text>
-        <view class="load-error" wx:if="{{formLoadError}}">{{formLoadError}}<button bindtap="loadFormData" disabled="{{formLoading}}">重试读取商品与地址</button></view>
+        <view class="load-error" wx:if="{{formLoadError}}">{{formLoadError}}<button class="af-action af-action--quiet" bindtap="loadFormData" disabled="{{formLoading}}"><text class="af-action__face">重试读取商品与地址</text></button></view>
         <text class="form-status" wx:if="{{formReady && !products.length}}">本站暂无可选择的商品。</text>
         <view class="item-list">
           <view class="item-row" wx:for="{{form.items}}" wx:for-item="row" wx:for-index="rowIndex" wx:key="rowKey">
             <view class="item-select">
-              <view class="form-options compact">
-                <view
-                  class="form-option mini {{row.productId === p.id ? 'active' : ''}}"
-                  wx:for="{{products}}"
-                  wx:for-item="p"
-                  wx:for-index="productIndex"
-                  wx:key="id"
-                  bindtap="onSelectProduct"
-                  data-index="{{rowIndex}}"
-                  data-row-key="{{row.rowKey}}"
-                  data-id="{{p.id}}"
-                >
-                  <text>{{p.name}}</text>
-                </view>
-              </view>
+              <view class="product-toggle" bindtap="onOpenProduct" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}">{{row.productName || (row.productId ? '商品 #' + row.productId : '选择商品')}}　{{selectingRowKey === row.rowKey ? '⌃' : '⌄'}}</view>
+              <block wx:if="{{selectingRowKey === row.rowKey}}">
+                <scroll-view wx:if="{{selectorProducts.length > 3}}" scroll-y class="product-selector-scroll"><product-selector items="{{selectorProducts}}" selected-id="{{row.productId}}" disabled="{{submitting || !formReady}}" bind:change="onSelectProduct" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" /></scroll-view>
+                <view wx:else class="product-selector-inline"><product-selector items="{{selectorProducts}}" selected-id="{{row.productId}}" disabled="{{submitting || !formReady}}" bind:change="onSelectProduct" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" /></view>
+              </block>
             </view>
-            <view class="item-qty">
-              <view class="qty-btn {{row.quantity <= 1 ? 'disabled' : ''}}" bindtap="onQuantityChange" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" data-type="minus">
-                <text>-</text>
-              </view>
-              <input class="qty-input" type="number" value="{{row.quantity}}" bindinput="onQuantityInput" disabled="{{submitting}}" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" />
-              <view class="qty-btn" bindtap="onQuantityChange" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" data-type="add">
-                <text>+</text>
-              </view>
-            </view>
+            <integer-stepper value="{{row.quantity}}" min="{{1}}" max="{{9007199254740991}}" disabled="{{submitting}}" label="数量" bind:change="onQuantityInput" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" />
             <text class="item-remove" bindtap="onRemoveItem" data-index="{{rowIndex}}" data-row-key="{{row.rowKey}}" wx:if="{{form.items.length > 1}}">×</text>
           </view>
         </view>
@@ -135,13 +120,14 @@
     </view>
 
     <view class="modal-footer">
-      <view class="modal-btn cancel" bindtap="onCloseEditModal">
+      <view class="af-action af-action--cancel af-action--form" bindtap="onCloseEditModal">
         <text>取消</text>
       </view>
-      <view class="modal-btn confirm" bindtap="onSaveTemplate">
+      <view class="af-action af-action--primary af-action--form af-action--grow" bindtap="onSaveTemplate">
         <text>{{submitting ? '保存中…' : '保存配置'}}</text>
       </view>
     </view>
   </view>
   </page-container>
 </view>
+<business-dialog id="business-dialog" />

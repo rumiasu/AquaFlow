@@ -1,10 +1,10 @@
 <!-- 站长端「应收账款」台账。规格见 docs/design/20 §1 / §1.5。
      单笔金额、逾期天数与核销结果由服务端下发；所选合计按整数分相加用于登记前核对。 -->
-<view class="page">
+<view class="page af2-page finance-page receivables-page {{customer ? 'has-settlement' : ''}}">
 
   <!-- 总览 -->
-  <view class="receivable-overview" wx:if="{{overview}}">
-    <view class="receivable-overview-main"><scroll-view scroll-x class="receivable-amount-scroll"><text class="receivable-amount">¥{{overview.outstandingAmount}}</text></scroll-view><text class="receivable-label">待收款合计</text><text class="receivable-label" wx:if="{{('' + overview.outstandingAmount).length > 11}}">长金额可左右滑动查看</text></view>
+  <view class="receivable-overview af2-tone-panel af2-tone-money" wx:if="{{overview}}"><view class="finance-section-head"><icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="card-title">应收账款</text></view>
+    <view class="receivable-overview-main"><text class="receivable-amount">¥{{overview.outstandingAmount}}</text><text class="receivable-label">待收款合计</text></view>
     <view class="receivable-overview-details">
       <view class="receivable-metric"><text class="receivable-aux {{overview.overdueAmount > 0 ? 'hero-danger' : ''}}">¥{{overview.overdueAmount}}</text><text class="receivable-label">其中已逾期</text></view>
       <view class="receivable-metric"><text class="receivable-aux">{{overview.customerCount}}</text><text class="receivable-label">欠款客户</text><text class="receivable-label" wx:if="{{overview.overdueCustomerCount > 0}}">{{overview.overdueCustomerCount}} 家逾期</text></view>
@@ -20,7 +20,7 @@
     ⚠️ 后端仍在下发 scopeNote，本页不再直接铺在页面上 —— 口径的**数值**判据一个字没改。
   -->
   <view class="hint" wx:if="{{overview}}">
-    <text>这里只算客户还没付的订单款；逾期只是提醒，不额外加钱。</text>
+    <text>未付订单款；逾期不加收费用。</text>
     <help-tip title="这一页的口径" text="{{overview.scopeNote}}" />
   </view>
   <view class="load-error" wx:if="{{loadError}}">
@@ -36,12 +36,8 @@
     两个按钮互斥、随时可切回全部 —— 报告明确要求"保留未逾期应收的查询能力"。
   -->
   <view class="filter-bar" wx:if="{{overview}}">
-    <view class="filter-item {{onlyOverdue ? '' : 'active'}}" bindtap="onFilterAll">
-      <text>全部待收</text>
-    </view>
-    <view class="filter-item {{onlyOverdue ? 'active' : ''}}" bindtap="onFilterOverdue">
-      <text>只看逾期</text>
-    </view>
+    <view class="af-choice {{!onlyOverdue ? 'af-choice--selected' : ''}}" bindtap="onFilterAll"><text class="af-choice__face">全部待收</text></view>
+    <view class="af-choice {{onlyOverdue ? 'af-choice--selected' : ''}}" bindtap="onFilterOverdue"><text class="af-choice__face">只看逾期</text></view>
   </view>
 
   <!-- 客户列表 -->
@@ -50,11 +46,12 @@
     <!-- 空态分三种：逾期筛选下没结果 / 本站真的没有待收 / 列表为空。
          [2026-09-27 走查 M05] 逾期视图的空态必须给出回「全部待收」的路，否则站长会以为本站账全清了。 -->
     <view class="empty" wx:elif="{{!loadError && !customers.length && onlyOverdue}}">
-      当前没有逾期的欠款客户；点上面的「全部待收」可以看还没到期的那部分。
+      暂无逾期客户；全部待收仍可查询。
     </view>
-    <view class="empty" wx:elif="{{!loadError && !customers.length}}">本站当前没有待收款。</view>
-    <view class="card" wx:for="{{loadError ? [] : customers}}" wx:key="customerId"
+    <view class="empty finance-empty" wx:elif="{{!loadError && !customers.length}}"><icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text>当前没有待收款</text></view>
+    <view class="card receivable-customer" wx:for="{{loadError ? [] : customers}}" wx:key="customerId"
           bindtap="onPickCustomer" data-id="{{item.customerId}}">
+      <view class="receivable-customer-body">
       <view class="row-between">
         <text class="row-title">{{item.customerName}}</text>
         <text class="row-amount">¥{{item.outstandingAmount}}</text>
@@ -67,6 +64,7 @@
       <view class="overdue-tag" wx:if="{{item.overdueAmount > 0}}">
         逾期 ¥{{item.overdueAmount}}（{{item.overdueOrderCount}} 单，最长 {{item.maxOverdueDays}} 天）
       </view>
+      </view><text class="receivable-customer-arrow">›</text>
     </view>
   </block>
 
@@ -81,9 +79,9 @@
         账期：{{customer.dueDays ? customer.dueDays + ' 天（月结）' : '未设账期（即时结清）'}}
       </view>
       <view class="btn-row">
-        <view class="btn-ghost" bindtap="onEditTerms">设置账期</view>
-        <view class="btn-ghost" bindtap="onShowTermsHelp">账期说明</view>
-        <view class="btn-ghost" bindtap="onBack">返回列表</view>
+        <view class="af-action af-action--quiet" bindtap="onEditTerms"><text class="af-action__face">设置账期</text></view>
+        <view class="af-action af-action--quiet" bindtap="onShowTermsHelp"><text class="af-action__face">账期说明</text></view>
+        <view class="af-action af-action--quiet" bindtap="onBack"><text class="af-action__face">返回列表</text></view>
       </view>
     </view>
 
@@ -101,7 +99,7 @@
       <view class="empty" wx:elif="{{!orders.length}}">没有待收订单。</view>
       <view class="row" wx:for="{{ordersError || loadError ? [] : orders}}" wx:key="orderId"
             bindtap="onToggleOrder" data-id="{{item.orderId}}">
-        <view class="check {{item.checked ? 'check-on' : ''}}"></view>
+        <view class="check {{item.checked ? 'check-on' : ''}}"><text wx:if="{{item.checked}}">✓</text></view>
         <view class="row-main">
           <text class="row-title">订单 #{{item.orderId}} · {{item.amountText}}</text>
           <text class="row-sub">
@@ -114,10 +112,11 @@
       </view>
     </view>
 
-    <view class="card">
-      <view class="settlement-caution">已选 {{selectedCount}} 单 · 所选合计 {{selectedAmountText || '待核实'}} · 请先核实这几笔钱已实际收到</view>
-      <view class="btn-primary {{settling || loadError || ordersError || !selectedCount ? 'btn-disabled' : ''}}" bindtap="onSettle">
-        {{settling ? '登记中…' : '登记已收款（收款 + 销账）'}}
+    <view class="card settlement-bar">
+      <view class="settlement-receipt" wx:if="{{settlementReceipt}}">{{settlementReceipt}}</view>
+      <view class="settlement-total"><text>已选 {{selectedCount}} 单</text><view><text class="settlement-label">所选合计 </text><text class="settlement-amount">{{selectedAmountText || '待核实'}}</text></view></view><view class="settlement-caution">核实所选款项已实际收到后登记。</view>
+      <view class="af-action af-action--primary af-action--block {{settling || loadError || ordersError || !selectedCount ? 'btn-disabled is-disabled' : ''}}" bindtap="onSettle">
+        {{settling ? '登记中…' : '登记已收款'}}
       </view>
       <view class="hint">
         <!--
@@ -127,8 +126,7 @@
           报告的原话是"收钱动作写『登记已收款』，解释里保留核销含义"。
           ⚠️ 只改文案：请求体、幂等口径、整批回滚的语义一个字没动。
         -->
-        已选 {{selectedCount}} 单。登记就是核销：一次性把"钱已收到"记好并销掉这几笔账，
-        要么全成功、要么全不动；失败会告诉你卡在哪一单，不会出现"只销了一半"。
+        仅登记实际收到的钱并销账，不会向客户扣款。
       </view>
     </view>
   </block>
@@ -136,7 +134,7 @@
   <!-- 账期编辑（站级，v60：同一客户在别的站可以是另一个账期） -->
   <view class="mask" wx:if="{{termsVisible}}" bindtap="onCloseTerms"></view>
   <view class="dialog" wx:if="{{termsVisible}}">
-    <text class="dialog-title">设置 {{customer.customerName}} 的账期</text>
+    <view class="dialog-head"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="dialog-title">{{customer.customerName}} 的账期</text><button class="af-action af-action--quiet dialog-close" bindtap="onCloseTerms" aria-label="关闭账期编辑">×</button></view>
 
     <!--
       验资（v60）：等级 / 可赊额度 / 已用 / 逾期 —— **全部是服务端算好的**（GET /customers/{id}/risk），
@@ -159,15 +157,15 @@
       <view class="risk-note">{{risk.reason}}</view>
     </view>
 
+    <text class="label">账期（天）</text>
     <input class="dialog-input" type="number" placeholder="留空 = 未设账期（即时结清）"
            value="{{termsInput}}" bindinput="onTermsInput" />
     <view class="hint">
-      单位：天。只影响之后下的单 —— 下单时会按它算出应付日期并快照进订单，
-      改账期不会改动历史订单的到期日。
+      新账期只用于之后的订单；历史到期日不变。
     </view>
     <view class="btn-row">
-      <view class="btn-ghost" bindtap="onCloseTerms">取消</view>
-      <view class="btn-primary btn-inline {{termsSaving ? 'btn-disabled' : ''}}" bindtap="onSaveTerms">
+      <view class="af-action af-action--cancel af-action--form" bindtap="onCloseTerms">取消</view>
+      <view class="af-action af-action--primary af-action--grow {{termsSaving ? 'btn-disabled is-disabled' : ''}}" bindtap="onSaveTerms">
         {{termsSaving ? '保存中…' : '保存'}}
       </view>
     </view>
@@ -175,9 +173,11 @@
       重算未结账单：正因为"改账期不会改动历史订单"，才必须有这个显式动作。
       没有它，站长改完账期只会看到"老单没变"，然后以为系统坏了。
     -->
-    <view class="btn-ghost btn-recalc {{recalcBusy ? 'btn-disabled' : ''}}" bindtap="onRecalcTerms">
+    <view class="recalc-note">历史未结账单</view>
+    <view class="af-action af-action--danger-quiet {{recalcBusy ? 'btn-disabled is-disabled' : ''}}" bindtap="onRecalcTerms">
       {{recalcBusy ? '重算中…' : '把未结账单也改成新账期'}}
     </view>
   </view>
 
 </view>
+<business-dialog id="business-dialog" />

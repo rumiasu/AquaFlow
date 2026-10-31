@@ -30,8 +30,9 @@ for (const root of ['miniapp-user', 'miniapp-delivery']) {
   test(root + ': hide/show does not leave a finished in-flight request locked', async () => {
     let resolve; const t = setup(root, { submit: () => new Promise(r => { resolve = r }) }); t.page.onShow(); await tick(); select(t)
     const request = t.page.onSubmit(); t.page.onHide(); t.page.onShow(); await tick(); assert.equal(t.page.data.submitting, true)
-    resolve({ data: { id: 11 } }); await request; assert.equal(t.page.data.submitting, false); assert.equal(t.page.data.pending, true)
-    assert.equal(t.page.data.detail, null) // Outcome from an earlier visible page is recovered by an explicit retry.
+    resolve({ data: { id: 11 } }); await request; assert.equal(t.page.data.submitting, false)
+    if (root === 'miniapp-delivery') { assert.equal(t.page.data.pending, false); assert.equal(t.page.data.detail.request.id, 11) }
+    else { assert.equal(t.page.data.pending, true); assert.equal(t.page.data.detail, null) } // Customer behavior remains unchanged.
   })
   test(root + ': account switch cannot reveal late details or reuse another actor request', async () => {
     let resolve; const t = setup(root, { submit: () => new Promise(r => { resolve = r }) }); t.page.onShow(); await tick(); select(t)

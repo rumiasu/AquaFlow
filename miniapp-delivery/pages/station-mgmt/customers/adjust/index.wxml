@@ -8,23 +8,24 @@
     <view class="topbar">
       <view class="topbar-info">
         <text class="topbar-title">资产调整单</text>
-        <text class="topbar-sub" wx:if="{{customerId}}">仅显示客户 #{{customerId}} 的单据 · 共 {{total}} 张</text>
-        <text class="topbar-sub" wx:else>本站全部调整单 · 共 {{total}} 张</text>
+        <text class="topbar-sub" wx:if="{{customerId}}">仅显示客户 #{{customerId}} 的单据 · 共 {{total === null ? '—' : total}} 张</text>
+        <text class="topbar-sub" wx:else>本站全部调整单 · 共 {{total === null ? '—' : total}} 张</text>
       </view>
-      <view class="btn-new" bindtap="onCreate"><text>新建调整</text></view>
+      <view class="af-entry b3-on-create" bindtap="onCreate"><view class="af-entry__body"><text>新建调整</text></view><text class="af-entry__arrow" aria-hidden="true">›</text></view>
     </view>
 
     <include src="../../../../utils/adjustment-customer.wxml" />
 
     <view class="record-card" wx:for="{{list}}" wx:key="id">
-      <view class="card-head" bindtap="onDetail" data-id="{{item.id}}">
+      <view class="card-head af-entry" bindtap="onDetail" data-id="{{item.id}}">
         <view class="card-head-left">
+          <text class="adjust-type">{{item.customerName || '客户 #' + item.customerId}} · {{item.adjustTypeText}}</text>
           <text class="adjust-no">{{item.adjustNo}}</text>
-          <text class="adjust-type">{{item.adjustTypeText}}</text>
         </view>
         <text class="status {{item.statusClass}}">{{item.statusText}}</text>
       </view>
 
+      <view class="info-row" wx:if="{{!item.hasQty && !item.hasAmount}}"><text class="label">调整量</text><text class="value">待核实</text></view>
       <view class="info-row" wx:if="{{item.hasQty}}">
         <text class="label">数量</text>
         <text class="value strong">{{item.qtyText}}</text>
@@ -43,8 +44,8 @@
       </view>
 
       <view class="card-actions">
-        <view class="btn-ghost" bindtap="onDetail" data-id="{{item.id}}"><text>查看详情</text></view>
-        <view class="btn-exec" wx:if="{{item.isPending}}" bindtap="onExecute" data-id="{{item.id}}"><text>执行</text></view>
+        <view class="btn-ghost af-entry" bindtap="onDetail" data-id="{{item.id}}"><text>查看详情</text></view>
+        <view class="af-action af-action--primary b3-on-execute af-action--grow" wx:if="{{item.isPending}}" bindtap="onExecute" data-id="{{item.id}}"><text>执行</text></view>
       </view>
     </view>
 
@@ -61,3 +62,4 @@
     </view>
   </block>
 </view>
+<business-dialog id="business-dialog" />

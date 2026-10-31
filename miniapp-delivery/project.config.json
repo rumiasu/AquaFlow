@@ -1,7 +1,64 @@
 {
   "description": "AquaFlow 配送员小程序",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "assets/demo"
+      },
+      {
+        "type": "folder",
+        "value": ".agents"
+      },
+      {
+        "type": "folder",
+        "value": ".codebuddy"
+      },
+      {
+        "type": "folder",
+        "value": ".rules"
+      },
+      {
+        "type": "folder",
+        "value": ".lingma"
+      },
+      {
+        "type": "folder",
+        "value": ".roo"
+      },
+      {
+        "type": "folder",
+        "value": ".workbuddy"
+      },
+      {
+        "type": "folder",
+        "value": "codebuddy-plugin"
+      },
+      {
+        "type": "file",
+        "value": "CODEBUDDY.md"
+      },
+      {
+        "type": "file",
+        "value": "README.md"
+      },
+      {
+        "type": "file",
+        "value": ".mcp.json"
+      },
+      {
+        "type": "file",
+        "value": ".env.local"
+      },
+      {
+        "type": "file",
+        "value": "cloudbaserc.json"
+      },
+      {
+        "type": "file",
+        "value": "project.private.config.json"
+      }
+    ],
     "include": []
   },
   "setting": {

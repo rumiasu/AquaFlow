@@ -1,0 +1,5 @@
+{
+  "passed": 14,
+  "failed": 0,
+  "scope": "actual four page handlers + recovery/store/request modules, synthetic SDK/storage/FS/UI mocks; no real uploads"
+}

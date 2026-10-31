@@ -14,12 +14,10 @@
   <block wx:if="{{!loading}}">
     <!-- 页签。第二个带角标：有 WARN（待处置）时一眼能看见，不必点进去 -->
     <view class="tabs">
-      <view class="tab {{activeTab === item.key ? 'tab-on' : ''}}"
+      <view class="af-choice b3-on-switch-tab {{activeTab === item.key ? 'af-choice--selected' : ''}}"
             wx:for="{{tabs}}" wx:key="key"
-            data-key="{{item.key}}" bindtap="onSwitchTab">
-        <text>{{item.label}}</text>
-        <text class="tab-badge" wx:if="{{item.key === 'alerts' && alertWarnCount > 0}}">{{alertWarnCount}}</text>
-      </view>
+            data-key="{{item.key}}" bindtap="onSwitchTab"><view class="af-choice__face"><text>{{item.label}}</text>
+        <text class="tab-badge" wx:if="{{item.key === 'alerts' && alertWarnCount > 0}}">{{alertWarnCount}}</text></view></view>
     </view>
 
     <!-- ============ 页签 1：桶异常单 ============ -->
@@ -28,9 +26,7 @@
       <view class="card">
         <view class="card-head">
           <text class="card-title">{{onlyPending ? '待处理异常' : '异常单'}}（共 {{total === null ? '未核对' : total}} 张）</text>
-          <text class="filter {{onlyPending ? 'filter-on' : ''}}" bindtap="onTogglePending">
-            {{onlyPending ? '只看待处理' : '全部'}}
-          </text>
+          <view class="af-choice b3-on-toggle-pending {{onlyPending ? 'af-choice--selected' : ''}}" bindtap="onTogglePending"><view class="af-choice__face">{{onlyPending ? '只看待处理' : '全部'}}</view></view>
         </view>
 
         <view class="empty" wx:if="{{loading}}">异常列表加载中…</view>
@@ -69,8 +65,8 @@
                  ⚠️ 这里**没有任何金额/数量输入框** —— 「按系统建议补偿」的明细由后端下发、前端原样提交，
                  人手输入金额在本仓出过事故（design/20 §9.3 的护栏之一）。 -->
             <view class="ex-actions" wx:if="{{item.pending}}">
-              <view class="ex-btn ex-btn-ghost" data-id="{{item.id}}" bindtap="onIgnore">忽略</view>
-              <view class="ex-btn ex-btn-primary" data-id="{{item.id}}" bindtap="onApproveSuggested">按系统建议补偿</view>
+              <button disabled="{{handling}}" class="af-action af-action--quiet b3-on-ignore" data-id="{{item.id}}" bindtap="onIgnore" hover-class="af-action--pressed"><view class="af-action__face">忽略</view></button>
+              <button disabled="{{handling}}" class="af-action af-action--secondary b3-on-approve-suggested" data-id="{{item.id}}" bindtap="onApproveSuggested" hover-class="af-action--pressed">按建议补偿</button>
             </view>
           </view>
         </block>
@@ -81,7 +77,7 @@
 
       <!-- 近 30 天统计 -->
       <view class="card" wx:if="{{stats}}">
-        <view class="card-title">近 30 天</view>
+        <button class="af-action af-action--quiet b3-on-toggle-exception-stats" bindtap="onToggleExceptionStats" hover-class="af-action--pressed"><view class="af-action__face">近30天统计 · {{statsExpanded ? '收起' : '展开'}}</view></button><view wx:if="{{statsExpanded}}">
         <view class="stats-row">
           <view class="stats-item">
             <text class="stats-value">{{stats.totalCount}}</text>
@@ -96,12 +92,12 @@
             <text class="stats-label">平均处理(小时)</text>
           </view>
         </view>
-        <view class="stats-note">这里统计的是异常单本身；补偿金额以每张单的处理记录为准（处置入口在下面每张待处理的单上）。</view>
+        <view class="stats-note">补偿以每张异常单的实际执行记录为准。</view></view>
       </view>
       <!-- ⚠️ 统计取不到时**不能什么都不显示**：整张卡消失与"这 30 天确实 0 张"在界面上无法区分（§8.22） -->
       <view class="card" wx:else>
         <view class="card-title">近 30 天</view>
-        <view class="stats-note">近30天统计尚未读取，异常列表可继续单独核对。</view><button size="mini" bindtap="onRetryOverview">重新读取统计</button>
+        <view class="stats-note">近30天统计尚未读取，异常列表可继续单独核对。</view><button size="mini" bindtap="onRetryOverview" class="af-action af-action--quiet b3-on-retry-overview" hover-class="af-action--pressed"><view class="af-action__face">重新读取统计</view></button>
       </view>
 
       <view class="page-note">
@@ -113,12 +109,10 @@
     <block wx:else>
       <!-- 级别筛选。计数在筛选前算好，切筛选不会把别的按钮清零 -->
       <view class="filter-bar">
-        <view class="filter-item {{alertFilter === item.value ? 'active' : ''}}"
+        <view class="af-choice b3-on-alert-filter {{alertFilter === item.value ? 'af-choice--selected' : ''}}"
               wx:for="{{alertFilters}}" wx:key="value"
-              data-value="{{item.value}}" bindtap="onAlertFilter">
-          <text>{{item.label}}</text>
-          <text class="filter-num">{{item.count}}</text>
-        </view>
+              data-value="{{item.value}}" bindtap="onAlertFilter"><view class="af-choice__face"><text>{{item.label}}</text>
+          <text class="filter-num">{{item.count}}</text></view></view>
       </view>
 
       <!--
@@ -151,7 +145,7 @@
         <text class="notify">{{item.notifyText}}</text>
       </view>
 
-      <view class="ui-state" wx:if="{{alertsError}}"><text class="ui-state-copy">{{alertsError}}</text><button size="mini" bindtap="onRetryOverview">重新读取处理留痕</button></view>
+      <view class="ui-state" wx:if="{{alertsError}}"><text class="ui-state-copy">{{alertsError}}</text><button size="mini" bindtap="onRetryOverview" class="af-action af-action--quiet b3-on-retry-overview" hover-class="af-action--pressed"><view class="af-action__face">重新读取处理留痕</view></button></view>
       <view class="empty" wx:if="{{!alertsError && visibleAlerts.length === 0}}">
         <text>{{alerts.length === 0 ? '本站还没有需要处理的事' : '这个级别暂时没有记录'}}</text>
         <text class="empty-hint" wx:if="{{alerts.length > 0}}">试试切到「全部」</text>
@@ -160,3 +154,4 @@
   </block>
 
 </view>
+<business-dialog id="business-dialog" />

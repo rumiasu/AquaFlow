@@ -1,27 +1,33 @@
 <view class="container">
-  <view class="page-intro"><text class="page-intro-title">企业资料</text><text class="page-intro-note">查看与维护联系人、付款方式及登记信息</text></view>
-  <view class="state-card" wx:if="{{loading && !loaded}}"><text class="state-title">正在读取企业资料</text><text class="state-note">请稍候，读取成功后可查看和编辑。</text></view>
+  <view class="page-intro"><text class="page-intro-title">企业资料</text></view>
+  <view class="state-card" wx:if="{{loading && !loaded}}"><text class="state-title">正在读取企业资料</text></view>
   <view class="state-banner" wx:if="{{loading && loaded}}">正在更新已保存资料，当前输入会保留。</view>
   <view class="state-card state-error" wx:if="{{loadError}}">
     <text class="state-title">{{accessDenied ? '暂时无法访问资料' : '企业资料读取失败'}}</text><text class="state-note">{{loadError}}</text>
     <text class="state-note" wx:if="{{loaded && !accessDenied}}">以下已保存资料来自上次读取，可能已变化。</text>
-    <view class="state-actions"><button class="state-button" bindtap="onRetry" loading="{{loading}}" disabled="{{loading || saving}}">重新读取</button><button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button></view>
+    <view class="state-actions"><button class="af-action af-action--quiet" bindtap="onRetry" loading="{{loading}}" disabled="{{loading || saving}}"><text class="af-action__face">重新读取</text></button><button wx:if="{{accessDenied}}" class="af-action af-action--secondary" bindtap="onLogin">去登录</button></view>
   </view>
   <view class="state-card {{saveSucceeded ? 'state-success' : ''}}" wx:if="{{saveMessage}}">
     <text class="state-note">{{saveMessage}}</text>
   </view>
+  <view class="state-card" wx:if="{{draftMessage && !sessionChanged}}"><text class="state-note">{{draftMessage}}</text><button class="af-action af-action--quiet" bindtap="onRetryDraft"><text class="af-action__face">重试</text></button></view>
+  <view class="state-card" wx:if="{{draftState === 'saved' && !sessionChanged}}"><text class="state-note">有之前保存的企业资料输入。</text><view class="state-actions"><button class="af-action af-action--quiet" bindtap="onRestoreDraft" disabled="{{loading || saving || accessDenied || !!loadError || !info}}"><text class="af-action__face">恢复原输入</text></button><button class="af-action af-action--quiet" bindtap="onDiscardSavedDraft"><text class="af-action__face">放弃草稿</text></button></view></view>
   <block wx:if="{{(info || editing) && (!accessDenied || editing) && !sessionChanged}}">
     <view class="company-card">
-      <view class="company-name-row"><text class="company-name">{{editing ? '编辑企业资料' : info.companyName || '企业名称待核实'}}</text></view>
+      <view class="company-name-row"><text class="company-name">{{editing ? '编辑企业资料' : info.companyName || '企业名称待核实'}}</text><button wx:if="{{!editing}}" class="heading-action af-action af-action--quiet" bindtap="onStartEdit" disabled="{{loading || !!loadError || accessDenied}}"><text class="af-action__face">编辑</text></button><button wx:else class="heading-action af-action af-action--cancel" bindtap="onCancelEdit" disabled="{{saving}}">取消</button></view>
       <block wx:if="{{!editing}}">
+        <text class="company-group">联系人</text>
         <view class="info-row"><text class="label">联系人</text><text class="value">{{info.contactPerson || '未填写'}}</text></view>
         <view class="info-row"><text class="label">联系电话</text><text class="value">{{info.contactPhone || '未填写'}}</text></view>
+        <text class="company-group">登记信息</text>
         <view class="info-row"><text class="label">付款方式</text><text class="value">{{info.paymentMethod || '未填写'}}</text></view>
         <view class="info-row"><text class="label">登记账期</text><text class="value">{{info.dueDays === null || info.dueDays === undefined ? '未登记' : info.dueDays + ' 天'}}</text></view>
         <text class="update-note">{{info.updateTimeText}}</text>
       </block>
       <block wx:else>
+        <text class="company-group">登记信息</text>
         <view class="info-row"><text class="label">公司名称</text><input class="input" disabled="{{saving || accessDenied}}" value="{{form.companyName}}" data-field="companyName" bindinput="onInput" placeholder="请输入公司名称" maxlength="-1" /></view>
+        <text class="company-group">联系人</text>
         <view class="info-row"><text class="label">联系人</text><input class="input" disabled="{{saving || accessDenied}}" value="{{form.contactPerson}}" data-field="contactPerson" bindinput="onInput" placeholder="请输入联系人" maxlength="-1" /></view>
         <view class="info-row"><text class="label">联系电话</text><input class="input" disabled="{{saving || accessDenied}}" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="onInput" placeholder="请输入联系电话" /></view>
         <view class="info-row"><text class="label">付款方式</text><input class="input" disabled="{{saving || accessDenied}}" value="{{form.paymentMethod}}" data-field="paymentMethod" bindinput="onInput" placeholder="如：月结、现结" maxlength="-1" /></view>
@@ -30,11 +36,11 @@
       </block>
     </view>
     <view class="action-bar">
-      <button wx:if="{{!editing}}" class="edit-btn" bindtap="onStartEdit" disabled="{{loading || !!loadError || accessDenied}}">编辑企业资料</button>
-      <view wx:else class="btn-row"><button class="btn cancel" bindtap="onCancelEdit" disabled="{{saving}}">取消编辑</button><button class="btn confirm" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !!loadError || accessDenied || !info}}">{{saving ? '正在保存' : '保存资料'}}</button></view>
+      <button wx:if="{{editing}}" class="af-action af-action--primary af-action--block" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !!loadError || accessDenied || !info}}">{{saving ? '正在保存' : '保存资料'}}</button>
     </view>
   </block>
   <view class="state-card" wx:if="{{loaded && !loading && !loadError && !info && !editing}}">
-    <text class="state-title">尚未登记企业资料</text><text class="state-note">请联系水站登记企业信息，登记后可在这里维护。</text><button class="state-button secondary" bindtap="onRetry">刷新资料</button>
+    <text class="state-title">尚未登记企业资料</text><text class="state-note">请联系水站登记企业信息，登记后可在这里维护。</text><button class="af-action af-action--quiet" bindtap="onRetry"><text class="af-action__face">刷新资料</text></button>
   </view>
 </view>
+<business-dialog id="business-dialog" />

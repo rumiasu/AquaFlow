@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../../../utils/business-dialog')
 const imageDisplay = require('../../../../../behaviors/imageDisplay')
 const { wrapUploadRecovery } = require('../../../../../utils/upload-recovery-page')
 // 新建站长资产调整单（人工补录 / 代客订正）
@@ -29,6 +30,14 @@ const ADJUST_OPTIONS = [
 // 证据图上限：后端 evidence 字段 500 字符，超了直接拒绝而不是悄悄截断（截断会存下坏 URL）
 const MAX_EVIDENCE = 3
 const EVIDENCE_MAX_LEN = 500
+// 售价仅作商品辨识，不代表历史押金或调整金额；未确认时不推断为零。
+function selectorPriceText(product) {
+  const value = product.effectivePrice
+  const hasSource = [product.salePrice, product.price].some(v => v !== null && v !== undefined && String(v).trim() !== '')
+  if (Number(product.pricingConfirmed) !== 1 || !hasSource || value === null || value === undefined || String(value).trim() === '') return ''
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 ? '本站售价 ¥' + number.toFixed(2) : ''
+}
 const ADJUSTMENT_INTENT_PREFIX = 'aq_delivery_adjustmentCreate_v1:'
 const adjustmentFlights = new WeakMap()
 function adjustmentSession() {
@@ -73,10 +82,10 @@ Page({
 
     productList: [],
     productLabels: [],
-    productIndex: -1,
+    productIndex: -1, productSelectorExpanded: false,
     manualProduct: false,
     productIdInput: '',
-    productHint: '',
+    productHint: '', productLoading: false, productError: '',
 
     form: { qty: '', amount: '', unitPrice: '', reason: '' },
     overSign: 1,
@@ -96,6 +105,7 @@ Page({
 
   onLoad(options) {
     this._adjustmentUnloaded = false
+    this._productSession = adjustmentSession()
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       this.setData({ denied: true })
@@ -121,7 +131,20 @@ Page({
     this.syncAdjustmentRecovery()
   },
 
-  onShow() { this.syncAdjustmentRecovery() },
+  onShow() {
+    const now = adjustmentSession(), old = this._productSession
+    if (old && (old.app !== now.app || old.generation !== now.generation || old.identity !== now.identity)) {
+      this._productRead = (this._productRead || 0) + 1; this._productSession = now
+      this._customerSeq = (this._customerSeq || 0) + 1; this._customerSearchSeq = (this._customerSearchSeq || 0) + 1
+      this._adjustmentOriginal = null; this._createdAdjustment = false; this._uploadDraftId = null
+      this.setData({ productList: [], productLabels: [], productIndex: -1, productSelectorExpanded: false, productIdInput: '', manualProduct: false, productLoading: false, productError: '', productHint: '',
+        customerId: null, missingCustomer: true, customerKeyword: '', customerResults: [], customerSearchLoading: false, customerSearchDone: false, customerSearchError: '', customerAssets: null, customerAssetsLoading: false, customerAssetsError: '', customerName: '', customerPhone: '',
+        typeIndex: -1, option: null, form: { qty: '', amount: '', unitPrice: '', reason: '' }, evidenceList: [], uploading: false, preview: null, previewRows: [], previewExtra: null, previewing: false, submitting: false, adjustmentSubmitUnknown: false, adjustmentRecoveryError: '', clientToken: '' })
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+      if (getApp().isStationManager()) this.loadProducts()
+    }
+    this.syncAdjustmentRecovery()
+  },
 
   syncAdjustmentRecovery() {
     if (!this.data.customerId || this._adjustmentUnloaded) return
@@ -139,40 +162,41 @@ Page({
 
   /** 本站已上架商品（后端按登录站长判定水站，前端不传 stationId） */
   async loadProducts() {
+    if (this.data.productLoading) return
+    const session = adjustmentSession(), serial = this._productRead = (this._productRead || 0) + 1
+    const current = () => { const now = adjustmentSession(); return !this._adjustmentUnloaded && serial === this._productRead && session.app === now.app && session.generation === now.generation && session.identity === now.identity }
+    this.setData({ productLoading: true, productError: '' })
     try {
       // 2026-09-16 商品与库存重构：旧 /api/manager/products 已删除，
       // 选品目录接口返回的是"通用库 + 本站自定义"，这里只要**本站已上架**的。
       const res = await getCatalog()
-      const list = (res.data || [])
+      if (!res || !Array.isArray(res.data)) throw Error('商品列表未完整读取')
+      if (!current()) return
+      const selected = this.data.productList[this.data.productIndex]
+      const list = res.data
         .filter(p => p.selected && p.enabled === 1)
         .map(p => ({
-          id: p.id,
-          name: p.name + (p.spec ? ' ' + p.spec : ''),
-          deposit: p.deposit
+          id: p.id, name: p.name || '', spec: p.spec || '',
+          image: typeof p.imageUrl === 'string' ? p.imageUrl : '',
+          priceText: selectorPriceText(p), deposit: p.deposit
         }))
       this.setData({
         productList: list,
-        productLabels: list.map(p => p.name),
-        productIndex: -1,
-        manualProduct: list.length === 0,
+        productLabels: list.map(p => [p.name, p.spec].filter(Boolean).join(' ')),
+        productIndex: selected ? list.findIndex(p => p.id === selected.id) : -1,
         productHint: list.length === 0
-          ? '本站没有在售商品，请手动填写商品编号（数字），并核对确实是本站商品'
+          ? '本站没有在售商品；如需手填，请先核对本站商品编号'
           : ''
       })
     } catch (err) {
-      // 取不到商品列表时退回手填商品编号（带校验与提示），而不是让页面直接不可用
-      this.setData({
-        productList: [],
-        productLabels: [],
-        productIndex: -1,
-        manualProduct: true,
-        productHint: '商品列表加载失败（' + (err.message || '未知原因') + '），请手动填写商品编号'
-      })
-    }
+      if (current()) this.setData({ productError: '商品列表暂时无法读取，请重试。', productHint: '' })
+    } finally { if (current()) this.setData({ productLoading: false }) }
   },
+  onRetryProducts() { return this.loadProducts() },
 
   // ===== 表单输入：任何改动都作废上一次试算结果，避免提交与试算不一致 =====
-  formLocked() { this.syncAdjustmentRecovery(); return this.data.submitting || this._createdAdjustment || !!this._adjustmentOriginal || !!this.data.adjustmentRecoveryError },
+  samePageSession() { const old = this._productSession, now = adjustmentSession(); return !old || (old.app === now.app && old.generation === now.generation && old.identity === now.identity) },
+  formLocked() { if (!this.samePageSession()) return true; this.syncAdjustmentRecovery(); return this.data.submitting || this._createdAdjustment || !!this._adjustmentOriginal || !!this.data.adjustmentRecoveryError },
 
   previewDraftKey() {
     return JSON.stringify([this.data.customerId, this.data.option && this.data.option.value,
@@ -208,6 +232,11 @@ Page({
       this._submittedIntent = null
     }
     this.setData(patch)
+    if (!this._adjustmentUnloaded && !this._createdAdjustment) {
+      const f = this.data.form || {}, dirty = this.data.option || f.qty || f.amount || f.unitPrice || f.reason || this.data.productIdInput || (this.data.evidenceList || []).length
+      if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '调整单尚未创建，确定离开吗？' })
+      else if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+    }
   },
 
   loadSelectedCustomer(id, customer) {
@@ -218,6 +247,7 @@ Page({
 
   onUnload() {
     this._adjustmentUnloaded = true
+    if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
     adjustmentCustomer.methods.onUnload.call(this)
     this.resetPreview()
     if (this._submitLoading) { wx.hideLoading(); this._submitLoading = null }
@@ -240,6 +270,21 @@ Page({
     this.resetPreview()
   },
 
+  onToggleProductSelector() {
+    if (this.formLocked() || this.data.productLoading || this.data.productError || this.data.manualProduct) return
+    this.setData({ productSelectorExpanded: !this.data.productSelectorExpanded })
+  },
+
+  onProductSelect(e) {
+    if (this.formLocked() || this.data.productLoading || this.data.productError || this.data.manualProduct) return
+    const id = e && e.detail && e.detail.id
+    const index = this.data.productList.findIndex(product => String(product.id) === String(id))
+    if (id == null || index < 0) return
+    if (index === this.data.productIndex) { this.setData({ productSelectorExpanded: false }); return }
+    this.setData({ productIndex: index, productSelectorExpanded: false })
+    this.resetPreview()
+  },
+
   onProductChange(e) {
     if (this.formLocked()) return
     this.setData({ productIndex: Number(e.detail.value) })
@@ -249,7 +294,7 @@ Page({
   onToggleManualProduct() {
     if (this.formLocked()) return
     const manualProduct = !this.data.manualProduct
-    this.setData({ manualProduct: manualProduct, productIndex: -1, productIdInput: '' })
+    this.setData({ manualProduct: manualProduct, productIndex: -1, productIdInput: '', productSelectorExpanded: false })
     this.resetPreview()
   },
 
@@ -468,9 +513,10 @@ Page({
    * 二次确认用**回调式** wx.showModal，确认文案里带上类型与数量/金额。
    */
   onSubmit() {
+    if (!this.samePageSession()) return
     this.syncAdjustmentRecovery()
     if (this.data.adjustmentRecoveryError) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '原调整结果待核对', content: this.data.adjustmentRecoveryError, confirmText: '返回列表', showCancel: false,
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '原调整结果待核对', content: this.data.adjustmentRecoveryError, confirmText: '返回列表', showCancel: false,
         success: () => wx.navigateBack() }); return
     }
     if (this._adjustmentOriginal && !this._adjustmentOriginal.pending && !this.data.submitting) return this.retryOriginalAdjustment()
@@ -496,7 +542,7 @@ Page({
     }
     content += '创建后为「待执行」，需再点「执行」才会改写客户资产。'
 
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '确认创建调整单',
       content: content,
       confirmText: '创建',
@@ -532,7 +578,7 @@ Page({
     this._confirmingOriginal = original
     const option = ADJUST_OPTIONS.find(value => value.value === body.adjustType)
     const amount = body.amount == null ? '数量 ' + body.qty : '金额 ¥' + body.amount
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '继续原调整单', confirmText: '重试原单', cancelText: '查看列表',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '继续原调整单', confirmText: '重试原单', cancelText: '查看列表',
       content: '客户 #' + customerId + '，' + (option ? option.label : body.adjustType) + '，' + amount + '。\n原因：' + body.reason + '\n已存在则返回原单；尚未创建则按原编号和原内容创建一次待执行单，不直接改写资产。',
       success: result => {
         if (this._confirmingOriginal !== original) return
@@ -585,6 +631,7 @@ Page({
       adjustmentFlightMap(session.app).delete(key)
       if (!current()) return
       this._createdAdjustment = true
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
       wx.showToast({ title: retrying ? '已核实原调整单' : '已创建，待执行', icon: 'success' })
       if (retrying) wx.redirectTo({ url: '/pages/station-mgmt/customers/adjust/detail/index?id=' + detail.id })
       else this._returnTimer = setTimeout(() => { if (current()) wx.navigateBack() }, 1500)

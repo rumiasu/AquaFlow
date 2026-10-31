@@ -2,7 +2,10 @@
   "navigationBarTitleText": "常用订单",
   "enablePullDownRefresh": true,
   "usingComponents": {
+    "icon": "/components/Icon/index",
     "empty": "../../components/Empty/index",
-    "loading": "../../components/Loading/index"
+    "loading": "../../components/Loading/index",
+    "integer-stepper": "/components/IntegerStepper/index",
+    "product-selector": "/components/ProductSelector/index"
   }
 }

@@ -1,0 +1,16 @@
+@import "../../styles/actions.wxss";
+.business-mask{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));box-sizing:border-box;background:rgba(24,34,48,.48)}
+/* 2026-10-29: a block dialog let capped scroll content plus fixed title/actions overflow short viewports. Shrink the scroll body, keeping the actions inside the safe-area frame. */
+.business-dialog{display:flex;flex-direction:column;min-height:0;width:100%;max-width:360px;max-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 40px);box-sizing:border-box;padding:20px;border-radius:12px;background:var(--af-surface);color:var(--af-ink);box-shadow:0 2px 6px rgba(22,45,72,.08)}
+.business-title{display:block;flex:none;font-size:18px;line-height:26px;font-weight:600;overflow-wrap:anywhere}
+.business-body{display:block;box-sizing:border-box;flex:0 1 auto;min-height:0;width:100%;max-height:52vh;margin:16px 0 20px;white-space:pre-wrap;font-size:15px;line-height:23px;overflow-wrap:anywhere}
+.business-copy{color:var(--af-text-secondary)}.business-description{display:block;margin-top:8px}
+.business-detail{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:8px;white-space:normal}
+.business-detail text{min-width:0;overflow-wrap:anywhere}.business-detail .business-number{text-align:right}
+.business-number{color:var(--af-strong);font-weight:600;font-size:16px}
+.business-actions{display:flex;flex:none;gap:8px;align-items:stretch}
+.business-actions button.business-cancel{flex:0 0 80px;width:80px;min-width:80px;padding:10px}
+.business-actions button.business-confirm{flex:1;min-width:44px}
+.business-actions button{min-height:48px;margin:0;white-space:normal;word-break:break-all}
+.business-input{box-sizing:border-box;margin-top:12px;padding:10px 12px;background:var(--af-soft);border:1px solid var(--af-border);border-radius:8px;min-height:44px;color:var(--af-ink);font-size:16px}
+.business-dark{--af-surface:#172538;--af-ink:#EDF2F7;--af-strong:#EDF2F7;--af-text-secondary:#B9C7D6;--af-border:#60748A;--af-soft:#22364D;--af-primary:#73A5E2;--af-on-primary:#102137;--af-danger:#F0A39D;--af-disabled-bg:#22364D;--af-disabled-text:#B9C7D6}

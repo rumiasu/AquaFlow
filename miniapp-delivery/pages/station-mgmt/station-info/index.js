@@ -1,3 +1,6 @@
+const { createDraftGuard } = require('../../../utils/draft-guard')
+const { getTransportConfig } = require('../../../config/api')
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { jumpToSettingSection } = require('../../../utils/settings-sections')
 const { initialModuleData, refreshModuleTasks } = require('../../../utils/setup-progress')
 // 站长端「水站资料」：站名 / 电话 / 地址 / 坐标。
@@ -38,14 +41,18 @@ Page({
     saving: false,
     // lat 为 null = 还没选点，此时配送范围校验会跳过（不是拒单）
     coord: { lat: null, lng: null },
-    coordSaving: false
+    coordSaving: false, infoDirty: false, infoDraftNotice: '', infoDraftAvailable: false, infoDraftStatus: ''
   },
 
   refreshModuleSetup() { return refreshModuleTasks(this, '/pages/station-mgmt/station-info/index') },
   onModuleSetupTask(e) {
     const key = e.currentTarget.dataset.key
     if (!(this.data.moduleSetupTasks || []).some(it => it.key === key)) return
-    const target = key === 'stationPhone' ? '#setup-station-phone' : '#setup-station-position'
+    const origin = this.data.origin || {}, coord = this.data.coord || {}
+    const addressMissing = !String(origin.address || '').trim()
+    const coordinatesKnown = coord.lat != null && coord.lng != null
+    const target = key === 'stationPhone' ? '#setup-station-phone'
+      : addressMissing && coordinatesKnown ? '#info-basics' : '#setup-station-position'
     if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: target, duration: 180 })
   },
 
@@ -58,10 +65,11 @@ Page({
     if (!sameStationSession(this._stationSession)) {
       this._coordinateVersion = (this._coordinateVersion || 0) + 1
       this._coordinatePick = null
-      this.setData({ coordSaving: false })
+      this.setData({ saving: false, coordSaving: false, infoDirty: false, origin: null, form: { name: '', phone: '', address: '' }, infoDraftNotice: '' })
     }
     this._stationSession = stationSession()
-    // 原生地图会正常 hide/show；同一选点周期返回时不重读覆盖输入，也不使合法回调失效。
+    // 原生地图返回与同身份再显示时保留未保存资料。
+    if (this.data.origin && this.data.infoDirty && sameStationSession(this._stationSession)) return this.refreshModuleSetup()
     if (!this._coordinatePick || !this.coordinateCurrent(this._coordinatePick)) return this.loadData()
   },
 
@@ -78,7 +86,11 @@ Page({
       && sameStationSession(proof.session) && Number(this.data.origin && this.data.origin.id) === proof.session.stationId
   },
 
-  onRetry() { return this.loadData() },
+  onRetry() {
+    if (!this.data.infoDirty) return this.loadData()
+    showBusinessModal({ title: '重新读取资料', content: '重新读取会替换尚未保存的资料输入。是否继续？', confirmText: '重新读取', cancelText: '保留输入',
+      success: result => { if (result.confirm) { this.setData({ infoDirty: false, infoDraftNotice: '' }); this.onDiscardInfoDraft(); this.loadData() } } })
+  },
 
   async loadData() {
     this.refreshModuleSetup()
@@ -92,7 +104,7 @@ Page({
       const d = res.data
       if (!d || !d.id) throw new Error('水站资料尚未读取')
       this.setData({
-        origin: d,
+        infoDirty: false, infoDraftNotice: '', origin: d,
         form: {
           name: d.name || '',
           phone: d.phone || '',
@@ -104,6 +116,8 @@ Page({
           lng: (d.lng === null || d.lng === undefined) ? null : d.lng
         }
       })
+      this.offerInfoDraft()
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
     } catch (err) {
       if (!current()) return
       // 静默失败会让页面显示成空白表单，站长一保存就把站名冲没了 —— 必须出声。
@@ -115,16 +129,56 @@ Page({
     }
   },
 
-  onNameInput(e) { this.setData({ 'form.name': e.detail.value }) },
-  onPhoneInput(e) { this.setData({ 'form.phone': e.detail.value }) },
-  onAddressInput(e) { this.setData({ 'form.address': e.detail.value }) },
+  infoDraftGuard() {
+    if (!this._infoDraftGuard) this._infoDraftGuard = createDraftGuard(() => {
+      const session = stationSession(), u = session.app.globalData.userInfo || {}, transport = getTransportConfig()
+      if (!sameStationSession(session) || !u.staffId || !session.stationId) return null
+      return { app: 'miniapp-delivery', actor: u.staffId, station: session.stationId,
+        route: 'pages/station-mgmt/station-info', entity: JSON.stringify([transport.mode, transport.env, transport.service, transport.baseUrl, session.stationId]), generation: session.generation }
+    })
+    return this._infoDraftGuard
+  },
+  offerInfoDraft() {
+    const guard = this.infoDraftGuard(), token = guard.begin(), result = guard.read(token)
+    this._infoDraftToken = token
+    const form = result.draft && result.draft.form
+    const valid = result.state === 'saved' && form && ['name', 'phone', 'address'].every(k => typeof form[k] === 'string')
+    this._savedInfoDraft = valid ? form : null
+    this.setData({ infoDraftAvailable: !!valid, infoDraftStatus: result.state === 'unknown' || result.state === 'saved' && !valid ? '草稿尚未确认，请保留当前输入后核对。' : '' })
+  },
+  onRestoreInfoDraft() {
+    if (!this.data.infoDraftAvailable || !this._savedInfoDraft || this.data.saving || this.data.coordSaving) return
+    if (this.infoDraftGuard().read(this._infoDraftToken).state !== 'saved') return
+    this.setData({ form: { ...this._savedInfoDraft }, infoDraftAvailable: false })
+    this.markInfoDraft()
+  },
+  onDiscardInfoDraft() {
+    const result = this.infoDraftGuard().clear(this._infoDraftToken)
+    this._savedInfoDraft = null
+    this.setData({ infoDraftAvailable: false, infoDraftStatus: result.state === 'empty' ? '' : '草稿清理尚未确认，请稍后核对。' })
+  },
+  markInfoDraft() {
+    const origin = this.data.origin || {}, form = this.data.form
+    const dirty = ['name', 'phone', 'address'].some(k => String(form[k] || '') !== String(origin[k] || ''))
+    this.setData({ infoDirty: dirty, infoDraftAvailable: false, infoDraftNotice: dirty ? '资料有未保存修改；地图选点只保存坐标。' : '' })
+    const guard = this.infoDraftGuard(), token = this._infoDraftToken || guard.begin()
+    this._infoDraftToken = token
+    const result = dirty ? guard.save(token, { form: { ...form } }) : guard.clear(token)
+    this.setData({ infoDraftStatus: result.state === 'saved' ? '输入草稿已保留，正式保存后生效。' : result.state === 'empty' ? '' : '草稿尚未确认保存，请留在本页完成操作。' })
+    if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '水站资料尚未保存，离开将丢失修改' })
+    if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+  },
+  onNameInput(e) { if (!this.data.saving) { this.setData({ 'form.name': e.detail.value }); this.markInfoDraft() } },
+  onPhoneInput(e) { if (!this.data.saving) { this.setData({ 'form.phone': e.detail.value }); this.markInfoDraft() } },
+  onAddressInput(e) { if (!this.data.saving) { this.setData({ 'form.address': e.detail.value }); this.markInfoDraft() } },
 
   /**
    * 保存资料。四项给全（见文件头约束 1）。
    * `status` 取原值 —— 后端 SQL 会写这一列，漏传就是 NULL（`station.status` 可空但语义是"营业状态未知"）。
    */
   async onSave() {
-    if (this.data.saving) return
+    if (this.data.saving || this.data.coordSaving || !sameStationSession(this._stationSession)) return
+    const proof = this._stationSession
     const origin = this.data.origin || {}
     const name = (this.data.form.name || '').trim()
     if (!name) {
@@ -144,16 +198,21 @@ Page({
         address: (this.data.form.address || '').trim(),
         status: origin.status
       })
+      if (!sameStationSession(proof) || this._stationUnloaded) return
       if (res.code !== 0) {
         wx.showToast({ title: res.message || '保存失败', icon: 'none' })
         return
       }
+      this.onDiscardInfoDraft()
+      this.setData({ infoDirty: false, infoDraftNotice: '' })
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
       wx.showToast({ title: '已保存', icon: 'success' })
       this.loadData()
     } catch (err) {
+      if (!sameStationSession(proof) || this._stationUnloaded) return
       wx.showToast({ title: (err && err.message) || '保存失败', icon: 'none' })
     } finally {
-      this.setData({ saving: false })
+      if (sameStationSession(proof) && !this._stationUnloaded) this.setData({ saving: false })
     }
   },
 
@@ -164,12 +223,7 @@ Page({
    * （`PUT /api/stations/mine/coordinates`），没有别的可改字段，
    * 多一步确认只会让站长以为还需要按别处的按钮。
    *
-   * [2026-09-23 与建站页统一] 选点会**同时带回地址文本**，建站页就是这么用的
-   * （`create-station/index.js` 一次选点同时产出 address + lat/lng）。本页原来只存 lat/lng，
-   * 于是站长看到"地址注册时已经填过了，为什么还让我再选一次点"（用户原话）—— 两页口径分叉。
-   * 现在：地址框**为空**时用选点结果回填并顺手一起保存（一次动作把「位置」这条引导项清掉）；
-   * 地址框**已有内容**时只存坐标、**绝不覆盖** —— 站长可能特意写得更细（"院内 3 号楼东侧"），
-   * 选点给的地址通常更粗，覆盖等于把他的信息删了。
+   * 地址为空时只补入资料草稿，名称、电话、地址由“保存资料”明确提交。
    */
   onPickCoordinates() {
     const session = stationSession()
@@ -200,17 +254,10 @@ Page({
           }
           this.setData(patch)
 
-          if (fillAddress) {
-            // 地址框本来是空的 → 不存在覆盖风险，顺手一起存掉，
-            // 省掉"再点一次保存资料"（站长会以为又要填两遍）
-            const form = this.data.form, origin = this.data.origin
-            if (!this.coordinateCurrent(proof)) return
-            if (!(form.name || '').trim()) { wx.showToast({ title: '坐标已保存，请补全站名后保存地址', icon: 'none' }); return }
-            await updateStation(origin.id, { name: form.name.trim(), phone: (form.phone || '').trim(), address: picked, status: origin.status })
-            if (this.coordinateCurrent(proof)) { this.refreshModuleSetup(); wx.showToast({ title: '坐标与地址已保存', icon: 'success' }) }
-          } else {
-            this.refreshModuleSetup(); wx.showToast({ title: '坐标已保存', icon: 'success' })
-          }
+          // 2026-10-28：地图只写独立坐标，不再顺带保存尚未确认的名称、电话和地址。
+          if (fillAddress) this.markInfoDraft()
+          this.refreshModuleSetup()
+          wx.showToast({ title: fillAddress ? '坐标已保存，地址待保存资料' : '坐标已保存', icon: 'none' })
         } catch (err) {
           if (this.coordinateCurrent(proof)) wx.showToast({ title: err.message || '坐标保存失败', icon: 'none' })
         } finally {
@@ -237,7 +284,7 @@ Page({
       && Number(this.data.origin && this.data.origin.id) === session.stationId
     if (!current()) return
     let used = false
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认清除',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认清除',
       title: '清除水站坐标',
       content: '清除后系统无法判断订单是否超出配送范围，会跳过范围校验（不会拒单）。确认清除？',
       success: async (res) => {

@@ -64,9 +64,6 @@ public class CatalogServiceImpl implements CatalogService {
     @Autowired
     private ProductImageResolver imageResolver;
 
-    /** 上架非桶装商品前的金额门槛校验与建议值（2026-09-19），见 DeliveryConfigGuideService。 */
-    @Autowired
-    private DeliveryConfigGuideService deliveryConfigGuideService;
 
     /**
      * 站级价偏离通用库参考价多少算"要提醒"（默认 ±50%）。
@@ -118,6 +115,9 @@ public class CatalogServiceImpl implements CatalogService {
         }
         String stationImage = dto.getImageObjectName() == null ? null : StationProductImage.normalize(dto.getImageObjectName());
         Inventory current = inventoryMapper.getByStationAndProduct(stationId, productId);
+        validateStationMoney(dto.getSalePrice(), "本站售价");
+        validateStationMoney(dto.getDepositPrice(), "本站押金");
+        validateStationMoney(dto.getTicketPrice(), "本站水票价");
 
         // [2026-09-19] 押金只对桶装水生效：非桶装商品**不允许**设站级押金。
         // 读侧（PriceUtil.calcDeposit）已经会把非桶装押金算成 0，但只靠读侧会变成"站长填了、系统不认、还不报错"
@@ -129,17 +129,7 @@ public class CatalogServiceImpl implements CatalogService {
                     + " 是" + vo.getCategoryText() + "，不收押金（也无需退）");
         }
 
-        // [2026-09-19] 上架**非桶装**商品前的金额门槛硬校验（产品：「没用桶数时，核验金额即可」
-        // ＋「选择了上架瓶装水/饮水机等非桶装水业务，最好指引着强制完成金额类字段填写」）：
-        // 非桶装不占桶，站长若只配了桶数门槛、没配金额门槛，那条规则对这类订单就是不生效的
-        // （见 DeliveryFeeUtil.belowMinOrder 的"条件不适用"分支）。与其让站长以为自己设了门槛，
-        // 不如在上架这一刻拦住、并给出按本站最低水价算的建议值 —— 界面上一键就能填完。
-        // 只在"本次要上架"时校验：关掉上架（enabled=0）不受影响，避免把下架操作也卡住。
-        boolean enabling = Integer.valueOf(1).equals(dto.getEnabled())
-                || (dto.getEnabled() == null && current != null && Integer.valueOf(1).equals(current.getEnabled()));
-        if (enabling && !BarrelScope.isBarrelCategory(vo.getCategory())) {
-            deliveryConfigGuideService.requireAmountFieldsForNonBarrel(stationId);
-        }
+        // 商品可先保存上架；配送计费缺项由上线准备提示，并在报价与下单处阻止漏计费。
 
         Inventory setting = new Inventory();
         setting.setStationId(stationId);
@@ -162,6 +152,9 @@ public class CatalogServiceImpl implements CatalogService {
                 : (current != null && current.getPriorityDisplay() != null ? current.getPriorityDisplay() : 0);
         requirePriorityWithinLimit(stationId, productId, priority, current);
         setting.setPriorityDisplay(priority);
+        // 选品/库存动作不是确认定价。显式保存（包括留空继承）与本站自定义商品创建
+        // 在同一事务内确认；后续图片等任一步失败会一起回滚。
+        setting.setPricingConfirmed(!selecting || vo.getOwnerStationId() != null ? 1 : null);
 
         inventoryService.saveStationSetting(setting);
         if (dto.getImageObjectName() != null) {
@@ -373,12 +366,19 @@ public class CatalogServiceImpl implements CatalogService {
     /* ==================== 私有辅助 ==================== */
 
     /**
-     * 站级价格三态：{@code null} = 保持原值；{@code <=0} = 清除覆盖（落 NULL，回落通用库参考价）；
+     * 站级价格三态：{@code null} = 保持原值；{@code 0} = 清除覆盖（落 NULL，回落通用库参考价）；
      * {@code >0} = 设为该值。
      */
     private static BigDecimal pickPrice(BigDecimal incoming, BigDecimal currentValue) {
         if (incoming == null) return currentValue;
         return incoming.compareTo(BigDecimal.ZERO) > 0 ? incoming : null;
+    }
+
+    private static void validateStationMoney(BigDecimal amount, String label) {
+        if (amount != null && (amount.signum() < 0 || amount.stripTrailingZeros().scale() > 2
+                || amount.compareTo(new BigDecimal("99999999.99")) > 0)) {
+            throw new BusinessException(label + "须为非负金额，最多两位小数且不超过99999999.99元");
+        }
     }
 
     private void requireCategory(Integer category) {

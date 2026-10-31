@@ -1,4 +1,5 @@
-const { post } = require('../../utils/request')
+const { showBusinessModal } = require('../../utils/business-dialog')
+const { post, captureSession, currentSession } = require('../../utils/request')
 const { API, BINDING_STATUS } = require('../../config/api')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
 const navigation = require('../../utils/navigation')
@@ -7,7 +8,8 @@ const navigation = require('../../utils/navigation')
 // - STATION_MANAGER: 创建 staff(station_id=null,bind_status=UNBOUND),继续到创建水站
 // - DELIVERY: 创建 staff(station_id=null,bind_status=UNBOUND),继续到申请绑定水站
 Page({
-  data: {},
+  data: { selecting: false },
+  onUnload() { this._unloaded = true },
 
   /**
    * 身份**已生效**（已挂到水站上）时不应再停留在这里改选：后端 selectRole 会直接拒绝，
@@ -21,29 +23,14 @@ Page({
     }
   },
 
-  onSelectStationManager() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-      title: '选择身份',
-      content: '您将以「站长」身份使用，需要创建属于您的水站。是否继续？',
-      confirmText: '确认站长',
-      success: (res) => {
-        if (res.confirm) this.selectRole('STATION_MANAGER')
-      }
-    })
-  },
+  onSelectStationManager() { return this.selectRole('STATION_MANAGER') },
 
-  onSelectDelivery() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-      title: '选择身份',
-      content: '您将以「配送员」身份使用，需填写资料并申请绑定水站，站长审批通过后生效。是否继续？',
-      confirmText: '继续',
-      success: (res) => {
-        if (res.confirm) this.selectRole('DELIVERY')
-      }
-    })
-  },
+  onSelectDelivery() { return this.selectRole('DELIVERY') },
 
   async selectRole(role) {
+    if (this.data.selecting || this._unloaded) return
+    const session = captureSession()
+    this.setData({ selecting: true })
     wx.showLoading({ title: '处理中...' })
     try {
       const app = getApp()
@@ -58,6 +45,7 @@ Page({
         payload._pendingOpenid = prevUserInfo._pendingOpenid
       }
       const res = await post(API.SELECT_ROLE, payload)
+      if (this._unloaded || !currentSession(session)) return
       const data = res && res.data ? res.data : null
       if (!data) throw new Error('服务器未返回身份信息')
 
@@ -92,8 +80,10 @@ Page({
 
       wx.showToast({ title: '未知身份', icon: 'none' })
     } catch (err) {
+      if (!this._unloaded && currentSession(session)) wx.showToast({ title: err.message || '设置失败', icon: 'none', duration: 2500 })
+    } finally {
       wx.hideLoading()
-      wx.showToast({ title: err.message || '设置失败', icon: 'none', duration: 2500 })
+      if (!this._unloaded) this.setData({ selecting: false })
     }
   }
 })

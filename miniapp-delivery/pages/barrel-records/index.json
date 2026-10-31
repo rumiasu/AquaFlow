@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "空桶回收记录",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "icon": "/components/Icon/index"
+  }
 }

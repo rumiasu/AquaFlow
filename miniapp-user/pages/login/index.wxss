@@ -1,4 +1,4 @@
-/* 登录行为与告知保持原样；以清晰入口替代大面积装饰背景。 */
+/* 保留微信登录与告知；临时测试入口另受页面和服务端限制。 */
 .page { min-height: 100vh; background: var(--bg-color); box-sizing: border-box; padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
 .login-bg { height: 12rpx; background: var(--primary-color); }
 .login-content { padding: 80rpx 32rpx 32rpx; }
@@ -20,3 +20,17 @@
 /* 本页所有状态共用的可读与触控边界。 */
 .login-error { margin-top: 24rpx; padding: 20rpx; border-radius: 12rpx; background: var(--bg-gray); color: var(--text-regular); font-size: 28rpx; line-height: 1.65; border-left: 4rpx solid var(--error-color); }
 .agreement-link { min-height: 88rpx; box-sizing: border-box; }
+
+.agreement-link { min-height: 44px; display: inline-flex; align-items: center; }
+
+/* Visual v2: page hierarchy and reading rhythm. */
+.login-content { padding:24px 16px; box-sizing:border-box; }
+.logo-section { margin-bottom:24px; }
+.logo-wrap { background:var(--af2-surface-order); }
+.login-section { border-radius:14px; }
+.agreement { line-height:1.7; }
+
+/* 临时测试凭据只留在当前表单；使用原页面色彩和操作按钮。 */
+.test-login { margin-top: 28rpx; padding-top: 24rpx; border-top: 1rpx solid var(--border-color, #e2e8f0); }
+.test-login-title { display: block; margin-bottom: 16rpx; font-size: 26rpx; color: var(--text-secondary, #64748b); }
+.test-login-input { box-sizing: border-box; height: 88rpx; margin-bottom: 16rpx; padding: 0 24rpx; border: 1rpx solid var(--border-color, #d8e0e8); border-radius: 16rpx; background: var(--bg-color, #fff); color: var(--text-primary, #1e293b); font-size: 28rpx; }

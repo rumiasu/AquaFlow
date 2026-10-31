@@ -1,42 +1,83 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 // ⚠️ 直接用 utils/request，不引 api/station-mgmt.js：
 // 那个文件由另一个工作流（商品图片库）维护，共用会让两边未提交的改动纠缠在一起。
 // [2026-09-19 修订] 路径常量**已移入 config/api.js**（MANAGER_GROSS_PROFIT）——
 // 原来说"config/api.js 也在被别的改动占着"，那个改动早已合并，本页再留一份副本
 // 只会让同一条路径有两个定义（本仓最忌讳的"口径分叉"）。
-const { get, put } = require('../../../utils/request')
+const { get } = require('../../../utils/request')
 const { API } = require('../../../config/api')
 
 const GP = API.MANAGER_GROSS_PROFIT
-const MISSING_COST = GP + '/missing-cost'
-const COST = GP + '/cost'
 
-/**
- * 站长端「利润 + 净利」：进货成本 + 期间报表。规格见 docs/design/20 §2。
- *
- * 四条口径（改这个页面时必须守住）：
- *   1. **成本价是站长的商业机密**，只走站长端接口（后端全部带 @RequireRole("STATION_MANAGER")）
- *      —— 进价泄露等于竞争对手知道你的底价。本页任何数据都不要往顾客端带。
- *   2. **缺成本的商品不给利润数字**。后端在那种行上下发 profit=null、
- *      profitText="未填成本，无法计算"，合计与**净利**也返回 null。页面必须**原样展示**，
- *      绝不能把 null 当 0 相减 —— 那会让站长以为这一单赚了整整一个售价。
- *      ⚠️ 也**不许因此把哪一块藏起来**：[2026-09-26] 产品口径是"没填成本就说没填成本、
- *      算不出来的利润不给数字"，不是"这一块不显示了"（站长会以为功能没了，而不是"还差一个成本价"）。
- *   3. **成本改了历史利润会跟着变**（本版不做批次成本核算）。后端下发的 costBasisNote
- *      必须原样展示，不能让站长以为这是"当时的真实利润"。
- *   4. **净利 = 水费 + 配送费 + 楼层费 − 进货成本 − 计件工钱**（[2026-09-19] 新增），
- *      六个数字取自**同一批订单**（按下单时间、按结算站、排除已取消）。口径原文由服务端
- *      在 profitBasisNote 里下发，本页只显示不解释。
- *
- * ⚠️ 用词：[2026-09-26 产品口径] 面向站长的字是**利润**（不是"毛利"）—— 本仓的用户是小水站，
- * "毛利"是财务术语。代码 / 端点 / 表名里的 grossProfit 保持不变。
- *
- * ⚠️ 所有金额与文案都用服务端下发的值（含 profitText / profitRateText / costPriceText /
- * missingCostHint / profitBasisNote），页面里不做任何利润或净利算术。
- */
+
+function buildProfitHelpSections(report) {
+  const note = typeof report.helpNote === 'string' ? report.helpNote.trim() : ''
+  const parts = note ? note.split(/\n(?=\d+\.\s)/) : []
+  let preface = ''
+  if (parts.length > 1) preface = parts.shift().trim()
+  else if (parts.length === 1 && !/^\s*\d+\.\s/.test(parts[0])) preface = parts.shift().trim()
+  const clauses = {}
+  parts.forEach(part => {
+    const match = part.match(/^(\d+)\.\s*/)
+    if (match) clauses[Number(match[1])] = part.slice(match[0].length).trim()
+  })
+  const scopeNotes = [preface, clauses[1]]
+  const feeNotes = [clauses[2], clauses[3], clauses[4], clauses[5], report.cooperation && report.cooperation.scopeNote]
+  const costNotes = [clauses[6], clauses[7]]
+  if (!note) {
+    scopeNotes.push(report.profitBasisNote)
+    costNotes.push(report.costBasisNote)
+  } else {
+    if (!scopeNotes.some(value => value)) scopeNotes.push(report.profitBasisNote)
+    if (!costNotes.some(value => value)) costNotes.push(report.costBasisNote)
+  }
+  const known = new Set([1, 2, 3, 4, 5, 6, 7])
+  const otherNotes = Object.keys(clauses).filter(key => !known.has(Number(key)))
+    .sort((a, b) => Number(a) - Number(b)).map(key => clauses[key])
+  return [
+    { key: 'scope', title: '统计时间与收入范围', notes: scopeNotes },
+    { key: 'fees', title: '费用、水票与合作款', notes: feeNotes },
+    { key: 'costs', title: '成本与未计利润', notes: costNotes },
+    { key: 'other', title: '其他计算说明', notes: otherNotes }
+  ].filter(group => group.notes.some(value => typeof value === 'string' && value.trim()))
+    .map(group => ({ ...group, notes: group.notes.filter(value => typeof value === 'string' && value.trim()), expanded: false }))
+}
+
+// 只分组服务端已有行，未知字段也保留在“其他合作款”中。
+function buildCooperationView(cooperation, moneyText) {
+  const rows = cooperation && Array.isArray(cooperation.rows) ? cooperation.rows : []
+  const summaryKeys = ['pendingPayAmount', 'pendingReceiveAmount', 'recordedCashNetAmount']
+  const groups = [
+    { key: 'agreement', title: '合作约定与客户款', keys: ['agreedPayAmount', 'agreedReceiveAmount', 'quoteDifferenceAmount', 'customerReceivedAmount', 'customerRefundedAmount'] },
+    { key: 'settlement', title: '合作交款与收款', keys: ['settledPayAmount', 'settledReceiveAmount'] },
+    { key: 'recovery', title: '退款后返还', keys: ['recoveryPendingPayAmount', 'recoveryPendingReceiveAmount', 'recoverySentPayAmount', 'recoveryReceivedAmount', 'recoveryAwaitingConfirmationAmount'] }
+  ]
+  const formatted = rows.map(row => ({ ...row, amountText: moneyText(row.amount) }))
+  const known = new Set(summaryKeys.concat(...groups.map(group => group.keys)))
+  const sections = groups.map(group => ({ key: group.key, title: group.title, expanded: false, rows: formatted.filter(row => group.keys.includes(row.key)) }))
+  sections.push({ key: 'other', title: '其他合作款', expanded: false, rows: formatted.filter(row => !known.has(row.key)) })
+  return { summary: formatted.filter(row => summaryKeys.includes(row.key)), sections: sections.filter(group => group.rows.length) }
+}
+
+// 条长只表示服务端金额的相对大小，不计算利润；负值用绝对值长度及明确标记。
+function buildProfitChart(report, profitView) {
+  const fields = [
+    { key: 'revenue', label: '收入合计', value: report.totalRevenue, text: profitView.totalRevenueText },
+    { key: 'cost', label: '进货成本', value: report.totalCost, text: profitView.totalCostText },
+    { key: 'profit', label: '利润', value: report.totalProfit, text: profitView.totalProfitText }
+  ]
+  if (fields.some(item => item.value === null || item.value === undefined || item.value === '' || !Number.isFinite(Number(item.value)))) return []
+  const max = Math.max(...fields.map(item => Math.abs(Number(item.value))))
+  return fields.map(item => ({ ...item, negative: Number(item.value) < 0, width: max ? Math.abs(Number(item.value)) / max * 100 : 0 }))
+}
+
+// 2026-10-28：仅完整的期间成本快照显示利润；收入沿用服务端口径，成本仅在入库选填。
 Page({
   data: {
     stationId: null,
-    loading: true, reportError: '', missingError: '', missingReady: false,
+    costComplete: false, loading: true, reportError: '', missingError: '', missingReady: false,
+    quickRange: 0,
+    incomeDetailsExpanded: false,
     from: '',
     to: '',
     report: null,
@@ -44,6 +85,11 @@ Page({
     // 否则 `'¥' + undefined` 会渲染成「¥undefined」——最坏的一种"看起来正常"。
     profitView: {},
     missingCost: [],
+    profitHelpSections: [],
+    profitHelpAllExpanded: false,
+    profitHelpVisible: false,
+    cooperationView: { summary: [], sections: [] },
+    profitChart: [],
     // 从「我的 → 今日净利」跳进来时置为 'today'：只用于副标题文案与默认期间
     range: '',
     // 成本编辑弹层
@@ -61,7 +107,7 @@ Page({
   onLoad(options) {
     if (options && options.range === 'today') {
       const today = this._todayStr()
-      this.setData({ range: 'today', from: today, to: today })
+      this.setData({ range: 'today', quickRange: 1, from: today, to: today })
     }
   },
 
@@ -108,37 +154,36 @@ Page({
 
   async load() {
     const seq = this._loadSeq = (this._loadSeq || 0) + 1
-    this.setData({ loading: true, report: null, reportError: '', missingError: '', missingReady: false, missingCost: [], profitView: {} })
+    this.setData({ loading: true, costComplete: false, report: null, reportError: '', missingError: '', missingReady: false, missingCost: [], profitView: {} })
     const qs = []
     if (this.data.from) qs.push('from=' + this.data.from)
     if (this.data.to) qs.push('to=' + this.data.to)
-    const [reportResult, missingResult] = await Promise.allSettled([
-      get(GP + (qs.length ? '?' + qs.join('&') : '')), get(MISSING_COST)
-    ])
+    const [reportResult] = await Promise.allSettled([get(GP + (qs.length ? '?' + qs.join('&') : ''))])
     if (seq !== this._loadSeq) return
     const patch = { loading: false }
     if (reportResult.status === 'fulfilled' && reportResult.value && reportResult.value.data && Array.isArray(reportResult.value.data.items)) {
       const d = reportResult.value.data
+      const costComplete = d.costComplete === true && [d.totalCost,d.totalProfit,d.netProfit].every(v => v !== null && v !== undefined && Number.isFinite(Number(v)))
+      patch.costComplete = costComplete
       const profitView = { totalProfitText: this._withheldMoney(d.totalProfit), netProfitText: this._withheldMoney(d.netProfit), totalProfitWarn: d.totalProfit === null, netProfitWarn: d.netProfit === null }
       for (const key of ['totalRevenue', 'totalCost', 'orderRevenue', 'ticketRevenue', 'deliveryFee', 'floorFee', 'totalIncome', 'wage']) profitView[key + 'Text'] = this._moneyText(d[key])
       profitView.orderCountText = d.orderCount === null || d.orderCount === undefined || d.orderCount === '' ? '待核实' : d.orderCount
       const report = { ...d, items: d.items.map(item => ({ ...item, revenueTotalText: this._moneyText(item.revenueTotal), costAmountText: this._moneyText(item.costAmount), soldQtyText: item.soldQty === null || item.soldQty === undefined ? '待核实' : item.soldQty })) }
       if (d.cooperation && Array.isArray(d.cooperation.rows)) report.cooperation = { ...d.cooperation, rows: d.cooperation.rows.map(item => ({ ...item, amountText: this._moneyText(item.amount) })) }
       Object.assign(patch, {
-        report, profitView,
+        report, profitView, profitHelpSections: buildProfitHelpSections(report), profitHelpAllExpanded: false, profitHelpVisible: false,
+        cooperationView: buildCooperationView(d.cooperation, value => this._moneyText(value)),
+        profitChart: costComplete ? buildProfitChart(d, profitView) : [],
         from: d.from || this.data.from, to: d.to || this.data.to
       })
     } else patch.reportError = '当前期间报表尚未读取，收入、成本与利润待核实'
-    if (missingResult.status === 'fulfilled' && missingResult.value && Array.isArray(missingResult.value.data)) {
-      patch.missingCost = missingResult.value.data; patch.missingReady = true
-    } else patch.missingError = '未填成本清单尚未读取，请重试后核对'
     this.setData(patch)
   },
 
   onDate(e) {
     // ⚠️ 手改日期就不再是"今日"视图了：`range` 必须清掉，否则标题还写着「今日收入与净利」
     // 而下面列的是别的期间 —— 一个自己会撒谎的标题比没有标题更糟。
-    this.setData({ range: '', [e.currentTarget.dataset.field]: e.detail.value }, () => this.load())
+    this.setData({ range: '', quickRange: null, [e.currentTarget.dataset.field]: e.detail.value }, () => this.load())
   },
 
   /** 快捷区间：只改 from/to 再拉一次，日期口径仍由服务端解释。 */
@@ -149,105 +194,12 @@ Page({
     const now = new Date()
     if (days === 0) {
       // 本月：交给服务端默认（清空 from/to）
-      this.setData({ range: '', from: '', to: '' }, () => this.load())
+      this.setData({ range: '', quickRange: 0, from: '', to: '' }, () => this.load())
       return
     }
     const start = new Date(now.getTime() - (days - 1) * 24 * 3600 * 1000)
     // days === 1 才是"今日"；其余区间必须把 range 清掉（同 onDate 的理由）
-    this.setData({ range: days === 1 ? 'today' : '', from: fmt(start), to: fmt(now) }, () => this.load())
-  },
-
-  /** 点报表行 → 给该商品设/改成本价。 */
-  onOpenCost(e) {
-    const id = Number(e.currentTarget.dataset.id)
-    const item = (this.data.report.items || []).find(x => Number(x.productId) === id)
-    if (!item) return
-    this.setData({
-      costVisible: true,
-      costProduct: item,
-      costInput: item.missingCost === 1 || item.costPrice == null ? '' : String(item.costPrice)
-    })
-  },
-
-  /** 从「未填成本」列表点进来——那里只有 productId/productName，没有价格。 */
-  onOpenCostFromMissing(e) {
-    const id = Number(e.currentTarget.dataset.id)
-    const p = this.data.missingCost.find(x => Number(x.productId) === id)
-    if (!p) return
-    this.setData({
-      costVisible: true,
-      costProduct: { productId: p.productId, productName: p.productName, missingCost: 1 },
-      costInput: ''
-    })
-  },
-
-  onCostInput(e) {
-    this.setData({ costInput: e.detail.value })
-  },
-
-  onCloseCost() {
-    this.setData({ costVisible: false, costProduct: null })
-  },
-
-  async onSaveCost() {
-    if (this.data.costSaving) return
-    const p = this.data.costProduct
-    const raw = String(this.data.costInput || '').trim()
-    const n = Number(raw)
-    if (raw === '' || isNaN(n) || n < 0) {
-      wx.showToast({ title: '请填非负的成本价', icon: 'none' })
-      return
-    }
-    this.setData({ costSaving: true })
-    try {
-      await put(COST, { productId: p.productId, costPrice: n })
-      wx.showToast({ title: '已保存', icon: 'success' })
-      this.setData({ costVisible: false, costProduct: null })
-      await this.load()
-    } catch (err) {
-      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
-    } finally {
-      this.setData({ costSaving: false })
-    }
-  },
-
-  /**
-   * 清除成本价。**必须显式传 clear: true** ——
-   * 后端把"缺 costPrice 且没声明 clear"当成错误，正是为了不让拼错的键变成一次静默清空。
-   */
-  async onClearCost() {
-    if (this.data.costSaving) return
-    const p = this.data.costProduct
-    // [2026-09-20 预防层] 清空成本是**会影响历史数字**的动作，不能直接提交：
-    // 成本价是站级"当前值"（本版不做批次成本核算，见 GrossProfitMapper 文件头），
-    // 清掉之后该商品会一直显示「未填成本、利润算不出」，而且**历史期间的利润也一起变**。
-    // 写法与「拒单」「资产调整单」那两处一致：说清"会发生什么 + 能不能恢复"。
-    const ok = await new Promise((resolve) => {
-      wx.showModal({ cancelColor: '#637083',
-        title: '确认清除进货成本',
-        content: `将清除「${p.productName || '该商品'}」的进货成本价。\n\n`
-          + '清除后：\n'
-          + '1. 报表里这个商品的利润会显示「未填成本，无法计算」\n'
-          + '2. 历史期间的利润也会跟着变（成本不是批次快照）\n\n'
-          + '可以随时重新填入成本价恢复。',
-        confirmText: '确认清除',
-        confirmColor: '#BD3328',
-        success: (r) => resolve(r.confirm), fail: () => resolve(false)
-      })
-    })
-    if (!ok) return
-
-    this.setData({ costSaving: true })
-    try {
-      await put(COST, { productId: p.productId, clear: true })
-      wx.showToast({ title: '已清除', icon: 'success' })
-      this.setData({ costVisible: false, costProduct: null })
-      await this.load()
-    } catch (err) {
-      wx.showToast({ title: err.message || '清除失败', icon: 'none' })
-    } finally {
-      this.setData({ costSaving: false })
-    }
+    this.setData({ range: days === 1 ? 'today' : '', quickRange: days, from: fmt(start), to: fmt(now) }, () => this.load())
   },
 
   /**
@@ -258,16 +210,42 @@ Page({
    * ⚠️ 前端**不要**自己抄一份口径文案进来（本仓铁律：口径只有一个来源，见 AGENTS §6）。
    */
   onShowHelp() {
-    const note = this.data.report && this.data.report.helpNote
-    if (!note) {
+    const groups = this.data.profitHelpSections || []
+    if (!groups.length) {
+      const note = this.data.report && this.data.report.helpNote
       // 老版本服务端没有 helpNote：给一句能用的最小说明，别弹一个空框
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
-        title: '利润怎么算',
-        content: '利润 = 该期间的销售收入 − 卖出数量 × 当前进货成本价。没填成本的商品会显示「未填成本」。',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+        title: '统计口径',
+        content: note || '统计口径暂未读取，请重新读取报表后核对。历史利润按订单成本快照统计；成本不全时仅展示收入，不按当前进货价补算。',
         showCancel: false
       })
       return
     }
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '利润怎么算', content: note, showCancel: false })
+    const expanded = !this.data.profitHelpAllExpanded
+    this.setData({
+      profitHelpAllExpanded: expanded,
+      profitHelpSections: groups.map(group => ({ ...group, expanded }))
+    })
+  },
+
+  onToggleIncomeDetails() { this.setData({ incomeDetailsExpanded: !this.data.incomeDetailsExpanded }) },
+  onToggleAmountComparison() { this.setData({ amountComparisonExpanded: !this.data.amountComparisonExpanded }) },
+  onToggleHelpVisible() {
+    this.setData({ profitHelpVisible: !this.data.profitHelpVisible })
+  },
+
+  onToggleCooperationGroup(e) {
+    const key = e.currentTarget.dataset.group
+    const view = this.data.cooperationView
+    this.setData({ cooperationView: { ...view, sections: view.sections.map(group => group.key === key ? { ...group, expanded: !group.expanded } : group) } })
+  },
+
+  onToggleHelpGroup(e) {
+    const key = e.currentTarget.dataset.group
+    const groups = this.data.profitHelpSections || []
+    this.setData({
+      profitHelpAllExpanded: false,
+      profitHelpSections: groups.map(group => group.key === key ? { ...group, expanded: !group.expanded } : group)
+    })
   }
 })

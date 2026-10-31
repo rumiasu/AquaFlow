@@ -116,6 +116,45 @@
 .content { font-size:30rpx; line-height:1.7; color:var(--text-primary); overflow-wrap:break-word; }
 .time,.foot-item,.state-hint { font-size:26rpx; color:var(--text-regular); line-height:1.6; }
 .category { font-size:28rpx; border-radius:6rpx; }
-.fb-card button,.retry-btn { min-height: 44px; height:auto; line-height:1.5; padding:20rpx; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; font-size: 14px; }
+.fb-card button:not(.af-action):not(.af-choice):not(.af-entry),.retry-btn { min-height: 44px; height:auto; line-height:1.5; padding:20rpx; display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:10rpx; font-size: 14px; }
 .fb-card textarea { width:100%; box-sizing:border-box; padding:20rpx; border:1rpx solid var(--border-color); background:var(--bg-color); border-radius:10rpx; font-size:30rpx; line-height:1.6; }
 .refund-note-form { margin-top:20rpx; padding-top:20rpx; border-top:1rpx solid var(--border-color); }
+
+.fb-card button:not(.af-action):not(.af-choice):not(.af-entry) { background: var(--bg-white); color: var(--primary-color); border: 1rpx solid var(--border-color); }
+.fb-card button:not(.af-action):not(.af-choice):not(.af-entry).primary-action { min-height: 48px; background: var(--primary-color); color: #fff; }
+.retry-btn { min-height: 44px; }
+
+.section-tabs { display:flex; gap:12rpx; margin-bottom:20rpx; }
+.section-tabs button:not(.af-action):not(.af-choice):not(.af-entry) { flex:1; min-height:44px; height:auto; line-height:1.5; color:var(--text-regular); background:#fff; border:1rpx solid var(--border-color); }
+.section-tabs button:not(.af-action):not(.af-choice):not(.af-entry).active { color:var(--primary-color); background:var(--primary-bg); border-color:var(--primary-color); }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Page-specific role grouping. */
+
+.section-tabs { display:flex; gap:4px; padding:0 4px; border-radius:8px; background:var(--af-soft); }
+.section-tabs .af-choice { flex:1; min-width:0; }
+.b3-dispute-state { margin:12px 0; }
+.b3-dispute-status { display:block; color:var(--af-strong); font-size:16px; line-height:24px; font-weight:600; }
+.b3-dispute-state.is-current { border-left:4px solid var(--af-primary); padding-left:12px; margin:16px 0; }
+.b3-dispute-state.is-current .b3-dispute-status { font-size:22px; line-height:30px; }
+.b3-dispute-history { margin-left:8px; padding:8px 0 12px 16px; border-left:1px solid var(--af-border); }
+.b3-on-close-dispute,.b3-on-submit-refund-note { margin-top:12px; }
+
+/* Visual v2: page-specific information and action grouping. */
+ .section-tabs { background:var(--af2-surface-order); } .b3-dispute-state.is-current { border:0; border-radius:14px; padding:14px 16px; background:var(--af2-surface-current); } .b3-dispute-status { color:var(--af2-ink-current); } .fb-card { border-radius:14px; box-shadow:none; } .refund-note-form { border-top:1px solid var(--af-border); padding-top:12px; }

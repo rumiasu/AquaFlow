@@ -1,0 +1,12 @@
+<view wx:if="{{visible}}" class="business-mask {{dark ? 'business-dark' : ''}}" catchtouchmove="stop">
+  <view class="business-dialog" role="dialog" aria-modal="true" aria-label="{{title}}">
+    <text class="business-title">{{title}}</text>
+    <scroll-view class="business-body" scroll-y="{{true}}">
+      <text wx:if="{{content}}" class="business-copy">{{content}}</text>
+      <text wx:if="{{description}}" class="business-description business-copy">{{description}}</text>
+      <view wx:for="{{details}}" wx:key="index" class="business-detail"><text class="business-copy">{{item.label}}</text><text class="business-number">{{item.value}}</text></view>
+      <input wx:if="{{editable}}" class="business-input" value="{{input}}" placeholder="{{placeholder}}" bindinput="onInput" />
+    </scroll-view>
+    <view class="business-actions"><button wx:if="{{showCancel}}" class="business-cancel af-action af-action--cancel af-action--form" bindtap="onCancel">{{cancelText}}</button><button class="business-confirm af-action {{danger ? 'business-danger af-action--danger' : 'af-action--primary'}}" bindtap="onConfirm">{{confirmText}}</button></view>
+  </view>
+</view>

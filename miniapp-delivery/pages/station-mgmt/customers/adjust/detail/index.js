@@ -1,3 +1,5 @@
+const { showBusinessModal } = require('../../../../../utils/business-dialog')
+const { captureSession, currentSession } = require('../../../../../utils/request')
 const imageDisplay = require('../../../../../behaviors/imageDisplay')
 // 站长资产调整单详情（含快照、证据图、执行 / 撤销）
 const { getAdjustment, executeAdjustment, reverseAdjustment } = require('../../../../../api/station-mgmt')
@@ -122,7 +124,19 @@ Page({
     this.setData({ rawExpanded: !this.data.rawExpanded })
   },
 
+  onShow() {
+    const wasHidden = this._hidden; this._hidden = false
+    if (this._session && !currentSession(this._session)) { this._session = captureSession(); this._reverseDraft = ''; this.updateReverseWarning(); this._loadSeq = (this._loadSeq || 0) + 1; this.setData({ id: null, detail: null, loading: false, executing: false, reversing: false, loadError: '账号或水站已变化，请返回列表重新选择。' }); return }
+    if (wasHidden && this.data.id) return this.loadData()
+  },
+  onHide() { this._hidden = true; this._reversePrompt = null; this._executePrompt = null; this._loadSeq = (this._loadSeq || 0) + 1 },
+  onUnload() { this.onHide(); this._unloaded = true; if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload() },
+  updateReverseWarning() {
+    if (this._reverseDraft && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '未提交的撤销原因仅在本页保留，确定离开吗？' })
+    else if (!this._reverseDraft && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+  },
   onLoad(options) {
+    this._session = captureSession()
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       this.setData({ denied: true, deniedText: '当前账号没有水站业务权限' })
@@ -161,11 +175,11 @@ Page({
 
   async loadData() {
     if (!this.data.id) return
-    const seq = this._loadSeq = (this._loadSeq || 0) + 1
+    const session = captureSession(), seq = this._loadSeq = (this._loadSeq || 0) + 1
     this.setData({ loading: true, loadError: '' })
     try {
       const res = await getAdjustment(this.data.id)
-      if (seq !== this._loadSeq) return
+      if (seq !== this._loadSeq || !currentSession(session)) return
       if (res.code === 0 && res.data) {
         this.setData({ detail: decorate(res.data) })
       } else {
@@ -173,11 +187,11 @@ Page({
         wx.showToast({ title: res.message || '调整单不存在', icon: 'none' })
       }
     } catch (err) {
-      if (seq !== this._loadSeq) return
+      if (seq !== this._loadSeq || !currentSession(session)) return
       this.setData({ detail: null, loadError: err.message || '调整单读取失败，请重试' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     } finally {
-      if (seq === this._loadSeq) this.setData({ loading: false })
+      if (seq === this._loadSeq && currentSession(session)) this.setData({ loading: false })
     }
   },
 
@@ -193,88 +207,71 @@ Page({
     wx.previewImage({ current: this.data.detail.evidenceList[index], urls: this.data.detail.evidenceList })
   },
 
-  /** 执行（PENDING → EFFECTIVE）：回调式 wx.showModal 二次确认 */
+  /** 执行前核对原单，取消或身份变化不写入。 */
   onExecute() {
     const detail = this.data.detail
-    if (!detail || this.data.executing) return
-    const what = detail.hasQty ? `数量 ${detail.qtyText}` : `金额 ¥${detail.amountText}`
-    wx.showModal({ cancelColor: '#637083',
-      title: '执行调整单',
-      content: `确定执行 ${detail.adjustNo}？\n类型：${detail.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产，事后只能通过「撤销」生成反向单。`,
-      confirmText: '执行',
-      confirmColor: '#1264D6',
-      success: async (res) => {
-        if (!res.confirm) return
-        this.setData({ executing: true })
-        wx.showLoading({ title: '执行中...' })
-        try {
-          await executeAdjustment(detail.id)
-          wx.hideLoading()
-          wx.showToast({ title: '已执行生效', icon: 'success' })
-          this.loadData()
-        } catch (err) {
-          wx.hideLoading()
-          wx.showToast({ title: err.message || '执行失败', icon: 'none', duration: 3000 })
-          this.loadData()
-        } finally {
-          this.setData({ executing: false })
-        }
-      }
+    if (!detail || !detail.isPending || this.data.executing || this._executePrompt || this._hidden || this._unloaded) return
+    const session = captureSession(), prompt = this._executePrompt = {}
+    const what = detail.hasQty ? `数量 ${detail.qtyText}` : (detail.hasAmount ? `金额 ¥${detail.amountText}` : '数量或金额待核实')
+    showBusinessModal({ title: '执行调整单', content: `确定执行 ${detail.adjustNo}？\n类型：${detail.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产，事后只能通过「撤销」生成反向单。`, confirmText: '执行',
+      success: async res => {
+        if (this._executePrompt !== prompt) return
+        this._executePrompt = null
+        if (!res.confirm || this._hidden || this._unloaded || !currentSession(session) || !this.data.detail || this.data.detail.id !== detail.id || !this.data.detail.isPending || this.data.executing) return
+        this.setData({ executing: true }); wx.showLoading({ title: '执行中...' })
+        try { await executeAdjustment(detail.id); if (!this._hidden && !this._unloaded && currentSession(session)) { wx.showToast({ title: '已执行生效', icon: 'success' }); this.loadData() } }
+        catch (err) { if (!this._hidden && !this._unloaded && currentSession(session)) { wx.showToast({ title: err.message || '执行失败', icon: 'none', duration: 3000 }); this.loadData() } }
+        finally { wx.hideLoading(); if (!this._unloaded && currentSession(session)) this.setData({ executing: false }) }
+      }, fail: () => { if (this._executePrompt === prompt) this._executePrompt = null }
     })
   },
 
-  /**
-   * 撤销（EFFECTIVE → 反向单）。
-   * 第一步 editable 弹窗填原因（必填），第二步二次确认把类型/数量与原因再念一遍，
-   * 两步都是回调式 API。
-   */
+  /** 单次确认包括反向影响与必填原因；身份或页面变化后不发送。 */
   onReverse() {
     const detail = this.data.detail
-    if (!detail || this.data.reversing) return
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',
-      title: '撤销原因（必填）',
-      content: '撤销会生成一张反向单并立即执行，原单置「已撤销」。请输入撤销原因：',
-      editable: true,
-      placeholderText: '如：补录数量填错、重复补录',
-      success: (r) => {
+    if (!detail || this.data.reversing || this._reversePrompt || this._hidden || this._unloaded) return
+    const session = captureSession(), prompt = this._reversePrompt = {}
+    const what = detail.hasQty ? `数量 ${detail.qtyText}` : (detail.hasAmount ? `金额 ¥${detail.amountText}` : '数量或金额待核实')
+    showBusinessModal({
+      title: '确认撤销', editable: true, initialValue: this._reverseDraft || '',
+      description: `将撤销 ${detail.adjustNo}（${detail.adjustTypeText}，${what}），生成反向单并立即生效。请输入撤销原因；未提交的原因仅在本页保留。`,
+      placeholderText: '如：补录数量填错、重复补录', confirmText: '确认撤销', confirmColor: '#BD3328',
+      success: r => {
+        if (this._reversePrompt !== prompt) return
+        this._reversePrompt = null
+        if (this._hidden || this._unloaded || !currentSession(session) || !this.data.detail || this.data.detail.id !== detail.id || this.data.reversing) return
+        if (typeof r.content === 'string') { this._reverseDraft = r.content; this.updateReverseWarning() }
         if (!r.confirm) return
         const reason = String(r.content || '').trim()
-        if (!reason) {
-          wx.showToast({ title: '撤销原因不能为空', icon: 'none' })
-          return
-        }
-        const what = detail.hasQty ? `数量 ${detail.qtyText}` : `金额 ¥${detail.amountText}`
-        wx.showModal({ cancelColor: '#637083',
-          title: '确认撤销',
-          content: `将撤销 ${detail.adjustNo}（${detail.adjustTypeText}，${what}）并生成反向单立即生效。\n原因：${reason}`,
-          confirmText: '确认撤销',
-          confirmColor: '#BD3328',
-          success: (r2) => {
-            if (r2.confirm) this.doReverse(reason)
-          }
-        })
-      }
+        if (!reason) { wx.showToast({ title: '撤销原因不能为空', icon: 'none' }); return }
+        this.doReverse(reason)
+      },
+      fail: () => { if (this._reversePrompt === prompt) this._reversePrompt = null }
     })
   },
 
   async doReverse(reason) {
     const detail = this.data.detail
-    if (!detail) return
+    if (!detail || this.data.reversing) return
+    const session = captureSession()
     this.setData({ reversing: true })
     wx.showLoading({ title: '撤销中...' })
     try {
       const res = await reverseAdjustment(detail.id, reason, this.data.reverseClientToken)
-      wx.hideLoading()
+      if (this._hidden || this._unloaded || !currentSession(session)) return
+      if (!res || !res.data || !res.data.id) throw Error('撤销结果尚未确认，请重新读取单据')
+      this._reverseDraft = ''; this.updateReverseWarning()
       const no = res && res.data && res.data.adjustNo ? res.data.adjustNo : ''
       wx.showToast({ title: no ? '已撤销，反向单 ' + no : '已撤销', icon: 'success' })
       this.loadData()
     } catch (err) {
-      wx.hideLoading()
+      if (this._hidden || this._unloaded || !currentSession(session)) return
       wx.showToast({ title: err.message || '撤销失败', icon: 'none', duration: 3000 })
       // 失败常见原因是原单状态已被并发改变 → 重新拉一次让页面自愈
       this.loadData()
     } finally {
-      this.setData({ reversing: false })
+      wx.hideLoading()
+      if (!this._unloaded && currentSession(session)) this.setData({ reversing: false })
     }
   }
 })

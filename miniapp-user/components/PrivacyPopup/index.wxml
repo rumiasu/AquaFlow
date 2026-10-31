@@ -7,8 +7,8 @@
       。我们将获取您的位置信息用于收货地址定位。
     </view>
     <view class="privacy-btns">
-      <button class="privacy-btn reject" aria-label="拒绝隐私授权" bindtap="onReject">拒绝</button>
-      <button class="privacy-btn agree" aria-label="同意隐私授权" id="privacy-agree-btn" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgree">同意</button>
+      <button class="privacy-btn reject af-action af-action--cancel af-action--form" aria-label="拒绝隐私授权" bindtap="onReject">拒绝</button>
+      <button class="privacy-btn agree af-action af-action--primary af-action--grow" aria-label="同意隐私授权" id="privacy-agree-btn" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgree">同意</button>
     </view>
   </view>
 </view>

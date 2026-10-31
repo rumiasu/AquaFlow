@@ -242,15 +242,15 @@ test('unknown order recovery names the original submission action without changi
 })
 test('typed refund dispute and supplemental note keep separate purpose labels before history', () => {
   const t=fixture('service/index')
-  t.page.setData({isLogin:true,refundRef:{refundType:'BARREL_RETURN',refundId:7},refundReady:true,
+  t.page.setData({isLogin:true,showRefundNote:true,showDisputeHistory:true,refundRef:{refundType:'BARREL_RETURN',refundId:7},refundReady:true,
     dispute:{canOpen:true,statusText:'待核对',actions:[{id:1,actionText:'水站已登记',reason:'原处理记录',createTime:'2026-10-23'}]},
     disputeReason:'客户已输入的异议 Original',content:'客户已输入的补充说明 Original',pendingRefundNote:true,pendingDispute:true})
   const view=elements('service/index',t.page.data)
   const titles=view.filter(e=>e.className==='refund-purpose-title').map(e=>e.text)
-  assert.deepEqual(titles,['提出退款异议','补充退款说明（选填）','退款异议处理记录'])
+  assert.deepEqual(titles,['提出退款异议','补充退款说明（选填）']);assert.ok(view.some(e=>e.attrs.bindtap==='onToggleDisputeHistory'&&e.text.includes('退款异议处理记录')))
   assert.ok(view.some(e=>e.className==='refund-purpose-note'&&e.text.includes('由责任水站核实')))
   assert.ok(view.some(e=>e.className==='refund-purpose-note'&&e.text.includes('只保存说明，不会办理退款或改变金额')))
-  assert(view.findIndex(e=>e.attrs.bindtap==='onSubmit')<view.findIndex(e=>e.text==='退款异议处理记录'))
+  assert(view.findIndex(e=>e.attrs.bindtap==='onSubmit')<view.findIndex(e=>e.attrs.bindtap==='onToggleDisputeHistory'))
   assert.ok(view.some(e=>e.attrs.bindtap==='onRetryDispute'));assert.ok(view.some(e=>e.attrs.bindtap==='onRetryOriginalNote'))
 })
 test('ordinary feedback retains its existing form without refund-specific purpose labels', () => {
@@ -259,6 +259,33 @@ test('ordinary feedback retains its existing form without refund-specific purpos
   assert(!view.some(e=>e.className==='refund-purpose-title'))
   assert.ok(view.some(e=>e.attrs.bindtap==='onSubmit'))
 })
+test('fee detail entry and close keep 44 CSS pixel touch targets on narrow screens', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxss'), 'utf8')
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+  function properties(selector) {
+    const result = {}
+    for (const [, selectors, declarations] of rules) {
+      if (!selectors.split(',').some(item => item.trim() === selector)) continue
+      for (const declaration of declarations.split(';')) {
+        const colon = declaration.indexOf(':')
+        if (colon > 0) result[declaration.slice(0, colon).trim()] = declaration.slice(colon + 1).trim()
+      }
+    }
+    return result
+  }
+  const entry = properties('.total-info'), close = properties('.detail-sheet-close')
+  const pixels = (value, width) => value.endsWith('rpx') ? parseFloat(value) * width / 750 : value.endsWith('px') ? parseFloat(value) : NaN
+  for (const width of [320, 375]) {
+    assert(pixels(entry['min-height'], width) >= 44, 'fee entry is too short at ' + width)
+    assert(pixels(close['min-height'], width) >= 44, 'close target is too short at ' + width)
+    assert(pixels(close['min-width'], width) >= 44, 'close target is too narrow at ' + width)
+  }
+  assert.equal(close['flex-shrink'], '0', 'header must not shrink the close target')
+  const markup = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/create.wxml'), 'utf8')
+  assert(/class="total-info" bindtap="onShowDetail"/.test(markup))
+  assert(/class="detail-sheet-close" bindtap="onDetailPopupClose"/.test(markup))
+})
+
 ;(async()=>{
   let failed=0
   for(const t of tests){try{await t.run();console.log('PASS '+t.name)}catch(error){failed++;console.error('FAIL '+t.name+' '+error.stack)}}

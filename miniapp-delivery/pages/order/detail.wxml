@@ -1,21 +1,21 @@
-<view class="container">
+<view class="container b2-page b2-d09 af2-page lv2-page lv2-detail">
   <!-- 隐私授权弹窗：本页用 wx.chooseLocation 导航、wx.chooseImage 传图，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
   <view class="info-card" wx:if="{{writePending}}">
     <text>操作仍在处理中，请稍候</text>
-    <button size="mini" bindtap="onVerifyOrderWrite" disabled="{{loading}}">刷新处理状态</button>
+    <button bindtap="onVerifyOrderWrite" disabled="{{loading}}" class="af-action af-action--quiet"><view class="af-action__face">刷新处理状态</view></button>
   </view>
   <view class="info-card write-recovery" wx:if="{{writeUnknown}}">
     <text>{{writeRecoveryText}}</text>
-    <button wx:if="{{canRetryReport}}" size="mini" bindtap="onRetryReport" disabled="{{loading}}">重试原反馈</button>
-    <button size="mini" bindtap="onVerifyOrderWrite" loading="{{loading}}" disabled="{{loading}}">核实当前订单</button>
-    <button size="mini" bindtap="onReturnToTasks">返回任务列表</button>
+    <button wx:if="{{canRetryReport}}" bindtap="onRetryReport" disabled="{{loading}}" class="af-action af-action--secondary">重试原反馈</button>
+    <button bindtap="onVerifyOrderWrite" loading="{{loading}}" disabled="{{loading}}" class="af-action af-action--quiet"><view class="af-action__face">核实当前订单</view></button>
+    <button bindtap="onReturnToTasks" class="af-action af-action--quiet"><view class="af-action__face">返回任务列表</view></button>
   </view>
   <view class="info-card write-recovery" wx:if="{{writeVerifiedText}}"><text>{{writeVerifiedText}}</text></view>
   <view class="info-card" wx:if="{{detailError}}">
     <text wx:if="{{detailOutcomeText}}">{{detailOutcomeText}}</text>
     <text>详情刷新失败：{{detailError}}</text>
-    <button size="mini" bindtap="onRetryDetail" loading="{{loading}}" disabled="{{loading || writePending}}">重新加载</button>
+    <button bindtap="onRetryDetail" loading="{{loading}}" disabled="{{loading || writePending}}" class="af-action af-action--quiet"><view class="af-action__face">重新加载</view></button>
   </view>
   <!-- ══ 关键事实卡（2026-10-07 #19 R4，正本 docs/design/36 §2）══
        原整版蓝头降级为暖纸白卡：对象、单号、状态章、金额一屏读完（R1 详情页=暖纸白卡）。
@@ -26,11 +26,11 @@
       <text class="fact-name">{{order.receiverName || order.customerName}}</text>
       <text class="fact-no">订单 {{order.orderNo || order.id}}</text>
     </view>
-    <view class="fact-status-row">
+    <view class="fact-status-row"><icon name="truck" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /> 
       <text class="status-badge status-{{order.statusClass}}">{{order.statusText}}</text>
       <text class="aux-tag aux-{{l.type}}" wx:for="{{order.labels}}" wx:for-item="l" wx:key="type">{{l.text}}</text>
     </view>
-    <view class="fact-amount-row" wx:if="{{order.amountText}}">
+    <view class="fact-amount-row lv2-fact-money" wx:if="{{order.amountText}}">
       <text class="fact-amount">{{order.amountText}}</text>
       <text class="fact-pay fact-pay-{{order.payChipClass}}" wx:if="{{order.payStateText}}">{{order.payStateText}}</text>
     </view>
@@ -38,13 +38,14 @@
 
   <!-- 联系信息卡片 -->
   <view class="info-card contact-card">
+
     <view class="info-row" bindtap="onCopyAddress">
       <text class="info-text address">{{order.addressSnapshot || order.addressDetail}}</text>
-      <text class="info-action">复制</text>
+      <icon name="location" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /><text class="info-action">复制</text>
     </view>
     <view class="info-row" bindtap="onCallPhone">
       <text class="info-text">{{order.receiverPhone || order.customerPhone}}</text>
-      <text class="info-action">拨打</text>
+      <icon name="phone" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /><text class="info-action">拨打</text>
     </view>
     <!-- 楼层 / 电梯：配送员据此知道要不要上楼。文案已在 js 里按三态算好，
          不确定时整行不显示（不放假数据）。 -->
@@ -56,12 +57,13 @@
     <view class="info-row" wx:if="{{order.stockPrepText}}">
       <text class="info-text">{{order.stockPrepText}}</text>
     </view>
+    <button bindtap="onNavigate" wx:if="{{order.id && !loading && !detailError && !order.transferTarget}}" class="af-action af-action--secondary"><text>导航</text></button>
   </view>
   <view class="info-card" wx:if="{{order.dispatchAgreement && order.dispatchAgreement.serviceAmount !== undefined}}">
     <text>本单外包服务报价 ¥{{order.dispatchAgreement.serviceAmount}}（含水费及配送费用）</text>
     <text>{{order.dispatchAgreement.barrelNote}} · {{order.dispatchAgreement.barrelItems}} · 桶折款 ¥{{order.dispatchAgreement.barrelAmount}}</text>
-    <button wx:if="{{isManager && order.status === 1 && order.dispatchAgreement.canEditQuote}}" bindtap="onEditDispatchQuote">调整本单外包报价</button>
-    <button wx:if="{{isManager && order.status === 1 && order.dispatchAgreement.canEditQuote && order.dispatchAgreement.netBarrels > 0}}" bindtap="onEditBarrelTerms">明确净送桶补偿安排</button>
+    <button wx:if="{{isManager && order.status === 1 && order.dispatchAgreement.canEditQuote}}" bindtap="onEditDispatchQuote" class="af-action af-action--quiet"><view class="af-action__face">调整本单外包报价</view></button>
+    <button wx:if="{{isManager && order.status === 1 && order.dispatchAgreement.canEditQuote && order.dispatchAgreement.netBarrels > 0}}" bindtap="onEditBarrelTerms" class="af-action af-action--quiet"><view class="af-action__face">明确净送桶补偿安排</view></button>
   </view>
 
 
@@ -80,15 +82,15 @@
     </view>
     <view class="floor-proof-head">
       <text class="floor-proof-title">楼梯凭证</text>
-      <text class="floor-proof-add" wx:if="{{floorPhotosState === 'ready'}}" bindtap="onAddFloorPhoto">{{floorUploading ? '上传中…' : '＋ 补传照片'}}</text>
+      <text wx:if="{{floorPhotosState === 'ready'}}" bindtap="onAddFloorPhoto" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">{{floorUploading ? '上传中…' : '＋ 补传照片'}}</text></text>
     </view>
     <view class="floor-proof-photos" wx:if="{{floorPhotos.length}}">
       <view class="floor-proof-img ui-proof-frame" wx:for="{{floorPhotos}}" wx:key="index"><image src="{{item}}"
              mode="aspectFill" data-index="{{index}}" bindtap="onPreviewFloorPhoto" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{item}}" wx:if="{{!displayImageErrors[item]}}" /><view class="ui-image-fallback" wx:else bindtap="onPreviewFloorPhoto" data-index="{{index}}">图片暂无法显示，点此预览原图</view></view>
     </view>
     <text class="floor-proof-tip" wx:if="{{floorPhotosState === 'loading'}}">正在读取楼梯凭证…</text>
-    <view class="ui-state" wx:elif="{{floorPhotosState === 'error'}}"><text class="ui-state-copy">楼梯凭证未读取，暂不能确定是否已有照片。</text><button size="mini" bindtap="onRetryFloorPhotos">重新读取凭证</button></view>
-    <text class="floor-proof-tip" wx:elif="{{floorPhotosState === 'ready' && !floorPhotos.length}}">尚无楼梯凭证；如有楼层争议，可补充现场照片。</text>
+    <view class="ui-state" wx:elif="{{floorPhotosState === 'error'}}"><text class="ui-state-copy">楼梯凭证未读取，暂不能确定是否已有照片。</text><button bindtap="onRetryFloorPhotos" class="af-action af-action--quiet"><view class="af-action__face">重新读取凭证</view></button></view>
+    <text class="floor-proof-tip" wx:elif="{{floorPhotosState === 'ready' && !floorPhotos.length}}">尚无楼梯凭证</text>
   </view>
 
   <!--
@@ -100,11 +102,11 @@
   <view class="section" wx:if="{{deliveryPhotosState === 'loading' || deliveryPhotosState === 'error'}}">
     <text class="section-title">送达凭证</text>
     <text class="section-tip">{{deliveryPhotosState === 'loading' ? '正在读取送达凭证…' : '送达凭证未读取，暂不能确定是否已上传照片。'}}</text>
-    <button wx:if="{{deliveryPhotosState === 'error'}}" size="mini" bindtap="onRetryDeliveryPhotos">重新读取凭证</button>
+    <button wx:if="{{deliveryPhotosState === 'error'}}" bindtap="onRetryDeliveryPhotos" class="af-action af-action--quiet"><view class="af-action__face">重新读取凭证</view></button>
   </view>
   <view class="section" wx:if="{{deliveryPhotos.length}}">
     <text class="section-title">送达凭证</text>
-    <text class="section-tip">配送员送达时拍的现场照片（{{deliveryPhotos.length}} 张）</text>
+    <text class="section-tip">现场照片 · {{deliveryPhotos.length}} 张</text>
     <view class="floor-proof-photos">
       <view class="floor-proof-img ui-proof-frame" wx:for="{{deliveryPhotos}}" wx:key="index"><image src="{{item}}"
              mode="aspectFill" data-index="{{index}}" bindtap="onPreviewDeliveryPhoto" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{item}}" wx:if="{{!displayImageErrors[item]}}" /><view class="ui-image-fallback" wx:else bindtap="onPreviewDeliveryPhoto" data-index="{{index}}">图片暂无法显示，点此预览原图</view></view>
@@ -112,16 +114,16 @@
   </view>
   <view class="section" wx:elif="{{showNoDeliveryProofTip && deliveryPhotosState === 'ready'}}">
     <text class="section-title">送达凭证</text>
-    <text class="floor-proof-tip">本单尚无送达照片；照片为选填，是否送达请结合订单记录核实。</text>
+    <text class="floor-proof-tip">未上传送达照片；是否送达请核对订单记录。</text>
   </view>
 
   <!-- 订单内容 -->
   <view class="section">
     <text class="section-title">订单内容</text>
-    <view class="order-content" wx:for="{{order.items}}" wx:for-item="it" wx:key="id">
+    <view class="order-content lv2-product-row" wx:for="{{order.items}}" wx:for-item="it" wx:key="id"><view class="lv2-sku-thumb"><image wx:if="{{it.imageUrl && !displayImageErrors[it.imageUrl]}}" src="{{it.imageUrl}}" mode="aspectFit" binderror="onDisplayImageError" data-src="{{it.imageUrl}}" /><view wx:else class="lv2-sku-fallback"><icon name="products" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /></view></view><view class="lv2-product-copy">
       <text class="content-name">{{it.productNameSnapshot}}</text>
       <text class="content-spec" wx:if="{{it.specSnapshot}}">{{it.specSnapshot}}</text>
-      <text class="content-qty">× {{it.quantity}} {{it.quantityUnit}}</text>
+      </view><text class="content-qty">× {{it.quantity}} {{it.quantityUnit}}</text>
     </view>
   </view>
 
@@ -137,7 +139,7 @@
   </view>
   <view class="section" wx:if="{{order.notes && order.notes.length > 0}}">
     <text class="section-title">订单备注</text>
-    <text class="section-tip">客户留言（包括期望送达时间）与处理记录逐行显示；期望时间供安排参考。</text>
+    <help-tip title="订单备注" text="客户留言与处理记录分列；期望时间不代表已约定送达。" />
     <view class="notes-list">
       <view class="note-item" wx:for="{{order.notes}}" wx:key="index">
         <text class="note-icon">⚠</text>
@@ -149,7 +151,7 @@
   <!-- 回桶：标签与数值都由 js 算好（见 detail.js#buildReturnPlan）。
        首单是「押金桶 · 无需回桶」、送达后是「已回桶 N 个」，不下发桶的单整行不渲染 -->
   <view class="section" wx:if="{{order.returnValue}}">
-    <view class="info-row-between">
+    <view class="info-row-between lv2-fact-physical"><icon name="barrel" size="24px" color="#235F5A" variant="duotone" fill-color="#D8EFED" />
       <text class="info-label">{{order.returnLabel}}</text>
       <text class="info-value">{{order.returnValue}}</text>
     </view>
@@ -177,12 +179,12 @@
     <view class="history-row">
       <view class="history-item">
         <text class="history-label">近一年配送</text>
-        <text class="history-value">{{order.historyCount || 0}}次</text>
+        <text class="history-value">{{order.historyCount !== null && order.historyCount !== undefined ? order.historyCount + '次' : '待核实'}}</text>
       </view>
       <view class="history-divider"></view>
       <view class="history-item">
         <text class="history-label">最近一次</text>
-        <text class="history-value">{{order.lastOrderDays || 0}}天前</text>
+        <text class="history-value">{{order.lastOrderDays !== null && order.lastOrderDays !== undefined ? order.lastOrderDays + '天前' : '待核实'}}</text>
       </view>
     </view>
   </view>
@@ -196,8 +198,11 @@
        本页不做任何 1/2/3 映射，也不做金额加减。
     流水为空时整块不显示（与上方"楼层上报"同一处理，不显示空壳区块）。
   -->
-  <view class="section" wx:if="{{canRefundPayment && payments.length}}">
+  <view class="section" wx:if="{{paymentsState !== 'idle'}}">
     <text class="section-title">支付流水</text>
+    <view wx:if="{{paymentsState === 'loading'}}">正在读取付款记录…</view>
+    <view wx:elif="{{paymentsState === 'error'}}">付款记录未读取，退款资格暂不能确认。<button bindtap="onRetryPayments" class="af-action af-action--quiet"><view class="af-action__face">重新读取</view></button></view>
+    <view wx:elif="{{paymentsState === 'ready' && !payments.length}}">暂无付款记录</view>
     <view class="pay-row" wx:for="{{payments}}" wx:key="id">
       <view class="pay-main">
         <view class="pay-line">
@@ -210,7 +215,7 @@
       </view>
       <!-- 只有「已付款」的流水可退；退款/已取消的流水不出现按钮，
            避免站长对着一条已退款的流水反复点（后端也会拒，但那是白点一次） -->
-      <view class="pay-refund" wx:if="{{item.canRefund}}" data-id="{{item.id}}" data-index="{{index}}"
+      <view class="af-action af-action--danger-quiet" wx:if="{{item.canRefund}}" data-id="{{item.id}}" data-index="{{index}}"
             bindtap="onRefundPayment">退款</view>
     </view>
   </view>
@@ -220,26 +225,20 @@
        低频动作全部收进下方半屏弹层；所有显示条件（canComplete / canReport / canTransfer /
        canWithdrawTransfer / canReturn / canRequestCancel / 拒付三件套）保留原业务判据；处理器补单次执行和页面身份保护。 -->
   <view class="action-bar" wx:if="{{order.id && !loading && !detailError && !order.transferTarget}}">
-    <button class="action-btn action-nav" bindtap="onNavigate">
-      <text>导航</text>
-    </button>
-    <button class="action-btn action-collect" bindtap="onConfirmCollection" wx:if="{{order.canCollect}}" disabled="{{actionBusy}}">
-      <text>确认收款</text>
-    </button>
-    <button class="action-btn action-complete" bindtap="onComplete" disabled="{{actionBusy}}" wx:if="{{order.canComplete}}">
-      <text class="action-icon">✓</text>
+
+    <button bindtap="onConfirmCollection" wx:if="{{order.canCollect}}" disabled="{{actionBusy}}" class="af-action {{order.canComplete ? 'af-action--secondary af-action--form' : 'af-action--primary af-action--final af-action--grow'}}"><text>确认收款</text></button>
+    <button bindtap="onComplete" disabled="{{actionBusy}}" wx:if="{{order.canComplete}}" class="af-action af-action--primary af-action--final af-action--grow">
+      
       <text>完成配送</text>
     </button>
-    <button class="action-btn action-more" bindtap="onOpenMoreActions" disabled="{{actionBusy}}" wx:if="{{hasMoreActions}}">
-      <text>更多操作</text>
-    </button>
+    <button bindtap="onOpenMoreActions" disabled="{{actionBusy}}" wx:if="{{hasMoreActions}}" class="af-action af-action--quiet"><view class="af-action__face"><text>更多操作</text></view></button>
   </view>
 
   <view class="action-bar action-bar-confirm" wx:if="{{!loading && !detailError && order.canAcceptTransfer}}">
-    <button class="action-btn action-reject" bindtap="onRejectTransfer" disabled="{{actionBusy}}">
+    <button bindtap="onRejectTransfer" disabled="{{actionBusy}}" class="af-action af-action--secondary">
       <text>拒绝转单</text>
     </button>
-    <button class="action-btn action-accept" bindtap="onAcceptTransfer" disabled="{{actionBusy}}">
+    <button bindtap="onAcceptTransfer" disabled="{{actionBusy}}" class="af-action af-action--primary af-action--grow">
       <text>同意接手</text>
     </button>
   </view>
@@ -249,11 +248,11 @@
        原按钮上的业务注释随条目保留（转单待确认收起 / 撤回只画转让行 / 申请取消只有配送中 / 拒付 v60）。 -->
   <view class="sheet-mask" wx:if="{{showMoreActions}}" bindtap="onCloseMoreActions" catchtouchmove="onSheetTouchMove"></view>
   <view class="sheet" wx:if="{{showMoreActions}}" catchtouchmove="onSheetTouchMove">
-    <view class="sheet-title">更多操作</view>
-    <scroll-view class="sheet-actions" scroll-y>
+    <view class="lv2-sheet-head"><view class="sheet-title">更多操作</view>
+    <view class="af-action af-action--quiet" bindtap="onCloseMoreActions" hover-class="press-feedback"><text class="af-action__face">关闭</text></view></view><scroll-view class="sheet-actions" scroll-y>
 
     <!-- 异常反馈（原 action-bar 第三钮）：记录现场问题，通知站长（实现 utils/delivery-problem，与首页共用） -->
-    <view class="sheet-item" wx:if="{{order.canReport}}" data-act="onReport" bindtap="onMoreAction" hover-class="press-feedback">
+    <view wx:if="{{order.canReport}}" data-act="onReport" bindtap="onMoreAction" hover-class="press-feedback" class="sheet-item af-entry">
       <view class="sheet-item-info">
         <text class="sheet-item-name">异常反馈</text>
         <text class="sheet-item-desc">记录现场问题，通知站长</text>
@@ -263,7 +262,7 @@
 
     <!-- 转给同事：转单待对方确认期间收起「转给同事」——后端本来就拒绝第二条待确认转单，
          两个按钮并排只会让人先点错一个（2026-09-29 清单2）。 -->
-    <view class="sheet-item" wx:if="{{order.canTransfer}}" data-act="onTransfer" bindtap="onMoreAction" hover-class="press-feedback">
+    <view wx:if="{{order.canTransfer}}" data-act="onTransfer" bindtap="onMoreAction" hover-class="press-feedback" class="sheet-item af-entry">
       <view class="sheet-item-info">
         <text class="sheet-item-name">转单给其他配送员</text>
         <text class="sheet-item-desc">从本站配送员里选一位，他同意后这单归他送</text>
@@ -274,7 +273,7 @@
     <!-- 撤回转单（2026-09-29 拍板 清单2）：转单改双方同意制后，发起人的反悔出口。
          只画**转让行**（transferPendingSubKind === 'TRANSFER'）：退回站长 / 站内取消申请
          各有各的决策路径；站间指定退回（DIRECTED）走协调页那套「召回/退回」，不在这条路上。 -->
-    <view class="sheet-item" wx:if="{{order.canWithdrawTransfer}}" data-act="onCancelTransfer" bindtap="onMoreAction" hover-class="press-feedback">
+    <view wx:if="{{order.canWithdrawTransfer}}" data-act="onCancelTransfer" bindtap="onMoreAction" hover-class="press-feedback" class="sheet-item af-entry">
       <view class="sheet-item-info">
         <text class="sheet-item-name">{{cancelTransferBusy ? '撤回中…' : '撤回转单'}}</text>
         <text class="sheet-item-desc">对方还没确认前可以反悔</text>
@@ -283,7 +282,7 @@
     </view>
 
     <!-- 退回站长：提交退回申请，站长确认后重新派人 -->
-    <view class="sheet-item" wx:if="{{order.canReturn}}" data-act="onReturnToStation" bindtap="onMoreAction" hover-class="press-feedback">
+    <view wx:if="{{order.canReturn}}" data-act="onReturnToStation" bindtap="onMoreAction" hover-class="press-feedback" class="sheet-item af-entry">
       <view class="sheet-item-info">
         <text class="sheet-item-name">退回站长</text>
         <text class="sheet-item-desc">提交退回申请，站长确认后重新派人</text>
@@ -293,7 +292,7 @@
 
     <!-- 申请取消：**只有「配送中(2)」给这个入口**（2026-09-22 修）。
          待配送(1) 本来就有「拒单」正门（走 rejectOrder，不经审批）；已送达(3) 不可取消。 -->
-    <view class="sheet-item" wx:if="{{order.canRequestCancel}}" data-act="onRequestCancel" bindtap="onMoreAction" hover-class="press-feedback">
+    <view wx:if="{{order.canRequestCancel}}" data-act="onRequestCancel" bindtap="onMoreAction" hover-class="press-feedback" class="sheet-item af-entry">
       <view class="sheet-item-info">
         <text class="sheet-item-name">申请取消订单</text>
         <text class="sheet-item-desc">提交后需站长审批</text>
@@ -304,8 +303,8 @@
     <!-- 客户拒付（v60 接线）：**已送达(3) 且还要收款**时，可登记拒付风险。
          后端 POST /api/manager/exceptions?orderId= 是 STATION_MANAGER 专属，这里只对站长画。
          弹层里唯一的错误色条目（真正动账在原处理器的第 2 步确认弹窗）。 -->
-    <view class="sheet-item sheet-item-danger" wx:if="{{isManager && order.status === 3 && order.needCollect}}"
-          data-act="onRefusalWriteOff" bindtap="onMoreAction" hover-class="press-feedback">
+    <view wx:if="{{isManager && order.status === 3 && order.needCollect}}"
+          data-act="onRefusalWriteOff" bindtap="onMoreAction" hover-class="press-feedback" class="sheet-item sheet-item-danger af-entry">
       <view class="sheet-item-info">
         <text class="sheet-item-name">{{refusalBusy ? '处理中…' : (order.independentBusinessRules ? '确认客户拒付（保留欠款）' : '客户拒付（走历史核销）')}}</text>
         <text class="sheet-item-desc">已送达待收款时登记拒付，两步确认</text>
@@ -314,20 +313,23 @@
     </view>
 
     </scroll-view>
-    <view class="sheet-cancel" bindtap="onCloseMoreActions" hover-class="press-feedback">取消</view>
+    
   </view>
 </view>
 
 <view wx:if="{{uploadRecoveryCases.length || uploadRecoveryReadFailed}}" class="upload-recovery-panel">
-  <text>待核实图片记录</text>
+  <button bindtap="onToggleUploadRecovery" class="af-action af-action--quiet"><view class="af-action__face">{{uploadRecoveryReadFailed ? '图片异常记录读取失败' : '图片上传异常（' + uploadRecoveryCases.length + '）'}} · {{uploadRecoveryExpanded ? '收起' : '查看'}}</view></button>
+  <block wx:if="{{uploadRecoveryExpanded}}">
   <view wx:if="{{uploadRecoverySelection}}">
     <text>待确认图片 #{{uploadRecoverySelection.imageId}}</text>
     <view class="ui-proof-image ui-proof-frame" ><image src="{{uploadRecoverySelection.url}}" mode="aspectFit" bindtap="onUploadPreviewSelected" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{uploadRecoverySelection.url}}" wx:if="{{!displayImageErrors[uploadRecoverySelection.url]}}" /><view class="ui-image-fallback" wx:else bindtap="onUploadPreviewSelected" >图片暂无法显示，点此预览原图</view></view>
-    <button size="mini" disabled="{{uploadRecovering}}" bindtap="onUploadConfirmSelected">确认是原来提交的图片</button>
+    <button disabled="{{uploadRecovering}}" bindtap="onUploadConfirmSelected" class="af-action af-action--secondary">确认是原来提交的图片</button>
   </view>
   <text wx:if="{{uploadRecoveryReadFailed}}">记录暂时无法读取，请先核实图片</text>
   <view wx:for="{{uploadRecoveryCases}}" wx:key="id">
     <text>{{item.label}}</text>
-    <button size="mini" disabled="{{uploadRecovering}}" data-caseid="{{item.id}}" bindtap="onUploadRecover">核实图片</button>
+    <button disabled="{{uploadRecovering}}" data-caseid="{{item.id}}" bindtap="onUploadRecover" class="af-action af-action--secondary">核实图片</button>
   </view>
+  </block>
 </view>
+<business-dialog id="business-dialog" />

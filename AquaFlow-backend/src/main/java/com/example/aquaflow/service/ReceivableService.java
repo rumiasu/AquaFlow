@@ -137,7 +137,10 @@ public class ReceivableService {
         int alreadySettled = 0;
         int collectedCount = 0;
 
-        for (Long orderId : orderIds) {
+        // Lock orders before payment/purchase rows, and keep a consistent order for overlapping batches.
+        var orderedIds = new java.util.ArrayList<>(orderIds);
+        orderedIds.sort(java.util.Comparator.nullsFirst(Long::compareTo));
+        for (Long orderId : orderedIds) {
             if (orderId == null) {
                 throw new BusinessException("订单 ID 不能为空");
             }
@@ -167,6 +170,8 @@ public class ReceivableService {
                 if (orderMapper.markPaidIfCollectable(orderId) == 0) {
                     throw new BusinessException("订单 " + orderId + " 收款失败：状态已变更，请刷新后重试");
                 }
+                // Collection must activate the same paid deposit/right entries as other payment paths.
+                paymentService.applyDepositOnPaid(orderId);
                 collectedCount++;
             }
             if (orderMapper.settleIfCollected(orderId) == 0) {

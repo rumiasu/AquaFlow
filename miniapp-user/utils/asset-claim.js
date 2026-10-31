@@ -54,7 +54,8 @@ function catalog(response) {
     if (!object(row) || !id(row.id) || seen.has(id(row.id)) || !Number.isInteger(row.category) || row.category < 1) fail('认领商品信息不完整，请联系水站核实')
     seen.add(id(row.id))
     return { id: id(row.id), name: typeof row.name === 'string' && row.name.trim() ? row.name : '商品 #' + row.id,
-      spec: typeof row.spec === 'string' ? row.spec : '', category: row.category }
+      spec: typeof row.spec === 'string' ? row.spec : '', category: row.category,
+      imageUrl: typeof row.imageUrl === 'string' ? row.imageUrl : '' }
   })
 }
 function record(raw, expected = {}, products = []) {

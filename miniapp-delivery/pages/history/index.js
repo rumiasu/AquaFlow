@@ -19,7 +19,10 @@ function validId(value) { return /^[1-9][0-9]*$/.test(String(value)) }
 function validTime(value) { return value == null || value === '' || (typeof value === 'string' && Number.isFinite(new Date(value).getTime())) }
 
 Page({
-  data: { orders: [], loading: true, loaded: false, error: '',  },
+  data: { emptyImageFailed: false, orders: [], loading: true, loaded: false, error: '',  },
+
+  // A missing empty-state illustration must not change list loading or access.
+  onEmptyImageError() { this.setData({ emptyImageFailed: true }) },
 
   onLoad() { this._unloaded = false },
   // 2026-10-02：首屏只在 onShow 读取，重试也走同一访问守卫。

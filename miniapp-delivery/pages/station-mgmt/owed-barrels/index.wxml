@@ -1,42 +1,37 @@
 <view class="container">
   <view class="page-state" wx:if="{{loading}}"><text class="page-state-text">{{loaded ? '正在刷新...' : '加载中...'}}</text></view>
-  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button class="page-state-retry" bindtap="onRetry">重试</button></view>
+  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button class="af-action af-action--quiet b3-on-retry" bindtap="onRetry" hover-class="af-action--pressed"><view class="af-action__face">重试</view></button></view>
   <view class="filter-bar">
-    <view class="filter-item {{minDays === item.value ? 'active' : ''}}"
+    <view class="af-choice b3-on-filter {{minDays === item.value ? 'af-choice--selected' : ''}}"
           wx:for="{{filters}}"
           wx:key="value"
           data-value="{{item.value}}"
-          bindtap="onFilter">
-      <text>{{item.label}}</text>
-    </view>
+          bindtap="onFilter"><view class="af-choice__face"><text>{{item.label}}</text></view></view>
   </view>
 
   <view class="hint">
     <text class="hint-title">当前仍欠桶 · 只提醒，不拦截下单</text>
-    <text>已回收部分不在此表中。点客户查看完整桶账。</text>
+    <text>已回收部分不在此表中。</text>
   </view>
 
-  <view class="owe-card"
-        wx:for="{{list}}"
-        wx:key="_key"
+  <view class="owe-card af-entry b3-record-entry"
+        wx:for="{{groups}}"
+        wx:key="customerId"
         data-id="{{item.customerId}}"
         bindtap="onOpenCustomer">
     <view class="card-head">
-      <text class="customer-name">{{item._name}}</text>
-      <text class="days {{item._urgent ? 'urgent' : ''}}">{{item._daysText}}</text>
+      <text class="customer-name">{{item.name}}</text><text>客户详情 ›</text>
     </view>
-    <view class="info-row product-row">
-      <text class="product">{{item._product}}</text>
-      <text class="qty">欠 {{item.overQty}} 个</text>
+    <view wx:for="{{item.items}}" wx:for-item="barrel" wx:key="_key">
+      <view class="info-row product-row"><text class="product">{{barrel._product}}</text><text class="qty">{{barrel.overQty != null ? '欠 ' + barrel.overQty + ' 个' : '数量待核实'}}</text></view>
+      <view class="info-row sub"><text class="days {{barrel._urgent ? 'urgent' : ''}}">{{barrel._daysText}}</text><text wx:if="{{barrel._sinceText}}">自 {{barrel._sinceText}}</text></view>
     </view>
-    <view class="info-row sub" wx:if="{{item.phone || item._sinceText}}">
-      <text>{{item.phone || '无电话'}}</text>
-      <text wx:if="{{item._sinceText}}">自 {{item._sinceText}}</text>
-    </view>
+    <button wx:if="{{item.phone}}" class="af-action af-action--quiet b3-on-call-customer" catchtap="onCallCustomer" data-phone="{{item.phone}}" hover-class="af-action--pressed"><view class="af-action__face">致电客户</view></button>
   </view>
 
 <view class="empty" wx:if="{{loaded && !loading && !error && list.length === 0}}">
-    <text>本站暂无欠桶客户</text>
+    <text>{{minDays > 0 ? '此筛选下暂无欠桶记录' : '本站暂无欠桶客户'}}</text>
     <text class="empty-hint" wx:if="{{minDays > 0}}">试试切到「全部」</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

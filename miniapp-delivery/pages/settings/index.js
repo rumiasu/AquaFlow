@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 // 设置页
 const app = getApp()
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
@@ -34,7 +35,7 @@ Page({
     // [2026-09-19] 原先这里是「新订单提醒」开关，只 `wx.setStorageSync('notifyNewOrder')`，
     // **全项目没有任何代码读它** → 一个纯粹的假开关（站长以为关掉了通知，其实什么都没发生）。
     // 现在接上 utils/pending-reminder：开关状态被 app.onShow 与首页 onShow 真正消费。
-    reminderEnabled: true
+    reminderEnabled: true, versionText: '版本信息未读取'
   },
 
   onLoad() {
@@ -61,7 +62,14 @@ Page({
     const stationStateText = cached
       ? cached
       : (bound ? '名称暂未加载' : (bindStatus === BINDING_STATUS.PENDING ? '绑定审核中' : '未绑定水站'))
+    let versionText = '版本信息未读取'
+    try {
+      const info = wx.getAccountInfoSync && wx.getAccountInfoSync()
+      const mini = info && info.miniProgram
+      if (mini) versionText = mini.version ? '版本 ' + mini.version : mini.envVersion === 'develop' ? '开发版' : mini.envVersion === 'trial' ? '体验版' : '版本信息未提供'
+    } catch (_) { /* 版本读取失败不能冒充固定版本。 */ }
     this.setData({
+      versionText,
       staffId: userInfo.staffId || wx.getStorageSync(STORAGE_KEYS.STAFF_ID) || '',
       stationName: cached,
       stationStateText,
@@ -120,27 +128,25 @@ Page({
   },
 
   onClearCache() {
-    wx.showModal({ cancelColor: '#637083',  confirmText: '清除缓存',
+    showBusinessModal({ cancelColor: '#637083',  confirmText: '清除缓存',
       title: '清除缓存',
-      content: '清除本地缓存，不影响登录状态。确定继续吗？',
+      content: '仅清除可重新读取的水站名称缓存。登录、提醒偏好、未保存内容和待核实的业务记录均保留。',
       confirmColor: '#A95516',
       success: (res) => {
         if (res.confirm) {
-          const accessToken = wx.getStorageSync(STORAGE_KEYS.ACCESS_TOKEN)
-          const refreshToken = wx.getStorageSync(STORAGE_KEYS.REFRESH_TOKEN)
-          const userInfo = wx.getStorageSync(STORAGE_KEYS.USER_INFO)
-          wx.clearStorageSync()
-          if (accessToken) wx.setStorageSync(STORAGE_KEYS.ACCESS_TOKEN, accessToken)
-          if (refreshToken) wx.setStorageSync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
-          if (userInfo) wx.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo)
-          wx.showToast({ title: '缓存已清除', icon: 'success' })
+          // 2026-10-28：clearStorageSync 会误删入库/退款等原请求凭据；只清可重新读取的名称缓存。
+          // 未知键一律保留，新增缓存必须先确认能安全重建再列入白名单。
+          try {
+            for (const key of ['stationName']) wx.removeStorageSync(key)
+            wx.showToast({ title: '可重建缓存已清除', icon: 'success' })
+          } catch (_) { wx.showToast({ title: '缓存未能全部清除，请稍后重试', icon: 'none' }) }
         }
       }
     })
   },
 
   onLogout() {
-    wx.showModal({ cancelColor: '#637083',  confirmText: '退出登录',
+    showBusinessModal({ cancelColor: '#637083',  confirmText: '退出登录',
       title: '退出登录',
       content: '确定要退出登录吗？',
       confirmColor: '#BD3328',

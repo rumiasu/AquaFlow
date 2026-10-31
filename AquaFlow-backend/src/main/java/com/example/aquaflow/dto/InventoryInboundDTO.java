@@ -14,5 +14,7 @@ public class InventoryInboundDTO {
     public static class ItemDTO {
         private Long productId;
         private Integer quantity;
+        /** 选填本次进货总成本；NULL未知，0为实际零成本。 */
+        private java.math.BigDecimal costAmount;
     }
 }

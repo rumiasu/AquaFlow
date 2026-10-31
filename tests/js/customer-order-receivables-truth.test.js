@@ -68,6 +68,13 @@ async function test(name, fn) {
     return { promise, resolve, reject }
   }
   const summary = (amount, customers = []) => ({ data: { outstandingAmount: amount, customers } })
+  await test('long amount hint is computed in JS for native WXML compatibility', async () => {
+    const p = receivablePage(async url => url.includes('/orders?') ? { data: [] } : summary('123456789012'))
+    await p.load()
+    assert.strictEqual(p.data.overview.outstandingAmountLong, true)
+    const wxml = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/receivables/index.wxml'), 'utf8')
+    assert(!wxml.includes("('' + overview.outstandingAmount).length"))
+  })
   await test('收款成功同时刷新总额、客户集合和当前客户摘要，保留客户与筛选', async () => {
     const urls = []
     const p = receivablePage(async url => { urls.push(url); return url.includes('/orders?') ? { data: [] } : summary(50, [{ customerId: 1, outstandingAmount: 50 }]) })
@@ -198,7 +205,8 @@ async function test(name, fn) {
   const orderWxml = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/detail.wxml'), 'utf8')
   const orderWxss = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/detail.wxss'), 'utf8')
   const collectionCondition = orderWxml.match(/class="collect-banner" wx:if="\{\{([^}]+)\}\}"/)[1]
-  const collectionVisible = data => new Function('order', 'deliveredAwaitingCollection', `return (${collectionCondition})`)(data.order, data.deliveredAwaitingCollection)
+  // Evaluate the current template against the full real-page state, including payHint.
+  const collectionVisible = data => new Function(...Object.keys(data), `return (${collectionCondition})`)(...Object.values(data))
   const statusBorder = status => orderWxss.match(new RegExp(`\\.status-card\\.status-${status}\\s*\\{([^}]+)\\}`))[1]
   let detailResponse
   let detailMutationCalls = 0
@@ -230,7 +238,8 @@ async function test(name, fn) {
   }
   await test('已送达待收款显示横幅与收款核对说明，不再提示送达时收款', async () => {
     const data = await showDetail({ status: 3, statusText: '已送达', paymentStatus: 1, payState: 'PENDING', payStateText: '待收款', needCollect: true, canCancel: true, payHint: '货到付款，配送员送达时收款' })
-    assert.strictEqual(collectionVisible(data), true)
+    assert.strictEqual(collectionVisible(data), false, 'existing payHint is the single visible collection explanation')
+    assert.strictEqual(collectionVisible({ ...data, payHint: '' }), true, 'banner remains as the fallback when no explanation exists')
     assert.strictEqual(data.deliveredAwaitingCollection, true)
     assert.ok(orderWxml.includes('已送达，待确认收款'))
     assert.match(data.payHint, /已送达.*待确认收款/)
@@ -255,7 +264,7 @@ async function test(name, fn) {
     assert.strictEqual(data.payStatusClass, 'default')
     assert.ok(statusBorder(5).includes('var(--text-secondary)'))
     assert.ok(!statusBorder(5).includes('var(--success-color)'))
-    assert.ok(orderWxml.includes('wx:if="{{order.status === 5}}" class="btn-action btn-reorder"'))
+    assert.ok(orderWxml.includes('wx:if="{{order.status === 5}}" class="af-action af-action--secondary" bindtap="onReorder"'))
   })
   await test('已付款待配送仍展示待配送与已付款，不误显示收款横幅', async () => {
     const data = await showDetail({ status: 1, statusText: '待配送', paymentStatus: 2, payState: 'PAID', payStateText: '已付款', needCollect: false, canCancel: true, payHint: '已付款' })
@@ -275,7 +284,8 @@ async function test(name, fn) {
   })
   await test('历史现金未付款也只提示核对收款，线上未付款保留后端支付入口', async () => {
     const cash = await showDetail({ status: 3, statusText: '已送达', paymentStatus: 0, payState: 'UNPAID', payStateText: '未付款', needCollect: true, payHint: '货到付款，配送员送达时收款' })
-    assert.strictEqual(collectionVisible(cash), true)
+    assert.strictEqual(collectionVisible(cash), false)
+    assert.strictEqual(collectionVisible({ ...cash, payHint: '' }), true)
     assert.match(cash.payHint, /已送达.*待确认收款/)
     const online = await showDetail({ status: 3, statusText: '已送达', paymentStatus: 0, payState: 'UNPAID', payStateText: '未付款', needCollect: false, canRepay: true, repayLabel: '重新支付', payHint: '还未付款，可在本页继续支付' })
     assert.strictEqual(collectionVisible(online), false)
@@ -283,8 +293,8 @@ async function test(name, fn) {
     assert.strictEqual(online.canRepay, true)
     assert.strictEqual(online.repayLabel, '重新支付')
     assert.strictEqual(online.payHint, detailResponse.payHint)
-    assert.ok(orderWxml.includes('wx:if="{{canRepay}}" class="btn-action btn-pay" bindtap="onPayNow"'))
-    assert.ok(orderWxml.includes('wx:if="{{canCancel}}" class="btn-action btn-cancel" bindtap="onCancel"'))
+    assert.ok(orderWxml.includes('wx:if="{{canRepay}}" class="af-action af-action--primary af-action--block" bindtap="onPayNow"'))
+    assert.ok(orderWxml.includes('wx:if="{{canCancel}}" class="af-action af-action--danger-quiet" bindtap="onCancel"'))
   })
   const ordersXml = fs.readFileSync(path.join(ROOT, 'AquaFlow-backend/src/main/resources/mapper/OrderMapper.xml'), 'utf8')
   const barrelMapper = fs.readFileSync(path.join(ROOT, 'AquaFlow-backend/src/main/java/com/example/aquaflow/mapper/BarrelRecordMapper.java'), 'utf8')

@@ -19,7 +19,7 @@ public class UnusedTicketRefundService {
     @Autowired private TicketLotService lots;
     @Autowired private TicketRecordMapper records;
     @Autowired private TicketExitReceiptMapper receipts;
-    @Value("${app.payment.mock-wechat-pay:false}") private boolean mockWechatPay;
+    @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
     public java.util.List<java.util.Map<String,Object>> candidates(Long station) {
         java.util.List<java.util.Map<String,Object>> rows=receipts.candidates(station);
         for(var row:rows) row.put("paymentMethodText",PayMethod.textOf(((Number)row.get("paymentMethod")).intValue()));
@@ -36,7 +36,7 @@ public class UnusedTicketRefundService {
         if (p==null || p.getOrderId()!=null || p.getTicketQty()==null || p.getTicketQty()<=0
                 || !AuthContext.requireStationId().equals(p.getStationId())) throw new BusinessException("仅购票原收款站可办理本批剩余票退款");
         if (!Integer.valueOf(PaymentStatus.PAID).equals(p.getStatus()) || receipts.exists(paymentId)>0) throw new BusinessException("本批未付款或已办理退票");
-        if (p.getPaymentMethod()==PayMethod.WECHAT && !mockWechatPay) throw new BusinessException("微信退款渠道未接入，不能登记为已自动退票退款");
+        mockPolicy.requireRefund(p);
         TicketLotService.ConsumeResult consumed=lots.consumePurchasedBalance(p.getCustomerId(),p.getStationId(),p.getTicketWaterTypeId(),paymentId);
         BigDecimal amount=(consumed.getQuantity()==p.getTicketQty()?p.getAmount():consumed.getTotalAmount().min(p.getAmount())).setScale(2,java.math.RoundingMode.HALF_UP);
         if(consumed.getQuantity()!=expectedQty || amount.compareTo(expectedAmount)!=0)
@@ -48,6 +48,7 @@ public class UnusedTicketRefundService {
         PaymentRecord r=new PaymentRecord(); r.setCustomerId(p.getCustomerId()); r.setStationId(p.getStationId()); r.setAmount(amount.negate());
         r.setWaterAmount(amount.negate()); r.setBarrelDeposit(BigDecimal.ZERO); r.setPaymentMethod(p.getPaymentMethod()); r.setStatus(PaymentStatus.REFUNDED);
         r.setTicketQty(-consumed.getQuantity()); r.setTicketWaterTypeId(p.getTicketWaterTypeId()); r.setOperatorId(AuthContext.getUserId());
+        mockPolicy.markRefund(p,r);
         r.setNote("退出服务，退本批未使用水票；原款 "+paymentId); r.setCreateTime(LocalDateTime.now()); r.setUpdateTime(LocalDateTime.now()); payments.insert(r);
         if (receipts.insert(paymentId,r.getId(),consumed.getQuantity(),amount,AuthContext.getUserId())!=1) throw new BusinessException("退票凭据未保存");
         if (consumed.getQuantity()==p.getTicketQty() && payments.updateStatusTo(paymentId,PaymentStatus.REFUNDED,PaymentStatus.PAID)!=1) throw new BusinessException("原款状态已变更");

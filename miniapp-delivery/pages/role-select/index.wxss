@@ -113,3 +113,37 @@
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
 .footer-tip text { display: block; margin-bottom: 12rpx; }
+
+.role-card.station-manager,.role-card.delivery { border-left:1rpx solid var(--border-color); }
+
+.role-card.busy { opacity:.6; }
+
+/* 2026-10-28 B2: local layout only; B0 owns action/choice faces and tokens. */
+ .b2-page { --primary-color: var(--af-primary); --primary-bg: var(--af-soft); --text-primary: var(--af-ink); --text-regular: var(--af-text-secondary); --text-secondary: var(--af-text-secondary); --bg-gray: var(--af-soft); --success-color: var(--af-positive); --error-color: var(--af-danger); --error-bg: var(--af-danger-soft); --bg-color: var(--af-canvas); --bg-card: var(--af-surface); --border-color: var(--af-border); }
+ .role-card { padding: 16px; gap: 14px; background: var(--af-surface); border: 1px solid var(--af-border); border-radius: 10px; box-shadow: none; } .b2-role-icon { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0; border: 1px solid var(--af-border); border-radius: 8px; color: var(--af-primary); font-size: 18px; } .role-name { color: var(--af-ink); }
+
+.role-card.station-manager, .role-card.delivery { border-left: 1px solid var(--af-border); } .role-card:active { transform: none; background: var(--af-soft); }
+
+/* 2026-10-29 visual-L: page-local composition; shared controls and palette stay V0-owned. */
+.lv2-page { --bg-color:var(--af2-page); --bg-card:var(--af2-surface); --border-color:var(--af2-line); --text-primary:var(--af2-ink); --text-regular:var(--af2-muted); background:var(--af2-page); color:var(--af2-ink); box-sizing:border-box; font-size:15px; line-height:24px; }
+.lv2-page .ui-state { box-sizing:border-box; margin:12px 0; padding:16px; border-radius:14px; border:1px solid var(--af2-line); }
+.lv2-title-row { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.lv2-title-row > text { flex:1; min-width:0; font-size:22px; line-height:30px; font-weight:600; }
+.lv2-page .af2-icon-tile { background:var(--af2-surface-order); }
+.lv2-page .lv2-neutral-tile { background:var(--af2-surface-neutral); }
+.lv2-page .lv2-physical-tile { background:var(--af2-surface-physical); }
+.lv2-page .lv2-money-tile { background:var(--af2-surface-money); }
+
+.lv2-role { padding:28px 16px; }
+.lv2-role .header { padding:0; margin-bottom:24px; }
+.lv2-role .title { font-size:26px; line-height:34px; font-weight:600; }
+.lv2-role .subtitle { font-size:14px; line-height:22px; }
+.lv2-role .role-list { gap:14px; }
+.lv2-role .role-card { min-height:112px; padding:18px 16px; border:1px solid var(--af2-line); border-radius:16px; gap:14px; background:var(--af2-surface); }
+.lv2-role .role-card:active { background:var(--af2-surface-order); border-color:var(--af2-primary); }
+.lv2-role-icon { display:flex; align-items:center; justify-content:center; width:54px; height:54px; flex:none; background:var(--af2-surface-order); border-radius:14px; }
+.lv2-role .role-name { font-size:18px; line-height:26px; }
+.lv2-role .role-desc { font-size:13px; line-height:20px; }
+.lv2-role .role-arrow { color:var(--af2-primary); font-size:24px; margin-left:0; }
+.lv2-role .footer-tip { display:flex; align-items:center; gap:8px; margin-top:20px; font-size:13px; line-height:22px; }
+.lv2-role .footer-tip > text { flex:1; min-width:0; }

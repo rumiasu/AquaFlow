@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "选择身份",
-  "navigationStyle": "default"
+  "navigationStyle": "default",
+  "usingComponents": {
+    "icon": "/components/Icon/index"
+  }
 }

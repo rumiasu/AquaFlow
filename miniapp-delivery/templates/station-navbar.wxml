@@ -53,46 +53,34 @@
       </view>
 
       <view class="st-body">
-        <view class="ui-stale" wx:if="{{stationPanelError}}"><text>{{stationPanelError}}</text><button size="mini" bindtap="onRetryStationPending" loading="{{stationPanelRefreshing}}" disabled="{{stationPanelRefreshing}}">重新核对待填项</button></view>
+        <view class="ui-stale" wx:if="{{stationPanelError}}"><text>{{stationPanelError}}</text><button class="af-action af-action--secondary" size="mini" bindtap="onRetryStationPending" loading="{{stationPanelRefreshing}}" disabled="{{stationPanelRefreshing}}">重新核对待填项</button></view>
         <text class="st-sub" wx:if="{{stationPanelRefreshing && !stationPanelLoading}}">正在核对待填项，上次记录仅供参考</text>
         <!-- 顶部页签：待填 / 已配好（2026-09-24 产品反馈："已完成的项看不到，填错了想回去重填却没了，
              只能回设置里找"）。⚠️ 原来那个开关是**列表下面的一句灰字**，实测根本没人发现 —— 挪到列表**上方**。
              ⚠️ 只在**确实有已配好的项**时才渲染：没有就不给这个页签（切过去是空列表，等于骗人）。 -->
         <view class="st-tabs" wx:if="{{stationPanelDone.length > 0}}">
-          <view class="st-tab {{stationPanelShowAll ? '' : 'st-tab-on'}}" bindtap="onPanelShowPending">待完善 {{stationPanelPending.length}}</view>
-          <view class="st-tab {{stationPanelShowAll ? 'st-tab-on' : ''}}" bindtap="onPanelShowDone">状态事实 {{stationPanelPending.length + stationPanelDone.length}}</view>
+          <view class="st-tab {{stationPanelShowAll ? '' : 'st-tab-on'}}" bindtap="onPanelShowPending">准备事项 {{stationPanelPending.length}}</view>
+          <view class="st-tab {{stationPanelShowAll ? 'st-tab-on' : ''}}" bindtap="onPanelShowDone">状态总览 {{stationPanelPending.length + stationPanelDone.length}}</view>
         </view>
 
         <text class="st-sub" wx:if="{{stationPanelLoading}}">正在检查待填项…</text>
 
         <block wx:elif="{{stationPanelItems && stationPanelItems.length > 0}}">
-          <!-- ⚠️ 这里原来还有一行 st-sub「下面这些还没配好，点一下直接去填」。2026-09-24 删掉：
-               每行末尾已有「去填写 ›」，再说一遍是废话；腾出的位置给下面那句**下一步**
-               （onlineHint，后端下发，见 StationSetupGuideService#onlineHintOf）。 -->
+          <!-- 总览提供模块入口和准备状态；填写说明放在对应详情页。 -->
           <scroll-view class="st-list" scroll-y>
-            <view class="st-item" wx:for="{{stationPanelItems}}" wx:key="key">
-              <text class="st-module-title" wx:if="{{item.moduleStart}}">{{item.where}}</text>
-              <view class="st-item-row" bindtap="onPanelGoFill" data-route="{{item.route}}">
-                <text class="st-item-title {{item.done ? 'st-item-title-done' : ''}}">{{item.label}} · {{item.levelText}}</text>
-                <!-- 「?」默认收起说明（2026-09-24 产品反馈："每一项都详细解释，好啰嗦"）。
-                     ⚠️ 必须 **catchtap**：用 bindtap 会冒泡到整行的 onPanelGoFill，
-                        用户想看一眼原因就被直接拽到别的页面去了。 -->
-                <text class="st-item-help" catchtap="onPanelToggleWhy" data-key="{{item.key}}">?</text>
-                <!-- ⚠️ 已配好的行写「**去修改**」而不是「已配好」：产品反馈要的是"填错了能回去重填"，
-                     而「已配好」是个**状态标签**、看着不可点 —— 用户压根不知道能点进去。
-                     "是否完成"由**灰色标题 + 它落在哪个页签下**表达，右边这个位置只放**动作**。
-                     整行 bindtap 对两种行都生效，所以已配好的项照样点得进去。 -->
-                <text class="st-item-go" wx:if="{{item.route}}">{{item.done ? '查看设置' : '去填写'}} ›</text>
+            <block wx:for="{{stationPanelItems}}" wx:key="key">
+            <view class="st-item st-module-card" wx:if="{{item.moduleStart}}">
+              <view class="st-item-row st-module-head" bindtap="onPanelGoFill" data-route="{{item.route}}">
+                <text class="st-module-title">{{item.moduleTitle || item.where || item.label}}</text><text wx:if="{{item.moduleDone}}" class="st-module-done" aria-label="必填事项已完成">✓</text>
+                <text class="st-item-go" wx:if="{{item.route}}">{{item.moduleDone ? '查看' : '去填写'}} ›</text>
               </view>
-              <view class="st-item-why-box" wx:if="{{item.whyOpen}}">
-                <text class="st-item-why">{{item.why}}</text>
-                <!-- 说明藏在「?」里之后，这里顺带把原来**根本没露过面**的 suggestion 也放进来：
-                     收起状态下它没地方显示，而它正是"具体该怎么做"。 -->
-                <text class="st-item-suggestion" wx:if="{{item.suggestion}}">{{item.suggestion}}</text>
+              <view class="st-module-summary" wx:if="{{!item.moduleDone || item.moduleOptionalText}}">
+                <text class="st-module-copy">{{item.moduleDone ? item.moduleOptionalText : item.moduleSummary}}</text>
               </view>
             </view>
+            </block>
           </scroll-view>
-          <text class="st-summary">{{stationPanelSummary}}</text>
+          <text class="st-summary" wx:if="{{stationPanelSummary}}">{{stationPanelSummary}}</text>
           <!-- 「下一步」由后端下发（三种站况三句话，见 StationSetupGuideService#onlineHintOf）：
                待上线的站说"配好就能上线"；已经在营业的站说"不填也能接单，配好才算得准"——
                对已在营业的站说"配好就能上线"是**假话**，会让人以为自己的站还没上线。 -->
@@ -111,8 +99,8 @@
            已改成列表**上方**的「待填 / 已配好」两个页签（见 st-body 开头）。 -->
 
       <view class="st-actions">
-        <view class="st-btn st-btn-ghost" bindtap="closeStationPanel">关闭</view>
-        <view class="st-btn st-btn-primary" bindtap="goStationStatus">设置营业状态</view>
+        <view class="st-btn af-action af-action--cancel af-action--form" bindtap="closeStationPanel">关闭</view>
+        <view class="st-btn af-action af-action--primary af-action--grow" bindtap="goStationStatus">设置营业状态</view>
       </view>
     </view>
   </view>

@@ -3,6 +3,7 @@
 const assert = require('assert'), path = require('path'), fs = require('fs')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
 const { parseWxml, renderElements } = require('./wxml-tree')
+const findNode = (node, predicate) => predicate(node) ? node : (node.children || []).map(child => findNode(child, predicate)).find(Boolean)
 const sourceRoot = process.env.WB08_BASELINE_ROOT || ROOT
 const done = armWatchdog(30000), tests = [], test = (name, run) => tests.push({ name, run })
 const tick = () => new Promise(resolve => setImmediate(resolve))
@@ -194,10 +195,15 @@ test('unpaid card calls existing receiver snapshot phone without profile lookup 
     receiverPhone: 'synthetic-receiver-snapshot', customerPhone: 'synthetic-foreign-profile' }] })
   const source = fs.readFileSync(path.join(sourceRoot, 'miniapp-delivery/pages/home/index.wxml'), 'utf8')
   const elements = renderElements(parseWxml(source), t.page.data, { includeText: true })
-  const phone = elements.find(value => value.attrs.catchtap === 'onCallCustomer' && value.text === 'synthetic-receiver-snapshot')
+  const root = parseWxml(source), unpaid = findNode(root, node => node.attrs && node.attrs.id === 'home-unpaid-records')
+  const phoneNode = findNode(unpaid, node => node.attrs && node.attrs.catchtap === 'onCallCustomer')
+  assert(phoneNode)
+  const phoneView = renderElements({ children: [phoneNode] }, { ...t.page.data, item: t.page.data.deliveredUnpaidOrders[0] }, { includeText: true })
+  const phone = phoneView.find(value => value.attrs.catchtap === 'onCallCustomer' && value.attrs['data-phone'] === '{{item.receiverPhone}}')
+  assert(phoneView.some(value => value.className === 'phone-tool-number' && value.text === 'synthetic-receiver-snapshot'))
   assert.ok(phone, 'unpaid card needs its existing snapshot phone entry')
   const before = t.reads.length
-  t.page.onCallCustomer({ currentTarget: { dataset: { phone: phone.text } } })
+  t.page.onCallCustomer({ currentTarget: { dataset: { phone: 'synthetic-receiver-snapshot' } } })
   assert.deepStrictEqual(phones, ['synthetic-receiver-snapshot']); assert.equal(t.reads.length, before)
   assert.equal(t.requests.length, 0); assert.equal(t.wx.__calls.nav.length, 0)
 })
@@ -207,6 +213,7 @@ test('unpaid card without receiver snapshot never borrows a customer profile pho
   const source = fs.readFileSync(path.join(sourceRoot, 'miniapp-delivery/pages/home/index.wxml'), 'utf8')
   const elements = renderElements(parseWxml(source), t.page.data, { includeText: true })
   assert.ok(!elements.some(value => value.attrs.catchtap === 'onCallCustomer' && value.text === 'synthetic-foreign-profile'))
+  assert.ok(!elements.some(value => value.attrs.catchtap === 'onCallCustomer'), 'without a receiver snapshot the unpaid card must not expose a phone action')
   assert.equal(t.reads.length, 0); assert.equal(t.requests.length, 0)
 })
 ;(async () => {

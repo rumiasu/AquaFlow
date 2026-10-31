@@ -1,40 +1,49 @@
-<view class="container">
+<view class="container b2-page b2-d43 af2-page lv2-page lv2-report">
+  <view class="form-card">
   <view class="section">
-    <text class="section-title">反馈类型</text>
+    <view class="lv2-form-head"><view class="af2-icon-tile"><icon name="chat" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /></view><text class="lv2-form-title">意见反馈</text><help-tip title="未提交内容" text="本次登录可恢复反馈类型；正文与联系方式离页不保存。" /></view><text class="section-title">反馈类型</text>
+    <text class="draft-notice lv2-draft-fact">正文与联系方式离页不保存</text>
+    <text class="draft-notice" wx:if="{{categoryDraftNotice}}">{{categoryDraftNotice}}</text>
+    <view class="draft-actions" wx:if="{{categoryDraftAvailable || categoryDraftBlocked}}"><button wx:if="{{categoryDraftAvailable}}" bindtap="onRestoreCategoryDraft" disabled="{{submitting}}" class="af-action af-action--secondary">恢复类型</button><button bindtap="onDiscardCategoryDraft" disabled="{{submitting}}" class="af-action af-action--quiet"><view class="af-action__face">放弃旧类型</view></button></view>
     <view class="category-list">
-      <view class="category-item {{category === 'bug' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="bug">
+      <view bindtap="onSelectCategory" data-category="bug" class="af-choice b2-choice {{category === 'bug' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{category === 'bug'}}">✓</text>
         <text class="cat-text">功能问题</text>
-      </view>
-      <view class="category-item {{category === 'feature' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="feature">
+      </view></view>
+      <view bindtap="onSelectCategory" data-category="feature" class="af-choice b2-choice {{category === 'feature' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{category === 'feature'}}">✓</text>
         <text class="cat-text">功能建议</text>
-      </view>
-      <view class="category-item {{category === 'ui' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="ui">
+      </view></view>
+      <view bindtap="onSelectCategory" data-category="ui" class="af-choice b2-choice {{category === 'ui' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{category === 'ui'}}">✓</text>
         <text class="cat-text">界面优化</text>
-      </view>
-      <view class="category-item {{category === 'other' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="other">
+      </view></view>
+      <view bindtap="onSelectCategory" data-category="other" class="af-choice b2-choice {{category === 'other' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{category === 'other'}}">✓</text>
         <text class="cat-text">其他</text>
-      </view>
+      </view></view>
     </view>
   </view>
 
   <view class="section">
     <text class="section-title">反馈内容</text>
-    <textarea class="content-input" placeholder="请详细描述您遇到的问题或建议..." maxlength="500" bindinput="onContentInput" value="{{content}}" disabled="{{submitting}}" />
+    <textarea class="content-input" placeholder="描述问题或建议" maxlength="500" bindinput="onContentInput" value="{{content}}" disabled="{{submitting}}" />
     <text class="char-count">{{content.length}}/500</text>
   </view>
 
   <view class="section">
     <text class="section-title">联系方式（可选）</text>
-    <input class="contact-input" placeholder="手机号或微信号，方便我们联系您" bindinput="onContactInput" value="{{contact}}" disabled="{{submitting}}" />
+    <input class="contact-input" placeholder="手机号或微信号" bindinput="onContactInput" value="{{contact}}" disabled="{{submitting}}" />
   </view>
 
+  <text class="submit-notice" wx:if="{{submitNotice}}">{{submitNotice}}</text>
+  </view>
   <view class="footer">
-    <button class="btn-submit" bindtap="onSubmit" disabled="{{submitting || !content}}" loading="{{submitting}}">{{submitting ? '正在提交反馈' : '提交反馈'}}</button>
+    <button bindtap="onSubmit" disabled="{{submitting || !content}}" loading="{{submitting}}" class="af-action af-action--primary af-action--block">{{submitting ? '正在提交反馈' : '提交反馈'}}</button>
   </view>
 
   <view class="section" wx:if="{{!historyLoading || historyList.length > 0}}">
-    <text class="section-title">反馈记录</text>
-    <view class="ui-state" wx:if="{{historyError}}"><text class="ui-state-copy">{{historyError}}</text><text class="ui-state-copy" wx:if="{{historyList.length}}">以下为上次读取记录。</text><button size="mini" bindtap="onRetryHistory">重新读取反馈记录</button></view>
+    <view bindtap="onToggleHistory" class="af-entry b2-history-entry lv2-history-entry"><text class="section-title">反馈记录 · {{historyExpanded ? '收起' : '展开'}}</text></view>
+    <view class="ui-state" wx:if="{{historyError}}"><text class="ui-state-copy">{{historyError}}</text><text class="ui-state-copy" wx:if="{{historyList.length}}">以下为上次读取记录。</text><button bindtap="onRetryHistory" class="af-action af-action--quiet"><view class="af-action__face">重新读取反馈记录</view></button></view>
+    <view class="history-item" wx:if="{{!historyExpanded && historyList.length}}"><text class="history-content">{{historyList[0].content}}</text></view>
+    <view class="empty" wx:if="{{!historyExpanded && !historyLoading && !historyError && !historyList.length}}"><text>暂无反馈记录</text></view>
+    <block wx:if="{{historyExpanded}}">
     <view wx:if="{{historyList.length > 0}}">
       <view class="history-item" wx:for="{{historyList}}" wx:key="id">
         <view class="history-content">{{item.content}}</view>
@@ -47,6 +56,8 @@
     <view class="empty" wx:elif="{{!historyLoading && !historyError}}">
       <text>暂无反馈记录</text>
     </view>
+    </block>
   </view>
   <view class="loading" wx:if="{{historyLoading && historyList.length === 0}}">加载中...</view>
 </view>
+<business-dialog id="business-dialog" />

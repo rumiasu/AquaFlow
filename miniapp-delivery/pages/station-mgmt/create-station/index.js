@@ -1,4 +1,5 @@
-const { post } = require('../../../utils/request')
+const { showBusinessModal } = require('../../../utils/business-dialog')
+const { post, captureSession, currentSession } = require('../../../utils/request')
 const { API } = require('../../../config/api')
 // 与客户端收货地址共用同一套省市区拆分规则，避免同一串定位结果两端拆得不一样
 const { parseRegion } = require('../../../utils/address')
@@ -16,7 +17,7 @@ Page({
     latitude: null,
     longitude: null,
     locationText: '',
-    description: '',
+    description: '', descriptionExpanded: false, locationError: '',
     submitting: false
   },
 
@@ -26,6 +27,12 @@ Page({
    * refreshIdentityAndRoute 只在「目标页 ≠ 当前页」时才跳，所以不会自我循环。
    */
   async onShow() {
+    if (this._formSession && !currentSession(this._formSession)) {
+      this._locationSeq = (this._locationSeq || 0) + 1
+      this.setData({ stationName: '', phone: '', region: [], regionText: '', address: '', latitude: null, longitude: null, locationText: '', description: '', locationError: '', submitting: false })
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+    }
+    this._formSession = captureSession()
     const app = getApp()
     await app.refreshIdentityAndRoute('pages/station-mgmt/create-station/index')
   },
@@ -49,7 +56,7 @@ Page({
    * 没有出口就只能在"必须建站"与"退不出"之间卡住。
    */
   onLogout() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
       content: '退出后可用其他微信账号登录。',
       confirmText: '退出',
@@ -59,13 +66,23 @@ Page({
     })
   },
 
-  onStationNameInput(e) { this.setData({ stationName: e.detail.value }) },
-  onPhoneInput(e) { this.setData({ phone: e.detail.value }) },
-  onDescInput(e) { this.setData({ description: e.detail.value }) },
+  updateLeaveAlert() {
+    const dirty = this.data.stationName || this.data.phone || this.data.description || this.data.locationText
+    if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '水站资料尚未创建，确定离开吗？' })
+    else if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+  },
+  onUnload() { this._unloaded = true; this._locationSeq = (this._locationSeq || 0) + 1; if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload() },
+  onStationNameInput(e) { this.setData({ stationName: e.detail.value }); this.updateLeaveAlert() },
+  onPhoneInput(e) { this.setData({ phone: e.detail.value }); this.updateLeaveAlert() },
+  onToggleDescription() { this.setData({ descriptionExpanded: !this.data.descriptionExpanded }) },
+  onDescInput(e) { this.setData({ description: e.detail.value }); this.updateLeaveAlert() },
 
   onChooseLocation() {
+    if (this._formSession && !currentSession(this._formSession)) return
+    const session = captureSession(), seq = this._locationSeq = (this._locationSeq || 0) + 1
     wx.chooseLocation({
       success: (res) => {
+        if (this._unloaded || seq !== this._locationSeq || !currentSession(session)) return
         // [2026-09-16] 原实现在这里只写地址文本，省市区要靠站长另外手点一个
         // 「补充省/市/区（可选）」级联选择器（`<picker mode="region">`）补齐，
         // 结果绝大多数水站的省市区都是空的。定位返回的 address 本身就带省市区，
@@ -82,24 +99,26 @@ Page({
         const streetAddress = province ? parsed.detail : (res.address || res.name || '')
 
         this.setData({
-          latitude: res.latitude,
+          locationError: '', latitude: res.latitude,
           longitude: res.longitude,
           locationText: res.name + (res.address ? ' · ' + res.address : ''),
           address: streetAddress,
           region: region,
           regionText: region.filter(function (p) { return !!p }).join(' · ')
-        })
+        }); this.updateLeaveAlert()
       },
       fail: (err) => {
+        if (this._unloaded || seq !== this._locationSeq || !currentSession(session)) return
         // 用户拒绝授权时，友好提示（不强制，定位可跳过）
         if (err && err.errMsg && err.errMsg.indexOf('auth') >= 0) {
-          wx.showToast({ title: '可稍后在设置中开启定位', icon: 'none' })
-        }
+          this.setData({ locationError: '未获得位置权限，请在设置中开启后重新选点。' })
+        } else if (!err || !String(err.errMsg || '').includes('cancel')) { this.setData({ locationError: '位置暂时无法读取，请重新选点。' }) }
       }
     })
   },
 
   async onSubmit() {
+    if (this.data.submitting || (this._formSession && !currentSession(this._formSession))) return
     const { stationName, region, address, phone, locationText } = this.data
     const stationNameTrim = stationName.trim()
 
@@ -119,6 +138,7 @@ Page({
       return
     }
 
+    const session = captureSession()
     this.setData({ submitting: true })
     wx.showLoading({ title: '创建中...' })
     try {
@@ -134,19 +154,23 @@ Page({
         description: this.data.description.trim()
       }
       const res = await post(API.AUTH_CREATE_STATION, payload)
+      if (this._unloaded || !currentSession(session)) { wx.hideLoading(); return }
       const data = res && res.data ? res.data : null
       if (!data) throw new Error('服务器未返回创建结果')
 
       const app = getApp()
       app.setLoginState(data)
+      const completedSession = captureSession()
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
 
       wx.hideLoading()
       wx.showToast({ title: '水站创建成功', icon: 'success' })
       setTimeout(() => {
-        wx.switchTab({ url: '/pages/home/index' })
+        if (!this._unloaded && currentSession(completedSession)) wx.switchTab({ url: '/pages/home/index' })
       }, 1500)
     } catch (err) {
       wx.hideLoading()
+      if (this._unloaded || !currentSession(session)) return
       this.setData({ submitting: false })
       wx.showToast({ title: err.message || '创建失败', icon: 'none', duration: 2500 })
     }

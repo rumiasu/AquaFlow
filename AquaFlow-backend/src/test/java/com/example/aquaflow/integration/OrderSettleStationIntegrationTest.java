@@ -83,11 +83,10 @@ class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
         cus = customerToken(customer);
     }
 
-    /** 设本站进货成本（毛利报表的成本 join 用它；站级，见 v39）。 */
+    /** 已知存货金额夹具；尚未出库时仍不能声称订单成本已确认。 */
     private void setCost(String token, String cost) {
-        Api r = put("/api/manager/gross-profit/cost", token,
-                "{\"productId\":" + goods + ",\"costPrice\":" + cost + "}");
-        assertEquals(0, r.code(), "设置本站成本价应成功: " + r);
+        long station = token.equals(tokenA) ? stationA : stationB;
+        jdbc.update("update inventory set cost_amount=quantity*? where station_id=? and product_id=?",new BigDecimal(cost),station,goods);
     }
 
     /** 走真实下单接口（客户在 A 站下单，现金支付）。 */
@@ -172,8 +171,7 @@ class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
 
         // 毛利（统计条件与成本 join 都要按结算站）
         assertEquals(0, profitRevenue(tokenB).compareTo(amount), "B 的毛利收入应含这一单");
-        assertEquals(0, profitCost(tokenB).compareTo(new BigDecimal("10.00")),
-                "成本必须取 B 站（结算站）的进货价 2×5=10；用 A 站的 12 元算 B 站的毛利 = 假毛利");
+        assertTrue(grossProfit(tokenB).path("totalCost").isNull(), "未出库订单的成本尚未确认，不能用当前价造出利润");
         assertEquals(0, profitRevenue(tokenA).compareTo(BigDecimal.ZERO), "A 的毛利报表不该含这一单");
         assertEquals(0, profitCost(tokenA).compareTo(BigDecimal.ZERO), "A 的成本也不该被这一单拉动");
 
@@ -217,7 +215,7 @@ class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, dashboardGross(tokenA).compareTo(amount), "A 的看板应有这一单");
         assertEquals(0, dashboardGross(tokenB).compareTo(BigDecimal.ZERO), "B 的看板不该有这一单");
         assertEquals(0, profitRevenue(tokenA).compareTo(amount), "A 的毛利应有这一单");
-        assertEquals(0, profitCost(tokenA).compareTo(new BigDecimal("24.00")), "成本仍按 A 站进货价 2×12");
+        assertTrue(grossProfit(tokenA).path("totalCost").isNull(), "同站未出库也不能用当前价追算成本");
         assertEquals(1, receivableOrderCount(tokenA));
         assertEquals(0, receivableOrderCount(tokenB));
         assertEquals(1, unpaidCount(tokenA));

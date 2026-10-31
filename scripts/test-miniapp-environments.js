@@ -21,7 +21,8 @@ for (const app of apps) {
     config.API_CONFIG.trial.transport = 'https'
     config.API_CONFIG.trial.baseUrl = ''
     global.__wxConfig = { envVersion: 'develop' }
-    check(config.getBaseUrl() === config.API_CONFIG.dev.baseUrl, `${app}: develop uses configured LAN API`)
+    check(config.getTransportConfig().mode === 'cloudContainer', `${app}: develop uses configured cloud route`)
+    rejects(() => config.getBaseUrl(), /开发版使用云连接/, `${app}: cloud develop refuses direct URL access`)
     check(config.isDevelopEnv(), `${app}: develop enables the dev-only gate`)
 
     global.__wxConfig = { envVersion: 'trial' }
@@ -61,9 +62,18 @@ for (const app of apps) {
 const requestPath = require.resolve(path.join(root, 'miniapp-user/utils/request.js'))
 const orderPath = require.resolve(path.join(root, 'miniapp-user/api/order.js'))
 const priorRequestModule = require.cache[requestPath]
+const priorGetApp = global.getApp
+// 2026-10-27：支付 API 已按登录周期单飞，环境门禁夹具也须提供稳定的真实会话入口。
+const paymentApp = { globalData: { isLogin: true, customerId: 101,
+  accessToken: 'synthetic-environment-access', refreshToken: 'synthetic-environment-refresh' } }
+global.getApp = () => paymentApp
 let paymentPosts = 0
+let simulatedCapability = true
+const paymentConfig = require(path.join(root, 'miniapp-user/config/api'))
+const priorProdUrl = paymentConfig.API_CONFIG.prod.baseUrl
+paymentConfig.API_CONFIG.prod.baseUrl = 'https://production.synthetic.test'
 require.cache[requestPath] = { id: requestPath, filename: requestPath, loaded: true,
-  exports: { get() {}, put() {}, post() { paymentPosts += 1; return Promise.resolve({ ok: true }) } } }
+  exports: { get() { return Promise.resolve({ code: 0, data: { wechatPay: { method: 1, enabled: true, simulated: simulatedCapability, label: '渠道夹具' } } }) }, put() {}, post() { paymentPosts += 1; return Promise.resolve({ ok: true }) } } }
 delete require.cache[orderPath]
 const orderApi = require(orderPath)
 try {
@@ -72,15 +82,20 @@ try {
     const postsBefore = paymentPosts
     let simulated
     assert.doesNotThrow(() => { simulated = orderApi.createPayment({ orderId: 1, paymentMethod: 1 }, { simulatedWechatPay: true }) })
-    await rejectsAsync(simulated, /develop/, `miniapp-user: explicit simulated order payment is rejected in ${envVersion}`)
+    await rejectsAsync(simulated, /授权|模拟/, `miniapp-user: unauthorized simulated order payment is rejected in ${envVersion}`)
     check(paymentPosts === postsBefore, `${envVersion}: simulated payment request never reaches transport`)
+    simulatedCapability = false
     const real = await orderApi.createPayment({ orderId: 2, paymentMethod: 1 }, { simulatedWechatPay: false })
+    simulatedCapability = true
     check(real.ok === true && paymentPosts === postsBefore + 1, `${envVersion}: method 1 without mock marker remains available`)
   }
 } finally {
+  paymentConfig.API_CONFIG.prod.baseUrl = priorProdUrl
   delete require.cache[orderPath]
   if (priorRequestModule) require.cache[requestPath] = priorRequestModule
   else delete require.cache[requestPath]
+  if (priorGetApp === undefined) delete global.getApp
+  else global.getApp = priorGetApp
 }
 
 for (const app of apps) {
@@ -110,6 +125,7 @@ for (const app of apps) {
       check(c.getBaseUrl() === url, app + ': valid HTTPS domain preserved')
     }
     c.API_CONFIG.dev.baseUrl = 'http://DEV.EXAMPLE.COM:8088'
+    c.API_CONFIG.dev.transport = 'https' // Explicit fixture for the retained HTTPS platform selection branch.
     c.API_CONFIG.dev.devtoolsBaseUrl = 'http://TOOLS.EXAMPLE.COM:8088'
     for (const url of ['https://dev.example.com:443/v1', 'https://DEV.EXAMPLE.COM./', 'https://tools.example.com']) {
       c.API_CONFIG.prod.baseUrl = url

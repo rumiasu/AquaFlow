@@ -1,135 +1,144 @@
 <view class="container">
-  <view class="page-intro"><text class="page-intro-title">{{refundRef ? '退款说明与异议' : '联系水站与反馈'}}</text><text class="page-intro-note">{{refundRef ? '原退款状态和处理结果在这里核对' : '电话联系、服务反馈和已有处理记录'}}</text></view>
-  <view class="service-section" wx:if="{{!isLogin}}"><text class="service-label">登录后可提交本人反馈、查看处理记录或办理退款异议。</text><button bindtap="onLogin">去登录</button></view>
+  <view class="page-intro"><text class="page-intro-title">{{refundRef ? '退款说明与异议' : '联系水站与反馈'}}</text></view>
+  <view class="service-section" wx:if="{{!isLogin}}"><text class="service-label">登录后可提交本人反馈、查看处理记录或办理退款异议。</text><button class="af-action af-action--secondary" bindtap="onLogin">去登录</button></view>
   <view class="service-section" wx:if="{{!refundRef}}">
     <view class="service-item">
-      <text class="service-label">客服电话</text>
+      <view class="service-contact-title"><icon name="phone" size="20px" color="#1F5EA8" /><text>联系水站</text></view>
       <view class="service-value-row">
         <!-- [2026-09-20 真机联调] 这里原来无论什么原因都写「未获取到」——
              电话接口失败与水站没登记电话长得一模一样（AGENTS §8.22）。现在如实分开说。 -->
         <text class="service-value">{{phoneLoading ? '正在读取水站电话…' : (!stationSelected ? '请先在订水页选择服务水站' : (serviceInfo.phone || (phoneError ? '水站电话暂未加载' : '该水站暂未登记客服电话')))}}</text>
-        <view class="call-btn" bindtap="onCallPhone">
+        <view class="call-btn af-action af-action--secondary" bindtap="onCallPhone">
           <text>拨打</text>
         </view>
       </view>
     </view>
 
     <!-- 电话没查出来时给一条显式说明：别让客户以为"水站没有电话" -->
-    <view class="load-error" wx:if="{{phoneError && !serviceInfo.phone}}">水站电话没查出来（{{phoneError}}），不代表水站没留电话，可稍后重试</view>
-    <view class="load-error" wx:if="{{phoneError && serviceInfo.phone}}">当前显示上次读取的电话，最新联系方式尚未核实。</view>
-    <button wx:if="{{phoneError}}" bindtap="onRetryStation" disabled="{{phoneLoading}}">重新读取水站电话</button>
+    <view class="load-error" wx:if="{{phoneError && !serviceInfo.phone}}">水站电话暂未加载，请重试</view>
+    <view class="load-error" wx:if="{{phoneError && serviceInfo.phone}}">显示上次读取的电话，最新号码暂未核实。</view>
+    <button class="af-action af-action--quiet" wx:if="{{phoneError}}" bindtap="onRetryStation" disabled="{{phoneLoading}}"><text class="af-action__face">重新加载电话</text></button>
 
     <!-- Station 当前没有其他联系方式字段，避免重复引导客户拨同一号码。 -->
   </view>
 
-  <view class="service-section" wx:if="{{!refundRef && isLogin}}">
-    <text class="section-title">我的退款争议</text><text wx:if="{{myDisputesLoading}}">正在核对…</text>
-    <text class="load-error" wx:if="{{myDisputesError}}">{{myDisputesError}}</text><button wx:if="{{myDisputesError}}" bindtap="onRetryMyDisputes">重新核对争议</button>
-    <text wx:if="{{!myDisputesLoading && !myDisputesError && !myDisputes.length}}">暂无退款争议记录</text>
-    <view class="dispute-record" wx:for="{{myDisputes}}" wx:key="disputeKey" data-type="{{item.refundType}}" data-id="{{item.refundId}}" bindtap="onHistoryRefund">
-      <text class="service-label">{{item.objectText}} · {{item.statusText}} ›</text>
-    </view><button wx:if="{{myDisputesMore && !myDisputesLoading}}" bindtap="onMoreMyDisputes">继续加载争议记录</button>
+  <view class="service-section" wx:if="{{draftAvailable || draftNotice}}">
+    <text class="service-label" wx:if="{{draftAvailable}}">有上次未提交的填写内容。</text><text class="load-error" wx:if="{{draftNotice}}">{{draftNotice}}</text>
+    <button class="af-action af-action--quiet" wx:if="{{draftAvailable}}" bindtap="onRestoreDraft" disabled="{{submitting || disputeSubmitting || pendingRefundNote || pendingDispute || draftContextMismatch || (refundRef && !refundReady)}}"><text class="af-action__face">恢复原输入</text></button><button class="af-action af-action--quiet" wx:if="{{draftAvailable}}" bindtap="onDiscardDraft" disabled="{{submitting || disputeSubmitting || pendingRefundNote || pendingDispute || draftContextMismatch}}"><text class="af-action__face">放弃原草稿</text></button>
   </view>
-  <!-- 意见反馈表单 -->
-  <view class="service-section">
+  <view class="service-tabs af-choice-group" wx:if="{{!refundRef}}">
+    <view class="service-tab af-choice {{serviceTab === 'form' ? 'active af-choice--selected' : ''}}" data-tab="form" bindtap="onServiceTab"><text class="af-choice__face">提交反馈</text></view>
+    <view class="service-tab af-choice {{serviceTab === 'records' ? 'active af-choice--selected' : ''}}" data-tab="records" bindtap="onServiceTab"><text class="af-choice__face">我的记录</text></view>
+  </view>
+  <!-- 切换仅隐藏表单，保留填写内容与待恢复请求。 -->
+  <view class="service-section" wx:if="{{refundRef || serviceTab === 'form'}}">
     <text class="section-title">{{refundRef ? '退款异议与补充说明' : '意见反馈'}}</text>
+    <block wx:if="{{refundRef}}">
+      <text class="service-label">{{refundRef.objectText || '正在核对退款记录'}}</text>
+      <text class="service-label" wx:if="{{refundLoading}}">正在重新核对退款信息{{refundStale ? '，以下为上次读取的记录' : ''}}…</text>
+      <text class="service-label">仅本人和负责这笔退款的水站可查看，本条沟通需保留身份。</text>
+      <view class="load-error" wx:if="{{refundError}}"><text>{{refundError}}</text><view class="af-action af-action--quiet" bindtap="onRetryRefund"><text class="af-action__face">重试</text></view></view>
+      <view wx:if="{{(refundReady || refundStale) && dispute}}">
+        <text class="service-label">{{dispute.statusText}}</text>
+        <text class="service-label" wx:if="{{dispute.lastResult}}">水站已登记结果：{{dispute.lastResult}}</text>
+        <text class="service-label">水站可登记结果并结案，无需你确认；不改变退款资格或实际退款，仍可再次提出异议。</text>
+        <!-- 2026-10-23：目的不能只靠 placeholder，输入后仍须区分异议与补充说明。 -->
+        <view class="refund-purpose" wx:if="{{dispute.canOpen || pendingDispute}}">
+          <text class="refund-purpose-title">提出退款异议</text>
+          <text class="refund-purpose-note">由责任水站核实，不直接退款或改变金额。</text>
+        </view>
+        <textarea class="dispute-reason" wx:if="{{dispute.canOpen || pendingDispute}}" maxlength="1000" placeholder="请说明退款异议" value="{{disputeReason}}" bindinput="onDisputeReason" disabled="{{disputeSubmitting || !refundReady}}" />
+        <button class="af-action af-action--primary" wx:if="{{dispute.canOpen || pendingDispute}}" loading="{{disputeSubmitting}}" disabled="{{disputeSubmitting || draftContextMismatch || !refundReady}}" bindtap="onOpenDispute">提出退款异议</button>
+        <button class="af-action af-action--secondary" wx:if="{{pendingDispute}}" disabled="{{disputeSubmitting || !refundReady}}" bindtap="onRetryDispute">重试原异议</button>
+      </view>
+    </block>
+    <text class="field-label" wx:if="{{!refundRef}}">反馈类型</text>
+    <view class="category-list" wx:if="{{!refundRef}}">
+      <view class="category-item af-choice {{category === '配送服务' ? 'active af-choice--selected' : ''}}" bindtap="onSelectCategory" data-category="配送服务">
+        <text class="category-label af-choice__face"><text wx:if="{{category === '配送服务'}}">✓ </text>配送服务</text>
+      </view>
+      <view class="category-item af-choice {{category === '商品与水' ? 'active af-choice--selected' : ''}}" bindtap="onSelectCategory" data-category="商品与水">
+        <text class="category-label af-choice__face"><text wx:if="{{category === '商品与水'}}">✓ </text>商品与水</text>
+      </view>
+      <view class="category-item af-choice {{category === '水桶押金' ? 'active af-choice--selected' : ''}}" bindtap="onSelectCategory" data-category="水桶押金">
+        <text class="category-label af-choice__face"><text wx:if="{{category === '水桶押金'}}">✓ </text>水桶押金</text>
+      </view>
+      <view class="category-item af-choice {{category === '其他' ? 'active af-choice--selected' : ''}}" bindtap="onSelectCategory" data-category="其他">
+        <text class="category-label af-choice__face"><text wx:if="{{category === '其他'}}">✓ </text>其他</text>
+      </view>
+    </view>
+    <view class="refund-note-toggle" wx:if="{{refundRef}}" bindtap="onToggleRefundNote">{{showRefundNote ? '收起补充说明' : '补充退款说明（选填）'}} {{showRefundNote ? '⌃' : '⌄'}}</view>
+    <view class="refund-purpose" wx:if="{{refundRef && (showRefundNote || pendingRefundNote)}}">
+      <text class="refund-purpose-title">补充退款说明（选填）</text>
+      <text class="refund-purpose-note">给同一笔退款补充事实或证据；提交只保存说明，不会办理退款或改变金额。</text>
+    </view>
+    <text class="field-label" wx:if="{{!refundRef}}">问题或建议</text>
+    <block wx:if="{{!refundRef || showRefundNote || pendingRefundNote}}">
+    <textarea class="content-input" placeholder="{{refundRef ? '说明可选，证据可稍后补充' : '请描述您遇到的问题或建议...'}}" maxlength="{{refundRef ? 1000 : 500}}" value="{{content}}" bindinput="onContentInput" />
     <block wx:if="{{!refundRef}}">
-      <view class="call-btn" bindtap="onShowRefundOptions">关联一笔退款（可选）</view>
+      <view class="refund-option af-entry" bindtap="onShowRefundOptions">关联退款（选填） ›</view>
       <text class="service-label" wx:if="{{refundOptionsLoading}}">正在读取可关联的退款记录…</text>
       <picker wx:if="{{refundOptions.length}}" range="{{refundOptions}}" range-key="objectText" bindchange="onSelectRefund">
         <view class="service-label">选择原款或退押金申请</view>
       </picker>
       <text class="load-error" wx:if="{{refundOptionsError}}">{{refundOptionsError}}</text>
-      <button wx:if="{{refundOptionsError}}" bindtap="onShowRefundOptions" disabled="{{refundOptionsLoading}}">重试读取退款记录</button>
-      <text class="service-label" wx:if="{{refundOptionsLoaded && !refundOptionsLoading && !refundOptionsError && !refundOptions.length}}">当前没有可关联的退款原款或退押金申请。</text>
-      <view class="service-label" wx:if="{{refundOptionsMore}}" bindtap="onMoreRefundOptions">继续加载更早记录</view>
+      <button class="af-action af-action--quiet" wx:if="{{refundOptionsError}}" bindtap="onShowRefundOptions" disabled="{{refundOptionsLoading}}"><text class="af-action__face">重试读取退款记录</text></button>
+      <text class="service-label" wx:if="{{refundOptionsLoaded && !refundOptionsLoading && !refundOptionsError && !refundOptions.length}}">暂无可关联的退款记录。</text>
+      <view class="af-action af-action--quiet" wx:if="{{refundOptionsMore}}" bindtap="onMoreRefundOptions"><text class="af-action__face">继续加载更早记录</text></view>
     </block>
-    <block wx:else>
-      <text class="service-label">{{refundRef.objectText || '正在核对退款记录'}}</text>
-      <text class="service-label" wx:if="{{refundLoading}}">正在重新核对退款信息{{refundStale ? '，以下为上次读取的记录' : ''}}…</text>
-      <text class="service-label">仅本人和负责这笔退款的水站可查看，本条沟通需保留身份。</text>
-      <view class="load-error" wx:if="{{refundError}}">{{refundError}} <text bindtap="onRetryRefund">重试</text></view>
-      <view wx:if="{{(refundReady || refundStale) && dispute}}">
-        <text class="service-label">{{dispute.statusText}}</text>
-        <text class="service-label" wx:if="{{dispute.lastResult}}">水站已登记结果：{{dispute.lastResult}}</text>
-        <text class="service-label">水站可登记结果并结案，无需你确认；结案不会改变退款资格或实际退款。若仍有异议，可以再次提出。</text>
-        <!-- 2026-10-23：目的不能只靠 placeholder，输入后仍须区分异议与补充说明。 -->
-        <view class="refund-purpose" wx:if="{{dispute.canOpen || pendingDispute}}">
-          <text class="refund-purpose-title">提出退款异议</text>
-          <text class="refund-purpose-note">对退款处理有不同意见时填写；提交后由责任水站核实，不会直接退款或改变金额。</text>
-        </view>
-        <textarea class="dispute-reason" wx:if="{{dispute.canOpen || pendingDispute}}" maxlength="1000" placeholder="请说明退款异议" value="{{disputeReason}}" bindinput="onDisputeReason" disabled="{{disputeSubmitting || !refundReady}}" />
-        <button wx:if="{{dispute.canOpen || pendingDispute}}" loading="{{disputeSubmitting}}" disabled="{{disputeSubmitting || !refundReady}}" bindtap="onOpenDispute">提出退款异议</button>
-        <button wx:if="{{pendingDispute}}" disabled="{{disputeSubmitting || !refundReady}}" bindtap="onRetryDispute">重试原异议</button>
-      </view>
-    </block>
-    <view class="category-list" wx:if="{{!refundRef}}">
-      <view class="category-item {{category === '配送服务' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="配送服务">
-        <text>配送服务</text>
-      </view>
-      <view class="category-item {{category === '商品与水' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="商品与水">
-        <text>商品与水</text>
-      </view>
-      <view class="category-item {{category === '水桶押金' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="水桶押金">
-        <text>水桶押金</text>
-      </view>
-      <view class="category-item {{category === '其他' ? 'active' : ''}}" bindtap="onSelectCategory" data-category="其他">
-        <text>其他</text>
-      </view>
-    </view>
-    <view class="refund-purpose" wx:if="{{refundRef}}">
-      <text class="refund-purpose-title">补充退款说明（选填）</text>
-      <text class="refund-purpose-note">给同一笔退款补充事实或证据；提交只保存说明，不会办理退款或改变金额。</text>
-    </view>
-    <textarea class="content-input" placeholder="{{refundRef ? '说明可选，证据可稍后补充' : '请描述您遇到的问题或建议...'}}" maxlength="{{refundRef ? 1000 : 500}}" value="{{content}}" bindinput="onContentInput" />
-    <input class="contact-input" placeholder="联系方式（可选）" value="{{contact}}" bindinput="onContactInput" />
+    <text class="field-label contact-label">联系方式（选填）</text>
+    <input class="contact-input" placeholder="电话或其他联系方式" value="{{contact}}" bindinput="onContactInput" />
 
-    <!-- 匿名提交开关（v46）。默认关闭 = 实名（data.anonymous 初值 false）。
-         文案必须讲清后果，不能只写一个"匿名"了事：
-           · 匿名之后水站认不出是谁提的 —— 也就没法针对性地回复/回访他；
-           · 留了联系方式则例外：那是他主动留下的，水站仍能通过它联系。
-         ⚠️ 本页只负责如实上报用户的选择，**不做任何身份隐藏**：
-         站长端拿不到姓名/客户号是后端查询 SQL 层做的（FeedbackMapper）。
-         前端隐藏 = 没隐藏（改个 setData 就看见了）。 -->
+    <!-- 匿名反馈不显示姓名，主动填写的联系方式仍可用于联系。 -->
     <view class="anonymous-row" wx:if="{{!refundRef}}">
       <view class="anonymous-text">
         <text class="anonymous-label">匿名提交</text>
-        <text class="anonymous-desc" wx:if="{{anonymous}}">已开启：这条反馈不会带上你的姓名，水站认不出是谁提的，也没法回复你；如果你填了联系方式，水站仍能通过它联系你。</text>
-        <text class="anonymous-desc" wx:else>未开启（实名）：水站能看到你的姓名，可以针对你的问题回复你。</text>
+        <text class="anonymous-desc" wx:if="{{anonymous}}">匿名后水站无法识别你；填写联系方式仍可联系你。</text>
       </view>
       <switch checked="{{anonymous}}" bindchange="onAnonymousChange" />
     </view>
 
-    <view class="feedback-btn {{submitting || (refundRef && !refundReady) ? 'disabled' : ''}}" bindtap="onSubmit">
+    <view class="feedback-btn af-action af-action--primary af-action--block {{submitting || draftContextMismatch || (refundRef && !refundReady) ? 'is-disabled' : ''}}" bindtap="onSubmit">
       <text>{{submitting ? '提交中...' : (refundRef ? '提交说明' : '提交反馈')}}</text>
     </view>
-    <view class="load-error" wx:if="{{submitError}}">{{submitError}}<button bindtap="onRetryHistory">核对反馈历史</button></view>
-    <text wx:if="{{pendingRefundNote && !submitting}}" class="service-label">上一条说明的结果待确认，恢复时沿用原内容和编号。</text>
-    <button wx:if="{{pendingRefundNote && !submitting}}" disabled="{{!refundReady}}" bindtap="onRetryOriginalNote">恢复原说明</button>
+    <view class="load-error" wx:if="{{submitError}}">{{submitError}}<button class="af-action af-action--quiet" bindtap="onRetryHistory"><text class="af-action__face">核对反馈历史</text></button></view>
+    <text wx:if="{{pendingRefundNote && !submitting}}" class="service-label">上一条说明结果待确认，可恢复原说明。</text>
+    <button class="af-action af-action--secondary" wx:if="{{pendingRefundNote && !submitting}}" disabled="{{!refundReady}}" bindtap="onRetryOriginalNote">恢复原说明</button>
+    </block>
     <view class="refund-action-history" wx:if="{{refundRef && (refundReady || refundStale) && dispute && dispute.actions.length}}">
-      <text class="refund-purpose-title">退款异议处理记录</text>
-      <view wx:for="{{dispute.actions}}" wx:for-item="entry" wx:key="id"><text class="service-label">{{entry.actionText}} · {{entry.createTime}}</text><text class="history-content">{{entry.reason}}</text></view>
+      <view class="refund-note-toggle" bindtap="onToggleDisputeHistory">退款异议处理记录 {{showDisputeHistory ? '⌃' : '⌄'}}</view>
+      <view wx:if="{{showDisputeHistory}}" wx:for="{{dispute.actions}}" wx:for-item="entry" wx:key="id"><text class="service-label">{{entry.actionText}} · {{entry.createTime}}</text><text class="history-content">{{entry.reason}}</text></view>
     </view>
   </view>
 
+  <view class="service-section" wx:if="{{!refundRef && isLogin && serviceTab === 'records'}}">
+    <text class="section-title">我的退款争议</text><text wx:if="{{myDisputesLoading}}">加载中…</text>
+    <text class="load-error" wx:if="{{myDisputesError}}">{{myDisputesError}}</text><button class="af-action af-action--quiet" wx:if="{{myDisputesError}}" bindtap="onRetryMyDisputes"><text class="af-action__face">重新加载</text></button>
+    <text wx:if="{{!myDisputesLoading && !myDisputesError && !myDisputes.length}}">暂无退款争议记录</text>
+    <view class="dispute-record af-entry" wx:for="{{myDisputes}}" wx:key="disputeKey" data-type="{{item.refundType}}" data-id="{{item.refundId}}" bindtap="onHistoryRefund">
+      <text class="service-label">{{item.objectText}} · {{item.statusText}} ›</text>
+    </view><button class="af-action af-action--quiet" wx:if="{{myDisputesMore && !myDisputesLoading}}" bindtap="onMoreMyDisputes"><text class="af-action__face">加载更多</text></button>
+  </view>
+
   <!-- 普通反馈历史按需展开；退款说明及其状态/责任保持常显。 -->
-  <view class="history-toggle" wx:if="{{!refundRef && history.length > 0}}" bindtap="onToggleHistory"><text>{{showHistory ? '收起历史反馈' : '查看历史反馈'}}（{{history.length}}）</text><text>{{showHistory ? '⌃' : '⌄'}}</text></view>
-  <view class="other-section" wx:if="{{history.length > 0 && (refundRef || showHistory)}}">
+  <view class="history-toggle" wx:if="{{!refundRef && serviceTab === 'records' && history.length > 0}}" bindtap="onToggleHistory"><text>{{showHistory ? '收起历史反馈' : '查看历史反馈'}}（{{history.length}}）</text><text>{{showHistory ? '⌃' : '⌄'}}</text></view>
+  <view class="other-section" wx:if="{{history.length > 0 && (refundRef || (serviceTab === 'records' && showHistory))}}">
     <view class="other-item" wx:for="{{history}}" wx:key="id">
       <view class="history-main">
         <text class="service-label" wx:if="{{item.refundObjectText}}">{{item.refundObjectText}} · {{item.authorText}}</text>
         <text class="history-content">{{item.displayContent || item.content}}</text>
         <text class="history-time">{{item.createTime}}</text>
-        <button wx:if="{{!refundRef && item.refundType && item.refundId}}" data-type="{{item.refundType}}" data-id="{{item.refundId}}" bindtap="onHistoryRefund">查看退款争议与说明</button>
+        <button class="af-action af-action--quiet" wx:if="{{!refundRef && item.refundType && item.refundId}}" data-type="{{item.refundType}}" data-id="{{item.refundId}}" bindtap="onHistoryRefund"><text class="af-action__face">查看退款争议与说明</text></button>
       </view>
     </view>
   </view>
   <!-- [2026-09-20] 历史拉不到时原来整块消失 = "你没提过反馈"。改成一句实情，别让客户以为记录丢了 -->
-  <view class="other-section" wx:if="{{historyError}}">
+  <view class="other-section" wx:if="{{historyError && (refundRef || serviceTab === 'records')}}">
     <view class="other-item">
-      <view><text class="history-content">{{historyError}}</text><button bindtap="onRetryHistory" disabled="{{historyLoading}}">重新读取反馈历史</button></view>
+      <view><text class="history-content">{{historyError}}</text><button class="af-action af-action--quiet" bindtap="onRetryHistory" disabled="{{historyLoading}}"><text class="af-action__face">重新读取反馈历史</text></button></view>
     </view>
   </view>
-  <view class="history-status" wx:if="{{!refundRef && historyLoading}}">正在读取反馈历史…</view>
-  <view class="history-status" wx:if="{{!refundRef && historyLoaded && !historyLoading && !historyError && !history.length}}">暂无反馈记录。</view>
+  <view class="history-status" wx:if="{{!refundRef && serviceTab === 'records' && historyLoading}}">正在读取反馈历史…</view>
+  <view class="history-status" wx:if="{{!refundRef && serviceTab === 'records' && historyLoaded && !historyLoading && !historyError && !history.length}}">暂无反馈记录。</view>
 </view>
+<business-dialog id="business-dialog" />

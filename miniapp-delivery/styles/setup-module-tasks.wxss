@@ -1,6 +1,13 @@
-.setup-module-bar { margin-bottom:20rpx; padding:16rpx 20rpx; background:var(--bg-gray); border-left:4rpx solid #D47A16; border-radius:10rpx; }
-.setup-module-title { display:block; font-size:14px; font-weight:600; color:var(--text-primary); line-height:1.5; }
-.setup-module-copy { display:block; margin-top:8rpx; font-size:13px; color:var(--text-regular); line-height:1.6; }
-.setup-module-actions { display:flex; flex-wrap:wrap; gap:8rpx; margin-top:8rpx; }
-.setup-module-bar button { display:flex; align-items:center; justify-content:center; min-height:44px; height:auto; margin:0; padding:8rpx 16rpx; font-size:14px; line-height:1.5; background:#fff; color:var(--primary-color); }
-.setup-module-bar button::after { border:0; }
+/* B0 preparation list: real task states, neutral optional group and compact tools. */
+.setup-module-bar{margin-bottom:20rpx;padding:12px 0;background:var(--af-surface);border-top:1px solid var(--af-border)}
+.setup-module-title{display:block;font-size:16px;font-weight:600;color:var(--af-ink);line-height:24px}
+.setup-module-copy{display:block;margin-top:4px;font-size:13px;color:var(--af-text-secondary);line-height:20px}
+.setup-module-task{margin-top:12px;padding:12px 0;border-bottom:1px solid var(--af-border)}
+.setup-module-task-head{display:flex;align-items:center;gap:8px;min-height:32px;flex-wrap:wrap}
+.setup-module-task-name{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--af-ink);line-height:20px}
+.setup-module-mark{flex:none;width:20px;color:var(--af-text-secondary)}.setup-module-mark.is-done{color:var(--af-positive)}
+.setup-module-level,.setup-module-state{flex-shrink:0;font-size:12px;line-height:18px;color:var(--af-text-secondary)}
+.setup-module-level.is-optional{padding:2px 6px;border-radius:6px;color:var(--af-text-secondary);background:var(--af-soft)}
+.setup-module-state.is-done{color:var(--af-positive)}.setup-module-state.is-pending{color:var(--af-strong)}
+.setup-module-evidence{display:block;margin-top:4px;font-size:12px;color:var(--af-text-secondary);line-height:18px}
+.setup-module-bar button.af-action{margin-top:8px;width:auto;min-height:44px}.setup-module-bar button.setup-module-action{flex:none;margin:0;min-width:44px}

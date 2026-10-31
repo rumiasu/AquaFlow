@@ -1,9 +1,13 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
+const { createDraftGuard } = require('../../utils/draft-guard')
 const { submitFeedback, getMyFeedback, appendRefundNote, getRefundNotes, getRefundOptions, getRefundDisputes, openRefundDispute } = require('../../api/feedback')
 const noteIntent = require('../../utils/refund-note-intent')
 const disputeIntent = require('../../utils/exception-action-intent')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { stationStorage } = require('../../utils/storage')
 const { getStationPublicPhone } = require('../../api/station')
+
+function validDraft(draft) { return !!draft && typeof draft.content === 'string' && typeof draft.contact === 'string' && typeof draft.disputeReason === 'string' && draft.disputeReason.length <= 1000 && draft.content.length <= 1000 && draft.contact.length <= 500 && ['配送服务', '商品与水', '水桶押金', '其他'].includes(draft.category) && typeof draft.anonymous === 'boolean' }
 
 // 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
 function viewError(error, fallback = '暂时无法完成，请稍后重试') {
@@ -15,7 +19,7 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
 
 Page({
   data: {
-    isLogin: false,
+    isLogin: false, serviceTab: 'form', showRefundNote: false, showDisputeHistory: false, draftAvailable: false, draftNotice: '', draftContextMismatch: false,
     serviceInfo: {
       phone: '',
       stationName: ''
@@ -53,22 +57,125 @@ Page({
     myDisputes: [], myDisputesError: '', myDisputesLoading: false, myDisputesPage: 0, myDisputesMore: false
   },
 
+  draftScope() {
+    const session = captureSession(), ref = this.data.refundRef
+    if (!session.loggedIn || !/^[1-9]\d*$/.test(String(session.customerId || '')) || !Number.isSafeInteger(Number(session.customerId))) return null
+    const station = ref ? 'personal' : stationStorage.getId()
+    if (!ref && (!/^[1-9]\d*$/.test(String(station || '')) || !Number.isSafeInteger(Number(station)))) return null
+    return { app: 'customer', actor: session.customerId, station, route: 'service', entity: ref ? ref.refundType + ':' + ref.refundId : 'feedback', generation: session.epoch }
+  },
+  hasDraftInput() { return !!(this.data.content || this.data.contact || this.data.disputeReason || this.data.category !== '配送服务' || this.data.anonymous) },
+  initDraft() {
+    this._draftGuard = createDraftGuard(() => this.draftScope()); this._draftToken = this._draftGuard.begin(); this._draftOwned = false
+    const result = this._draftGuard.read(this._draftToken), draft = result.draft
+    this._draftSaved = result.state === 'saved' && validDraft(draft) ? draft : null
+    this._draftLast = null
+    this._draftBlocked = result.state !== 'empty'
+    this.setData({ draftAvailable: !!this._draftSaved, draftContextMismatch: false,
+      draftNotice: result.state === 'unknown' || result.state === 'stale' || (result.state === 'saved' && !this._draftSaved) ? '草稿暂时无法核实，当前输入尚未确认保存。' : '' })
+  },
+  saveDraft() {
+    if (!this._draftGuard || !this._draftToken || this.data.draftContextMismatch) { this.setData({ draftNotice: '草稿尚未确认保存，请核对登录及水站。' }); return }
+    if (this._draftBlocked) { this.setData({ draftNotice: '请先处理原草稿；当前输入尚未确认保存。' }); return }
+    const existing = this._draftGuard.read(this._draftToken)
+    if (existing.state === 'unknown' || existing.state === 'stale') { this.setData({ draftNotice: '草稿尚未确认保存，请保留当前输入并重试。' }); return }
+    if (existing.state === 'saved' && (!this._draftOwned || JSON.stringify(existing.draft) !== JSON.stringify(this._draftLast))) {
+      this._draftBlocked = true; this._draftOwned = false; this._draftSaved = validDraft(existing.draft) ? existing.draft : null
+      this.setData({ draftAvailable: !!this._draftSaved, draftNotice: this._draftSaved ? '原草稿已变化，请先处理；当前输入尚未确认保存。' : '草稿暂时无法核实，当前输入尚未确认保存。' }); return
+    }
+    const draft = { category: this.data.category, content: this.data.content, contact: this.data.contact, anonymous: this.data.anonymous, disputeReason: this.data.disputeReason }
+    const result = this._draftGuard.save(this._draftToken, draft)
+    if (result.state === 'saved') { this._draftOwned = true; this._draftLast = draft; this.setData({ draftNotice: '' }) }
+    else this.setData({ draftNotice: '草稿尚未确认保存，请保留当前输入并重试。' })
+  },
+  onRestoreDraft() {
+    if (!this._draftSaved || this.data.submitting || this.data.disputeSubmitting || this.data.pendingRefundNote || this.data.pendingDispute || this.data.draftContextMismatch || (this.data.refundRef && !this.data.refundReady)) return
+    const draft = this._draftSaved, token = this._draftToken, session = captureSession(), epoch = this._noteEpoch
+    const restore = () => {
+      if (this._draftHidden || this._unloaded || epoch !== this._noteEpoch || !isCurrentSession(session) || !this._draftGuard || this.data.pendingRefundNote || this.data.pendingDispute) return
+      const current = this._draftGuard.read(token)
+      if (current.state !== 'saved' || JSON.stringify(current.draft) !== JSON.stringify(draft)) { this.setData({ draftNotice: '原草稿已变化，请重新进入后核对。' }); return }
+      this._draftOwned = true; this._draftBlocked = false; this._draftLast = draft; this._draftSaved = null
+      this.setData({ category: draft.category, content: draft.content, contact: draft.contact, anonymous: draft.anonymous, disputeReason: draft.disputeReason,
+        showRefundNote: !!this.data.refundRef && !!(draft.content || draft.contact), draftAvailable: false, draftNotice: '' }, () => this.updateLeaveWarning())
+    }
+    if (this.hasDraftInput()) return showBusinessModal({ title: '恢复原输入？', content: '恢复会替换当前填写的内容。', confirmText: '恢复', cancelText: '继续填写', success: res => { if (res.confirm) restore() } })
+    restore()
+  },
+  onDiscardDraft() {
+    if (!this._draftSaved || this.data.submitting || this.data.disputeSubmitting || this.data.pendingRefundNote || this.data.pendingDispute || this.data.draftContextMismatch) return
+    const token = this._draftToken, session = captureSession(), epoch = this._noteEpoch, expected = this._draftSaved
+    showBusinessModal({ title: '放弃原草稿？', content: '放弃后原草稿将不再保留。', confirmText: '放弃', cancelText: '保留', success: res => {
+      if (!res.confirm || this._draftHidden || this._unloaded || epoch !== this._noteEpoch || !isCurrentSession(session)) return
+      const current = this._draftGuard.read(token)
+      if (current.state !== 'saved' || JSON.stringify(current.draft) !== JSON.stringify(expected)) { this.setData({ draftNotice: '原草稿已变化，请重新进入后核对。' }); return }
+      const result = this._draftGuard.clear(token)
+      if (result.state !== 'empty') { this.setData({ draftNotice: '草稿尚未确认清除，请重试。' }); return }
+      this._draftBlocked = false; this._draftSaved = null; this.setData({ draftAvailable: false, draftNotice: '' })
+      if (this.hasDraftInput()) this.saveDraft()
+    } })
+  },
+  clearOwnedDraft() {
+    if (!this._draftOwned || !this._draftGuard) return true
+    const current = this._draftGuard.read(this._draftToken)
+    if (current.state === 'empty') { this._draftOwned = false; this._draftLast = null; return true }
+    if (current.state !== 'saved' || JSON.stringify(current.draft) !== JSON.stringify(this._draftLast)) {
+      this._draftOwned = false; this._draftBlocked = true; this._draftSaved = current.state === 'saved' && validDraft(current.draft) ? current.draft : null
+      this.setData({ draftAvailable: !!this._draftSaved, draftNotice: '草稿已变化或暂时无法核实，请重新核对。' }); return false
+    }
+    const result = this._draftGuard.clear(this._draftToken)
+    if (result.state === 'empty') { this._draftOwned = false; this._draftLast = null; return true }
+    this.setData({ draftNotice: '草稿尚未确认清除，请保留当前输入并重试。' }); return false
+  },
+  afterConfirmedInput(submitted) {
+    // 只有与已确认请求完全相同的字段可从未恢复草稿移除，其他未提交输入必须保留。
+    if (this._draftSaved && submitted && this._draftGuard) {
+      const current = this._draftGuard.read(this._draftToken)
+      if (current.state === 'saved' && JSON.stringify(current.draft) === JSON.stringify(this._draftSaved)
+          && Object.keys(submitted).every(k => this._draftSaved[k] === submitted[k])) {
+        const remaining = Object.assign({}, this._draftSaved)
+        Object.keys(submitted).forEach(k => { remaining[k] = '' })
+        const hasRemaining = !!(remaining.content || remaining.contact || remaining.disputeReason)
+        const result = hasRemaining ? this._draftGuard.save(this._draftToken, remaining) : this._draftGuard.clear(this._draftToken)
+        if ((hasRemaining && result.state === 'saved') || (!hasRemaining && result.state === 'empty')) {
+          this._draftSaved = hasRemaining ? remaining : null; this._draftBlocked = hasRemaining
+          this.setData({ draftAvailable: hasRemaining })
+        } else this.setData({ draftNotice: '已提交，但原草稿尚未确认更新。' })
+      }
+    }
+    if (this.hasDraftInput()) { if (this._draftOwned) this.saveDraft() }
+    else this.clearOwnedDraft()
+    this.updateLeaveWarning()
+  },
+  updateLeaveWarning() {
+    const dirty = !!(this.data.content || this.data.contact || this.data.disputeReason)
+    if (dirty && wx.enableAlertBeforeUnload) wx.enableAlertBeforeUnload({ message: '填写内容尚未提交，确定离开吗？' })
+    else if (!dirty && wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload()
+  },
+  onServiceTab(e) {
+    const tab = e.currentTarget.dataset.tab
+    if (tab === 'form' || tab === 'records') { if (tab !== this.data.serviceTab && wx.hideKeyboard) wx.hideKeyboard({}); this.setData({ serviceTab: tab }) }
+  },
+  onToggleRefundNote() { if (this.data.showRefundNote && wx.hideKeyboard) wx.hideKeyboard({}); this.setData({ showRefundNote: !this.data.showRefundNote }) },
+  onToggleDisputeHistory() { this.setData({ showDisputeHistory: !this.data.showDisputeHistory }) },
   onToggleHistory() {
     this.setData({ showHistory: !this.data.showHistory })
   },
 
   onLoad(options = {}) {
-    this._noteEpoch = 1
+    this._noteEpoch = 1; this._draftHidden = false; this._unloaded = false
     this._pageCustomer = getCustomerId()
     const id = Number(options.refundId)
     if (options.refundType && Number.isSafeInteger(id) && id > 0) {
       this.setData({ refundRef: { refundType: options.refundType, refundId: id } })
     }
   },
-  onHide() { this._noteEpoch = (this._noteEpoch || 0) + 1 },
-  onUnload() { this._noteEpoch = (this._noteEpoch || 0) + 1 },
+  onHide() { this._draftHidden = true; this._noteEpoch = (this._noteEpoch || 0) + 1 },
+  onUnload() { this._draftHidden = true; this._unloaded = true; this._noteEpoch = (this._noteEpoch || 0) + 1 },
 
   onShow() {
+    if (this._unloaded) return
+    this._draftHidden = false
     this._noteEpoch = (this._noteEpoch || 0) + 1
     const customer = getCustomerId()
     if (this._pageCustomer !== undefined && this._pageCustomer !== customer) {
@@ -87,6 +194,11 @@ Page({
       if (!this.data.refundRef) this.loadStation()
       return
     }
+    const probe = createDraftGuard(() => this.draftScope()).begin()
+    if (!this._draftToken || !probe || this._draftToken.identity !== probe.identity) {
+      if (this._draftToken && this.hasDraftInput() && this._draftToken.key !== (probe && probe.key) && this._pageCustomer === customer) this.setData({ draftContextMismatch: true, draftNotice: '水站或退款对象已变化，请返回原处处理当前输入。' })
+      else this.initDraft()
+    } else if (this.data.draftContextMismatch) this.setData({ draftContextMismatch: false, draftNotice: '' })
     if (this.data.refundRef) this.loadRefundThread()
     else { this.loadHistory(); this.loadStation(); this.loadMyDisputes() }
   },
@@ -135,9 +247,7 @@ Page({
     if (this.data.submitting || this.data.disputeSubmitting) return
     const ref = this.data.refundOptions[Number(e.detail.value)]
     if (!ref) return
-    this.setData({ refundRef: { refundType: ref.refundType, refundId: Number(ref.refundId) }, refundReady: false,
-      refundError: '', content: '', contact: '', history: [], pendingRefundNote: false, dispute: null, disputeReason: '', pendingDispute: false })
-    this.loadRefundThread()
+    this.openRefundRef(ref.refundType, ref.refundId)
   },
   async loadRefundThread() {
     const ref = this.data.refundRef
@@ -169,13 +279,30 @@ Page({
     } finally { if (current()) this.setData({ refundLoading: false }) }
   },
   onRetryRefund() { this.loadRefundThread() },
-  onDisputeReason(e) { this.setData({ disputeReason: e.detail.value }) },
+  onDisputeReason(e) { if (this._draftHidden || this._unloaded) return; this.setData({ disputeReason: e.detail.value }, () => { this.updateLeaveWarning(); this.saveDraft() }) },
   onHistoryRefund(e) {
     const { type, id } = e.currentTarget.dataset
     if (!type || !id || this.data.submitting || this.data.disputeSubmitting) return
-    this.setData({ refundRef: { refundType: type, refundId: Number(id) }, refundReady: false, dispute: null,
-      history: [], refundStale: false, refundError: '', content: '', contact: '', disputeReason: '', pendingRefundNote: false, pendingDispute: false })
-    return this.loadRefundThread()
+    return this.openRefundRef(type, id)
+  },
+  openRefundRef(type, id) {
+    const session = captureSession(), epoch = this._noteEpoch
+    const open = () => {
+      if (epoch !== this._noteEpoch || !isCurrentSession(session) || this.data.submitting || this.data.disputeSubmitting) return
+      if (this._draftOwned && !this.clearOwnedDraft()) return
+      this.setData({ refundRef: { refundType: type, refundId: Number(id) }, refundReady: false, dispute: null,
+        history: [], refundStale: false, refundError: '', content: '', contact: '', disputeReason: '', pendingRefundNote: false, pendingDispute: false })
+      this.updateLeaveWarning(); this.initDraft()
+      return this.loadRefundThread()
+    }
+    // 2026-10-28：切换记录原会直接清空普通反馈；先让用户决定是否放弃。
+    if (this.data.content || this.data.contact || this.data.disputeReason) {
+      // RC3：共享弹层明确说明放弃后切换；原生回退保留微信按钮最多四字的限制。
+      const dialog = typeof this.selectComponent === 'function' && this.selectComponent('#business-dialog')
+      const confirmText = dialog && typeof dialog.open === 'function' ? '放弃并切换' : '确认切换'
+      return showBusinessModal({ title: '放弃当前填写？', content: '切换退款记录会清除当前未提交的内容。', confirmText, cancelText: '继续填写', success: res => { if (res.confirm) open() } })
+    }
+    return open()
   },
   onRetryDispute() {
     try {
@@ -187,7 +314,7 @@ Page({
   },
   async onOpenDispute() {
     const ref = this.data.refundRef, state = this.data.dispute
-    if (this.data.disputeSubmitting || !this.data.refundReady || !ref || !state || (!state.canOpen && !this.data.pendingDispute)) return
+    if (this.data.disputeSubmitting || this.data.draftContextMismatch || !this.data.refundReady || !ref || !state || (!state.canOpen && !this.data.pendingDispute)) return
     const session = captureSession(), epoch = this._noteEpoch, customer = getCustomerId()
     if (!customer) return
     const current = () => epoch === this._noteEpoch && isCurrentSession(session) && this.data.refundRef === ref
@@ -202,7 +329,7 @@ Page({
       const data = response.data
       if (!data || !data.id || data.refundType !== ref.refundType || Number(data.refundId) !== ref.refundId || !['OPEN', 'REOPEN'].includes(data.action)) throw new Error('异议提交结果未确认，请原样重试')
       disputeIntent.clear(intent)
-      this.setData({ pendingDispute: false, disputeReason: '' })
+      this.setData({ pendingDispute: false, disputeReason: '' }, () => this.afterConfirmedInput({ disputeReason: intent.reason }))
       wx.showToast({ title: '异议已提交', icon: 'success' }); await this.loadRefundThread()
     } catch (err) {
       if (current()) {
@@ -269,7 +396,7 @@ Page({
       // 把两种完全不同的情况说成同一件事，客户无从判断是自己网络的问题还是水站没留电话。
       // 现在分开：接口失败 → 说明原因 + 不谎称"没有电话"；查到了但确实为空 → 直说没登记。
       if (this.data.phoneError) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '电话没查出来',
           content: '没能取到水站的客服电话（' + this.data.phoneError + '）。'
             + '这不代表水站没有留电话 —— 请稍后重试，或换个网络再试。',
@@ -294,15 +421,18 @@ Page({
   //（真要展示营业时间，先给 Station 加字段并让站长可配）。
 
   onSelectCategory(e) {
-    this.setData({ category: e.currentTarget.dataset.category })
+    if (this._draftHidden || this._unloaded) return
+    this.setData({ category: e.currentTarget.dataset.category }, () => this.saveDraft())
   },
 
   onContentInput(e) {
-    this.setData({ content: e.detail.value })
+    if (this._draftHidden || this._unloaded) return
+    this.setData({ content: e.detail.value }, () => { this.updateLeaveWarning(); this.saveDraft() })
   },
 
   onContactInput(e) {
-    this.setData({ contact: e.detail.value })
+    if (this._draftHidden || this._unloaded) return
+    this.setData({ contact: e.detail.value }, () => { this.updateLeaveWarning(); this.saveDraft() })
   },
 
   /**
@@ -313,7 +443,8 @@ Page({
    * 前端只需如实上报用户的选择。</p>
    */
   onAnonymousChange(e) {
-    this.setData({ anonymous: !!e.detail.value })
+    if (this._draftHidden || this._unloaded) return
+    this.setData({ anonymous: !!e.detail.value }, () => this.saveDraft())
   },
 
   async loadHistory() {
@@ -349,7 +480,7 @@ Page({
    * （`utils/request.js` 的 `offerErrorReport`）**保持实名不变**，原因写在那边的注释里。</p>
    */
   async onSubmit() {
-    if (this.data.submitting) return
+    if (this.data.submitting || this.data.draftContextMismatch) return
     if (!captureSession().loggedIn || !getCustomerId()) { this.setData({ submitError: '请先登录后提交本人反馈或说明，输入已保留。' }); return }
     if (this.data.refundRef) return this.submitRefundNote()
     const { category, content, contact, anonymous } = this.data
@@ -365,7 +496,7 @@ Page({
       await submitFeedback({ category, content, contact, anonymous })
       if (!current()) return
       wx.showToast({ title: '反馈已提交，感谢！', icon: 'success' })
-      this.setData({ content: '', contact: '' })
+      this.setData({ content: '', contact: '' }, () => this.afterConfirmedInput({ content, contact }))
       this.loadHistory()
     } catch (error) {
       if (current()) this.setData({ submitError: viewError(error, '反馈结果尚未确认，输入已保留；请先查看反馈历史，避免重复提交。') })
@@ -386,7 +517,7 @@ Page({
       if (!current()) return
       if (!response.data || !response.data.id || response.data.refundType !== ref.refundType || Number(response.data.refundId) !== ref.refundId) throw new Error('说明提交结果未确认，请原样重试')
       noteIntent.clear(intent)
-      this.setData({ content: '', contact: '', pendingRefundNote: false })
+      this.setData({ content: '', contact: '', pendingRefundNote: false }, () => this.afterConfirmedInput({ content: intent.content, contact: intent.contact }))
       wx.showToast({ title: '说明已保存', icon: 'success' })
       await this.loadRefundThread()
     } catch (e) {

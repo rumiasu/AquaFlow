@@ -56,6 +56,8 @@ test('waiting rows use provided station names and current-station context withou
   const text = view(route, t.page.data)
   assert(text.includes('本站（水站编号：11）')); assert(text.includes('合成收款站（水站编号：22）'))
   assert.equal(t.page.data.recoveries[0].toStationId, 22); assert.equal(JSON.stringify([stock, recovery]), before)
+  assert.deepStrictEqual(calls, ['waiting', 'refusals'])
+  await t.page.onOpenTickets()
   assert.deepStrictEqual(calls, ['waiting', 'refusals', 'tickets'])
 })
 for (const named of [true, false]) test('exception page uses response customer name without scanning customers: ' + named, async () => {
@@ -109,7 +111,7 @@ test('aftercare reads one scoped response and renders cached station names witho
   } } })
   t.page.setData({ items: [{ fromStationId: 11, fromStationName: '当前退款站', toStationId: 22, toStationName: '授权合作站' }] })
   t.page._ledgerReadSession = t.page.aftercareSession()
-  await t.page.loadAftercare(81)
+  await t.page.onOpenAftercare({ currentTarget: { dataset: { id: 81 } } })
   assert.equal(t.page.data.aftercareReady, true)
   assert(view(route, t.page.data).includes('当前退款站（水站编号：11）'))
   assert.equal(t.page.data.aftercareItems[0].otherStationText, '授权合作站（水站编号：22）')

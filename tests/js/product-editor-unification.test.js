@@ -18,15 +18,19 @@ const openOwned = t => { t.page.onOpenSetting(event(item())); t.page.setData({ p
 const deferred = () => { let resolve; return { promise: new Promise(r => { resolve = r }), resolve } }
 function sheetGeometry(page) { const s = page.data.productEditSheetStyle; return { height: Number(/height:(\d+)px/.exec(s)[1]), bottom: Number(/bottom:(\d+)px/.exec(s)[1]) } }
 
-test('selected product cards expose identical edit and more actions for both sources', () => {
+test('selected product cards expose identical edit, inventory and direct removal actions for both sources', () => {
   validateConditionalSiblings(tree)
   const t = fixture(), rows = [item(), item({ id: 18, ownerStationId: null })]
   t.page.setData({ loading: false, viewList: rows, list: rows })
   const controls = visible(t)
-  assert.equal(controls.filter(n => n.tag === 'button' && n.text === '编辑商品').length, 2)
+  assert.equal(controls.filter(n => n.tag === 'button' && n.attrs.catchtap === 'onOpenSetting').length, 2)
   assert.equal(controls.filter(n => n.tag === 'button' && n.text === '库存操作').length, 2)
-  assert.equal(controls.filter(n => n.attrs.catchtap === 'onProductMore').length, 2)
+  assert.equal(controls.filter(n => n.attrs.catchtap === 'onRequestRemoveProduct' && n.text === '移除').length, 2)
   assert(controls.filter(n => n.tag === 'button' && n.text === '库存操作').every(n => n.attrs.catchtap === 'onOpenInventory'))
+  assert(controls.filter(n => n.tag === 'button' && n.text === '库存操作').every(n => n.className.split(' ').includes('af-action--primary')))
+  assert(controls.filter(n => n.tag === 'button' && n.text === '编辑商品').every(n => n.className.split(' ').includes('af-action--secondary')))
+  assert.match(styles, /\.card \.action\s*\{[^}]*border-top:1px solid #DDE5EF/s)
+  assert.match(styles, /\.card \.action \.b3-on-request-remove-product\s*\{[^}]*margin-left:auto/s)
   assert(!controls.some(n => ['openEdit', 'onDeactivate', 'onSubmitToPlatform'].includes(n.attrs.catchtap)))
   assert(!controls.some(n => n.text === '设置'))
 })
@@ -44,8 +48,10 @@ test('product editor keeps details and sales separate while inventory is a separ
   assert.match(styles, /\.product-image-action,\.product-image-action\.secondary[^}]*min-width:0[^}]*background:var\(--bg-gray\)/s)
   assert.match(styles, /\.product-edit-group \.product-display-switches\s*\{\s*display:block/s)
   assert.match(styles, /\.product-display-switches \.switch-item\s*\{[^}]*justify-content:space-between/s)
-  assert.match(styles, /\.inventory-operation-nav\s*\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/s)
-  assert.match(styles, /\.inventory-operation-nav button\s*\{[^}]*min-height:44px/s)
+  assert.match(styles, /\.inventory-primary-nav\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/s)
+  assert.match(styles, /\.inventory-loss-entry\s*\{[^}]*border-left:4rpx solid/s)
+  assert(source.includes('class="inventory-loss-entry"'))
+  assert(!source.includes('inventory-operation-nav'))
   assert.match(styles, /\.card \.action\s*\{[^}]*display:flex;[^}]*flex-wrap:wrap/s)
 })
 test('selected catalog entry opens a short editor without embedding inventory actions', () => {
@@ -57,6 +63,16 @@ test('selected catalog entry opens a short editor without embedding inventory ac
   const controls = visible(t)
   assert(!controls.some(n => n.attrs.bindtap === 'onSubmitStock'))
   assert(!controls.some(n => n.attrs['data-field'] === 'quantity'), 'existing inventory is managed with explicit stock commands')
+})
+
+test('platform product editor opens on prices while keeping template details reachable', () => {
+  const t = fixture()
+  t.page.onOpenSetting(event(item({ ownerStationId: null, stationImageEditable: true })))
+  assert.equal(t.page.data.productEditorSection, 'pricing')
+  assert.equal(t.page.data.productScrollTarget, 'product-section-pricing')
+  const controls = visible(t)
+  assert(controls.some(n => n.attrs['data-section'] === 'pricing' && n.className.split(' ').includes('af-choice--selected')))
+  assert(controls.some(n => n.attrs['data-section'] === 'details'))
 })
 test('inventory action opens a standalone panel and restores an unsubmitted stock draft', () => {
   const t = fixture(); const row = item({ displayName: '库存样品' })
@@ -74,12 +90,66 @@ test('inventory action opens a standalone panel and restores an unsubmitted stoc
   t.page.onResumeInventoryDraft()
   assert.equal(t.page.data.showInventory, true); assert.equal(t.page.data.stockInput, '4')
 })
-test('ticket packages render before the secondary single-ticket price field', () => {
+test('ticket configuration uses package rows without a separate retail-price input', () => {
   const t = fixture(); openOwned(t); t.page.setData({ 'editForm.ticketEnabled': true, pkgReady: true })
   const controls = visible(t), packageIndex = controls.findIndex(n => (n.attrs.class || '').includes('pkg-block'))
   const singleIndex = controls.findIndex(n => (n.attrs.class || '').includes('ticket-retail-setting'))
-  assert(packageIndex >= 0 && singleIndex > packageIndex)
-  assert(controls.some(n => n.text === '可选设置'))
+  assert(packageIndex >= 0 && singleIndex === -1)
+  assert(!controls.some(n => n.attrs['data-field'] === 'ticketPrice'))
+})
+
+test('blank, zero, or invalid existing ticket prices block every write until explicitly deleted', async () => {
+  for (const price of ['', '0', 'not-a-price']) {
+    const t = fixture(); openOwned(t)
+    t.page.setData({ 'setting.ticketEnabled': true, pkgReady: true,
+      pkgRows: [{ key: 'p31', id: 31, qty: '10', price, deleted: false }] })
+    await t.page.onSaveSetting()
+    assert.equal(t.calls.length, 0, `price ${JSON.stringify(price)} must not update the product`)
+    assert.equal(t.packages.length, 0, `price ${JSON.stringify(price)} must not delete or upsert a tier`)
+    assert.match(t.page.data.pkgValidationError || '', /水票档位/)
+  }
+  for (const qty of ['0', 'not-a-count', '1.5']) {
+    const t = fixture(); openOwned(t)
+    t.page.setData({ 'setting.ticketEnabled': true, pkgReady: true,
+      pkgRows: [{ key: 'p31', id: 31, qty, price: '190', deleted: false }] })
+    await t.page.onSaveSetting()
+    assert.equal(t.calls.length, 0)
+    assert.equal(t.packages.length, 0)
+    assert.match(t.page.data.pkgValidationError || '', /张数无效/)
+  }
+})
+
+test('explicit ticket deletion can be undone before save and only an explicit delete reaches DELETE', async () => {
+  const undo = fixture(); openOwned(undo)
+  undo.page.setData({ 'setting.ticketEnabled': true, pkgRows: [{ key: 'p31', id: 31, qty: '10', price: '190', deleted: false }] })
+  undo.page.onRemovePkgRow({ currentTarget: { dataset: { index: 0 } } })
+  assert.equal(undo.page.data.pkgRows[0].deleted, true)
+  undo.page.onRemovePkgRow({ currentTarget: { dataset: { index: 0 } } })
+  await undo.page.onSaveSetting()
+  assert(!undo.packages.some(p => p.delete), 'undo must cancel the pending delete')
+
+  const remove = fixture(); openOwned(remove)
+  remove.page.setData({ 'setting.ticketEnabled': true, pkgRows: [{ key: 'p31', id: 31, qty: '10', price: '190', deleted: false }] })
+  remove.page.onRemovePkgRow({ currentTarget: { dataset: { index: 0 } } })
+  await remove.page.onSaveSetting()
+  assert.deepEqual(remove.packages, [{ delete: '/api/ticket-packages/31' }])
+})
+
+test('a partially filled new ticket tier blocks product creation before any write', async () => {
+  const t = fixture(); t.openAdd()
+  t.page.setData({ pkgRows: [{ key: 'new-tier', id: null, qty: '10', price: '', deleted: false }] })
+  await t.page.onSaveEdit()
+  assert.equal(t.calls.filter(call => call[0] === 'create').length, 0)
+  assert.equal(t.packages.length, 0)
+  assert.match(t.page.data.pkgValidationError || '', /水票档位/)
+})
+
+test('an untouched blank new ticket row is ignored and does not block product creation', async () => {
+  const t = fixture(); t.openAdd()
+  t.page.setData({ pkgRows: [{ key: 'new-tier', id: null, qty: '', price: '', deleted: false }] })
+  await t.page.onSaveEdit()
+  assert.equal(t.calls.filter(call => call[0] === 'create').length, 1)
+  assert.equal(t.packages.length, 0)
 })
 test('manual scrolling updates only the active product editor section', () => {
   const t = fixture(); openOwned(t)
@@ -151,20 +221,33 @@ test('physical shortage uses remaining quantity and keeps order-impact confirmat
   const t = fixture(); const row = item(); t.page.setData({ list: [row] }); t.page.onOpenInventory(event(row)); let modal; t.wx.showModal = o => { modal = o }
   t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'loss' } } })
   t.page.onStockInput({ detail: { value: '8' } }); t.page.onSubmitStock()
-  assert.equal(modal.title, '登记商品短缺'); assert.equal(modal.confirmText, '登记短缺')
-  assert(modal.content.includes('10 件改为 8 件')); assert(modal.content.includes('缺货待补'))
+  assert.equal(modal.title, '确认登记短缺 / 报损'); assert.equal(modal.confirmText, '确认报损')
+  assert(modal.content.includes('从 10 件调整为 8 件')); assert(modal.content.includes('按订单需要顺序减少订单预留'))
+  assert(modal.content.includes('补货、协商延期或取消退款'))
   assert.equal(modal.editable, true); assert.equal(t.calls.length, 0)
-  assert.equal(t.page.data.stockAfterText, '短缺登记后 8 件（少 2 件）')
+  assert.equal(t.page.data.stockAfterText, '报损登记后 8 件（少 2 件）')
   assert(!visible(t).some(n => /实盘亏损|＝ 盘点/.test(n.text || '')))
 })
-test('both sources have one removal entry under more and stale account callbacks do nothing', () => {
-  const t = fixture(); let menu, owned = 0, selected = 0
-  t.wx.showActionSheet = o => { menu = o }; t.page.onDeactivate = () => owned++; t.page.onRemoveProduct = () => selected++
-  t.page.onProductMore(event(item())); assert.deepEqual(Array.from(menu.itemList), ['移除商品']); assert.equal(menu.itemColor, '#BD3328')
-  menu.success({ tapIndex: 0 }); assert.equal(owned, 1)
-  t.page.onProductMore(event(item({ ownerStationId: null }))); menu.success({ tapIndex: 0 }); assert.equal(selected, 1)
-  t.page.onProductMore(event(item())); t.app.globalData.userInfo.staffId = 2; menu.success({ tapIndex: 0 })
-  assert.equal(owned, 1)
+test('shortage confirmation requires a reason before calling the loss API', () => {
+  const t = fixture(); const row = item(); t.page.setData({ list: [row] }); t.page.onOpenInventory(event(row)); let modal
+  t.wx.showModal = o => { modal = o }
+  t.page.onStockModeChange({ currentTarget: { dataset: { mode: 'loss' } } })
+  t.page.onStockInput({ detail: { value: '8' } }); t.page.onSubmitStock()
+  modal.success({ confirm: true, content: '  ' })
+  assert.equal(t.calls.length, 0)
+  assert.equal(t.page.data.stockConfirmPending, false)
+})
+test('direct removal still opens original danger confirmation and stale account confirmation does nothing', () => {
+  for (const ownerStationId of [11, null]) {
+    const t = fixture(); let modal
+    t.wx.showActionSheet = () => assert.fail('single removal action must not open a menu')
+    t.wx.showModal = o => { modal = o }
+    t.page.onRequestRemoveProduct(event(item({ ownerStationId })))
+    assert.equal(modal.title, '移除商品'); assert.equal(modal.confirmText, '移除'); assert.equal(modal.confirmColor, '#BD3328')
+    assert(modal.content.includes(ownerStationId ? '历史订单仍保留' : '库存必须先核对为 0'))
+    modal.success({ confirm: false }); assert.equal(t.calls.length, 0)
+    t.app.globalData.userInfo.staffId = 2; modal.success({ confirm: true }); assert.equal(t.calls.length, 0)
+  }
 })
 
 test('closing a platform editor releases the page scroll lock and restores its save mode on resume', () => {

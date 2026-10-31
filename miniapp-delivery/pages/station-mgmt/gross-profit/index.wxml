@@ -1,11 +1,38 @@
 <!-- 站长端「利润」：进货成本 + 期间报表。规格见 docs/design/20 §2。
      用词 [2026-09-26 产品口径]：面向站长写「利润」不写"毛利"（本仓用户是小水站，"毛利"是财务术语）。
      金额与文案全部用服务端下发的值（含 profitText / profitRateText / costBasisNote），本页不做利润算术。 -->
-<view class="page">
+<view class="page af2-page finance-page gross-profit-page">
+
+  <block wx:if="{{report}}">
+    <!-- 合计 -->
+    <view class="hero af2-tone-panel af2-tone-money {{!costComplete ? 'hero-income-only' : ''}}">
+      <view class="hero-item hero-income">
+        <text class="hero-label">总收入</text>
+        <text class="hero-num">{{profitView.totalIncomeText}}</text>
+        <!-- [2026-09-25] 标签从「水费收入」改成「收入合计」：这个数是 totalRevenue，
+             它=订单收入（水费）+ 水票收入（买票实收），下面那张卡会逐项拆开。
+             老标签会让站长把票款也算进"水费"，正好是报表口径最容易混的一处。 -->
+      </view>
+      <view class="hero-item hero-cost" wx:if="{{costComplete}}">
+        <text class="hero-label">进货成本</text>
+        <text class="hero-num">{{profitView.totalCostText}}</text>
+      </view>
+      <view class="hero-item hero-profit" wx:if="{{costComplete}}"><icon name="chart" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" />
+        <!-- 缺成本时后端把 totalProfit 下发成 null：这里显示「未填成本」（js 里算好的展示态），
+             下面的 missingCostHint 会接着说清是哪些商品 —— 既不显示 0，也不整块不显示。 -->
+        <text class="hero-label">利润</text>
+        <text class="hero-num {{profitView.totalProfitWarn ? 'hero-warn' : 'hero-ok'}}">
+          {{profitView.totalProfitText}}
+        </text>
+      </view>
+    </view>
+
+    <text class="income-only-note" wx:if="{{!costComplete}}">本期成本未完整记录，仅显示收入。</text>
+  </block>
 
   <!-- 期间 -->
   <view class="card period-card">
-    <view class="card-title">统计期间</view>
+    <view class="finance-section-head"><text class="card-title">统计期间</text><text class="period-note">含结束日</text></view>
     <picker mode="date" value="{{from}}" bindchange="onDate" data-field="from">
       <view class="picker">开始：{{from || '本月 1 号'}}</view>
     </picker>
@@ -13,55 +40,33 @@
       <view class="picker">结束：{{to || '今天'}}</view>
     </picker>
     <view class="chips">
-      <view class="chip" bindtap="onQuickRange" data-days="1">今日</view>
-      <view class="chip" bindtap="onQuickRange" data-days="0">本月</view>
-      <view class="chip" bindtap="onQuickRange" data-days="7">近 7 天</view>
-      <view class="chip" bindtap="onQuickRange" data-days="30">近 30 天</view>
+      <view class="af-choice {{quickRange === 1 ? 'af-choice--selected' : ''}}" bindtap="onQuickRange" data-days="1"><text class="af-choice__face">今日</text></view>
+      <view class="af-choice {{quickRange === 0 ? 'af-choice--selected' : ''}}" bindtap="onQuickRange" data-days="0"><text class="af-choice__face">本月</text></view>
+      <view class="af-choice {{quickRange === 7 ? 'af-choice--selected' : ''}}" bindtap="onQuickRange" data-days="7"><text class="af-choice__face">近7天</text></view>
+      <view class="af-choice {{quickRange === 30 ? 'af-choice--selected' : ''}}" bindtap="onQuickRange" data-days="30"><text class="af-choice__face">近30天</text></view>
     </view>
     <!-- [2026-09-24] 原文"服务端按「结束日 + 1 天」做上界"是实现口径（对应 AGENTS §8.19），
          站长只需要知道"结束日当天算在内、今天的销量不会漏"这一条结论。 -->
-    <view class="hint">结束日当天算在内，今天的销量不会漏。</view>
+
   </view>
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>
 
-  <view class="ui-state" wx:if="{{reportError}}"><text class="ui-state-title">本期经营数据待核实</text><text class="ui-state-copy">{{reportError}}</text><button size="mini" bindtap="onRetryReport">重新读取报表</button></view>
-  <view class="ui-state" wx:if="{{missingError}}"><text class="ui-state-copy">{{missingError}}</text><button size="mini" bindtap="onRetryReport">重新读取成本清单</button></view>
-    <!-- 未填成本的商品：快速补录入口（状态与出路都摆在这一行里，别藏） -->
-    <view class="card" wx:if="{{missingCost.length}}">
-      <view class="card-title">未填成本的商品（{{missingCost.length}} 个）</view>
-      <view class="chips">
-        <view class="chip chip-warn" wx:for="{{missingCost}}" wx:key="productId"
-              bindtap="onOpenCostFromMissing" data-id="{{item.productId}}">+ {{item.productName}}</view>
-      </view>
-      <view class="hint">点商品名就能补录成本价，补完利润立刻算得出来。</view>
-    </view>
-
+  <view class="ui-state" wx:if="{{reportError}}"><text class="ui-state-title">本期经营数据加载失败</text><text class="ui-state-copy">{{reportError}}</text><button class="af-action af-action--quiet" bindtap="onRetryReport"><text class="af-action__face">重新读取报表</text></button></view>
   <block wx:if="{{report}}">
-    <!-- 合计 -->
-    <view class="hero">
-      <view class="hero-item">
-        <text class="hero-num">{{profitView.totalRevenueText}}</text>
-        <!-- [2026-09-25] 标签从「水费收入」改成「收入合计」：这个数是 totalRevenue，
-             它=订单收入（水费）+ 水票收入（买票实收），下面那张卡会逐项拆开。
-             老标签会让站长把票款也算进"水费"，正好是报表口径最容易混的一处。 -->
-        <text class="hero-label">收入合计</text>
-      </view>
-      <view class="hero-item">
-        <text class="hero-num">{{profitView.totalCostText}}</text>
-        <text class="hero-label">进货成本</text>
-      </view>
-      <view class="hero-item">
-        <!-- 缺成本时后端把 totalProfit 下发成 null：这里显示「未填成本」（js 里算好的展示态），
-             下面的 missingCostHint 会接着说清是哪些商品 —— 既不显示 0，也不整块不显示。 -->
-        <text class="hero-num {{profitView.totalProfitWarn ? 'hero-warn' : 'hero-ok'}}">
-          {{profitView.totalProfitText}}
-        </text>
-        <text class="hero-label">利润</text>
-      </view>
+    <view class="af-entry analysis-entry" wx:if="{{costComplete && profitChart.length}}" bindtap="onToggleAmountComparison"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="af-entry__body">金额结构</text><text class="af-entry__arrow">{{amountComparisonExpanded ? '收起' : '查看 ›'}}</text></view>
+    <view class="card profit-chart-card" wx:if="{{amountComparisonExpanded && costComplete && profitChart.length}}">
+      <view class="card-title">本期金额结构</view>
+      <block wx:if="{{profitChart.length}}">
+        <view class="profit-chart-row" wx:for="{{profitChart}}" wx:key="key">
+          <text class="profit-chart-label">{{item.label}}</text>
+          <view class="profit-chart-track"><view class="profit-chart-bar chart-{{item.key}} {{item.negative ? 'chart-negative' : ''}}" style="width: {{item.width}}%;"></view></view>
+          <text class="profit-chart-value">{{item.text}}</text>
+        </view>
+        <text class="profit-chart-note">条长按金额绝对值比较；负数以红色标示。</text>
+      </block>
+      <text class="profit-chart-note" wx:else>金额或成本待核实，暂不显示对比。</text>
     </view>
-
-    <view class="notice" wx:if="{{report.missingCostHint}}">{{report.missingCostHint}}</view>
 
     <!--
       收入构成与净利（[2026-09-19] 新增）：与上面的利润是**同一批订单**（同结算站、同时间窗、排除已取消），
@@ -73,7 +78,8 @@
       · netProfit 为 null = 有商品没填成本 → 显示「未填成本」（profitView 里算好），**绝不能当 0**
     -->
     <view class="card" wx:if="{{report.profitBasisNote}}">
-      <view class="card-title">{{range === 'today' ? '今日收入与销售净利' : '收入与销售净利'}}</view>
+      <view class="af-entry analysis-entry" bindtap="onToggleIncomeDetails"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="af-entry__body">{{costComplete ? '收入与销售净利' : '收入构成'}}</text><text class="af-entry__arrow">{{incomeDetailsExpanded ? '收起' : '展开 ›'}}</text></view>
+      <block wx:if="{{incomeDetailsExpanded}}">
       <view class="ledger-row">
         <text class="ledger-label">单数</text>
         <text class="ledger-value">{{profitView.orderCountText}} 单</text>
@@ -101,6 +107,7 @@
         <text class="ledger-label">收入合计</text>
         <text class="ledger-value">{{profitView.totalIncomeText}}</text>
       </view>
+      <block wx:if="{{costComplete}}">
       <view class="ledger-row">
         <text class="ledger-label">− 进货成本</text>
         <text class="ledger-value">{{profitView.totalCostText}}</text>
@@ -115,34 +122,45 @@
           {{profitView.netProfitText}}
         </text>
       </view>
+      </block>
+      </block>
       <!--
         [2026-09-26 产品反馈"利润里太罗嗦了"] 这两段口径提示从"铺在屏幕上"改成**一行版**，
         完整解释（为什么一张水票单的利润是负的、工钱什么时候产生、人工调整为何不计入…）
-        由服务端下发 helpNote，收进页面底部的「利润怎么算」。
+        按统计范围、费用水票和成本风险分组收在页面底部，文字仍由服务端下发。
         ⚠️ 别把长文搬回这里，也别在前端 js 里抄一份口径。
       -->
-      <view class="hint">{{report.profitBasisNote}}</view>
     </view>
 
-    <!-- 合作款独立于销售净利，所有数字与说明由后端下发。 -->
-    <view class="card" wx:if="{{report.cooperation}}">
-      <view class="card-title">合作款与登记实款</view>
-      <view class="ledger-row" wx:for="{{report.cooperation.rows}}" wx:key="key">
+    <!-- 合作款独立于销售利润；摘要与折叠明细均直接展示服务端行。 -->
+    <view class="card cooperation-card" wx:if="{{costComplete && report.cooperation}}">
+      <view class="finance-section-head"><icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><view class="card-title">合作款与登记实款</view></view>
+      <view class="ledger-row" wx:for="{{cooperationView.summary}}" wx:key="key">
         <text class="ledger-label">{{item.label}}</text>
         <text class="ledger-value">{{item.amountText}}</text>
       </view>
-      <view class="hint">{{report.cooperation.scopeNote}}</view>
+      <view class="profit-help-group" wx:for="{{cooperationView.sections}}" wx:key="key">
+        <view class="af-entry profit-help-toggle" bindtap="onToggleCooperationGroup" data-group="{{item.key}}" role="button" aria-label="{{item.title}}，{{item.expanded ? '收起' : '展开'}}">
+          <text class="profit-help-title">{{item.title}}</text>
+          <text class="profit-help-action">{{item.expanded ? '收起' : '展开'}}</text>
+        </view>
+        <view wx:if="{{item.expanded}}">
+          <view class="ledger-row" wx:for="{{item.rows}}" wx:for-item="row" wx:key="key">
+            <text class="ledger-label">{{row.label}}</text>
+            <text class="ledger-value">{{row.amountText}}</text>
+          </view>
+        </view>
+      </view>
+      <text class="profit-chart-note" wx:if="{{!cooperationView.summary.length && !cooperationView.sections.length}}">{{report.cooperation.scopeNote || '合作款数据待核实'}}</text>
     </view>
 
-    <!-- 成本口径：一行版（长解释同上，见「利润怎么算」） -->
-    <view class="hint" wx:if="{{report.costBasisNote}}">{{report.costBasisNote}}</view>
+    <!-- 成本口径集中在页面底部的分组说明，避免与收入构成重复铺开。 -->
 
     <!-- 明细 -->
-    <view class="card">
+    <view class="card" wx:if="{{costComplete}}">
       <view class="card-title">按商品明细（{{report.items.length}} 项）</view>
-      <view class="empty" wx:if="{{!report.items.length}}">该期间没有销售记录。</view>
-      <view class="row" wx:for="{{report.items}}" wx:key="productId"
-            bindtap="onOpenCost" data-id="{{item.productId}}">
+      <view class="empty finance-empty" wx:if="{{!report.items.length}}"><icon name="chart" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text>该期间暂无销售记录</text></view>
+      <view class="row" wx:for="{{report.items}}" wx:key="productId">
         <view class="row-main">
           <view class="row-between">
             <text class="row-title">{{item.productName}}</text>
@@ -152,7 +170,7 @@
             <text class="row-amount">收入 {{item.revenueTotalText}}</text>
           </view>
           <text class="row-sub">
-            卖出 {{item.soldQtyText}} · 成本价 {{item.costPriceText}} · 成本合计 {{item.costAmountText}}
+            卖出 {{item.soldQtyText}} · 出库成本 {{item.costAmountText}}
           </text>
           <text class="row-sub" wx:if="{{item.ticketRevenue > 0}}">
             其中水票收入 ¥{{item.ticketRevenue}}（客户买票时已收款）
@@ -162,34 +180,32 @@
             利润：{{item.profitText}}<text wx:if="{{item.profitRateText}}"> · 利润率 {{item.profitRateText}}</text>
           </text>
         </view>
-        <text class="row-arrow">›</text>
+
       </view>
       <!-- 操作提示只留一处（上面「未填成本的商品」那张卡已说清「点商品名补录」）：
            同一句在两张卡里各写一遍，正是产品说的"太罗嗦"。 -->
     </view>
   </block>
 
-  <view class="card">
-    <view class="btn-ghost block" bindtap="onShowHelp">利润怎么算</view>
-  </view>
-
-  <!-- 成本编辑 -->
-  <view class="mask" wx:if="{{costVisible}}" bindtap="onCloseCost"></view>
-  <view class="dialog" wx:if="{{costVisible}}">
-    <text class="dialog-title">{{costProduct.productName}} 的进货成本</text>
-    <input class="dialog-input" type="digit" value="{{costInput}}" bindinput="onCostInput"
-           placeholder="每桶/每件的进价" />
-    <view class="ui-stale">按当前进货成本核算；修改成本会影响历史期间利润。</view>
-    <view class="hint">
-      单位与商品规格一致。未上架的商品设不了成本价（会提示先去「商品管家」上架）。
+  <view class="card profit-help-card" wx:if="{{report}}">
+    <view class="af-entry profit-help-entry" bindtap="onToggleHelpVisible" role="button" aria-label="统计口径与计算说明，{{profitHelpVisible ? '收起' : '展开'}}">
+      <text class="profit-help-entry-title">? 统计口径</text>
+      <text class="profit-help-action">{{profitHelpVisible ? '收起' : '查看'}}</text>
     </view>
-    <view class="dialog-footer">
-      <view class="btn-ghost flex1" bindtap="onCloseCost">取消</view>
-      <view class="btn-ghost flex1" bindtap="onClearCost">清除成本</view>
-      <view class="btn-primary flex1 {{costSaving ? 'btn-disabled' : ''}}" bindtap="onSaveCost">
-        {{costSaving ? '保存中…' : '保存'}}
+    <block wx:if="{{profitHelpVisible}}">
+    <view class="profit-help-group" wx:for="{{profitHelpSections}}" wx:key="key">
+      <view class="af-entry profit-help-toggle" bindtap="onToggleHelpGroup" data-group="{{item.key}}">
+        <text class="profit-help-title">{{item.title}}</text>
+        <text class="profit-help-action">{{item.expanded ? '收起' : '展开'}}</text>
+      </view>
+      <view class="profit-help-body" wx:if="{{item.expanded}}">
+        <text class="profit-help-note" wx:for="{{item.notes}}" wx:for-item="note" wx:key="index">{{note}}</text>
       </view>
     </view>
+    <view class="profit-help-all" wx:if="{{profitHelpSections.length}}" bindtap="onShowHelp">展开或收起全部说明</view>
+    <view class="profit-help-all" wx:else bindtap="onShowHelp">查看利润说明</view>
+    </block>
   </view>
 
 </view>
+<business-dialog id="business-dialog" />

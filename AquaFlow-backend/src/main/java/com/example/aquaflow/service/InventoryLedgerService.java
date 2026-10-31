@@ -25,4 +25,6 @@ public interface InventoryLedgerService {
      */
     void recordChange(Long stationId, Long productId, Integer delta, String type,
                       Long refId, Long operatorId, String note);
+    void recordChangeWithCost(Long stationId, Long productId, Integer delta, String type,
+                             Long refId, Long operatorId, String note, java.math.BigDecimal costAmount);
 }

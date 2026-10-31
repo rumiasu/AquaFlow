@@ -104,6 +104,12 @@ public class RequiredConfigChecker {
 
         // [2026-09-30 拍板 A] 数据源三件 prod 强校验（缺了在启动期拒，不留到首个查库请求才炸）。
         checkProdDatasource();
+        if (environment.getProperty("app.payment.test-mode", Boolean.class, false) && devLoginEnabled)
+            throw new IllegalStateException("PAYMENT_TEST_MODE 不允许开发登录");
+        if (com.example.aquaflow.payment.PaymentSandboxBinding.active(environment)) {
+            com.example.aquaflow.payment.PaymentSandboxBinding.from(environment);
+            if (devLoginEnabled) throw new IllegalStateException("payment-sandbox 禁止开发登录");
+        }
 
         if (isBlank(cosSecretId) || isBlank(cosSecretKey)) {
             log.warn("COS_SECRET_ID / COS_SECRET_KEY 未配置，对象存储上传功能将不可用（不影响启动）");
@@ -116,7 +122,7 @@ public class RequiredConfigChecker {
     }
 
     /**
-     * [F-06 2026-09-30] prod profile 生效时，两个「后门开关」必须为 false，否则<b>拒绝启动</b>。
+     * prod 禁止开发登录；旧模拟开关只有显式 PAYMENT_TEST_MODE 才可用于全测试部署。
      *
      * <p><b>为什么必须在启动期判、而不是只靠 yml</b>：{@code app.payment.mock-wechat-pay}
      * 在 {@code application-prod.yml} 里<b>没有</b>覆盖项（只有 {@code application.yml} 的
@@ -127,11 +133,11 @@ public class RequiredConfigChecker {
      *
      * <p><b>为什么只在 prod 生效</b>：这两个开关在本地/测试里<b>必须</b>能打开
      * （{@code application-local.yml} 开模拟支付、用例的 {@code @TestPropertySource} 设 true），
-     * 所以判据是"prod 生效时不许为 true"，不是"全局不许为 true"。
+     * 真实业务部署关闭测试模式；prod 只是现有启动配置名，不单凭它推断服务用途。
      * profile 判断走 {@link Environment#matchesProfiles(String...)}（活跃 profile 为空时才回退到
      * {@code spring.profiles.default}，本仓默认是 local）。</p>
      *
-     * <p>与 {@code DevLoginController} 的 {@code @Profile("!prod")} 是两道闸：那个注解让 prod
+     * <p>与 {@code DevLoginController} 的 {@code @Profile("!prod & !payment-sandbox")} 是两道闸：那个注解让 prod
      * 根本不创建后门端点；这里再拦一道，防的是"将来有人摘掉那个注解"或"把后门开关当普通配置改"。</p>
      */
     private void checkProdSafetySwitches() {
@@ -140,7 +146,8 @@ public class RequiredConfigChecker {
         }
 
         List<String> enabled = new ArrayList<>();
-        if (mockWechatPay) {
+        // prod 是既有部署配置；显式服务器测试模式允许模拟，不代表启用真实微信渠道。
+        if (mockWechatPay && !environment.getProperty("app.payment.test-mode", Boolean.class, false)) {
             enabled.add("app.payment.mock-wechat-pay=true —— 全站「微信支付」点一下就成功 = 零元购");
         }
         if (devLoginEnabled) {

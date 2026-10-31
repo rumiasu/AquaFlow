@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { get, post } = require('../../utils/request')
 const { API, BINDING_STATUS } = require('../../config/api')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
@@ -8,23 +9,28 @@ const { STORAGE_KEYS } = require('../../utils/storage-keys')
   // 如果被拒绝 → 跳回 apply-bind 重新申请
   // 如果绑定成功 → 跳首页
 Page({
-  data: {
+  data: { moreExpanded: false, sceneImageFailed: false,
     mode: 'PENDING',          // PENDING / PENDING_UNBIND
     stationName: '',
     applyStationName: '',
     hint: '', refreshLoading: false, refreshError: '', statusReady: false
   },
 
+  // Decorative image failure never changes the binding result.
+  onSceneImageError() { this.setData({ sceneImageFailed: true }) },
+
   onLoad() {
     this.refresh(true)
   },
+
+  onToggleMore() { this.setData({ moreExpanded: !this.data.moreExpanded }) },
 
   onRefresh() {
     this.refresh(false)
   },
 
   onShow() { if (this._bindingHidden) { this._bindingHidden = false; this.refresh(true) } },
-  onHide() { this._bindingHidden = true; this._bindingSeq = (this._bindingSeq || 0) + 1 },
+  onHide() { this._bindingHidden = true; this._withdrawPrompt = null; this._bindingSeq = (this._bindingSeq || 0) + 1 },
   onUnload() { this.onHide() },
 
   bindingSnapshot() {
@@ -97,7 +103,7 @@ Page({
 
       if (bindStatus === BINDING_STATUS.REJECTED || bindStatus === BINDING_STATUS.UNBOUND) {
         if (!silent && bindStatus === BINDING_STATUS.REJECTED) {
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
             title: '申请被拒绝',
             content: '站长拒绝了您的绑定申请，请重新申请。',
             showCancel: false,
@@ -136,7 +142,7 @@ Page({
    * 没有这个按钮就只能干等站长，属于用户报的"卡死"的一部分。
    */
   onLogout() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
       content: '退出后可用其他微信账号登录。',
       confirmText: '退出',
@@ -147,38 +153,26 @@ Page({
   },
 
   onWithdraw() {
-    if (this.data.mode === 'PENDING_UNBIND') {
-      wx.showToast({ title: '解绑审批中，无法撤回', icon: 'none' })
-      return
-    }
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认撤回',
-      title: '撤回申请',
-      content: '确定要撤回当前绑定申请吗？',
-      success: async (res) => {
-        if (!res.confirm) return
-        wx.showLoading({ title: '撤回中...' })
+    if (this.data.mode === 'PENDING_UNBIND' || !this.data.statusReady || this.data.refreshLoading || this.data.refreshError || this._withdrawPrompt || this._withdrawFlight) return
+    const snapshot = this.bindingSnapshot(), prompt = this._withdrawPrompt = {}
+    showBusinessModal({ title: '撤回申请', content: '确定要撤回当前绑定申请吗？', confirmText: '确认撤回',
+      success: async res => {
+        if (this._withdrawPrompt !== prompt) return
+        this._withdrawPrompt = null
+        if (!res.confirm || !this.bindingCurrent(snapshot) || this._withdrawFlight || !this.data.statusReady) return
+        const flight = this._withdrawFlight = {}; wx.showLoading({ title: '撤回中...' })
         try {
           await post(API.BIND_CANCEL)
-          const app = getApp()
-          const userInfo = (app.globalData && app.globalData.userInfo) || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}
-          app.setLoginState({
-            accessToken: app.globalData.accessToken,
-            refreshToken: app.globalData.refreshToken,
-            ...userInfo,
-            bindStatus: BINDING_STATUS.UNBOUND,
-            applyStationId: null,
-            applyStationName: ''
-          })
-          wx.hideLoading()
+          if (!this.bindingCurrent(snapshot)) return
+          const app = getApp(), userInfo = (app.globalData && app.globalData.userInfo) || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}
+          app.setLoginState({ accessToken: app.globalData.accessToken, refreshToken: app.globalData.refreshToken, ...userInfo,
+            bindStatus: BINDING_STATUS.UNBOUND, applyStationId: null, applyStationName: '' })
+          const updated = this.bindingSnapshot()
           wx.showToast({ title: '已撤回', icon: 'success' })
-          setTimeout(() => {
-            wx.redirectTo({ url: '/pages/station-mgmt/apply-bind/index' })
-          }, 1200)
-        } catch (err) {
-          wx.hideLoading()
-          wx.showToast({ title: err.message || '撤回失败', icon: 'none' })
-        }
-      }
+          setTimeout(() => { if (this.bindingCurrent(updated)) wx.redirectTo({ url: '/pages/station-mgmt/apply-bind/index' }) }, 1200)
+        } catch (err) { if (this.bindingCurrent(snapshot)) wx.showToast({ title: err.message || '撤回失败', icon: 'none' }) }
+        finally { if (this._withdrawFlight === flight) this._withdrawFlight = null; wx.hideLoading() }
+      }, fail: () => { if (this._withdrawPrompt === prompt) this._withdrawPrompt = null }
     })
   }
 })

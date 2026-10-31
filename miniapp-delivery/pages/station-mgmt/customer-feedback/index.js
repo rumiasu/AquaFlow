@@ -52,7 +52,7 @@ const disputeIntent = require('../../../utils/exception-action-intent')
 
 Page({
   data: {
-    loading: true,
+    activeSection: 'disputes', loading: true,
     list: [],
     // type: loading | error | empty | list（四个状态互斥，wxml 不回退成"看起来是空的"）
     type: 'loading',
@@ -62,7 +62,7 @@ Page({
     deniedText: '',
     selectedFeedbackId: null, selectedRefund: null, noteContent: '', noteSubmitting: false, pendingRefundNote: false,
     disputes: [], disputesError: '', disputesLoading: false, disputesPage: 0, disputesMore: false, selectedDispute: null, disputeReady: false, disputeError: '',
-    disputeResult: '', disputeSubmitting: false, pendingDispute: false
+    disputeResult: '', disputeSubmitting: false, pendingDispute: false, disputeHistoryExpanded: false
   },
 
   onLoad() {
@@ -82,20 +82,30 @@ Page({
 
   onShow() {
     if (this.data.denied) return
+    if (!getApp().isStationManager()) { this._noteDrafts = {}; this._disputeDrafts = {}; this._resumeFeedback = null; this._resumeDispute = null; this.updateLeaveWarning(); this.setData({ denied: true, deniedText: '客户反馈仅站长可查看，请联系站长处理', list: [], disputes: [], selectedDispute: null, selectedRefund: null }); return }
     this._noteEpoch = (this._noteEpoch || 0) + 1
+    const u = getApp().globalData.userInfo || {}
+    const owner = [getApp()._loginGeneration || 0, u.staffId, u.stationId, u.role].join(':')
+    if (this._draftOwner !== owner) { this._draftOwner = owner; this._noteDrafts = {}; this._disputeDrafts = {}; this._resumeFeedback = null; this._resumeDispute = null; this.updateLeaveWarning() }
     this.setData({ noteSubmitting: false, selectedFeedbackId: null, selectedRefund: null, selectedDispute: null, disputeSubmitting: false })
-    this.loadData()
-    this.loadDisputes()
+    const epoch = this._noteEpoch
+    this.loadData().then(() => { if (epoch === this._noteEpoch && this._resumeFeedback != null) this.onOpenRefundNote({ currentTarget: { dataset: { id: this._resumeFeedback } } }) })
+    this.loadDisputes().then(() => { if (epoch === this._noteEpoch && this._resumeDispute) this.onOpenDispute({ currentTarget: { dataset: this._resumeDispute } }) })
   },
   onHide() { this._noteEpoch = (this._noteEpoch || 0) + 1 },
-  onUnload() { this._noteEpoch = (this._noteEpoch || 0) + 1 },
+  onUnload() { this._noteEpoch = (this._noteEpoch || 0) + 1; if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload() },
+  updateLeaveWarning() {
+    const dirty = Object.values(this._noteDrafts || {}).some(Boolean) || Object.values(this._disputeDrafts || {}).some(Boolean)
+    if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '未提交说明仅在本页保留，确定离开吗？' })
+    else if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+  },
   noteSession() {
     const app = getApp(), user = app.globalData.userInfo || {}
-    return { user, staffId: user.staffId, stationId: user.stationId, role: user.role, epoch: this._noteEpoch }
+    return { user, generation: app._loginGeneration || 0, staffId: user.staffId, stationId: user.stationId, role: user.role, epoch: this._noteEpoch }
   },
   currentNoteSession(s) {
     const app = getApp(), user = app.globalData.userInfo
-    return !!app.globalData.isLogin && this._noteEpoch === s.epoch && user === s.user &&
+    return !!app.globalData.isLogin && (app._loginGeneration || 0) === s.generation && this._noteEpoch === s.epoch && user === s.user &&
       user.staffId === s.staffId && user.stationId === s.stationId && user.role === s.role && app.isStationManager()
   },
   async loadDisputes(page = 1) {
@@ -116,6 +126,7 @@ Page({
     } catch (err) { if (current()) this.setData({ disputes: page === 1 ? [] : this.data.disputes, disputesError: err.message || '争议没加载出来，请重试' }) }
     finally { if (current()) this.setData({ disputesLoading: false }) }
   },
+  onSetSection(e) { const section = e.currentTarget.dataset.section; if (section === 'disputes' || section === 'feedback') this.setData({ activeSection: section }) },
   onRetryDisputes() { return this.loadDisputes() },
   onMoreDisputes() { if (!this.data.disputesLoading) return this.loadDisputes(this.data.disputesPage + 1) },
   async onOpenDispute(e) {
@@ -124,18 +135,22 @@ Page({
     const row = this.data.disputes.find(r => r.refundType === type && String(r.refundId) === String(id))
     const s = this.noteSession()
     if (!row || !this.currentNoteSession(s)) return
-    this.setData({ selectedDispute: row, disputeReady: false, disputeError: '', disputeResult: '', pendingDispute: false })
+    this._disputeDrafts = this._disputeDrafts || {}
+    this._resumeDispute = { type, id }; const serial = this._openDisputeSerial = (this._openDisputeSerial || 0) + 1
+    this.setData({ selectedDispute: row, disputeReady: false, disputeError: '', disputeResult: '', pendingDispute: false, disputeHistoryExpanded: false })
     try {
       const response = await getRefundNotes(type, Number(id))
-      if (!this.currentNoteSession(s) || this.data.selectedDispute !== row) return
+      if (!this.currentNoteSession(s) || serial !== this._openDisputeSerial || this.data.selectedDispute !== row) return
       const d = response.data
       if (!d || d.refundType !== type || Number(d.refundId) !== Number(id) || !d.dispute || !Array.isArray(d.dispute.actions)) throw new Error('争议历史未完整加载')
       const pending = disputeIntent.read('STAFF:' + s.staffId + ':' + s.stationId, type + ':' + id, 'CLOSE')
       this.setData({ selectedDispute: Object.assign({}, row, d.dispute), disputeReady: true,
-        disputeResult: pending ? pending.reason : '', pendingDispute: !!pending })
-    } catch (err) { if (this.currentNoteSession(s)) this.setData({ disputeReady: false, disputeError: err.message || '争议历史没加载出来，请重试' }) }
+        disputeResult: pending ? pending.reason : (this._disputeDrafts[row.disputeKey] || ''), pendingDispute: !!pending })
+    } catch (err) { if (this.currentNoteSession(s) && serial === this._openDisputeSerial) this.setData({ disputeReady: false, disputeError: err.message || '争议历史没加载出来，请重试' }) }
   },
-  onDisputeResult(e) { this.setData({ disputeResult: e.detail.value }) },
+  onToggleDisputeHistory() { this.setData({ disputeHistoryExpanded: !this.data.disputeHistoryExpanded }) },
+  onReturnDispute() { if (this.data.disputeSubmitting) return; this._openDisputeSerial = (this._openDisputeSerial || 0) + 1; this._resumeDispute = null; this.setData({ selectedDispute: null, disputeReady: false, disputeError: '' }) },
+  onDisputeResult(e) { const row = this.data.selectedDispute; if (!row || this.data.pendingDispute || this.data.disputeSubmitting) return; this._disputeDrafts[row.disputeKey] = e.detail.value; this.setData({ disputeResult: e.detail.value }); this.updateLeaveWarning() },
   onRetryCloseDispute() {
     try {
       const s = this.noteSession(), row = this.data.selectedDispute
@@ -157,6 +172,7 @@ Page({
       const d = response.data
       if (!d || !d.id || d.refundType !== row.refundType || Number(d.refundId) !== Number(row.refundId) || d.action !== 'CLOSE') throw new Error('结案结果未确认，请原样重试')
       disputeIntent.clear(intent)
+      delete this._disputeDrafts[row.disputeKey]; this._resumeDispute = null; this.updateLeaveWarning()
       this.setData({ selectedDispute: null, pendingDispute: false, disputeResult: '' })
       wx.showToast({ title: '结果已登记并结案', icon: 'success' }); await this.loadDisputes()
     } catch (err) {
@@ -175,10 +191,12 @@ Page({
       if (!s.staffId || !s.stationId) throw new Error('请先确认当前站长身份')
       const ref = { refundType: item.refundType, refundId: Number(item.refundId) }
       const pending = noteIntent.read('STAFF:' + s.staffId + ':' + s.stationId, ref.refundType, ref.refundId)
-      this.setData({ selectedFeedbackId: item.id, selectedRefund: ref, noteContent: pending ? pending.content : '', pendingRefundNote: !!pending })
+      this._noteDrafts = this._noteDrafts || {}
+      this._resumeFeedback = item.id
+      this.setData({ selectedFeedbackId: item.id, selectedRefund: ref, noteContent: pending ? pending.content : (this._noteDrafts[item.id] || ''), pendingRefundNote: !!pending })
     } catch (e) { wx.showToast({ title: e.message, icon: 'none' }) }
   },
-  onNoteInput(e) { this.setData({ noteContent: e.detail.value }) },
+  onNoteInput(e) { if (this.data.selectedFeedbackId == null || this.data.pendingRefundNote || this.data.noteSubmitting) return; this._noteDrafts[this.data.selectedFeedbackId] = e.detail.value; this.setData({ noteContent: e.detail.value }); this.updateLeaveWarning() },
   onRetryOriginalNote() {
     try {
       const s = this.noteSession(), ref = this.data.selectedRefund
@@ -200,6 +218,7 @@ Page({
       if (!this.currentNoteSession(s)) return
       if (!response.data || !response.data.id || response.data.refundType !== ref.refundType || Number(response.data.refundId) !== ref.refundId) throw new Error('说明提交结果未确认，请原样重试')
       noteIntent.clear(intent)
+      delete this._noteDrafts[this.data.selectedFeedbackId]; this._resumeFeedback = null; this.updateLeaveWarning()
       this.setData({ noteContent: '', selectedFeedbackId: null, selectedRefund: null, pendingRefundNote: false })
       wx.showToast({ title: '说明已保存', icon: 'success' })
       await this.loadData()
@@ -223,14 +242,15 @@ Page({
   },
 
   async loadData() {
-    const epoch = this._noteEpoch, user = getApp().globalData.userInfo
+    const session = this.noteSession()
     const serial = this._listSerial = (this._listSerial || 0) + 1
-    const current = () => epoch === this._noteEpoch && serial === this._listSerial && user === getApp().globalData.userInfo
+    const current = () => this.currentNoteSession(session) && serial === this._listSerial
     this.setData({ loading: true, type: 'loading' })
     try {
       const res = await getCustomerFeedbacks()
       if (!current()) return
-      const list = (res.data || []).map(item => this.decorate(item))
+      if (!res || !Array.isArray(res.data)) throw new Error('反馈未完整加载，请重试')
+      const list = res.data.map(item => this.decorate(item))
       this.setData({
         list,
         type: list.length ? 'list' : 'empty',

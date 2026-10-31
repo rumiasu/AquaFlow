@@ -39,6 +39,10 @@ function fixture(overrides = {}) {
     if (url.includes('/earnings')) return { data: { earnings: [], itemSummary: [], unsettledTotal: 0 } }
     if (url.includes('/sale-by-station')) return { data: data.products }
     if (url.includes('/piece-rate')) return { data: { rates: data.rates } }
+    if (url.includes('/settlement-preview')) {
+      const payroll = data.payrolls.find(p => String(p.id) === url.split('/').at(-2))
+      return { data: { payroll, staffName: data.staff[0].name, canSettle: [1, 2].includes(payroll.status), previewToken: 'synthetic-' + payroll.id } }
+    }
     if (url.includes('/payroll')) return { data: data.payrolls }
     if (url.includes('/directions')) return { data: data.directions }
     if (url.includes('/earning-items')) return { data: data.items }
@@ -89,6 +93,7 @@ async function run() {
   })
   await test('missing prices are distinguishable from zero and missing/failed images render placeholders', async () => {
     const { page, data } = fixture(); data.rates = []; await page.loadAll()
+    page.onTab(tap(null, { tab: 'rate' }))
     assert.equal(page.data.defaultCurrentText, '未配置'); assert.ok(page.data.rateProducts.every(p => p.currentRateText.includes('未配置')))
     page.onProductImageError(tap(11))
     const elements = renderElements(tree, page.data)
@@ -108,11 +113,10 @@ async function run() {
   })
   await test('payroll states expose only allowed primary actions and keep details for all states, including zero amount', async () => {
     const { page } = fixture(); await page.loadAll(); page.onTab(tap(null, { tab: 'settle' }))
-    assert.deepEqual(visible(page, 'onConfirmPayroll').map(n => n.id), [1])
-    assert.deepEqual(visible(page, 'onPayPayroll').map(n => n.id), [2])
-    assert.equal(visible(page, 'onOpenPayroll').filter(n => n.tag === 'button').length, 4)
+    assert.deepEqual(visible(page, 'onSettlePayroll').map(n => n.id), [1, 2])
+    assert.equal(visible(page, 'onOpenPayroll').filter(n => n.tag === 'view').length, 4)
     assert.equal(page.data.payrolls[0].totalAmount, 0); assert.equal(page.data.payrolls[3].statusClass, 'pill-off')
-    page.setData({ isManager: false }); assert.equal(visible(page, 'onPayPayroll').length, 0); assert.equal(visible(page, 'onConfirmPayroll').length, 0)
+    page.setData({ isManager: false }); assert.equal(visible(page, 'onSettlePayroll').length, 0)
   })
   await test('nonmanager onShow routes away without requesting management data or writing', async () => {
     const f = fixture(); let redirects = 0; f.app.globalData.userInfo.role = 'DELIVERY'; f.app.routeByRole = () => redirects++
@@ -121,13 +125,13 @@ async function run() {
   })
   await test('payroll confirmation cancellation and duplicate callbacks never duplicate mutations; state advances on reread', async () => {
     const f = fixture(); await f.page.loadAll(); f.wx.showModal = o => f.wx.__calls.modal.push(o)
-    await f.page.onConfirmPayroll(tap(1)); await f.page.onConfirmPayroll(tap(1)); assert.equal(f.wx.__calls.modal.length, 1)
+    await f.page.onSettlePayroll(tap(1)); await f.page.onSettlePayroll(tap(1)); assert.equal(f.wx.__calls.modal.length, 1)
     await f.wx.__calls.modal[0].success({ confirm: false }); assert.equal(f.page.data.payrollBusyId, null); assert.equal(f.writes.length, 0)
-    await f.page.onConfirmPayroll(tap(1)); const modal = f.wx.__calls.modal[1]; f.data.payrolls[0].status = 2
+    await f.page.onSettlePayroll(tap(1)); const modal = f.wx.__calls.modal[1]; f.data.payrolls[0].status = 3
     await Promise.all([modal.success({ confirm: true }), modal.success({ confirm: true })]); assert.equal(f.writes.length, 1)
-    await f.page.onConfirmPayroll(tap(1)); assert.equal(f.wx.__calls.modal.length, 2)
-    f.page.onTab(tap(null, { tab: 'settle' })); assert.deepEqual(visible(f.page, 'onPayPayroll').map(n => n.id), [1, 2])
-    await f.page.onPayPayroll(tap(1)); assert.ok(f.wx.__calls.modal[2].content.includes('只记录发放时间'))
+    await f.page.onSettlePayroll(tap(1)); assert.equal(f.wx.__calls.modal.length, 2)
+    f.page.onTab(tap(null, { tab: 'settle' })); assert.deepEqual(visible(f.page, 'onSettlePayroll').map(n => n.id), [2])
+    await f.page.onSettlePayroll(tap(2)); assert.ok(f.wx.__calls.modal[2].content.includes('实际付清工资'))
   })
   await test('generation validates date order and sends end date unchanged, short history stops without losing date filters', async () => {
     const f = fixture(); await f.page.loadAll()

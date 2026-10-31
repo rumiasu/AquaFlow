@@ -45,7 +45,8 @@ test('receivables require the actual customer, order amounts and exact selected 
   for (const text of ['订单 #101：¥0.10', '订单 #102：¥0.20', '所选 2 单，合计 ¥0.30', '已实际收到', '销掉这些应收账', '不会代客户付款']) assert(modal.content.includes(text), text)
   assert.equal(t.page.data.selectedAmountText, '¥0.30')
   const visible = view('miniapp-delivery/pages/station-mgmt/receivables/index.wxml', t.page.data).map(e => e.text).join('\n')
-  assert(visible.includes('所选合计 ¥0.30'))
+  assert(visible.includes('所选合计'))
+  assert(view('miniapp-delivery/pages/station-mgmt/receivables/index.wxml', t.page.data).some(e => e.className === 'settlement-amount' && e.text === '¥0.30'), 'the exact selected total remains visible in its amount slot')
   modal.success({ confirm: true }); await work
   assert.deepEqual(t.calls, [{ url: '/api/manager/receivables/settle', body: { customerId: 7, orderIds: [101, 102] } }])
   assert.equal(t.page.data.settling, false)

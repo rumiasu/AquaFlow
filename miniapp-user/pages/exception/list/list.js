@@ -32,6 +32,7 @@ function compensationOf(item) {
   return '补偿结果待核实'
 }
 Page({
+  onContactStation() { wx.navigateTo({ url: '/pages/service/index' }) },
   data: { loading: true, loaded: false, loadError: '', accessDenied: false,
     loadingMore: false, moreError: '', noMore: false, page: 1, pageSize: 20, exceptions: [],
     detailVisible: false, selectedException: null },

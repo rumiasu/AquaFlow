@@ -1,3 +1,4 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 'use strict'
 const assert = require('assert'), fs = require('fs'), path = require('path'), Module = require('module')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
@@ -76,7 +77,7 @@ test('failed notice refresh marks the retained original record and keeps the err
 test('the actual notice retry WXML dispatches two taps through onRetry but only issues one read', async () => {
   const gate = deferred(), t = notice((id, count) => count === 1 ? Promise.reject(Error('暂时断网')) : gate.promise)
   await t.p.onLoad({ id: 12 })
-  const retry = t.nodes().find(n => n.tag === 'button' && n.className === 'page-state-retry')
+  const retry = t.nodes().find(n => n.tag === 'button' && n.attrs.bindtap === 'onRetry')
   assert(retry); assert.equal(retry.attrs.bindtap, 'onRetry')
   const tap = { type: 'tap', currentTarget: { dataset: { id: 99 } }, target: { dataset: {} } }
   const first = t.p[retry.attrs.bindtap](tap), second = t.p[retry.attrs.bindtap](tap)

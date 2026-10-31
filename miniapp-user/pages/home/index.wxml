@@ -1,29 +1,12 @@
 <!-- 首页：当前订单优先；复购直达确认；静态商品海报使用本站实际商品，不承诺优惠。 -->
 
 <template name="station-product-poster">
-  <view class="product-poster" bindtap="onGoShop">
+  <!-- 场景只位于导航下，真实商品图和价格继续来自商品列表。 -->
+  <view class="product-poster" bindtap="onGoShop" aria-role="button" aria-label="查看更多商品">
     <view class="poster-art {{artFailed ? 'poster-art-fallback' : ''}}">
-      <image wx:if="{{!artFailed}}" class="poster-art-image" src="/assets/banner/home-water-impact.jpg" mode="aspectFill" binderror="onPosterArtError" />
-      <view class="poster-headline">
-        <text>家里用水，</text>
-        <text>随手就订</text>
-      </view>
-      <text class="poster-art-note" wx:if="{{!artFailed}}">场景示意 · 非商品实拍</text>
-    </view>
-    <view class="poster-product">
-      <image class="poster-product-image" wx:if="{{product.imageUrl && !productImageFailed}}" src="{{product.imageUrl}}" mode="aspectFit" binderror="onPosterProductImageError" />
-      <view class="poster-product-image poster-product-placeholder" wx:else><text>商品</text></view>
-      <view class="poster-copy">
-        <text class="poster-kicker">本站商品</text>
-        <text class="poster-name">{{product.name}}</text>
-        <text class="poster-spec" wx:if="{{product.spec}}">{{product.spec}}</text>
-        <text class="poster-image-note" wx:if="{{product.imageUrl === '/assets/product/barrel-neutral-template.webp'}}">商品示意图 · 包装以实物为准</text>
-      </view>
-      <view class="poster-buy">
-        <text class="poster-price">¥{{product.priceText}}</text>
-        <text class="poster-unit">/{{product.quantityUnit}} · 商品零售价</text>
-        <text class="poster-link">选水订购 ›</text>
-      </view>
+      <image wx:if="{{!artFailed}}" class="poster-art-image" src="{{sceneImageUrl}}" data-src="{{sceneImageUrl}}" mode="aspectFit" binderror="onPosterArtError" />
+      <view wx:else class="poster-fallback-icon"><icon name="barrel" size="38px" color="#1264D6" /></view>
+      <view class="poster-headline"><text>日常饮水</text></view>
     </view>
     <text class="poster-fee">配送、楼层费及新增押金在确认页核算</text>
   </view>
@@ -42,12 +25,11 @@
     <view class="home-station-heading" wx:if="{{isLogin && currentStationId}}">
       <text class="home-section-label">服务水站</text>
       <view class="station-chip" bindtap="onOpenStationList">
-        <text class="station-chip-name">{{currentStationName || '水站名称暂未加载'}}</text>
+        <icon name="home" size="20px" color="#1264D6" /><text class="station-chip-name">{{currentStationName || '水站名称暂未加载'}}</text>
         <text class="station-chip-arrow">切换 ›</text>
       </view>
     </view>
     <view class="hero-intro" wx:else>
-      <text class="home-section-label">日常饮水</text>
       <text class="hero-brand">家里用水，随手就订</text>
     </view>
   </view>
@@ -73,8 +55,8 @@
         <text class="home-feedback-sub">{{loadImpactSummary}}{{loading || notificationsLoading || homeRetrying ? ' · 正在重试' : ''}}</text>
         <text class="home-feedback-sub" wx:if="{{catalogState === 'error'}}">原选购数量已保留，加载后可继续选水</text>
       </view>
-      <button class="home-feedback-retry" bindtap="onRetryHome" disabled="{{loading || notificationsLoading || homeRetrying}}">{{loading || notificationsLoading || homeRetrying ? '重试中' : '重新加载'}}</button>
-      <button class="home-feedback-toggle" bindtap="onToggleLoadDetails">{{showLoadDetails ? '收起' : '详情'}}</button>
+      <button class="af-action af-action--quiet" bindtap="onRetryHome" disabled="{{loading || notificationsLoading || homeRetrying}}"><text class="af-action__face">{{loading || notificationsLoading || homeRetrying ? '重试中' : '重新加载'}}</text></button>
+      <button class="af-action af-action--quiet" bindtap="onToggleLoadDetails"><text class="af-action__face">{{showLoadDetails ? '收起' : '详情'}}</text></button>
     </view>
     <view class="home-feedback-details" wx:if="{{showLoadDetails}}">
       <text class="home-feedback-detail" wx:for="{{loadIssueDetails}}" wx:key="key">{{item.text}}</text>
@@ -84,23 +66,20 @@
   <view class="home-loading" wx:if="{{loading}}" role="status">
     <view class="home-loading-mark" aria-hidden="true"></view>
     <text class="home-loading-title">{{currentStationId ? '正在加载订水信息' : '正在查找服务水站'}}</text>
-    <text class="home-loading-sub">请稍候</text>
   </view>
 
   <block wx:else>
     <!-- ══ 游客态 ══ -->
     <view class="card guest-card" wx:if="{{!isLogin}}">
-      <text class="guest-title">AquaFlow 送水到家</text>
-      <text class="guest-desc">登录后选择服务水站，即可下单购水</text>
       <!-- 主按钮：蓝色合法出现处 ② -->
-      <view class="cta guest-cta" bindtap="onLogin">登录后下单</view>
+      <view class="cta guest-cta af-action af-action--primary" bindtap="onLogin">登录后下单</view>
     </view>
 
     <block wx:if="{{isLogin}}">
       <!-- ══ 收货地址：紧跟站名的第二项，自己占一张卡、整行可点 ══ -->
       <view class="card addr" wx:if="{{currentStationId && state === 'ready'}}" bindtap="onAddressTap">
-        <text class="addr-label">收货地址</text>
-        <text class="addr-text {{address ? '' : 'addr-empty'}}">{{addressHint}}</text>
+        <icon name="location" size="22px" color="#1264D6" />
+        <view class="addr-copy"><text class="addr-text {{address ? '' : 'addr-empty'}}">{{addressHint}}</text></view>
         <text class="row-arrow">›</text>
       </view>
 
@@ -117,10 +96,8 @@
           <view class="station-welcome-pin"><view></view></view>
           <view class="station-welcome-house"><view></view></view>
         </view>
-        <text class="station-welcome-kicker">从身边的水站开始</text>
         <text class="station-welcome-title">先选择为你送水的水站</text>
-        <text class="station-welcome-desc">查看该站商品和配送安排，再选水下单</text>
-        <button class="home-primary" bindtap="onOpenStationList">选择水站</button>
+        <button class="af-action af-action--secondary" bindtap="onOpenStationList">选择水站</button>
       </view>
 
       <block wx:if="{{state === 'ready'}}">
@@ -153,13 +130,13 @@
             <text class="again-sub">{{againOrder.summary}}</text>
             <text class="again-preview" wx:if="{{againOrder.preview}}">{{againOrder.preview}}</text>
           </view>
-          <view class="again-btn" bindtap="onAgainTap">再订一单</view>
+          <view class="af-action af-action--secondary" bindtap="onAgainTap">再订一单</view>
         </view>
 
         <view class="home-feedback" wx:if="{{unavailableCartCount > 0 && (catalogState === 'ready' || catalogState === 'empty')}}">
           <view class="home-feedback-row">
-            <text class="home-feedback-title">有 {{unavailableCartCount}} 种已选商品暂不可订，原数量已保留。</text>
-            <button class="home-feedback-retry" bindtap="onRetryHome" disabled="{{loading || homeRetrying}}">重新核对商品</button>
+            <text class="home-feedback-title">{{unavailableCartCount}} 种商品暂不可订，已保留选择。</text>
+            <button class="af-action af-action--quiet" bindtap="onRetryHome" disabled="{{loading || homeRetrying}}"><text class="af-action__face">重新核对商品</text></button>
           </view>
         </view>
 
@@ -167,19 +144,17 @@
           <view class="catalog-state-mark" aria-hidden="true">↻</view>
           <text class="catalog-state-title">商品暂时没加载出来</text>
           <text class="catalog-state-desc">重新加载后再选水，你之前选的数量会保留</text>
-          <button class="home-primary" bindtap="onRetryHome">重新加载</button>
-          <button class="home-text-action" bindtap="onOpenStationList">切换水站</button>
+          <button class="af-action af-action--quiet" bindtap="onRetryHome"><text class="af-action__face">重新加载</text></button>
+          <button class="af-action af-action--secondary" bindtap="onOpenStationList">切换水站</button>
         </view>
         <view class="card catalog-state" wx:elif="{{catalogState === 'empty'}}">
           <view class="catalog-state-mark" aria-hidden="true">水</view>
           <text class="catalog-state-title">该水站暂无可订商品</text>
-          <text class="catalog-state-desc">可以切换其他服务水站，或稍后重新查看</text>
-          <button class="home-primary" bindtap="onOpenStationList">切换水站</button>
-          <button class="home-text-action" bindtap="onRetryHome">重新查看</button>
+          <button class="af-action af-action--secondary" bindtap="onOpenStationList">切换水站</button>
+          <button class="af-action af-action--quiet" bindtap="onRetryHome"><text class="af-action__face">重新查看</text></button>
         </view>
 
         <!-- 2026-10-22：老客海报曾把数量操作推到结算栏下方；有复购或进行中订单时优先选水。 -->
-        <template wx:if="{{!activeShip && !againOrder && productsView.length > 0}}" is="station-product-poster" data="{{product: productsView[0], artFailed: posterArtFailed, productImageFailed: posterProductImageFailed}}" />
 
         <!-- ══ 订水区：数量即选即算，步进器即选即算 ══ -->
         <view class="card shop-sec" wx:if="{{productsView.length > 0}}">
@@ -203,28 +178,14 @@
               <!-- 与本次购买有关的押金只留一行说明；详细桶账户计算不放商品行（口径见 §3）
                    文案由 JS 预计算：有桶权益的顾客显示"本次无需加收桶押金…"，不再无脑显示单价押金 -->
               <text class="prod-deposit" wx:if="{{item.depositNote}}">{{item.depositNote}}</text>
-              <view class="prod-purchase-row">
-              <view class="prod-price-row">
-                <text class="prod-price">¥{{item.priceText}}</text>
-                <text class="prod-price-unit">/{{item.quantityUnit}}</text>
-              </view>
-            <view class="stepper">
-              <view class="stepper-hit" bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="minus">
-                <view class="stepper-btn {{item.qty > 0 ? 'on' : ''}}">−</view>
-              </view>
-              <text class="stepper-qty" wx:if="{{item.qty > 0}}">{{item.qty}}</text>
-              <text class="stepper-hint" wx:else>选数量</text>
-              <view class="stepper-hit" bindtap="onCartQtyChange" data-id="{{item.id}}" data-type="add">
-                <view class="stepper-btn on">＋</view>
-              </view>
             </view>
-              </view>
+            <view class="prod-purchase-row">
+              <view class="prod-price-row"><text class="prod-price">¥{{item.priceText}}</text><text class="prod-price-unit">/{{item.quantityUnit}}</text></view>
+              <integer-stepper class="home-quantity" value="{{item.qtyDraft}}" min="{{0}}" max="{{9007199254740991}}" label="{{item.name + '数量'}}" data-id="{{item.id}}" bind:change="onCartQuantityInput" disabled="{{loading || catalogState !== 'ready'}}" />
+              <text class="quantity-error" wx:if="{{item.qtyError}}">{{item.qtyError}}</text>
             </view>
-
           </view>
         </view>
-
-        <template wx:if="{{(activeShip || againOrder) && productsView.length > 0}}" is="station-product-poster" data="{{product: productsView[0], artFailed: posterArtFailed, productImageFailed: posterProductImageFailed}}" />
 
         <!-- ══ 水桶与押金入口：首页只留入口 + 必要欠桶提醒；权益/占用/押金的真实口径在桶账页 ══ -->
         <view class="card barrel" wx:if="{{barrelVisible}}" bindtap="onGoBarrel">
@@ -235,6 +196,9 @@
           </view>
           <text class="row-arrow">›</text>
         </view>
+
+        <template wx:if="{{productsView.length > 0}}" is="station-product-poster" data="{{product: productsView[0], artFailed: posterArtFailed, productImageFailed: posterProductImageFailed, sceneImageUrl: sceneImageUrl}}" />
+
       </block>
     </block>
   </block>
@@ -255,12 +219,12 @@
       <!-- ⚠️ 原来写死「配送免运费」：配送费是站级配置（v35），站长一旦配了费，
            首页承诺免运费、结算页照收 —— 客户拿着两张截图来吵架。
            首页算不出运费（还没选地址），所以这里**不做费用承诺**，只报件数并指向结算页报价。 -->
-      <text class="sum-sub">{{total.count > 0 ? '已选 ' + total.count + ' 件 · 支付金额以结算页报价为准' : '选中数量后自动合计'}}</text>
+      <text class="sum-sub" wx:if="{{total.count > 0}}">已选 {{total.count}} 件 · 结算页核价</text>
       <text class="sum-recovery" wx:if="{{total.count > 0 && purchaseHint}}">{{purchaseHint}}</text>
-      <text class="sum-recovery" wx:elif="{{total.count > 0 && homeQuoteState === 'error'}}">费用暂未核实，确认页核对后才能提交订单。</text>
+      <text class="sum-recovery" wx:elif="{{total.count > 0 && homeQuoteState === 'error'}}">费用待确认，请在确认页查看。</text>
     </view>
     <!-- 主按钮：蓝色合法出现处 ②；置灰用 #9CA7B5，不是浅蓝 -->
-    <view class="cta {{total.count > 0 ? '' : 'off'}}" bindtap="onSubmit">确认订单</view>
+    <view class="cta af-action af-action--primary af-action--final {{total.count > 0 && !quantityInputError ? '' : 'off is-disabled'}}" bindtap="onSubmit">{{quantityInputError ? '请核对数量' : '确认订单'}}</view>
   </view>
 
   <!-- ══ 水站选择弹层（保留原有交互） ══ -->
@@ -273,6 +237,8 @@
       </view>
     </view>
     <view class="station-picker-list">
+      <checkbox-group class="switch-remember" bindchange="onSwitchRememberChange"><label><checkbox value="remember" checked="{{rememberSwitchNotice}}" />确认切换后不再提示资产隔离</label></checkbox-group>
+
       <view class="station-picker-item {{item.id === currentStationId ? 'active' : ''}}"
             wx:for="{{stationList}}" wx:key="id"
             bindtap="onSelectStation" data-id="{{item.id}}">
@@ -290,9 +256,10 @@
       <view class="station-picker-empty" wx:if="{{stationListLoading}}">正在加载水站…</view>
       <view class="station-picker-empty" wx:elif="{{stationListError}}">
         <text>水站列表暂未加载，请重试</text>
-        <button class="station-picker-retry" bindtap="onRetryStationList">重新加载</button>
+        <button class="af-action af-action--quiet" bindtap="onRetryStationList"><text class="af-action__face">重新加载</text></button>
       </view>
       <view class="station-picker-empty" wx:elif="{{stationList.length === 0}}">暂无可用水站</view>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

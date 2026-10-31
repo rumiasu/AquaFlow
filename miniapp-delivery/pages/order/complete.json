@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "确认送达",
-  "usingComponents": {}
+  "usingComponents": {
+    "icon": "/components/Icon/index"
+  }
 }

@@ -653,6 +653,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             // 可以延后到"提交之后再做"的只有外部通知一类动作，不是账务事实。
             OrderBarrelExceptionService.OrderBarrelExceptionDTO ex =
                     orderBarrelExceptionService.recordReturn(orderId, input);
+            if (ex == null) {
+                throw new BusinessException("回桶差异与桶账不一致，请核对本单交桶与回桶数量后重试");
+            }
             exceptionId = ex.getId();
         }
 

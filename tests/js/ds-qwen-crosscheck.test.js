@@ -1,0 +1,14 @@
+'use strict'
+const assert=require('node:assert/strict'),fs=require('fs'),path=require('path'),vm=require('vm')
+const {loadPage,createWx,createApp,ROOT}=require('./harness')
+const {parseWxml,renderElements}=require('./wxml-tree')
+const root=path.join(ROOT,'miniapp-delivery'), read=p=>fs.readFileSync(path.join(root,p),'utf8')
+const globalComponents=JSON.parse(read('app.json')).usingComponents||{}
+let checks=0
+function walk(dir){for(const ent of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,ent.name);if(ent.isDirectory())walk(p);else if(p.endsWith('.wxml')){const s=fs.readFileSync(p,'utf8');if(!/<icon\b[^>]*\bname=/.test(s))continue;const jp=p.replace(/\.wxml$/,'.json');const local=fs.existsSync(jp)?(JSON.parse(fs.readFileSync(jp,'utf8')).usingComponents||{}):{};assert(local.icon||globalComponents.icon,'custom icon unregistered: '+p);checks++}}}walk(root)
+for(const state of [{isLogin:true,userInfo:{role:'STATION_MANAGER'},ok:true},{isLogin:true,userInfo:{role:'DELIVERY'},ok:false},{isLogin:false,userInfo:{role:'STATION_MANAGER'},ok:false},{isLogin:false,userInfo:null,ok:false}]){const wx=createWx(),app=createApp({globalData:state}),page=loadPage('miniapp-delivery/pages/order/complete.js',{wx,app});page.onGoInventory();assert.equal(wx.__calls.nav.length,state.ok?1:0);if(state.ok)assert.equal(wx.__calls.nav[0].url,'/pages/station-mgmt/products/index');checks++}
+const cs=read('pages/coordination/index.js'),match=cs.match(/function feeView\(o\) \{[\s\S]*?\n\}/);assert(match);const feeView=vm.runInNewContext('('+match[0]+')');
+function expressionText(source,pattern,ctx){const matches=[...source.matchAll(pattern)];assert(matches.length);return matches.map(m=>{const tree=parseWxml('<view>'+m[0]+'</view>');return renderElements(tree,ctx,{includeText:true}).map(n=>n.text||'').join(' ')})}
+const cw=read('pages/coordination/index.wxml'),ow=read('pages/order/complete.wxml')
+for(const value of [null,undefined,'',0,12.5]){const item=feeView({totalAmount:value,deliveryFee:2,floorFee:value});const values=expressionText(cw,/<text class="fee-amount">[\s\S]*?<\/text>/g,{item});assert.equal(values.length,4);for(const text of values)assert(text.includes(value==null||value===''?'金额待核实':value===0?'¥0.00':'¥12.50'));const details=expressionText(cw,/<text class="fee-detail-item">[\s\S]*?<\/text>/g,{item});assert(details.every(t=>!t.includes('¥金额待核实')));assert(details.some(t=>t.includes(value==null||value===''?'楼层费 金额待核实':value===0?'楼层费 ¥0.00':'楼层费 ¥12.50')));const orderInfo=value===undefined?{}:{totalAmount:value};const totals=expressionText(ow,/<text class="money-amount(?:-muted)?"(?: wx:if="[^"]*")?>[\s\S]*?<\/text>/g,{orderInfo,moneyMode:'paid'});assert(totals.length>=2);for(const t of totals)assert(t.includes(value==null||value===''?'金额待核实':'¥'+value));checks++}
+console.log('AQUAFLOW_SUITE_OK '+checks)

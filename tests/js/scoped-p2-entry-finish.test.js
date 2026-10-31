@@ -23,6 +23,7 @@ test('delivered and cancelled tabs query their actual statuses and retain loaded
   await page.onTabChange(event(3)); await page.onLoadMore()
   assert.equal(requests[0].status, 3); assert.equal(requests[1].page, 2); assert.equal(page.data.list.length, 21)
   assert.equal(requests[0].customerId, 7); assert.equal(requests[1].createTimeEnd, '2026-10-24')
+  page.onToggleFilters()
   const rendered = elements('miniapp-delivery/pages/station-mgmt/orders/index.wxml', page.data)
   assert(rendered.find(node => node.className === 'history-scope').text.includes('已加载 21 张'))
   assert.deepEqual(rendered.filter(node => node.className === 'tab-badge').map(node => node.text), ['21'])
@@ -67,7 +68,7 @@ async function barrel(options = {}) {
   if (!options.stationless) wx.__storage.set('selectedStation', A)
   delete require.cache[require.resolve(R + '/miniapp-user/utils/asset-view-station')]
   const page = loadPage('miniapp-user/pages/barrel/index.js', { wx, app, stubs: {
-    'api/asset-stations': { getAssetStation: async () => ok(B) },
+    'api/asset-stations': { getAssetStation: async () => ok(B), listAssetStations: async () => ok({stations:[A,B],hasMore:false}) },
     'api/barrel': {
       getBarrelSummary: async station => { requests.push(station); if (state.fail) throw Error('合成读取失败'); return ok(summary(options.summary)) },
       getBarrelSummaryByType: async () => { if (state.fail) throw Error('合成读取失败'); return ok(options.holdings || []) },
@@ -82,7 +83,7 @@ async function barrel(options = {}) {
 const barrelView = t => elements('miniapp-user/pages/barrel/index.wxml', { ...t.page.data, summary: t.page.data.summary || {} })
 test('true-empty barrel actions preserve the legal viewed asset station and the distinct order station', async () => {
   const t = await barrel(); const view = barrelView(t)
-  assert(nextStep(view)); assert(view.some(node => node.attrs.bindtap === 'onChooseAssetStation'))
+  assert(nextStep(view)); assert(view.some(node => node.attrs.bindtap === 'onChooseAssetStation')); assert(view.some(node => node.tag === 'asset-station-view')); assert(source('miniapp-user/components/AssetStationView/index.wxml').includes('bindtap="openPicker"'))
   assert(view.map(node => node.text).join('\n').includes('订水使用当前下单水站（当前下单站）'))
   t.page.onChooseAssetStation(); assert.equal(t.state.pickerOpens, 1)
   t.page.onGoOrderHome(); assert.equal(t.wx.__calls.nav.at(-1).url, '/pages/home/index')
@@ -105,7 +106,7 @@ test('known storage or unclaimed quantity is visible before expanding detail and
   const t = await barrel({ holdings: [holding()] })
   assert.equal(t.page.data.expandedProductId, undefined)
   const text = barrelView(t).map(node => node.text).join('\n')
-  assert(text.includes('暂存或待领取 2 个（账面记录，非实物盘点）'))
+  assert(text.includes('暂存或待领取 2 个（实际交接请向水站确认）'))
   assert(!text.includes('您多还的桶')); assert(!text.includes('账面桶数 1 个'))
   t.page.onToggleBarrelDetail(event(5))
   assert.equal(barrelView(t).filter(node => (node.text || '').includes('暂存或待领取 2 个')).length, 1)
@@ -120,7 +121,7 @@ test('missing storage quantity never becomes a displayed zero; genuine zero rema
 test('legacy summary uses a neutral storage or unclaimed label rather than claiming physically returned barrels', async () => {
   const t = await barrel({ summary: { independentRights: false, storageBuckets: 2 }, holdings: [holding({ independentRights: false })] })
   const text = barrelView(t).map(node => node.text).join('\n')
-  assert(text.includes('暂存或待领取 2 个：这是账面记录')); assert(!text.includes('您多还的桶'))
+  assert(text.includes('暂存或待领取记录：2 个，实际交接请向资产水站确认')); assert(!text.includes('您多还的桶'))
 })
 test('only the scoped primary actions and native selections adopt the established primary token', () => {
   const cssFiles = ['pages/address/edit.wxss', 'pages/address/list.wxss', 'pages/notice/index.wxss', 'pages/mine/company.wxss', 'pages/exception/list/list.wxss']

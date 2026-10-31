@@ -10,6 +10,8 @@ function setup(extra={}) {
   wx.showActionSheet=o=>{calls.sheets.push(o);if(choices.length)o.success({tapIndex:choices.shift()});else o.fail({errMsg:'cancel'})}
   wx.showModal=o=>{wx.__calls.modal.push(o);if(extra.manualModal) return;if(extra.cancelModal)o.success({confirm:false});else o.success({confirm:true,content:extra.reason || '原送水单取消，改为到店'})}
   const page=loadPage('miniapp-user/pages/barrel/index.js',{wx,app,stubs:{
+    // Supported custom-dialog fixture; native unsupported edit fallback is checked by F.
+    'utils/business-dialog':{showBusinessModal: options=>wx.showModal(options)},
     'api/barrel':{changeBarrelReturnArrangement:async(id,body)=>{calls.change.push({id,body});if(extra.writeError)throw Error(extra.writeError);return {code:0}},confirmBarrelReturn:async(id,version)=>{calls.confirm.push({id,version});return {code:0}}},
     'api/order':{getOrders:async body=>{calls.orders.push(body);return {data:extra.orders || []}}}
   }})
@@ -46,7 +48,7 @@ test('fee or station-proposed arrangement confirmation sends the visible version
 test('WXML exposes current arrangement, change entry and only required consent',()=>{
   const tree=parseWxml(fs.readFileSync(path.join(ROOT,'miniapp-user/pages/barrel/index.wxml'),'utf8'))
   for(const required of [false,true]) {
-    const t=setup({detail:{customerConfirmationRequired:required}});const nodes=renderElements(tree,{...t.page.data,loading:false,showReturnModal:true,summary:{independentRights:true},customerBarrelAsset:[]},{includeText:true})
+    const t=setup({detail:{customerConfirmationRequired:required}});const nodes=renderElements(tree,{...t.page.data,loading:false,showReturnModal:true,showReturnRules:true,summary:{independentRights:true},customerBarrelAsset:[]},{includeText:true})
     assert(nodes.some(n=>n.attrs.bindtap==='onReturnArrangement'));assert.equal(nodes.some(n=>n.attrs.bindtap==='onReturnConfirm'),required)
     assert(nodes.some(n=>n.text.includes('关联送水单 #99')))
     // The request hint must describe the same free/required boundary as the action above.

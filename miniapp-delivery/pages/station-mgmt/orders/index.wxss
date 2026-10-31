@@ -40,7 +40,7 @@
 .history-controls { margin:20rpx 0; padding:20rpx; background:#fff; border-radius:16rpx; }
 .history-search-row,.history-date-row,.history-selected { display:flex; gap:16rpx; align-items:center; flex-wrap:wrap; }
 .history-search-row input { flex:1; min-width:180rpx; height:76rpx; }
-.history-search-row button { margin:0; flex-shrink:0; }
+.history-search-row button:not(.af-action):not(.af-choice):not(.af-entry) { margin:0; flex-shrink:0; }
 .history-date-row { margin-top:20rpx; font-size:24rpx; }
 .history-date-row picker { padding:16rpx; background:var(--primary-bg); border-radius:12rpx; }
 .history-customer-row { padding:20rpx 0; border-bottom:1rpx solid var(--primary-bg); }
@@ -71,3 +71,24 @@
 .history-search-row input { height:88rpx; min-width:0; }
 .history-error { font-size:28rpx; line-height:1.6; min-height:88rpx; box-sizing:border-box; }
 .cross-toggle { color:var(--primary-color); font-size:26rpx; }
+.filter-toggle { min-height:44px; height:auto; display:flex; align-items:center; justify-content:flex-start; font-size:14px; color:var(--primary-color); background:#fff; }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Visual v2: page-specific information and action grouping. */
+ .tab-bar .af-choice { min-width:44px; } .order-card { border-radius:0; border:0; border-bottom:1px solid var(--af-border); box-shadow:none; } .cross-card { background:var(--af2-surface-current); border:0; border-radius:14px; } .cross-title,.cross-amount { color:var(--af2-ink-current); } .order-list { background:var(--af2-surface); }

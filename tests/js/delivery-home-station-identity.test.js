@@ -34,7 +34,7 @@ function cue(t) {
     (n.children || []).map(find).find(Boolean)
   const line = find(root); assert.ok(line, 'home must contain visible station identity text')
   return renderElements({ tag: '#root', attrs: {}, children: [line] }, t.page.data, { includeText: true })
-    .filter(n => n.tag === 'text').map(n => n.text)
+    .filter(n => n.tag === 'text' && n.className === 'home-station-name').map(n => n.text)
 }
 test('delivery home exposes its real bound name through the existing single status request', async () => {
   const t = fixture(); await t.page.loadHomeStationIdentity(11)

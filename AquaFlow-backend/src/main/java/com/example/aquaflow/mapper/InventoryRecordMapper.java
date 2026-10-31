@@ -12,10 +12,17 @@ import java.util.Map;
 @Mapper
 public interface InventoryRecordMapper {
 
-    @Insert("insert into inventory_record(station_id, product_id, delta, type, ref_id, operator_id, note, create_time) " +
-            "values(#{stationId}, #{productId}, #{delta}, #{type}, #{refId}, #{operatorId}, #{note}, NOW())")
+    @Insert("insert into inventory_record(station_id, product_id, delta, type, ref_id, operator_id, note, cost_amount, create_time) " +
+            "values(#{stationId}, #{productId}, #{delta}, #{type}, #{refId}, #{operatorId}, #{note}, #{costAmount}, NOW())")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(InventoryRecord record);
+
+    /** 实际退回时沿原出库快照冲回；未知旧记录不会被现价替代。 */
+    @Select("select sum(-delta) as remainingQty, max(case when cost_amount is null then 1 else 0 end) as unknownCost, "
+            + "sum(case when type='CONSUME' then cost_amount else -cost_amount end) as remainingCost "
+            + "from inventory_record where station_id=#{stationId} and product_id=#{productId} and ref_id=#{refId} "
+            + "and type in ('CONSUME','CANCEL_RESTORE','REFUND_RESTORE')")
+    Map<String,Object> returnCost(@Param("stationId") Long stationId,@Param("productId") Long productId,@Param("refId") Long refId);
 
     /** 按站+商品查询流水（倒序） */
     @Select("select r.*, p.name as product_name, p.spec as spec " +

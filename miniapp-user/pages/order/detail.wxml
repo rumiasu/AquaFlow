@@ -2,12 +2,12 @@
   <view class="info-section">
     <view class="section-title">{{detailState === 'loading' ? '正在加载订单' : detailState === 'notfound' ? '未找到订单' : '订单暂时无法加载'}}</view>
     <text class="pay-hint" wx:if="{{loadError}}">{{loadError}}</text>
-    <button wx:if="{{detailState !== 'loading'}}" class="btn-action btn-call" bindtap="onRetry">重新加载</button>
-    <button wx:if="{{detailState !== 'loading'}}" class="btn-action btn-call" bindtap="onViewOrders">返回我的订单</button>
+    <button wx:if="{{detailState !== 'loading'}}" class="af-action af-action--quiet" bindtap="onRetry"><text class="af-action__face">重新加载</text></button>
+    <button wx:if="{{detailState !== 'loading'}}" class="af-action af-action--secondary" bindtap="onViewOrders">返回我的订单</button>
   </view>
 </view>
 <view class="page-container" wx:if="{{detailState === 'ready' && order}}">
-  <view class="load-error" wx:if="{{refreshNotice}}"><text>{{refreshNotice}}</text><button class="btn-action btn-call" bindtap="onRetry">重新核对订单</button></view>
+  <view class="load-error" wx:if="{{refreshNotice}}"><text>{{refreshNotice}}</text><button class="af-action af-action--quiet" bindtap="onRetry"><text class="af-action__face">重新核对订单</text></button></view>
   <view class="status-card status-{{order.status}}">
     <view class="status-main">{{statusText}}</view>
     <view class="status-sub">
@@ -16,8 +16,18 @@
     </view>
   </view>
 
-  <view class="collect-banner" wx:if="{{deliveredAwaitingCollection}}">
+  <view class="collect-banner" wx:if="{{deliveredAwaitingCollection && !payHint}}">
     <text>已送达，待确认收款</text>
+  </view>
+
+  <view class="action-section">
+    <text class="load-error" wx:if="{{paymentError}}">{{paymentError}}</text>
+    <button wx:if="{{paymentError}}" class="af-action af-action--quiet" bindtap="onRetry"><text class="af-action__face">查询原订单</text></button>
+    <button wx:if="{{canRepay}}" class="af-action af-action--primary af-action--block" bindtap="onPayNow" loading="{{paying}}" disabled="{{paying}}">{{paying ? '正在核对付款…' : repayLabel}}</button>
+    <text wx:else class="pay-hint">{{payHint}}</text>
+    <button wx:if="{{order.status === 5}}" class="af-action af-action--secondary" bindtap="onReorder">再次购买</button>
+      <button wx:if="{{canCancel}}" class="af-action af-action--danger-quiet" bindtap="onCancel">{{cancelLabel}}</button>
+
   </view>
 
   <view class="info-section" wx:if="{{order.customerCancelRequest}}">
@@ -42,8 +52,8 @@
           <text class="item-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
         </view>
         <view class="item-right">
-          <text class="item-price" wx:if="{{item.price}}">¥{{item.price}}</text>
-          <text class="item-qty">×{{item.quantity}} {{item.quantityUnit}}</text>
+          <text class="item-price">{{item.price == null ? '单价待核实' : '¥' + item.price}}</text>
+          <text class="item-qty">×{{item.quantity == null ? '—' : item.quantity}} {{item.quantityUnit}}</text>
         </view>
       </view>
     </view>
@@ -61,7 +71,7 @@
       <text class="label">桶押金</text>
       <text class="value">{{fee.depositText === '待核实' ? '待核实' : '¥' + fee.depositText}}</text>
     </view>
-    <view class="info-row" wx:if="{{order.extraDepositAmount > 0}}"><text class="label">额外桶押金</text><text class="value">{{fee.extraDepositText === '待核实' ? '待核实' : '¥' + fee.extraDepositText}}</text></view>
+    <view class="info-row" wx:if="{{order.extraDepositAmount == null || order.extraDepositAmount > 0}}"><text class="label">额外桶押金</text><text class="value">{{fee.extraDepositText === '待核实' ? '待核实' : '¥' + fee.extraDepositText}}</text></view>
     <view class="info-row" wx:if="{{fee.hasDeliveryFee}}">
       <text class="label">配送费</text>
       <text class="value">{{fee.deliveryFeeText === '待核实' ? '待核实' : '¥' + fee.deliveryFeeText}}</text>
@@ -81,17 +91,23 @@
     <view class="bucket-card">
       <view class="bucket-row">
         <text class="bucket-label">本次配送</text>
-        <text class="bucket-value">{{bucketInfo.deliveredQty}} 桶</text>
+        <text class="bucket-value">{{bucketInfo.deliveredQty == null ? '待核实' : bucketInfo.deliveredQty + ' 桶'}}</text>
       </view>
       <view class="bucket-row">
         <text class="bucket-label">已回收空桶</text>
-        <text class="bucket-value">{{bucketInfo.returnedQty}} 桶</text>
+        <text class="bucket-value">{{bucketInfo.returnedQty == null ? '待核实' : bucketInfo.returnedQty + ' 桶'}}</text>
       </view>
     </view>
   </view>
 
   <view class="info-section">
     <view class="section-title">配送信息</view>
+    <view class="contact-actions">
+      <button wx:if="{{callPhone}}" class="af-action af-action--quiet" bindtap="onCallPhone"><text class="af-action__face">联系水站</text></button>
+      <button wx:if="{{phoneState === 'error'}}" class="af-action af-action--quiet" bindtap="onRetryPhone"><text class="af-action__face">重试读取水站电话</text></button>
+      <text class="phone-state" wx:elif="{{phoneState === 'loading'}}">正在读取水站电话…</text>
+      <text class="phone-state" wx:elif="{{phoneState === 'empty'}}">水站暂未提供联系电话</text>
+    </view>
     <view class="info-row">
       <text class="label">配送地址</text>
       <text class="value">{{order.addressDetail}}</text>
@@ -115,7 +131,7 @@
     </view>
     <view class="info-row" wx:if="{{legacyNoteUnavailable}}">
       <text class="label">备注</text>
-      <text class="value">此订单的旧备注包含配送处理记录，暂时无法安全区分客户留言</text>
+      <text class="value">原备注暂无法展示，可联系水站核对</text>
     </view>
   </view>
 
@@ -143,7 +159,7 @@
   <view class="info-section" wx:if="{{images.length > 0 || imagesState === 'error'}}">
     <view class="section-title">配送凭证</view>
     <text class="pay-hint" wx:if="{{imagesError}}">{{imagesError}}</text>
-    <button wx:if="{{imagesState === 'error'}}" class="btn-action btn-call" bindtap="onRetryImages">重试加载凭证</button>
+    <button wx:if="{{imagesState === 'error'}}" class="af-action af-action--quiet" bindtap="onRetryImages"><text class="af-action__face">重试加载凭证</text></button>
     <view class="image-grid">
       <image
         wx:for="{{images}}"
@@ -159,13 +175,6 @@
     </view>
   </view>
 
-  <view class="action-section">
-    <text class="load-error" wx:if="{{paymentError}}">{{paymentError}}</text>
-    <button wx:if="{{paymentError}}" class="btn-action btn-call" bindtap="onRetry">查询原订单</button>
-    <button wx:if="{{canRepay}}" class="btn-action btn-pay" bindtap="onPayNow" loading="{{paying}}" disabled="{{paying}}">{{paying ? '正在核对付款…' : repayLabel}}</button>
-    <text wx:else class="pay-hint">{{payHint}}</text>
-    <button wx:if="{{canCancel}}" class="btn-action btn-cancel" bindtap="onCancel">{{cancelLabel}}</button>
-    <button wx:if="{{order.status === 5}}" class="btn-action btn-reorder" bindtap="onReorder">再次购买</button>
-    <button wx:if="{{callPhone}}" class="btn-action btn-call" bindtap="onCallPhone">联系水站</button>
-  </view>
+
 </view>
+<business-dialog id="business-dialog" />

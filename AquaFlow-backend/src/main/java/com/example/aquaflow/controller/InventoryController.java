@@ -57,7 +57,7 @@ public class InventoryController {
 
     /** 员工端原编号入库；独立路径使新前端遇旧后端时404，而非被旧逻辑忽略编号后重复累加。 */
     @RequireRole({"STATION_MANAGER"})
-    @PostMapping("/inbound-with-receipt")
+    @PostMapping({"/inbound-with-receipt", "/inbound-with-cost-receipt"})
     public Result inboundWithReceipt(@RequestParam Long stationId, @RequestBody InventoryInboundDTO dto) {
         if (!AuthContext.requireStationId().equals(stationId)) return Result.error("只能向本站入库");
         return Result.success(inventoryService.inboundWithReceipt(stationId, dto.getItems(), dto.getClientRequestId()));

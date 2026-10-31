@@ -16,7 +16,7 @@ const { STORAGE_KEYS } = require('../../../utils/storage-keys')
 function validId(value) { return /^[1-9][0-9]*$/.test(String(value)) }
 
 Page({
-  data: { list: [], loading: true, loaded: false, error: '', minDays: 0, filters: [{ value: 0, label: '全部' }, { value: 7, label: '欠 ≥ 7 天' }], },
+  data: { list: [], groups: [], loading: true, loaded: false, error: '', minDays: 0, filters: [{ value: 0, label: '全部' }, { value: 7, label: '欠 ≥ 7 天' }], },
 
   onLoad() { this._unloaded = false },
   // 2026-10-02：首屏只在 onShow 读取，重试也走同一访问守卫。
@@ -42,13 +42,13 @@ Page({
     if (!app.canAccessStationBusiness()) {
       this._requestVersion = (this._requestVersion || 0) + 1
       this._dataContext = null
-      this.setData({ list: [], loaded: false, loading: false, error: '请先完成身份及水站绑定，再重新进入。' })
+      this.setData({ list: [], groups: [], loaded: false, loading: false, error: '请先完成身份及水站绑定，再重新进入。' })
       app.routeByRole(true)
       return
     }
     const context = this._context(), version = this._requestVersion = (this._requestVersion || 0) + 1
     // 2026-10-02：旧筛选/身份响应曾覆盖新页；先清跨上下文数据，再守 success/catch/finally。
-    if (this._dataContext !== context) this.setData({ list: [], loaded: false })
+    if (this._dataContext !== context) this.setData({ list: [], groups: [], loaded: false })
     this._dataContext = context
     this.setData({ loading: true, error: '' })
     try {
@@ -62,7 +62,13 @@ Page({
         _name: r.customerName || ('客户编号：' + r.customerId),
         _product: (r.productName || '未知商品') + (r.productSpec ? ' · ' + r.productSpec : ''),
         _daysText: r.owedDaysText || '天数未知', _sinceText: r.owedSinceText || '', _urgent: !!r.urgent }))
-      this.setData({ list, loaded: true })
+      const byCustomer = new Map()
+      for (const row of list) {
+        const key = String(row.customerId)
+        if (!byCustomer.has(key)) byCustomer.set(key, { customerId: row.customerId, name: row._name, phone: row.phone, items: [] })
+        byCustomer.get(key).items.push(row)
+      }
+      this.setData({ list, groups: Array.from(byCustomer.values()), loaded: true })
     } catch (err) {
       if (!this._current(version, context)) return
       const reason = err && typeof err.message === 'string' && err.message.trim() ? err.message : '暂时无法加载，请重试。'
@@ -74,7 +80,7 @@ Page({
         if (this._current(version, context)) this.setData({ loading: false })
         else {
           this._dataContext = null
-          this.setData({ list: [], loaded: false, loading: false, error: '身份或水站已变化，请重试或重新进入。' })
+          this.setData({ list: [], groups: [], loaded: false, loading: false, error: '身份或水站已变化，请重试或重新进入。' })
         }
       }
     }
@@ -98,6 +104,11 @@ Page({
     const id = e.currentTarget.dataset.id
     if (!id) return
     wx.navigateTo({ url: `/pages/station-mgmt/customers/detail/index?id=${id}` })
+  },
+
+  onCallCustomer(e) {
+    const phone = e.currentTarget.dataset.phone
+    if (phone) wx.makePhoneCall({ phoneNumber: String(phone) })
   },
 
 })

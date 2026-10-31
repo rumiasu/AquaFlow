@@ -1314,51 +1314,71 @@
 
 .detail-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 16rpx;
   padding: 12rpx 0;
 }
 
 .detail-row-left {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
+  display: block;
   flex: 1;
   min-width: 0;
 }
 
 /* 确认弹窗里的明细行：同样不截断（2026-09-27 产品口径） */
 .detail-item-name {
+  display: block;
+  max-width: 100%;
   font-size: 34rpx;
   color: var(--text-primary);
-  word-break: break-all;
+  line-height: 1.4;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
+.detail-item-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4rpx 16rpx; min-width: 0; margin-top: 4rpx; }
 .detail-item-spec {
   font-size: 30rpx;
   color: var(--text-regular);
-  flex-shrink: 0;
+  line-height: 1.45;
 }
 
 .detail-row-right {
   display: flex;
-  align-items: center;
-  gap: 16rpx;
+  align-items: flex-start;
+  justify-content: flex-end;
   flex-shrink: 0;
+  width: 168rpx;
+  max-width: 42%;
+  box-sizing: border-box;
   margin-left: 16rpx;
+  padding-top: 2rpx;
 }
 
 .detail-item-qty {
+  /* 2026-10-27：28rpx 在窄屏不足 12px，数量须与金额一起保持可读。 */
   font-size: 34rpx;
-  color: var(--text-primary);
+  color: var(--text-regular);
+  line-height: 1.45;
+}
+
+.detail-item-unit-price {
+  font-size: 30rpx;
+  color: var(--text-regular);
+  line-height: 1.45;
 }
 
 .detail-item-price {
+  flex: none;
+  max-width: 100%;
+  min-width: 0;
   font-size: 34rpx;
   font-weight: 600;
   color: var(--text-primary);
-  min-width: 100rpx;
   text-align: right;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .detail-subtotal-row {
@@ -1643,10 +1663,10 @@
 .method-name { font-size: 34rpx; }
 .method-desc { font-size: 30rpx; }
 .payment-method.disabled { opacity: 1; color: var(--text-regular); background: var(--bg-gray); }
-.section-header .section-link, .asset-bar-header, .asset-detail-link { min-height: 88rpx; box-sizing: border-box; display: flex; align-items: center; }
+.section-header .section-link, .asset-bar-header, .asset-detail-link { min-height: 44px; box-sizing: border-box; display: flex; align-items: center; }
 .fee-value.total { font-size: 40rpx; }
 .product-image { width: 120rpx; height: 156rpx; }
-.detail-sheet-close { width: 88rpx; height: 88rpx; }
+.detail-sheet-close { width: 88rpx; height: 88rpx; min-width: 44px; min-height: 44px; flex-shrink: 0; }
 .detail-sheet, .popup-content { border-radius: 20rpx 20rpx 0 0; }
 .popup-btns .btn-cancel, .popup-btns .btn-ok { border-radius: var(--radius-md); }
 
@@ -1655,3 +1675,120 @@
 .popup-content { max-height: 88vh; box-sizing: border-box; }
 .product-info, .fee-label-group, .method-info { min-width: 0; overflow-wrap: anywhere; }
 .product-image-empty { display: flex; align-items: center; justify-content: center; padding: 12rpx; background: var(--bg-gray); color: var(--text-regular); font-size: 26rpx; text-align: center; line-height: 1.5; }
+.product-purchase-row { flex-direction:column; align-items:stretch; gap:12rpx; }
+.stepper-wrap { display:flex; flex-wrap:wrap; align-items:stretch; gap:12rpx; width:100%; margin-left:0; }
+.product-remove { flex:0 0 auto; min-width:64px; min-height:44px; height:auto; margin:0 0 0 auto; padding:10rpx 16rpx; color:var(--text-regular); background:var(--bg-gray); border:1rpx solid var(--border-color); border-radius:10rpx; font-size:14px; line-height:1.5; }
+.product-remove::after,.removed-product-undo::after,.empty-cart-action::after { border:0; }
+.product-remove[disabled],.removed-product-undo[disabled] { opacity:.48; }
+.empty-cart { display:flex; flex-direction:column; align-items:center; gap:16rpx; padding:36rpx 24rpx; border:1rpx dashed var(--border-color); border-radius:16rpx; background:var(--bg-gray); }
+.empty-cart-copy { color:var(--text-secondary); font-size:26rpx; }
+.empty-cart-action { min-height:44px; margin:0; padding:8rpx 24rpx; color:var(--primary-color); background:#fff; border:1rpx solid var(--primary-color); border-radius:999rpx; font-size:14px; }
+.removed-products { margin-top:16rpx; padding:12rpx 16rpx; border-radius:12rpx; background:var(--bg-gray); }
+.removed-products-title { display:block; margin-bottom:4rpx; color:var(--text-secondary); font-size:24rpx; }
+.removed-product-row { display:flex; align-items:center; justify-content:space-between; gap:16rpx; min-height:48px; border-top:1rpx solid var(--border-color); }
+.removed-product-name { min-width:0; color:var(--text-regular); font-size:26rpx; overflow-wrap:anywhere; }
+.removed-product-undo { flex:none; min-height:44px; margin:0; padding:6rpx 20rpx; color:var(--primary-color); background:transparent; font-size:14px; }
+
+/* 订单核对：商品信息和操作各自稳定占位。 */
+.container { background: #f4f7fa; }
+.checkout-heading { padding: 12rpx 4rpx 20rpx; }
+.address-card { border-left: 6rpx solid #1677ff; }
+.product-card { gap: 20rpx; }
+.product-image { width: 120rpx; height: 144rpx; margin-right: 0; box-sizing: border-box; }
+.product-name { line-height: 1.4; overflow-wrap: anywhere; }
+.product-purchase-row { gap: 4rpx; }
+.stepper-wrap { flex-wrap: nowrap; align-items: center; gap: 0; }
+.quantity-control { flex: none; }
+.product-remove { min-width: 88rpx; min-height: 88rpx; padding: 0 8rpx; margin-left: auto; background: transparent; border: 0; color: #52677d; }
+.product-subtotal { margin-top: 0; }
+
+/* 输入法弹出或窄屏时仍保留完整商品名与按钮热区。 */
+.qty-input { min-width: 64rpx; }
+.product-remove { flex: none; white-space: nowrap; }
+
+/* 触控尺寸按 CSS 像素保证，窄屏时操作区移至商品卡全宽。 */
+.product-card { flex-wrap: wrap; }
+.product-info { flex: 1; min-width: 0; }
+.stepper-wrap { width: 100%; flex: 0 0 100%; display: flex; flex-wrap: nowrap; align-items: center; margin: 0; }
+.qty-hit { width: 44px; height: 44px; flex: none; }
+.qty-btn text { font-size: 18px; }
+.qty-input { width: 44px; min-width: 44px; height: 44px; font-size: 16px; }
+.quantity-locked .qty-btn text { color: #8b99a8; }
+.quantity-locked .qty-input { color: #344455; opacity: 1; }
+.product-remove { min-width: 44px; min-height: 44px; font-size: 14px; }
+.submit-btn { min-width: 120px; min-height: 44px; height: auto; padding: 0 12px; box-sizing: border-box; font-size: 16px; }
+.recovery-submit { background: #1264d6; color: #fff; }
+.station-identity { border-left: 0; background: #eef2f6; }
+.station-identity .banner-text { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.address-card { border-left: 1rpx solid var(--border-color); }
+.address-icon-wrap { background: transparent; }
+
+.product-image-empty { min-height: 80px; height: auto; }
+
+.enterprise-entry { margin:16rpx 24rpx; padding:20rpx; border:1rpx solid var(--border-light); background:#fff; border-radius:12rpx; font-size:14px; line-height:1.6; }
+.enterprise-entry .af-action { margin:4px 0 0; }
+.enterprise-entry button::after { border:0; }
+
+.enterprise-error { display:block; font-size:14px; line-height:1.6; color:var(--error-color); }
+
+.stepper-wrap { min-width:0; width:180px; max-width:100%; }
+.checkout-quantity-error { font-size:14px; color:var(--error-color); line-height:1.6; }
+
+.checkout-submit { flex:none; min-width:120px; }
+.checkout-remove { margin-left:auto; }
+.popup-btns { gap:8px; }
+.popup-btns .af-action--cancel { width:80px; }
+
+.payment-method.selected { border-color:var(--af-primary); background:var(--af-soft); box-shadow:none; }
+.payment-method.selected::before { background:var(--af-primary); }
+.payment-method.selected .method-name { color:var(--af-primary); }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.fee-summary { background:var(--af2-surface-money); border-radius:14px; }
+.fee-summary .section-title,.fee-summary .fee-label,.fee-summary .fee-value { color:var(--af2-ink-money); }
+.address-card,.section { border-radius:14px; }
+.product-info { min-width:0; overflow-wrap:anywhere; }
+.fee-row { gap:12px; }
+
+/* One compact quote in the sheet; long labels and amounts keep independent columns. */
+.detail-sheet-content { background:#EAF2FF; border-radius:12px; margin:12px 16px; padding:12px 14px; }
+.detail-row { align-items:flex-start; gap:12px; }
+.detail-item-name { font-size:14px; line-height:22px; }
+.detail-row > .detail-item-name,.detail-row > .detail-row-left { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+.detail-row > .detail-item-price { flex:0 1 auto; max-width:42%; min-width:0; color:#223247; text-align:right; overflow-wrap:anywhere; }
+.detail-item-meta { display:block; color:#5D6B7D; font-size:14px; line-height:20px; }
+.standalone-link { margin:0 0 8px; color:#1264D6; }
+.detail-sheet-footer { background:#FFFFFF; border-color:#DDE5EF; }
+.total-info { min-height:44px; justify-content:center; }
+.popup-content.detail-sheet { max-height:75vh; }
+.detail-total-row { gap:12px; }
+.detail-total-label { flex:1 1 auto; min-width:0; font-size:16px; line-height:24px; overflow-wrap:anywhere; }
+.detail-total-value { flex:0 1 auto; min-width:0; max-width:42%; color:#223247; text-align:right; overflow-wrap:anywhere; }
+.fee-value { overflow-wrap:anywhere; }
+
+.checkout-submit { min-height:52px; }
+
+/* 受控快捷备注与原输入共用 note，不触发报价或提交。 */
+.quick-notes { display:flex; flex-wrap:wrap; gap:4px 8px; margin-bottom:8px; }
+.quick-note { flex:0 1 auto; min-width:0; min-height:44px; }
+.quick-note .af-choice__face { white-space:normal; overflow-wrap:anywhere; font-size:14px; line-height:22px; }
+.quick-note.af-choice--selected .af-choice__face { background:var(--af2-surface-current); }
+.quick-note[aria-disabled="true"] { color:var(--af-disabled-text); }
+.note-input { min-height:44px; }
+
+/* 长金额保留完整；窄屏底栏按金额、操作分行。 */
+.total-price { min-width:0; overflow-wrap:anywhere; word-break:break-word; }
+@media (max-width:340px) {
+  .bar-main { flex-wrap:wrap; gap:8px; }
+  .total-info { flex:1 0 100%; }
+  .checkout-submit { margin-left:auto; }
+  .container { padding-bottom:calc(190px + env(safe-area-inset-bottom)); }
+}
+
+/* 数量控件、校验提示和移除操作各有可用宽度，错误信息可另起行。 */
+.stepper-wrap { flex:0 0 100%; width:100%; max-width:100%; flex-wrap:wrap; gap:8px; }
+.stepper-wrap integer-stepper { flex:1 1 220px; width:220px; min-width:142px; max-width:100%; }
+.checkout-quantity-error { flex:1 0 100%; }
+
+/* 恢复信息较长时可滚动，保留底栏主操作。 */
+.submit-unknown,.order-navigation-error { max-height:30vh; overflow-y:auto; }

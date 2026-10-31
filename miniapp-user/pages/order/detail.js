@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { getOrderDetail, cancelOrder } = require('../../api/order')
 const { createPayment } = require('../../api/order')
 const { getOrderImages } = require('../../api/orderImage')
@@ -29,7 +30,7 @@ Page({
     deliveryArrangementHint: '',
     deliveredAwaitingCollection: false,
     // 只拨本单服务水站公开电话；不暴露员工通讯录或客户档案。
-    callPhone: '',
+    callPhone: '', phoneState: 'idle',
     images: [],
     imagesState: 'idle',
     imagesError: '',
@@ -70,7 +71,7 @@ Page({
 
   clearDetail(detailState, loadError = '') {
     this.setData({ detailState, loadError, refreshNotice: '', order: null, items: [], images: [],
-      imagesState: 'idle', imagesError: '', callPhone: '', bucketInfo: null, fee: null,
+      imagesState: 'idle', imagesError: '', callPhone: '', phoneState: 'idle', bucketInfo: null, fee: null,
       canCancel: false, cancelLabel: '', canRepay: false, statusText: '', payStatusText: '', payHint: '',
       deliveredAwaitingCollection: false, legacyNoteUnavailable: false, deliveryArrangementHint: '' })
   },
@@ -106,9 +107,9 @@ Page({
           productId: it.productId || it.waterTypeId,
           productName: it.productNameSnapshot || it.productName || it.waterTypeName || '',
           productSpec: it.specSnapshot || it.productSpec || it.waterTypeSpec || '',
-          quantity: it.quantity || order.quantity || 1,
+          quantity: it.quantity != null ? it.quantity : order.quantity != null ? order.quantity : null,
           quantityUnit: itemUnit(it),
-          price: it.price || it.productPrice || 0,
+          price: it.price != null ? it.price : it.productPrice != null ? it.productPrice : null,
           imageUrl: ''
         }))
       } else {
@@ -116,17 +117,19 @@ Page({
           productId: order.productId || order.waterTypeId,
           productName: order.productNameSnapshot || order.productName || order.waterTypeName || '',
           productSpec: order.specSnapshot || order.productSpec || order.waterTypeSpec || '',
-          quantity: order.quantity || 1,
+          quantity: order.quantity != null ? order.quantity : null,
           quantityUnit: itemUnit(order),
-          price: order.price || 0,
+          price: order.price != null ? order.price : null,
           imageUrl: ''
         }]
       }
 
       // 只展示 type=8 配送流水的真实数据；绝不以送出-收回推欠桶（新押金桶不属于回收义务）。
+      const quantityKnown = value => ['number', 'string'].includes(typeof value) && String(value).trim() !== ''
+        && Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : null
       const bucketInfo = order.bucketDeliveryRecorded ? {
-        deliveredQty: Number(order.deliveredBarrelQty || 0),
-        returnedQty: Number(order.returnedBarrelQty || 0)
+        deliveredQty: quantityKnown(order.deliveredBarrelQty),
+        returnedQty: quantityKnown(order.returnedBarrelQty)
       } : null
 
       // 订单归属站：补商品图/详情时带上它，才能读到本站自定义商品（后端按 owner_station_id 过滤）
@@ -164,9 +167,9 @@ Page({
         deliveryFeeText: yuan(order.deliveryFee),
         floorFeeText: yuan(order.floorFee),
         totalText: yuan(order.totalAmount),
-        hasDeposit: Number(order.depositAmount || 0) > 0,
-        hasDeliveryFee: Number(order.deliveryFee || 0) > 0,
-        hasFloorFee: Number(order.floorFee || 0) > 0
+        hasDeposit: order.depositAmount == null || Number(order.depositAmount) !== 0,
+        hasDeliveryFee: true,
+        hasFloorFee: true
       }
 
       const deliveryArrangementHint = typeof order.deliveryArrangementHint === 'string' ? order.deliveryArrangementHint : ''
@@ -211,22 +214,29 @@ Page({
   async loadCallableStationPhone(order, context = this._detailContext) {
     // 已接单后联系履约站；未接单时联系归属站。使用公开电话端点，不读取员工电话。
     const stationId = order && (order.deliveryStationId || order.stationId)
-    if (!stationId) return
+    if (!stationId) { if (this.isDetailCurrent(context)) this.setData({ phoneState: 'empty' }); return }
+    if (this.isDetailCurrent(context)) this.setData({ phoneState: 'loading', callPhone: '' })
     try {
       const res = await getStationPublicPhone(stationId)
       const data = res && (res.data || res)
       if (this.isDetailCurrent(context)) {
-        this.setData({ callPhone: data && data.phone ? String(data.phone) : '' })
+        const callPhone = data && data.phone ? String(data.phone) : ''
+        this.setData({ callPhone, phoneState: callPhone ? 'ready' : 'empty' })
       }
     } catch (_) {
-      // 联系入口不可用时不显示假按钮；订单本身仍可正常查看。
+      // 2026-10-28：电话失败曾与未提供电话一起消失；保留事实与就近重试，不猜员工电话。
+      if (this.isDetailCurrent(context)) this.setData({ phoneState: 'error', callPhone: '' })
     }
+  },
+
+  onRetryPhone() {
+    if (this.data.order && this.data.phoneState !== 'loading' && this.isDetailCurrent(this._detailContext)) return this.loadCallableStationPhone(this.data.order)
   },
 
   onCallPhone() {
     const phone = this.data.callPhone || ''
     if (!phone) {
-      // 双保险：按钮已按 wx:if 隐藏，这里再挡一次，避免将来有人把按钮改回常显时又拨错号。
+      // 空号不能拨打；读取失败使用独立重试入口。
       console.warn('没有可拨打的水站公开电话，已跳过拨号')
       return
     }
@@ -287,7 +297,7 @@ Page({
     const res = await createPayment({
       orderId: order.id,
       customerId: getCustomerId(),
-      amount: order.totalAmount || order.amount,
+      amount: order.totalAmount != null ? order.totalAmount : order.amount,
       paymentMethod: order.paymentMethod || 1,
       waterAmount: 0,
       barrelDeposit: 0,
@@ -315,7 +325,7 @@ Page({
       && this.data.order && String(this.data.order.id) === String(order.id)
       && this.data.order.status === order.status && this.data.order.canCancel === true
     const release = () => { if (this._cancelFlight === flight) this._cancelFlight = null }
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: view.title,
       content: view.content,
       confirmText: view.confirmText,

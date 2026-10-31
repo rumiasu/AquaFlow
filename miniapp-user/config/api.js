@@ -1,4 +1,5 @@
 const { assertReleaseBaseUrl } = require('../utils/release-api-url')
+// 当前 develop 默认使用云容器；以下本地地址与 Wi-Fi 说明只在显式切回本地连接时适用。
 
 // API配置
 // [2026-09-22 结论] 下面这一行的值**不要手改**，由 `scripts/set-dev-api-host.ps1 -Apply` 维护：
@@ -13,12 +14,14 @@ const { assertReleaseBaseUrl } = require('../utils/release-api-url')
 //   所以回环只给开发者工具用（见 devtoolsBaseUrl）。
 //   真机预览还需在手机上打开「调试」（右上角 ... → 打开调试）跳过域名校验，
 //   因为 request 合法域名只接受已 ICP 备案的 HTTPS 域名，本机 HTTP 地址无法配置。
-//   环境契约：develop 走 dev；trial 显式选择独立 HTTPS 或云连接且缺失时拒绝；release 走 prod。
+//   环境契约：develop 默认复用已配置的云容器；trial 显式选择连接方式；release 走 prod。
 //   ⚠️ 换地址跑 `scripts/set-dev-api-host.ps1 -Apply`（它**同时改两端**；只改一端会让那一端白屏，
 //      现象同样是"网络错误"，很难联想到是 IP 不对）。
 const API_CONFIG = {
+  // Legacy isolated sandbox only; SERVER_TEST capabilities need no client binding configuration.
+  paymentSandbox: { environmentId: '', serviceId: '', bindingId: '', apiBaseUrl: '' },
   // devtoolsBaseUrl：开发者工具跑在**同一台笔记本**上，走回环即可 —— 换网络、开关热点都不影响写代码。
-  dev: { baseUrl: 'http://192.168.0.243:8080', devtoolsBaseUrl: 'http://127.0.0.1:8080' },
+  dev: { baseUrl: 'http://192.168.0.243:8080', devtoolsBaseUrl: 'http://127.0.0.1:8080', transport: 'cloudContainer' },
   // Non-secret trial identifiers only; HTTPS remains the default and empty settings fail closed.
   trial: {"transport":"cloudContainer","baseUrl":"","cloudContainer":{"env":"prod-d6gibkmt3c8bd08e9","service":"springboot-96ib","resourceAppid":"wxc6211615c79da9f9"}},
   prod: { baseUrl: 'https://your-domain.com' }
@@ -57,7 +60,7 @@ const isDevtools = () => {
 }
 
 
-/** Trial cloud routing bypasses the HTTPS base URL guard; every other environment keeps it. */
+/** Development uses the configured cloud container; trial and release keep their own routing. */
 const getTransportConfig = () => {
   let version
   try { version = __wxConfig.envVersion } catch (_) {
@@ -66,10 +69,11 @@ const getTransportConfig = () => {
   if (!['develop', 'trial', 'release'].includes(version)) {
     throw new Error('不支持的小程序环境版本：' + (version || 'unknown'))
   }
-  if (version !== 'trial') return { mode: 'https', baseUrl: getBaseUrl() }
+  const developCloud = version === 'develop' && API_CONFIG.dev.transport === 'cloudContainer'
+  if (version !== 'trial' && !developCloud) return { mode: 'https', baseUrl: getBaseUrl() }
   const trial = API_CONFIG.trial
-  if (trial.transport === 'https') return { mode: 'https', baseUrl: getBaseUrl() }
-  if (trial.transport !== 'cloudContainer') throw new Error('体验版连接方式未配置或不支持，请核实体验版设置')
+  if (!developCloud && trial.transport === 'https') return { mode: 'https', baseUrl: getBaseUrl() }
+  if (!developCloud && trial.transport !== 'cloudContainer') throw new Error('体验版连接方式未配置或不支持，请核实体验版设置')
   const cloud = trial.cloudContainer || {}
   const valid = value => typeof value === 'string' && !!value.trim() && value === value.trim() && !/[\s\u0000-\u001f\u007f]/.test(value)
   if (!valid(cloud.env) || !valid(cloud.service)) throw new Error('体验版云连接未配置：请填写环境 ID 和服务名称')
@@ -93,6 +97,7 @@ const getBaseUrl = () => {
   }
   const env = envVersion === 'release' ? 'prod' : envVersion === 'trial' ? 'trial' : 'dev'
   const envConfig = API_CONFIG[env]
+  if (env === 'dev' && envConfig.transport === 'cloudContainer') throw new Error('开发版使用云连接，请通过统一请求入口')
   // Only release is tightened; develop/trial routing and configured values remain unchanged.
   if (env === 'prod') assertReleaseBaseUrl(envConfig.baseUrl, API_CONFIG.dev)
   if (env === 'trial') {
@@ -149,10 +154,16 @@ const isDevelopEnv = () => {
   try { return __wxConfig.envVersion === 'develop' } catch (e) { return false }
 }
 
+// 页面和API均拒绝 release/未知版本；服务端还须独立开启明确测试部署。
+const isTestLoginClientEnv = () => {
+  try { return ['develop', 'trial'].includes(__wxConfig.envVersion) } catch (_) { return false }
+}
+
 // 与后端 Controller 路径一一对应
 const API = {
   // 认证（后端: LoginController）
   LOGIN: '/api/auth/login',
+  TEST_LOGIN: '/api/auth/test-login',
   WX_LOGIN: '/api/auth/wx-login',
   DEV_LOGIN: '/api/auth/dev-login',
   REFRESH: '/api/auth/refresh',
@@ -264,4 +275,4 @@ const getCustomerId = () => {
   return id
 }
 
-module.exports = { getTransportConfig, getBaseUrl, isReleaseEnv, isDevelopEnv, API, API_CONFIG, getCustomerId }
+module.exports = { getTransportConfig, getBaseUrl, isReleaseEnv, isDevelopEnv, isTestLoginClientEnv, API, API_CONFIG, getCustomerId }

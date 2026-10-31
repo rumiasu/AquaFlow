@@ -164,3 +164,36 @@
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
 .btn-primary, .btn-dev { height: auto; min-height: 48px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 .agreement-strong { display: inline-flex; min-height: 88rpx; align-items: center; }
+
+/* 2026-10-28 B2: local layout only; B0 owns action/choice faces and tokens. */
+ .b2-page { --primary-color: var(--af-primary); --primary-bg: var(--af-soft); --text-primary: var(--af-ink); --text-regular: var(--af-text-secondary); --text-secondary: var(--af-text-secondary); --bg-gray: var(--af-soft); --success-color: var(--af-positive); --error-color: var(--af-danger); --error-bg: var(--af-danger-soft); --bg-color: var(--af-canvas); --bg-card: var(--af-surface); --border-color: var(--af-border); }
+ .btn-area > .af-action--block { margin-top: 16px; } .btn-area > .af-action--quiet { margin: 16px auto 0; } .agreement { gap: 2px; } .agreement .b2-inline-tool { padding: 0 2px; }
+
+/* 2026-10-29 visual-L: page-local composition; shared controls and palette stay V0-owned. */
+.lv2-page { --bg-color:var(--af2-page); --bg-card:var(--af2-surface); --border-color:var(--af2-line); --text-primary:var(--af2-ink); --text-regular:var(--af2-muted); background:var(--af2-page); color:var(--af2-ink); box-sizing:border-box; font-size:15px; line-height:24px; }
+.lv2-page .ui-state { box-sizing:border-box; margin:12px 0; padding:16px; border-radius:14px; border:1px solid var(--af2-line); }
+.lv2-title-row { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.lv2-title-row > text { flex:1; min-width:0; font-size:22px; line-height:30px; font-weight:600; }
+.lv2-page .af2-icon-tile { background:var(--af2-surface-order); }
+.lv2-page .lv2-neutral-tile { background:var(--af2-surface-neutral); }
+.lv2-page .lv2-physical-tile { background:var(--af2-surface-physical); }
+.lv2-page .lv2-money-tile { background:var(--af2-surface-money); }
+
+.lv2-login { padding:36px 20px; justify-content:flex-start; }
+.lv2-login .logo-area { padding:24px 0 20px; margin:0 0 20px; gap:14px; }
+.lv2-login-mark { width:64px; height:64px; display:flex; align-items:center; justify-content:center; background:var(--af2-surface-order); border-radius:18px; }
+.lv2-login .title { font-size:28px; line-height:36px; margin:0; font-weight:600; }
+.lv2-login .btn-area { margin:0; padding:20px 16px; background:var(--af2-surface); box-sizing:border-box; border-radius:16px; }
+.lv2-login .btn-area > .af-action--primary { margin-top:0; }
+.lv2-login .agreement { margin-top:14px; font-size:13px; line-height:22px; flex-wrap:wrap; }
+.lv2-login .agreement .af-action__face { background:transparent; font-size:13px; padding:4px; }
+.lv2-login .tips { margin-top:18px; text-align:left; }
+.lv2-login .tip-text { font-size:13px; line-height:20px; color:var(--af2-muted); }
+
+/* 临时测试凭据只留在当前表单；使用原页面色彩和操作按钮。 */
+.test-login { margin-top: 28rpx; padding-top: 24rpx; border-top: 1rpx solid var(--border-color, #e2e8f0); }
+.test-login-title { display: block; margin-bottom: 16rpx; font-size: 26rpx; color: var(--text-secondary, #64748b); }
+.test-login-input { box-sizing: border-box; height: 88rpx; margin-bottom: 16rpx; padding: 0 24rpx; border: 1rpx solid var(--border-color, #d8e0e8); border-radius: 16rpx; background: var(--bg-color, #fff); color: var(--text-primary, #1e293b); font-size: 28rpx; }
+
+/* 白底品牌标记与页面正文分开，便于小尺寸阅读。 */
+.aiquan-login-mark { width: 54px; height: 54px; }

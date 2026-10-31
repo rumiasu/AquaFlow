@@ -14,6 +14,7 @@
     <!-- ============ 表单 ============ -->
     <view class="card">
       <view class="card-title">调整信息</view>
+      <view class="field-hint"><text>未提交的编辑内容仅在本页保留。</text></view>
 
       <view class="field">
         <text class="field-label">调整类型<text class="required">*</text></text>
@@ -29,35 +30,29 @@
       <block wx:if="{{option && option.needProduct}}">
         <view class="field">
           <text class="field-label">商品<text class="required">*</text></text>
-          <picker wx:if="{{!manualProduct}}" mode="selector" range="{{productLabels}}" value="{{productIndex}}" bindchange="onProductChange">
-            <view class="picker-value">
-              <text wx:if="{{productIndex >= 0}}">{{productLabels[productIndex]}}</text>
-              <text class="placeholder" wx:else>请选择商品</text>
-            </view>
-          </picker>
+          <block wx:if="{{!manualProduct}}">
+            <button class="af-action af-action--quiet b3-on-toggle-product-selector" wx:if="{{productList.length > 4}}" bindtap="onToggleProductSelector" disabled="{{productLoading || !!productError || submitting || adjustmentSubmitUnknown || !!adjustmentRecoveryError}}" hover-class="af-action--pressed"><view class="af-action__face">{{productIndex >= 0 ? productLabels[productIndex] : '选择商品'}} · {{productSelectorExpanded ? '收起' : '展开'}}</view></button>
+            <product-selector wx:if="{{productList.length <= 4 || productSelectorExpanded}}" items="{{productList}}" selected-id="{{productIndex >= 0 ? productList[productIndex].id : ''}}" disabled="{{productLoading || !!productError || submitting || adjustmentSubmitUnknown || !!adjustmentRecoveryError}}" bind:change="onProductSelect" />
+          </block>
           <input wx:else class="field-input" type="number" value="{{productIdInput}}" placeholder="手填本站商品编号（正整数）" bindinput="onManualProductInput" />
+          <view class="field-hint" wx:if="{{productLoading}}"><text>正在读取商品…</text></view>
+          <view class="field-hint" wx:if="{{productError}}"><text>{{productError}}</text><button size="mini" bindtap="onRetryProducts" class="af-action af-action--quiet b3-on-retry-products" hover-class="af-action--pressed"><view class="af-action__face">重试商品列表</view></button></view>
           <view class="field-hint" wx:if="{{productHint}}"><text>{{productHint}}</text></view>
-          <view class="field-link" bindtap="onToggleManualProduct">
-            <text>{{manualProduct ? '返回商品列表选择' : '商品不在列表里？手动填写商品编号'}}</text>
-          </view>
+          <view class="af-action af-action--quiet b3-on-toggle-manual-product" bindtap="onToggleManualProduct"><view class="af-action__face"><text>{{manualProduct ? '返回商品列表选择' : '商品不在列表里？手动填写商品编号'}}</text></view></view>
         </view>
       </block>
 
       <!-- 数量（OVER_ADJUST 时下面会出现「补记 / 核销」二选一） -->
       <view class="field" wx:if="{{option && option.needQty}}">
         <text class="field-label">数量<text class="required">*</text></text>
-        <input class="field-input" type="digit" value="{{form.qty}}" placeholder="大于 0 的整数" bindinput="onQtyInput" />
+        <integer-stepper value="{{form.qty}}" min="{{1}}" max="{{2147483647}}" step="{{1}}" disabled="{{submitting || adjustmentSubmitUnknown || adjustmentRecoveryError}}" placeholder="大于 0 的整数" bind:change="onQtyInput" />
       </view>
 
       <view class="field" wx:if="{{option && option.isOverAdjust}}">
         <text class="field-label">欠桶方向<text class="required">*</text></text>
         <view class="sign-row">
-          <view class="sign-btn {{overSign === 1 ? 'active' : ''}}" bindtap="onOverSign" data-sign="1">
-            <text>补记欠桶（欠桶 +{{form.qty || 0}}）</text>
-          </view>
-          <view class="sign-btn {{overSign === -1 ? 'active' : ''}}" bindtap="onOverSign" data-sign="-1">
-            <text>核销欠桶（欠桶 -{{form.qty || 0}}）</text>
-          </view>
+          <view class="af-choice b3-on-over-sign {{overSign === 1 ? 'af-choice--selected' : ''}}" bindtap="onOverSign" data-sign="1"><view class="af-choice__face"><text>补记欠桶（欠桶 +{{form.qty || '—'}}）</text></view></view>
+          <view class="af-choice b3-on-over-sign {{overSign === -1 ? 'af-choice--selected' : ''}}" bindtap="onOverSign" data-sign="-1"><view class="af-choice__face"><text>核销欠桶（欠桶 -{{form.qty || '—'}}）</text></view></view>
         </view>
         <view class="field-hint"><text>欠桶为正=客户欠本站桶；负=客户多还的桶寄存在本站（合法状态）。</text></view>
       </view>
@@ -85,11 +80,9 @@
         <view class="evidence-row">
           <view class="evidence-item" wx:for="{{evidenceList}}" wx:key="*this">
             <view class="evidence-img ui-proof-frame" ><image src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onPreviewEvidence" style="width:100%;height:100%;" binderror="onDisplayImageError" data-src="{{item}}" wx:if="{{!displayImageErrors[item]}}" /><view class="ui-image-fallback" wx:else bindtap="onPreviewEvidence" data-index="{{index}}">图片暂无法显示，点此预览原图</view></view>
-            <text class="evidence-del" data-index="{{index}}" catchtap="onRemoveEvidence">×</text>
+            <view class="af-action af-action--quiet b3-on-remove-evidence" data-index="{{index}}" catchtap="onRemoveEvidence"><view class="af-action__face">×</view></view>
           </view>
-          <view class="evidence-add" wx:if="{{evidenceList.length < 3}}" bindtap="onChooseEvidence">
-            <text>{{uploading ? '上传中...' : '+ 添加'}}</text>
-          </view>
+          <view class="af-action af-action--quiet b3-on-choose-evidence" wx:if="{{evidenceList.length < 3}}" bindtap="onChooseEvidence"><view class="af-action__face"><text>{{uploading ? '上传中...' : '+ 添加'}}</text></view></view>
         </view>
       </view>
     </view>
@@ -122,8 +115,8 @@
     </view>
 
     <view class="footer">
-      <view class="btn-half ghost" bindtap="onPreview"><text>{{previewing ? '试算中...' : '试算'}}</text></view>
-      <view class="btn-half primary" bindtap="onSubmit"><text>{{submitting ? '提交中...' : '保存待执行单'}}</text></view>
+      <view class="af-action af-action--quiet b3-on-preview" bindtap="onPreview"><view class="af-action__face"><text>{{previewing ? '试算中...' : '试算'}}</text></view></view>
+      <view class="af-action af-action--primary b3-on-submit af-action--grow" bindtap="onSubmit"><text>{{submitting ? '提交中...' : '保存待执行单'}}</text></view>
     </view>
     <view class="footer-tip">
       <text>提交后单据为「待执行」，需在列表或详情页点「执行」才会真正改写客户资产。</text>
@@ -132,12 +125,15 @@
 </view>
 
 <view wx:if="{{uploadRecoveryCases.length || uploadRecoveryReadFailed}}" class="upload-recovery-panel">
-  <text>待核实图片记录</text>
+  <button size="mini" bindtap="onToggleUploadRecovery" class="af-action af-action--quiet b3-on-toggle-upload-recovery" hover-class="af-action--pressed"><view class="af-action__face">{{uploadRecoveryReadFailed ? '图片异常记录读取失败' : '图片上传异常（' + uploadRecoveryCases.length + '）'}} · {{uploadRecoveryExpanded ? '收起' : '查看'}}</view></button>
+  <block wx:if="{{uploadRecoveryExpanded}}">
   <text wx:if="{{uploadRecoveryReadFailed}}">记录暂时无法读取，请先核实图片</text>
   <view wx:for="{{uploadRecoveryCases}}" wx:key="id">
     <text>{{item.label}}</text>
-    <button size="mini" disabled="{{uploadRecovering}}" data-caseid="{{item.id}}" bindtap="onUploadRecover">核实图片</button>
-    <button size="mini" data-caseid="{{item.id}}" bindtap="onUploadResumeDraft">继续这份草稿</button>
+    <button size="mini" disabled="{{uploadRecovering}}" data-caseid="{{item.id}}" bindtap="onUploadRecover" class="af-action af-action--quiet b3-on-upload-recover" hover-class="af-action--pressed"><view class="af-action__face">核实图片</view></button>
+    <button size="mini" data-caseid="{{item.id}}" bindtap="onUploadResumeDraft" class="af-action af-action--quiet b3-on-upload-resume-draft" hover-class="af-action--pressed"><view class="af-action__face">继续这份草稿</view></button>
   </view>
-  <button size="mini" bindtap="onUploadNewDraft">另开独立图片草稿</button>
+  <button size="mini" bindtap="onUploadNewDraft" class="af-action af-action--quiet b3-on-upload-new-draft" hover-class="af-action--pressed"><view class="af-action__face">另开独立图片草稿</view></button>
+  </block>
 </view>
+<business-dialog id="business-dialog" />

@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "历史资产核对"
+  "navigationBarTitleText": "历史资产核对",
+  "usingComponents": {
+    "help-tip": "/components/HelpTip/index"
+  }
 }

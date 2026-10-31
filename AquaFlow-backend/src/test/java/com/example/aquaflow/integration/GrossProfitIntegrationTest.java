@@ -1,471 +1,55 @@
 package com.example.aquaflow.integration;
-
+import com.example.aquaflow.service.InventoryReservationService;
+import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.support.AbstractIntegrationTest;
 import com.example.aquaflow.support.TestBusinessClock;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
-
 import java.math.BigDecimal;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-/**
- * 进货成本与利润（v39，Phase 3）。
- *
- * <p>盯三件事：成本能落到**站级**、利润算得对（且排除取消单）、
- * <b>没填成本时必须明说"未填成本、这一项算不出来"而不是给全额利润</b>。</p>
- *
- * <p>最后一条是本用例里最重要的：把缺失成本当 0 相减，站长会以为自己赚了整整一个售价 ——
- * 那是最坏的一种"看起来正确"。</p>
- *
- * <p>⚠️ 用词：类名/端点/表名里的 GrossProfit 是代码里的历史命名，<b>下发给站长的文案一律叫「利润」</b>
- * （[2026-09-26] 产品口径：本仓用户是小水站，"毛利"是财务术语）。</p>
- */
+import static org.junit.jupiter.api.Assertions.*;
+/** HTTP receipts and transactional cost snapshots; missing history stays unknown. */
 @Import(TestBusinessClock.Config.class)
 class GrossProfitIntegrationTest extends AbstractIntegrationTest {
+ @Autowired InventoryReservationService reservations;
+ @Autowired InventoryService inventories;
+ long station,manager,customer,address,product; String token;
+ @BeforeEach void seed(){
+  TestBusinessClock.freezeAtDbNow(jdbc);station=createStation("成本测试站");manager=createStaff("站长","STATION_MANAGER",station,1);
+  customer=createCustomer("客户","cost-snapshot-customer");address=createAddress(customer,"测试地址");
+  product=createProduct("测试商品",2,"20.00","0.00",0,"0.00");createInventoryFull(station,product,0,0,"0.00");token=staffToken(manager,"STATION_MANAGER",station);
+ }
+ Api inbound(int qty,String cost,String key){return post("/api/inventory/inbound-with-cost-receipt?stationId="+station,token,
+  "{\"clientRequestId\":\""+key+"\",\"items\":[{\"productId\":"+product+",\"quantity\":"+qty+(cost==null?"":",\"costAmount\":"+cost)+"}]}");}
+ long sold(int qty,int method){String amount=BigDecimal.valueOf(20L*qty).toPlainString();long id=createOrderFull(customer,address,station,product,2,2,method,amount,"0.00",amount,false,qty);
+  createReservedItem(id,product,"测试商品",qty,"20.00","0.00");reservations.shipForOrder(id,station);jdbc.update("update orders set status=4 where id=?",id);return id;}
+ JsonNode report(){return report(TestBusinessClock.today().toString());}
+ JsonNode report(String day){Api r=get("/api/manager/gross-profit?from="+day+"&to="+day,token);assertEquals(0,r.code(),r.toString());return r.data();}
+ void money(String e,JsonNode r,String f){assertTrue(r.path(f).isNumber(),f+": "+r);assertEquals(0,new BigDecimal(e).compareTo(r.path(f).decimalValue()),f);}
+ void incomeOnly(JsonNode r){assertFalse(r.path("costComplete").asBoolean());for(String f:new String[]{"totalCost","totalProfit","netProfit"})assertTrue(r.path(f).isNull(),f+": "+r);for(JsonNode row:r.path("items"))assertTrue(row.path("profit").isNull());}
+ @Test void optionalCostNeverBecomesZero(){assertEquals(0,inbound(3,null,"INB-optional-cost-0001").code());sold(2,1);JsonNode r=report();money("40",r,"totalIncome");incomeOnly(r);assertNull(decimalOf("select cost_amount from inventory where station_id=? and product_id=?",station,product));assertEquals(0,get("/api/manager/gross-profit/missing-cost",token).data().size());}
+ @Test void explicitZeroAndImmutableReceipt(){assertEquals(0,inbound(3,"0","INB-zero-cost-0000001").code());assertEquals(0,inbound(3,"0.00","INB-zero-cost-0000001").code());assertNotEquals(0,inbound(3,"1","INB-zero-cost-0000001").code());assertEquals(3,intOf("select quantity from inventory where station_id=? and product_id=?",station,product));assertEquals(1,intOf("select count(*) from inventory_record where station_id=?",station));sold(2,1);JsonNode r=report();assertTrue(r.path("costComplete").asBoolean());money("0",r,"totalCost");money("40",r,"totalProfit");}
+ @Test void mixedKnownBatchesAndLaterPriceCannotRewriteHistory(){assertEquals(0,inbound(2,"10","INB-known-batch-00001").code());assertEquals(0,inbound(2,"20","INB-known-batch-00002").code());sold(3,1);JsonNode r=report();money("60",r,"totalIncome");money("22.50",r,"totalCost");money("37.50",r,"netProfit");assertEquals(0,new BigDecimal("7.50").compareTo(decimalOf("select cost_amount from inventory where station_id=? and product_id=?",station,product)));assertEquals(0,inbound(1,"100","INB-known-batch-00003").code());money("22.50",report(),"totalCost");}
+ @Test void mixedUnknownPoolAndPeriodIsolation(){assertEquals(0,inbound(1,null,"INB-unknown-batch-001").code());assertEquals(0,inbound(1,"10","INB-unknown-batch-002").code());long old=sold(2,1);incomeOnly(report());jdbc.update("update orders set create_time=? where id=?",TestBusinessClock.now().minusDays(2),old);assertEquals(0,inbound(1,"5","INB-unknown-batch-003").code());sold(1,1);money("5",report(),"totalCost");incomeOnly(report(TestBusinessClock.today().minusDays(2).toString()));}
+ @Test void legacyPriceCannotBackfillHistoricalCost(){jdbc.update("update inventory set quantity=5,cost_price=12 where station_id=? and product_id=?",station,product);long id=createOrderFull(customer,address,station,product,4,2,1,"20","0","20",false,1);createOrderItemFull(id,product,"旧订单",1,0,"20","0");incomeOnly(report());jdbc.update("update inventory set cost_price=1 where station_id=?",station);incomeOnly(report());assertNotEquals(0,put("/api/manager/gross-profit/cost",token,"{\"productId\":"+product+",\"costPrice\":0}").code());}
+ @Test void unrelatedCatalogMissingCostDoesNotHideCompletePeriod(){long other=createProduct("未入库商品",2,"99","0",0,"0");createInventoryFull(station,other,0,0,"0");assertEquals(0,inbound(2,"12","INB-scope-batch-00001").code());sold(1,1);money("6",report(),"totalCost");}
+ @Test void invalidMoneyAndForeignProductDoNotMutateStock(){for(String invalid:new String[]{"-1","0.001","10000000000000000"})assertNotEquals(0,inbound(2,invalid,"INB-invalid-cost-0001").code());assertEquals(0,intOf("select quantity from inventory where station_id=? and product_id=?",station,product));assertEquals(0,intOf("select count(*) from inventory_record"));long foreign=createStation("他站");jdbc.update("update product set owner_station_id=? where id=?",foreign,product);assertNotEquals(0,inbound(1,"10","INB-foreign-cost-0001").code());assertEquals(0,intOf("select count(*) from inventory_record"));}
+ @Test void actualReturnRestoresCostButMoneyRefundDoesNot(){assertEquals(0,inbound(4,"20","INB-return-cost-00001").code());long id=sold(2,1);insert("insert into payment_record(order_id,customer_id,station_id,payment_method,status,amount,water_amount) values(?,?,?,1,3,-40,-40)",id,customer,station);JsonNode r=report();money("0",r,"orderRevenue");money("10",r,"totalCost");money("-10",r,"totalProfit");inventories.setStock(station,product,3,"REFUND_RESTORE",id,"退回一件");money("5",report(),"totalCost");inventories.setStock(station,product,4,"REFUND_RESTORE",id,"再退一件");money("0",report(),"totalCost");assertEquals(0,new BigDecimal("20").compareTo(decimalOf("select cost_amount from inventory where station_id=? and product_id=?",station,product)));}
+ @Test void ticketRevenueOnlyOnceAndCrossPeriodCost(){assertEquals(0,inbound(2,"24","INB-ticket-cost-00001").code());sold(2,3);long pay=createPaymentRecord(null,customer,station,"36",1,2);jdbc.update("update payment_record set ticket_water_type_id=?,ticket_qty=2,update_time=? where id=?",product,TestBusinessClock.now(),pay);JsonNode r=report();money("0",r,"orderRevenue");money("36",r,"ticketRevenue");money("24",r,"totalCost");money("12",r,"totalProfit");jdbc.update("update payment_record set update_time=? where id=?",TestBusinessClock.now().minusDays(40),pay);r=report();money("0",r,"totalIncome");money("-24",r,"totalProfit");}
+ @Test void revenueFeesWagesAndDepositsKeepTheirBasis(){assertEquals(0,inbound(2,"24","INB-income-cost-00001").code());long id=sold(2,2);jdbc.update("update orders set delivery_fee=5,floor_fee=2,deposit_amount=60,total_amount=107 where id=?",id);insert("insert into staff_earning(station_id,staff_id,order_id,kind,product_id,amount) values(?,?,?,'DELIVERY_BUCKET',?,6)",station,manager,id,product);JsonNode r=report();money("40",r,"totalRevenue");money("47",r,"totalIncome");money("6",r,"wage");money("17",r,"netProfit");}
+ @Test void stationAndRoleIsolation(){assertEquals(0,inbound(1,"7","INB-isolate-cost-0001").code());sold(1,1);long other=createStation("隔离站");String ot=staffToken(createStaff("他站长","STATION_MANAGER",other,1),"STATION_MANAGER",other);money("0",get("/api/manager/gross-profit?stationId="+station,ot).data(),"totalIncome");assertNotEquals(0,get("/api/manager/gross-profit",customerToken(customer)).code());assertNotEquals(0,post("/api/inventory/inbound-with-cost-receipt",customerToken(customer),"{}").code());}
+ @Test void fulfilledCrossStationUsesOnlyFulfillingStationsSnapshot(){
+  long other=createStation("履约站");createInventoryFull(other,product,2,0,"0");
+  jdbc.update("update inventory set cost_amount=10 where station_id=? and product_id=?",other,product);
+  long id=createOrderFull(customer,address,station,product,2,2,1,"40","0","40",false,2);
+  jdbc.update("update orders set settle_station_id=?,delivery_station_id=? where id=?",other,other,id);
+  createReservedItem(id,product,"跨站商品",2,"20","0");reservations.shipForOrder(id,other);
+  jdbc.update("update orders set status=4 where id=?",id);
+  money("0",report(),"totalIncome");
+  String ot=staffToken(createStaff("履约站长","STATION_MANAGER",other,1),"STATION_MANAGER",other);
+  JsonNode r=get("/api/manager/gross-profit",ot).data();money("40",r,"totalIncome");money("10",r,"totalCost");money("30",r,"totalProfit");
+ }
 
-    /**
-     * [F-43] 把业务"现在"钉在**数据库当前时刻**：Java 侧（区间端点）与 SQL 侧（造数/断言）
-     * 从此读同一个值，跨零点不会一边说今天、一边说明天。见 {@link TestBusinessClock}。
-     */
-    @BeforeEach
-    void freezeClockAtDbNow() {
-        TestBusinessClock.freezeAtDbNow(jdbc);
-    }
-
-    @Test
-    @DisplayName("毛利 = 收入 − 销量×成本，且只算本站、排除取消单")
-    void profitComputedForStationOnly() {
-        long station = createStation("毛利站");
-        long otherStation = createStation("毛利他站");
-        long manager = createStaff("毛利站长", "STATION_MANAGER", station, 1);
-        long customer = createCustomer("毛利客户", "gp-openid");
-        long address = createAddress(customer, "毛利小区 1 号");
-        // 售价 20，成本 12
-        long product = createProduct("毛利水", 1, "20.00", "30.00", 0, "0.00");
-        createInventoryFull(station, product, 100, 0, "0.00");
-        createInventoryFull(otherStation, product, 100, 0, "0.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-
-        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"productId\":" + product + ",\"costPrice\":12.00}").code(), "设置成本价");
-        assertEquals(0, new BigDecimal("12.00").compareTo(
-                        decimalOf("SELECT cost_price FROM inventory WHERE station_id=? AND product_id=?",
-                                station, product)), "成本必须落在**本站**的 inventory 行上");
-        assertEquals(1, intOf("SELECT COUNT(*) FROM inventory WHERE station_id=? AND product_id=? AND cost_price IS NULL",
-                        otherStation, product),
-                "成本是站级的：他站的同一商品不该被写入成本");
-
-        // 下一单：2 桶 × 20 = 40 收入
-        assertEquals(0, order(customerToken(customer), station, address, product, 2, "gp-1").code());
-
-        String today = TestBusinessClock.today().toString();
-        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        assertEquals(0, report.code(), "毛利报表: " + report);
-        assertEquals(0, new BigDecimal("40.00").compareTo(
-                        new BigDecimal(report.data().path("totalRevenue").asText())), "收入 2 × 20 = 40");
-        assertEquals(0, new BigDecimal("24.00").compareTo(
-                        new BigDecimal(report.data().path("totalCost").asText())), "成本 2 × 12 = 24");
-        assertEquals(0, new BigDecimal("16.00").compareTo(
-                        new BigDecimal(report.data().path("totalProfit").asText())), "毛利 40 − 24 = 16");
-        assertEquals(0, report.data().path("missingCostKinds").asInt(), "本商品已填成本");
-
-        // 取消该单 → 收入/成本/毛利都应归零（取消单不进营收）
-        long orderId = longOf("SELECT id FROM orders WHERE station_id=? ORDER BY id DESC LIMIT 1", station);
-        assertEquals(0, put("/api/orders/" + orderId + "/customer-cancel", customerToken(customer),
-                "{\"reason\":\"测试取消\"}").code(), "取消订单");
-        Api after = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        assertEquals(0, new BigDecimal("0.00").compareTo(
-                        new BigDecimal(after.data().path("totalRevenue").asText())),
-                "已取消(5)的订单不该计入营收");
-    }
-
-    @Test
-    @DisplayName("没填成本的商品：毛利显示「算不出来」而不是全额，合计毛利给 null + 提示")
-    void missingCostIsNotTreatedAsZero() {
-        long station = createStation("缺成本站");
-        long manager = createStaff("缺成本站长", "STATION_MANAGER", station, 1);
-        long customer = createCustomer("缺成本客户", "gp-missing-openid");
-        long address = createAddress(customer, "缺成本小区 1 号");
-        long product = createProduct("缺成本水", 1, "20.00", "30.00", 0, "0.00");
-        createInventoryFull(station, product, 100, 0, "0.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-
-        assertEquals(0, order(customerToken(customer), station, address, product, 2, "gp-2").code());
-        String today = TestBusinessClock.today().toString();
-
-        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        assertEquals(0, report.code(), "毛利报表: " + report);
-        assertEquals(0, new BigDecimal("40.00").compareTo(
-                        new BigDecimal(report.data().path("totalRevenue").asText())), "收入仍要照实显示");
-        assertEquals(1, report.data().path("missingCostKinds").asInt(), "应标出 1 个商品没填成本");
-        // ⚠️ 核心断言：合计毛利必须是 null，不能是 40（那是"把成本当 0"算出来的假毛利）
-        assertTrue(report.data().path("totalProfit").isNull(),
-                "有商品没填成本时，合计毛利不得给出数字（把成本当 0 会显示成赚了整个售价）");
-        assertTrue(report.data().path("missingCostHint").asText().contains("没填进货成本"),
-                "必须给出可读提示: " + report.data().path("missingCostHint").asText());
-
-        // [2026-09-26 产品口径] 缺成本**不是"把这一块藏起来"**：
-        // 报表照常下发、口径提示照常下发，只是把给不出的数字换成 null（前端渲染成「未填成本」）。
-        // 前端要是因为缺成本就整块不显示，站长会以为功能没了，而不是"还差一个成本价"。
-        assertTrue(report.data().path("missingCostHint").asText().contains("利润"),
-                "面向站长的用词是「利润」不是「毛利」: " + report.data().path("missingCostHint").asText());
-        assertFalse(report.data().path("costBasisNote").asText().isEmpty(), "成本口径提示必须照常下发");
-        assertFalse(report.data().path("profitBasisNote").asText().isEmpty(), "净利口径提示必须照常下发");
-        assertTrue(report.data().path("netProfit").isNull(), "缺成本时净利也必须为 null（与利润同一条命）");
-
-        // 单商品行也不得给出毛利数字
-        assertEquals("未填成本，无法计算",
-                report.data().path("items").get(0).path("profitText").asText(),
-                "缺成本的行必须明确写「算不出来」");
-
-        // 欠成本清单要能列出它
-        assertEquals(1, get("/api/manager/gross-profit/missing-cost", mgr).data().size(),
-                "未填成本清单应列出该商品");
-    }
-
-    @Test
-    @DisplayName("护栏：负成本/缺参数/未上架都被拒，且「清除」必须显式声明")
-    void costGuards() {
-        long station = createStation("成本护栏站");
-        long otherStation = createStation("成本护栏他站");
-        long manager = createStaff("成本护栏站长", "STATION_MANAGER", station, 1);
-        long product = createProduct("成本护栏水", 1, "20.00", "30.00", 0, "0.00");
-        createInventoryFull(station, product, 100, 0, "0.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-
-        assertNotEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"productId\":" + product + ",\"costPrice\":-1.00}").code(), "负成本必须被拒");
-        assertNotEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"costPrice\":12.00}").code(), "缺 productId 必须被拒");
-        // ⚠️ 这条是关键：不给 costPrice 又不声明 clear，必须报错而不是"静默清空"
-        // （客户端把键名拼错时就会走到这里）
-        assertNotEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"productId\":" + product + ",\"cost\":9.90}").code(),
-                "键名拼错时必须报错 —— 不能变成一次静默清空成本价");
-        assertEquals(1, intOf("SELECT COUNT(*) FROM inventory WHERE station_id=? AND product_id=? AND cost_price IS NULL",
-                station, product), "被拒的请求不得改动库里的成本价");
-
-        // 他站没有该商品的上架配置 → 不得静默成功
-        // （他站本来就没有 inventory 行，这里不必先断言行数 —— 直接验证"没有行时不得返回成功"）
-        String otherMgr = staffToken(createStaff("成本护栏他站长", "STATION_MANAGER", otherStation, 1),
-                "STATION_MANAGER", otherStation);
-        assertEquals(0, intOf("SELECT COUNT(*) FROM inventory WHERE station_id=? AND product_id=?",
-                otherStation, product), "他站本来就没有该商品的上架行");
-        assertNotEquals(0, put("/api/manager/gross-profit/cost", otherMgr,
-                "{\"productId\":" + product + ",\"costPrice\":9.00}").code(),
-                "本站没有该商品的上架配置时必须报错，不能静默成功");
-
-        // 显式清除
-        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"productId\":" + product + ",\"costPrice\":12.00}").code());
-        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"productId\":" + product + ",\"clear\":true}").code(), "显式清除应成功");
-        assertEquals(1, intOf("SELECT COUNT(*) FROM inventory WHERE station_id=? AND product_id=? AND cost_price IS NULL",
-                station, product), "清除后成本应回到 NULL");
-    }
-
-    @Test
-    @DisplayName("时间窗含当天：结束日传今天时，今天下的单必须被统计到")
-    void reportIncludesToday() {
-        long station = createStation("当日毛利站");
-        long manager = createStaff("当日毛利站长", "STATION_MANAGER", station, 1);
-        long customer = createCustomer("当日毛利客户", "gp-today-openid");
-        long address = createAddress(customer, "当日毛利小区 1 号");
-        long product = createProduct("当日毛利水", 1, "20.00", "30.00", 0, "0.00");
-        createInventoryFull(station, product, 100, 0, "0.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"productId\":" + product + ",\"costPrice\":12.00}").code());
-        assertEquals(0, order(customerToken(customer), station, address, product, 1, "gp-today").code());
-
-        String today = TestBusinessClock.today().toString();
-        // ⚠️ 时间上界若写成 <= 结束日，今天的单一条都统计不到（AGENTS §8.19）——
-        // 站长看到的会是"今天没卖出去"，而这最容易被误读成"确实没卖"
-        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        assertEquals(0, new BigDecimal("20.00").compareTo(
-                        new BigDecimal(report.data().path("totalRevenue").asText())),
-                "结束日传今天时，今天下的单必须被统计到");
-    }
-
-    @Test
-    @DisplayName("净利 = 水费 + 配送费 + 楼层费 − 进货成本 − 计件工钱，且与毛利同一批订单")
-    void netProfitAddsFeesAndSubtractsWages() {
-        long station = createStation("净利站");
-        long manager = createStaff("净利站长", "STATION_MANAGER", station, 1);
-        long rider = createStaff("净利配送员", "DELIVERY", station, 1);
-        long customer = createCustomer("净利客户", "np-openid");
-        long address = createAddress(customer, "净利小区 1 号");
-        long product = createProduct("净利水", 1, "20.00", "30.00", 0, "0.00");
-        createInventoryFull(station, product, 100, 0, "0.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"productId\":" + product + ",\"costPrice\":12.00}").code(), "设成本价 12");
-        // 计件单价必须在本站配置里，否则完成配送时静默跳过（"没配计件"是合法经营状态）
-        assertEquals(0, put("/api/manager/piece-rate", mgr, "{\"perBucketAmount\":3.00}").code(), "设计件单价");
-
-        // 直接造一张「配送中(2)」的现金单（下单→指派→接单三步已由 DeliveryCompleteIntegrationTest 覆盖）
-        long orderId = createOrderFull(customer, address, station, product,
-                2, 1, 2, "40.00", "0.00", "40.00", false, 2);
-        // ⚠️ 必须有 order_item：毛利的水费收入与计件的送桶收益都是**按明细行**产生的
-        long itemId = insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
-                        + "VALUES (?,?,?,?,?,?,?)",
-                orderId, product, "净利水", new BigDecimal("20.00"), 2,
-                new BigDecimal("0.00"), new BigDecimal("40.00"));
-        // 新模型：完成配送要过出库完整性检查（每条明细都要配一条活跃预留凭据）
-        reserveExistingItem(itemId);
-        // 配送费/楼层费：下单链路的金额由计费配置决定，这里只验证净利的加法，直接写库
-        jdbc.update("UPDATE orders SET delivery_staff_id=?, delivery_fee=5.00, floor_fee=2.00 WHERE id=?",
-                rider, orderId);
-        // 完成配送（走到「送达」这一步才会产生计件收益）
-        assertEquals(0, post("/api/delivery/orders/" + orderId + "/complete", mgr,
-                "{\"collected\":false,\"note\":\"净利用例\"}").code(), "完成配送");
-
-        BigDecimal wage = decimalOf(
-                "SELECT COALESCE(SUM(amount),0) FROM staff_earning WHERE order_id=?", orderId);
-        assertTrue(wage.signum() > 0, "完成配送后必须有计件工钱，否则这个用例证明不了减法");
-
-        String today = TestBusinessClock.today().toString();
-        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        assertEquals(0, report.code(), "净利报表: " + report);
-        assertEquals(1, report.data().path("orderCount").asInt(), "单数按订单数，不按明细行数");
-        assertEquals(0, new BigDecimal("40.00").compareTo(
-                new BigDecimal(report.data().path("totalRevenue").asText())), "水费 2 × 20 = 40");
-        assertEquals(0, new BigDecimal("5.00").compareTo(
-                new BigDecimal(report.data().path("deliveryFee").asText())), "配送费 5");
-        assertEquals(0, new BigDecimal("2.00").compareTo(
-                new BigDecimal(report.data().path("floorFee").asText())), "楼层费 2");
-        // 收入合计必须**包含**配送费与楼层费（毛利两项都没有），且不含押金
-        assertEquals(0, new BigDecimal("47.00").compareTo(
-                new BigDecimal(report.data().path("totalIncome").asText())), "收入合计 40 + 5 + 2");
-        assertEquals(0, new BigDecimal("24.00").compareTo(
-                new BigDecimal(report.data().path("totalCost").asText())), "成本 2 × 12 = 24");
-        assertEquals(0, wage.compareTo(new BigDecimal(report.data().path("wage").asText())),
-                "工钱应等于该单产生的计件收益合计");
-        // 净利 = 47 − 24 − 工钱；毛利 = 40 − 24 = 16
-        assertEquals(0, new BigDecimal("23.00").subtract(wage).compareTo(
-                        new BigDecimal(report.data().path("netProfit").asText())),
-                "净利 = 收入合计 47 − 成本 24 − 工钱 " + wage);
-        // 净利与毛利不相等，否则说明配送费/楼层费/工钱有一项根本没接上
-        assertNotEquals(0, new BigDecimal(report.data().path("totalProfit").asText())
-                        .compareTo(new BigDecimal(report.data().path("netProfit").asText())),
-                "净利与毛利不应相等（本例有配送费/楼层费/工钱）");
-    }
-
-    @Test
-    @DisplayName("缺成本时净利也必须是 null —— 只 null 毛利会让站长拿净利继续当真")
-    void netProfitIsNullWhenCostMissing() {
-        long station = createStation("缺成本净利站");
-        long manager = createStaff("缺成本净利站长", "STATION_MANAGER", station, 1);
-        long customer = createCustomer("缺成本净利客户", "np-missing-openid");
-        long address = createAddress(customer, "缺成本净利小区 1 号");
-        long product = createProduct("缺成本净利水", 1, "20.00", "30.00", 0, "0.00");
-        createInventoryFull(station, product, 100, 0, "0.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-        // 现金单（货到付款需要客户级授权，故直接造数而不是走下单接口）
-        long orderId = createOrderFull(customer, address, station, product,
-                2, 1, 2, "40.00", "0.00", "40.00", false, 2);
-        insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
-                        + "VALUES (?,?,?,?,?,?,?)",
-                orderId, product, "缺成本净利水", new BigDecimal("20.00"), 2,
-                new BigDecimal("0.00"), new BigDecimal("40.00"));
-
-        String today = TestBusinessClock.today().toString();
-        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        assertEquals(0, report.code(), "净利报表: " + report);
-        assertTrue(report.data().path("totalProfit").isNull(), "合计毛利必须是 null");
-        assertTrue(report.data().path("netProfit").isNull(),
-                "合计净利同样必须是 null —— 成本按 0 计会让净利凭空多出整整一个进货成本");
-        // 收入构成仍然照实下发（那些数字不依赖成本）
-        assertEquals(1, report.data().path("orderCount").asInt(), "单数照实下发");
-        assertTrue(report.data().path("profitBasisNote").asText().contains("净利 ="),
-                "必须下发净利口径文案: " + report.data().path("profitBasisNote").asText());
-    }
-
-    // ==================== [2026-09-25 架构评审问题 6] 水票单的成本不得被过滤 ====================
-    //
-    // 原实现把 `o.payment_method <> 3` 写在 SQL 的 WHERE 里 —— 那一行的原意是"票单的**收入**
-    // 不重复计"（票款在买票那一刻已确认），但它同时把整行**成本事实**也滤掉了：
-    // 期间内兑票配送的货确实出去了，报表里却只有售票实收与工钱 ⇒ 毛利虚高。
-    // 下面四条覆盖报告要求的算例：只有兑票、只售票未兑票、跨期兑票、票单专属商品缺成本。
-
-    @Test
-    @DisplayName("问题6：水票单的成本计入，收入仍不重复计（毛利 36 − 24 = 12）")
-    void ticketOrderCostIsCountedWhileItsRevenueIsExcluded() {
-        long station = createStation("票成本站");
-        long manager = createStaff("票成本站长", "STATION_MANAGER", station, 1);
-        long customer = createCustomer("票成本客户", "gp-ticket-openid");
-        long address = createAddress(customer, "票成本小区 1 号");
-        long product = createProduct("票成本水", 1, "20.00", "30.00", 1, "18.00");
-        createInventoryFull(station, product, 100, 1, "18.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"productId\":" + product + ",\"costPrice\":12.00}").code(), "成本 12/桶");
-
-        seedTicketPurchase(customer, station, product, "36.00", TestBusinessClock.now());          // 本期买票实收 36
-        seedTicketOrder(customer, address, station, product, 2, "18.00");          // 本期用票兑出去 2 桶
-
-        String today = TestBusinessClock.today().toString();
-        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        assertEquals(0, report.code(), "毛利报表: " + report);
-        assertEquals(0, new BigDecimal("0.00").compareTo(
-                        new BigDecimal(report.data().path("orderRevenue").asText())),
-                "票单不再按挂牌水价重复计一次收入");
-        assertEquals(0, new BigDecimal("36.00").compareTo(
-                        new BigDecimal(report.data().path("ticketRevenue").asText())),
-                "票款只在买票那一刻计一次");
-        // ⚠️ 本条的核心断言：原实现这里会是 0.00（整张票单被 WHERE 滤掉，成本一起消失）
-        assertEquals(0, new BigDecimal("24.00").compareTo(
-                        new BigDecimal(report.data().path("totalCost").asText())),
-                "水票单的履约成本必须计入（货确实出去了）");
-        assertEquals(0, new BigDecimal("12.00").compareTo(
-                        new BigDecimal(report.data().path("totalProfit").asText())),
-                "毛利 36 − 24 = 12");
-
-        var row = itemOf(report, product);
-        assertEquals(2, row.path("soldQty").asInt(), "「卖出」是履约事实，含用票兑出去的 2 桶");
-        assertEquals(0, new BigDecimal("24.00").compareTo(new BigDecimal(row.path("costAmount").asText())),
-                "该商品成本 = 2 × 12");
-        assertEquals(0, new BigDecimal("36.00").compareTo(new BigDecimal(row.path("revenueTotal").asText())),
-                "行收入 = 订单侧 0 + 该商品本期票款 36");
-    }
-
-    @Test
-    @DisplayName("问题6：只卖票、本期没兑货的商品也要出行（否则这笔收入的去向在明细里查不到）")
-    void ticketPurchaseWithoutDeliveryStillAppears() {
-        long station = createStation("只售票站");
-        long manager = createStaff("只售票站长", "STATION_MANAGER", station, 1);
-        long customer = createCustomer("只售票客户", "gp-ticket-only-openid");
-        long product = createProduct("只售票水", 1, "20.00", "30.00", 1, "18.00");
-        createInventoryFull(station, product, 100, 1, "18.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-
-        seedTicketPurchase(customer, station, product, "36.00", TestBusinessClock.now());          // 只有买票，没有兑票
-
-        String today = TestBusinessClock.today().toString();
-        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        assertEquals(0, new BigDecimal("36.00").compareTo(
-                new BigDecimal(report.data().path("ticketRevenue").asText())), "票款照实计入");
-        assertEquals(0, new BigDecimal("0.00").compareTo(
-                new BigDecimal(report.data().path("totalCost").asText())), "没有履约就没有成本");
-
-        var row = itemOf(report, product);
-        assertEquals(0, row.path("soldQty").asInt(), "本期没兑货，卖出为 0");
-        assertEquals(0, new BigDecimal("36.00").compareTo(new BigDecimal(row.path("revenueTotal").asText())),
-                "票款要出现在这一行上（金额来源单列，便于对账）");
-        assertEquals("本期只有购票收入，没有兑票记录", row.path("profitText").asText(),
-                "钱已确认、货还没出，不给毛利数字也不编一个 100% 毛利率: " + row);
-    }
-
-    @Test
-    @DisplayName("问题6：跨期兑票 —— 上期买的票、本期兑货：本期只认成本，不重复认收入")
-    void crossPeriodTicketDeliveryCountsCostOnly() {
-        long station = createStation("跨期票站");
-        long manager = createStaff("跨期票站长", "STATION_MANAGER", station, 1);
-        long customer = createCustomer("跨期票客户", "gp-ticket-cross-openid");
-        long address = createAddress(customer, "跨期票小区 1 号");
-        long product = createProduct("跨期票水", 1, "20.00", "30.00", 1, "18.00");
-        createInventoryFull(station, product, 100, 1, "18.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-        assertEquals(0, put("/api/manager/gross-profit/cost", mgr,
-                "{\"productId\":" + product + ",\"costPrice\":12.00}").code());
-
-        // 票是 40 天前买的（在上期确认了收入），货是本期兑出去的
-        seedTicketPurchase(customer, station, product, "36.00", TestBusinessClock.now().minusDays(40));
-        seedTicketOrder(customer, address, station, product, 2, "18.00");
-
-        String today = TestBusinessClock.today().toString();
-        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        assertEquals(0, new BigDecimal("0.00").compareTo(
-                new BigDecimal(report.data().path("ticketRevenue").asText())),
-                "上期的票款不得落进本期（时间窗按确认收款那一刻）");
-        assertEquals(0, new BigDecimal("24.00").compareTo(
-                new BigDecimal(report.data().path("totalCost").asText())),
-                "本期的货本期认成本");
-        assertEquals(0, new BigDecimal("-24.00").compareTo(
-                new BigDecimal(report.data().path("totalProfit").asText())),
-                "本期只有成本没有对应收入 ⇒ 毛利为负，这是**正确**的跨期口径，不是坏数");
-    }
-
-    @Test
-    @DisplayName("问题6：只由水票单销售、且没填成本的商品，也必须被判定为「缺成本」")
-    void ticketOnlyProductWithMissingCostIsReported() {
-        long station = createStation("票缺成本站");
-        long manager = createStaff("票缺成本站长", "STATION_MANAGER", station, 1);
-        long customer = createCustomer("票缺成本客户", "gp-ticket-missing-openid");
-        long address = createAddress(customer, "票缺成本小区 1 号");
-        long product = createProduct("票缺成本水", 1, "20.00", "30.00", 1, "18.00");
-        createInventoryFull(station, product, 100, 1, "18.00");
-        String mgr = staffToken(manager, "STATION_MANAGER", station);
-        // 故意不设成本价
-        seedTicketPurchase(customer, station, product, "36.00", TestBusinessClock.now());
-        seedTicketOrder(customer, address, station, product, 2, "18.00");
-
-        String today = TestBusinessClock.today().toString();
-        Api report = get("/api/manager/gross-profit?from=" + today + "&to=" + today, mgr);
-        // 原实现：票单被 WHERE 滤掉 ⇒ 这一行根本不出行 ⇒ missingCostKinds=0 ⇒
-        // 报表会给出一个"没有缺成本、毛利很漂亮"的假结论。这正是最坏的一种"看起来正确"。
-        assertEquals(1, report.data().path("missingCostKinds").asInt(),
-                "只由票单销售的商品没填成本，也必须被标出来: " + report);
-        assertTrue(report.data().path("totalProfit").isNull(),
-                "有商品没填成本时，合计毛利不得给出数字");
-        assertEquals("未填成本，无法计算", itemOf(report, product).path("profitText").asText(),
-                "该行必须明确写「算不出来」");
-    }
-
-    /** 从报表 items 里按商品取行（找不到就断言失败，避免 NPE 把问题掩盖成空指针）。 */
-    private com.fasterxml.jackson.databind.JsonNode itemOf(Api report, long productId) {
-        for (com.fasterxml.jackson.databind.JsonNode row : report.data().path("items")) {
-            if (row.path("productId").asLong() == productId) {
-                return row;
-            }
-        }
-        throw new AssertionError("报表明细里没有商品 " + productId + "：" + report);
-    }
-
-    /**
-     * 造一张「水票已付、已完成」的订单 + 明细。
-     * <p>票单的钱在买票那一刻就收过了，所以订单侧的 {@code water_amount} 只是**挂牌水价快照**，
-     * 报表不把它算作本期收入（见 GrossProfitMapper 的 revenue 表达式）。</p>
-     */
-    private long seedTicketOrder(long customer, long address, long station, long product,
-                                 int qty, String unitPrice) {
-        BigDecimal total = new BigDecimal(unitPrice).multiply(BigDecimal.valueOf(qty));
-        long order = createOrderFull(customer, address, station, product,
-                4 /* 已完成 */, 2 /* 已付款 */, 3 /* 水票 */,
-                total.toPlainString(), "0.00", total.toPlainString(), false, qty);
-        insert("INSERT INTO order_item(order_id, product_id, product_name_snapshot, price, quantity, deposit, subtotal) "
-                        + "VALUES (?,?,?,?,?,?,?)",
-                order, product, "票单水", new BigDecimal(unitPrice), qty,
-                new BigDecimal("0.00"), total);
-        return order;
-    }
-
-    /**
-     * 造一笔「在线购票」实收（{@code order_id IS NULL}，站长确认收款 = status 2）。
-     *
-     * @param updateTime 确认收款的时刻。<b>[F-43] 由冻结时钟给值，不要再拼 SQL 的 {@code NOW()}</b> ——
-     *                   报表按 {@code update_time}（确认收款那一刻）划时间窗，而窗口端点是 Java 侧算的；
-     *                   两侧各读一个时钟时，跨零点就会"窗口说昨天、数据落今天"（偶发红、无法复现）
-     */
-    private void seedTicketPurchase(long customer, long station, long product,
-                                    String amount, java.time.LocalDateTime updateTime) {
-        long paymentId = createPaymentRecord(null, customer, station, amount, 1, 2);
-        jdbc.update("UPDATE payment_record SET ticket_water_type_id=?, ticket_qty=1, update_time=? WHERE id=?",
-                product, updateTime, paymentId);
-    }
-
-    private Api order(String customerToken, long stationId, long addressId, long productId,
-                      int qty, String key) {
-        return post("/api/orders/create", customerToken,
-                "{\"addressId\":" + addressId + ",\"stationId\":" + stationId + ",\"paymentMethod\":1,"
-                        + "\"idempotencyKey\":\"" + key + "\","
-                        + "\"items\":[{\"productId\":" + productId + ",\"quantity\":" + qty + "}]}");
-    }
 }

@@ -116,6 +116,18 @@ public class AuthRequestDTO {
         private String password;
     }
 
+    /** 临时测试登录不收角色或业务ID；映射来自服务端环境配置。 */
+    @Data
+    public static class TestLogin {
+        @NotBlank(message = "请输入测试账号")
+        @Size(max = 48, message = "测试账号过长")
+        private String account;
+
+        @NotBlank(message = "请输入密码")
+        @Size(max = 72, message = "密码过长")
+        private String password;
+    }
+
     /** POST /api/auth/refresh：刷新 token */
     @Data
     public static class Refresh {

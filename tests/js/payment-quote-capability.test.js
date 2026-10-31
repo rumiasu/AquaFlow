@@ -69,7 +69,7 @@ test('请求失败清掉旧支付能力且保持阻断，可重试恢复后提�
 test('报价从未确认时点击只引导核实，不建单', async () => {
   const t = order(); t.wx.__modalAutoConfirm = false; await t.page.onSubmit()
   assert.equal(t.calls.orders.length, 0)
-  assert.equal(t.wx.__calls.modal.at(-1).confirmText, '重试报价')
+  assert.equal(t.wx.__calls.modal.at(-1).confirmText, '重新计算费用')
 })
 test('刷新中点击不能建单，报价完成后需再次明确提交', async () => {
   const gate = deferred(), t = order(() => gate.promise)
@@ -119,7 +119,8 @@ test('旧会话迟到报价不能解锁提交', async () => {
   t.app.globalData.isLogin = false; gate.resolve(validQuote()); await refresh
   assert.equal(t.page.data.quoteReady, false)
 })
-const simulated = { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）' }
+const simulated = { method: 1, enabled: true, simulated: true, label: '模拟微信支付（点击即成功，仅联调期开启）',
+  simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } }
 function barrel(capability, onlineAvailable = true, envVersion = 'develop') {
   global.__wxConfig = { envVersion }
   const state = { capability, onlineAvailable }
@@ -186,7 +187,7 @@ test('微信页面实际绑定能力标签与重试动作，不再写死支付�
 for (const ending of ['', '。', '！']) test('quote reason has a clear sentence boundary: ' + ending, async () => {
   const t = order(async () => { throw Error('库存待核实，请重试' + ending) })
   await t.page.refreshQuote()
-  assert.match(t.page.data.quoteError, /请重试。已暂停下单/)
+  assert.equal(t.page.data.quoteError, '库存待核实，请重试。')
   assert(!/[。！]{2}/.test(t.page.data.quoteError)); assert.equal(t.calls.orders.length, 0)
 })
 for (const reason of ['DEPOSIT', 'PRODUCT_DISABLED']) test(reason + ' acknowledgement guides manual selection without changing price/method', async () => {
@@ -248,6 +249,22 @@ test('trial does not offer the quote-explicit simulated channel for independent 
   t.page.setData({ paymentMethod: 1 })
   await t.page.onPurchase()
   assert.equal(t.calls.length, 0)
+})
+test('trial explicitly bound to the sandbox shows the authorized order and barrel labels', async () => {
+  const config = require('../../miniapp-user/config/api').API_CONFIG
+  const previous = { binding: config.paymentSandbox, trial: config.trial }
+  const identity = { environmentId: 'synthetic-env', serviceId: 'synthetic-service', bindingId: 'synthetic-binding-001', apiBaseUrl: '' }
+  config.paymentSandbox = identity
+  config.trial = { transport: 'cloudContainer', cloudContainer: { env: identity.environmentId, service: identity.serviceId } }
+  const capability = { ...simulated, simulationAuthorization: { version: 1, scope: 'PAYMENT_SANDBOX', customerId: 7, ...identity } }
+  try {
+    const a = order(async () => ({ data: { ...validQuote().data, methods: [{ id: 1, name: capability.label, enabled: true }],
+      defaultMethod: 1, wechatPay: capability } }), {}, 'trial')
+    await a.page.refreshQuote(); assert.equal(a.page.data.wechatPay.enabled, true); assert.equal(a.page.data.selectedMethod, 1)
+    assert.equal(a.page.data.payMethods[0].name, capability.label); assert.equal(a.calls.orders.length, 0)
+    const b = barrel(capability, true, 'trial'); await b.page.onLoad({ stationId: 1 })
+    assert.equal(b.page.data.onlinePayEnabled, true); assert.equal(b.page.data.onlinePayLabel, capability.label)
+  } finally { config.paymentSandbox = previous.binding; config.trial = previous.trial }
 })
 ;(async () => { let passed = 0, failed = 0
   for (const t of tests) { try { await t.run(); passed++; console.log('PASS ' + t.name) }

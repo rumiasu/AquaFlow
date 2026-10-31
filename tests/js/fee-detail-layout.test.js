@@ -32,9 +32,9 @@ assert.match(bodyStyle[1], /min-height:\s*0\s*;/,
   'the scrolling body must shrink when header and footer need more height')
 assert.match(bodyStyle[1], /padding:\s*0\s*;/,
   'clearance must not rely on native scroll-view host padding')
-const contentStyle = styles.match(/\.detail-sheet-content\s*\{([^}]*)\}/)
-assert(contentStyle, 'fee detail scrollable content styles must exist')
-assert.match(contentStyle[1], /padding:\s*24rpx\s+32rpx\s*;/,
+const contentStyles = [...styles.matchAll(/\.detail-sheet-content\s*\{([^}]*)\}/g)]
+assert(contentStyles.length, 'fee detail scrollable content styles must exist')
+assert.match(contentStyles.at(-1)[1], /padding:\s*12px\s+14px\s*;/,
   'the last fee line must retain bottom clearance inside the scroll range')
 
 console.log('PASS fee detail scroll content retains horizontal inset and bottom clearance')

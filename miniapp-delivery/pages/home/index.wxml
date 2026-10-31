@@ -1,6 +1,6 @@
 <import src="../../templates/station-navbar.wxml" />
 
-<view class="container custom-tabbar-page">
+<view class="container custom-tabbar-page b2-page b2-d08">
   <!--
     自绘导航栏（b 方案）：**水站营业状态就在「配送」字样的左边** ——
     配送员接单前第一眼看到"今天休息 / 配送延迟"。结构与尺寸见共用件
@@ -17,29 +17,29 @@
   <!-- 2026-10-14：配送角色标题不能代替具体站名；仅显示已核对的当前绑定站。 -->
 
   <view wx:if="{{isManager}}">
-    <view class="setup-launch-entry" wx:if="{{stationOperatingStatus == null || (stationOperatingStatus === 3 && (!setupProgressKnown || setupRequiredPending > 0))}}" bindtap="openStationPanel">
+    <view class="setup-launch-entry" wx:if="{{stationOperatingStatus === 3}}" bindtap="openStationPanel">
       <text class="setup-launch-dot"></text><view class="setup-launch-main"><text>{{setupProgressKnown ? (setupRequiredPending > 0 ? '还需完成 ' + setupRequiredPending + ' 项必填' : '已具备上线条件') : '上线准备待核实'}}</text><text class="setup-launch-state">{{stationStatusText || '营业状态待核实'}}</text></view><text>查看 ›</text>
     </view>
-    <view class="setup-launch-quiet" wx:else bindtap="openStationPanel">{{setupProgressKnown && setupRequiredPending === 0 ? '已具备上线条件' : '查看上线准备'}} · {{stationStatusText}} ›</view>
   </view>
   <view class="delivery-launch-state" wx:elif="{{stationOperatingStatus === 3}}"><text>本站{{stationStatusText}}</text><text>请联系站长完成上线准备；已接配送任务仍可处理。</text></view>
   <view class="delivery-launch-state" wx:elif="{{stationOperatingStatus == null}}"><text>营业状态待核实</text><text>可重新进入配送页核对，已接任务仍可处理。</text></view>
 
-  <view class="home-station-identity"><text>{{homeStationLabel}}</text></view>
+  <view class="home-station-identity"><text class="home-station-name">{{homeStationLabel}}</text><text wx:if="{{homeRoleLabel}}" class="home-role-chip home-role-{{isManager ? 'manager' : 'delivery'}}">{{homeRoleLabel}}</text></view>
   <view class="home-read-feedback" wx:if="{{loadError || (!loading && !readReady.unpaid)}}">
     <view class="home-read-feedback-copy">
       <text class="home-read-feedback-title">{{loadError || '待收款记录暂未加载'}}</text>
       <text class="home-read-feedback-note" wx:if="{{!readReady.unpaid}}">待收款未加载，不代表结清。</text>
     </view>
-    <button class="home-read-feedback-retry" bindtap="onRetryVisibleData" loading="{{loading}}" disabled="{{loading}}">重新加载</button>
+    <button bindtap="onRetryVisibleData" loading="{{loading}}" disabled="{{loading}}" class="af-action af-action--quiet"><view class="af-action__face">重新加载</view></button>
   </view>
-  <button class="unpaid-shortcut" wx:if="{{deliveredUnpaidOrders.length > 0}}" bindtap="onShowUnpaidRecords">已送达待收款 {{deliveredUnpaidOrders.length}} 单 · 查看收款记录 ›</button>
+  <button wx:if="{{deliveredUnpaidOrders.length > 0}}" bindtap="onShowUnpaidRecords" class="af-action af-action--quiet"><view class="af-action__face">已送达待收款 {{deliveredUnpaidOrders.length}} 单 · 查看收款记录 ›</view></button>
   <view class="collection-recovery" wx:if="{{collectionVerifiedText}}"><text>{{collectionVerifiedText}}</text></view>
-  <view class="collection-recovery" wx:for="{{collectionRecoveryItems}}" wx:key="id">
+  <button wx:if="{{collectionRecoveryItems.length}}" bindtap="onToggleRecovery" class="af-action af-action--quiet"><view class="af-action__face">{{collectionRecoveryItems.length}} 项操作待核对 · {{recoveryExpanded ? '收起' : '查看'}}</view></button>
+  <view class="collection-recovery" wx:if="{{recoveryExpanded}}" wx:for="{{collectionRecoveryItems}}" wx:key="id">
     <text>订单 #{{item.id}}：{{item.text}}</text>
-    <button wx:if="{{item.canRetryReport}}" size="mini" catchtap="onRetryReport" data-id="{{item.id}}">重试原反馈</button>
-    <button size="mini" catchtap="onVerifyCollection" data-id="{{item.id}}">核实当前订单</button>
-    <button size="mini" catchtap="onOpenRecoveryOrder" data-id="{{item.id}}">查看订单详情</button>
+    <button wx:if="{{item.canRetryReport}}" catchtap="onRetryReport" data-id="{{item.id}}" class="af-action af-action--secondary">重试原反馈</button>
+    <button catchtap="onVerifyCollection" data-id="{{item.id}}" class="af-action af-action--secondary">核实当前订单</button>
+    <button catchtap="onOpenRecoveryOrder" data-id="{{item.id}}" class="af-action af-action--quiet"><view class="af-action__face">查看订单详情</view></button>
   </view>
 
   <!--
@@ -52,18 +52,18 @@
   -->
   <!-- 2026-10-22：原统计区重复占据首屏，数量并入同一筛选入口；仍取各列表长度，不另算业务总数。 -->
   <view id="home-task-filters" class="tab-bar">
-    <view class="tab-item {{activeTab === 'assigned' ? 'active' : ''}}" bindtap="switchTab" data-tab="assigned">
+    <view bindtap="switchTab" data-tab="assigned" class="af-choice b2-choice {{activeTab === 'assigned' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeTab === 'assigned'}}">✓</text>
       <text class="stat-label">待配送</text>
       <text class="stat-unit">{{readReady.assigned ? assignedOrders.length + ' 单' : '—'}}</text>
-    </view>
-    <view class="tab-item {{activeTab === 'delivering' ? 'active' : ''}}" bindtap="switchTab" data-tab="delivering">
+    </view></view>
+    <view bindtap="switchTab" data-tab="delivering" class="af-choice b2-choice {{activeTab === 'delivering' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeTab === 'delivering'}}">✓</text>
       <text class="stat-label">配送中</text>
       <text class="stat-unit">{{readReady.delivering ? deliveringOrders.length + ' 单' : '—'}}</text>
-    </view>
-    <view class="tab-item {{activeTab === 'completed' ? 'active' : ''}}" bindtap="switchTab" data-tab="completed">
+    </view></view>
+    <view bindtap="switchTab" data-tab="completed" class="af-choice b2-choice {{activeTab === 'completed' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeTab === 'completed'}}">✓</text>
       <text class="stat-label">今日送达</text>
       <text class="stat-unit">{{readReady.completed ? completedOrders.length + ' 单' : '—'}}</text>
-    </view>
+    </view></view>
   </view>
 
   <!-- 待配送列表（站长分配给我、以及全站还没派出去的单；还没点「接单配送」）。
@@ -100,12 +100,12 @@
       </view>
       <view class="contact-row">
         <text class="customer-name">{{item.customerName || item.receiverName}}</text>
-        <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}"
-              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+        <view wx:if="{{item.customerPhone || item.receiverPhone}}"
+              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.customerPhone || item.receiverPhone}}</text></view>
       </view>
       <view class="card-actions">
-        <button class="btn-accept" catchtap="onAcceptTransfer" data-id="{{item.id}}">同意，我来送</button>
-        <button class="btn-reject-transfer" catchtap="onRejectTransfer" data-id="{{item.id}}">不接受</button>
+        <button catchtap="onAcceptTransfer" data-id="{{item.id}}" class="af-action af-action--primary">同意，我来送</button>
+        <button catchtap="onRejectTransfer" data-id="{{item.id}}" class="af-action af-action--secondary">不接受</button>
       </view>
     </view>
     <view class="order-card" wx:for="{{assignedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
@@ -132,12 +132,12 @@
       </view>
       <view class="contact-row">
         <text class="customer-name">{{item.customerName || item.receiverName}}</text>
-        <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}"
-              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+        <view wx:if="{{item.customerPhone || item.receiverPhone}}"
+              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.customerPhone || item.receiverPhone}}</text></view>
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">
-        <button class="btn-accept" catchtap="onAcceptOrder" data-id="{{item.id}}">接单配送</button>
+        <button catchtap="onAcceptOrder" data-id="{{item.id}}" class="af-action af-action--primary">接单配送</button>
       </view>
     </view>
     <view class="empty-state" wx:if="{{!loading && readReady.assigned && assignedOrders.length === 0 && readReady.transfers && incomingTransfers.length === 0}}">
@@ -175,13 +175,13 @@
       </view>
       <view class="contact-row">
         <text class="customer-name">{{item.customerName || item.receiverName}}</text>
-        <text class="customer-phone" wx:if="{{item.customerPhone || item.receiverPhone}}"
-              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}">{{item.customerPhone || item.receiverPhone}}</text>
+        <view wx:if="{{item.customerPhone || item.receiverPhone}}"
+              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.customerPhone || item.receiverPhone}}</text></view>
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">
-        <button class="btn-complete" catchtap="onCompleteOrder" data-id="{{item.id}}">完成配送</button>
-        <button class="btn-mediate-small" catchtap="onMediateOrder" data-id="{{item.id}}">配送遇到问题</button>
+        <button catchtap="onCompleteOrder" data-id="{{item.id}}" class="af-action af-action--primary af-action--final af-action--grow">完成配送</button>
+        <button catchtap="onMediateOrder" data-id="{{item.id}}" class="af-action af-action--secondary">配送遇到问题</button>
       </view>
     </view>
     <view class="empty-state" wx:if="{{!loading && readReady.delivering && deliveringOrders.length === 0}}">
@@ -191,7 +191,7 @@
 
   <!-- 今日实际送达列表：支付状态另列，不能把已送达未收款说成已完成。 -->
   <view class="order-list" wx:elif="{{activeTab === 'completed'}}">
-    <view class="order-card" wx:for="{{completedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+    <view class="order-card {{item.status === 4 && !item.isUnpaid ? 'completed-order-card' : ''}}" wx:for="{{completedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
       <view class="card-header">
         <view class="tag-row">
           <text class="status-tag {{item.isUnpaid ? 'status-warning' : 'status-completed'}}">{{item.statusText || '当前状态待核实'}}</text>
@@ -215,8 +215,8 @@
       <view class="contact-row">
         <text class="customer-name">{{item.receiverName || item.customerName}}</text>
         <!-- 2026-10-07：完成卡沿用收件快照拨号，不另读跨站客户档案。 -->
-        <text class="customer-phone" wx:if="{{item.receiverPhone || item.customerPhone}}"
-          catchtap="onCallCustomer" data-phone="{{item.receiverPhone || item.customerPhone}}">{{item.receiverPhone || item.customerPhone}}</text>
+        <view wx:if="{{item.receiverPhone || item.customerPhone}}"
+          catchtap="onCallCustomer" data-phone="{{item.receiverPhone || item.customerPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.receiverPhone || item.customerPhone}}</text></view>
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="complete-footer">
@@ -234,7 +234,7 @@
       <text class="unpaid-title">已送达 · 待收款</text>
       <text class="unpaid-count">{{deliveredUnpaidOrders.length}} 单</text>
     </view>
-    <button class="unpaid-back-to-tasks" bindtap="onBackToTaskFilters">返回配送任务筛选</button>
+    <button bindtap="onBackToTaskFilters" class="af-action af-action--quiet"><view class="af-action__face">返回配送任务筛选</view></button>
     <block>
       <view class="order-card" wx:for="{{deliveredUnpaidOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
         <view class="card-header">
@@ -259,11 +259,11 @@
         </view>
         <view class="contact-row">
           <text class="customer-name">{{item.customerName || item.receiverName}}</text>
-          <text class="customer-phone" wx:if="{{item.receiverPhone}}" catchtap="onCallCustomer" data-phone="{{item.receiverPhone}}">{{item.receiverPhone}}</text>
+          <view wx:if="{{item.receiverPhone}}" catchtap="onCallCustomer" data-phone="{{item.receiverPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.receiverPhone}}</text></view>
         </view>
         <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
         <view class="card-actions">
-          <button class="btn-accept" catchtap="onConfirmCollection" data-id="{{item.id}}" disabled="{{item.collectionBusy}}">{{item.collectionBusy ? '收款待核实' : '确认收款'}}</button>
+          <button catchtap="onConfirmCollection" data-id="{{item.id}}" disabled="{{item.collectionBusy}}" class="af-action af-action--primary">{{item.collectionBusy ? '确认中…' : '确认收款'}}</button>
         </view>
       </view>
     </block>
@@ -286,7 +286,7 @@
       <text class="modal-desc">先上报问题留痕，再决定这单怎么安排</text>
       <scroll-view class="modal-scroll" scroll-y>
       <view class="modal-list">
-        <view class="modal-item" bindtap="onReportProblem" hover-class="press-feedback">
+        <view bindtap="onReportProblem" hover-class="press-feedback" class="modal-item af-entry">
           <view class="modal-item-info">
             <text class="modal-item-name">上报配送问题</text>
             <text class="modal-item-desc">记录现场问题，通知站长</text>
@@ -296,14 +296,14 @@
       </view>
       <text class="modal-sub-title">这单我确实送不了</text>
       <view class="modal-list">
-        <view class="modal-item" bindtap="onMediateToColleague" hover-class="press-feedback">
+        <view bindtap="onMediateToColleague" hover-class="press-feedback" class="modal-item af-entry">
           <view class="modal-item-info">
             <text class="modal-item-name">请同事接手这单</text>
             <text class="modal-item-desc">从本站配送员里选一位，他同意后这单归他送</text>
           </view>
           <text class="modal-item-arrow">›</text>
         </view>
-        <view class="modal-item" bindtap="onMediateToStation" hover-class="press-feedback">
+        <view bindtap="onMediateToStation" hover-class="press-feedback" class="modal-item af-entry">
           <view class="modal-item-info">
             <text class="modal-item-name">退回去让站长重新安排</text>
             <text class="modal-item-desc">这单回到待分配，站长确认后重新派人</text>
@@ -312,7 +312,8 @@
         </view>
       </view>
       </scroll-view>
-      <button class="modal-cancel" bindtap="onCloseMediateModal">取消</button>
+      <button bindtap="onCloseMediateModal" class="af-action af-action--cancel">取消</button>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

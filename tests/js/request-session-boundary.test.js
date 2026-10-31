@@ -1,3 +1,4 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 /** 执行真实 App/token/request；仅 wx transport 为替身。不连 HTTP/微信。 */
 const assert = require('assert')
 const path = require('path')
@@ -8,15 +9,20 @@ const tests = []
 const test = (name, run) => tests.push({ name, run })
 const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve() }
 function setup() {
-  const wx = createWx(), sent = []
-  wx.request = o => sent.push(o)
+  const wx = createWx(), sent = [], capabilities = []
+  wx.request = o => {
+    if (o.url.endsWith('/api/payments/capabilities')) {
+      capabilities.push(o)
+      o.success({ statusCode: 200, data: { code: 0, data: { wechatPay: { method: 1, enabled: true, simulated: false, label: '渠道夹具' } } } })
+    } else sent.push(o)
+  }
   global.wx = wx
   global.__wxConfig = { envVersion: 'develop' }
   let app
   global.App = cfg => { app = cfg }
   global.getApp = () => app
   global.getCurrentPages = () => [{}]
-  for (const f of ['miniapp-user/app.js', 'miniapp-user/utils/token.js', 'miniapp-user/utils/request.js', 'miniapp-user/api/ticket.js']) {
+  for (const f of ['miniapp-user/app.js', 'miniapp-user/utils/token.js', 'miniapp-user/utils/request.js', 'miniapp-user/utils/payment-channel.js', 'miniapp-user/api/ticket.js']) {
     delete require.cache[require.resolve(path.join(ROOT, f))]
   }
   require(path.join(ROOT, 'miniapp-user/app.js'))
@@ -27,7 +33,7 @@ function setup() {
     wx.setStorageSync(K.CUSTOMER_ID, id)
   }
   login()
-  return { wx, sent, app, request, login, K }
+  return { wx, sent, capabilities, app, request, login, K }
 }
 function success(o, data = {}) { o.success({ statusCode: 200, data: { code: 0, data } }) }
 function expired(o) { o.success({ statusCode: 401, data: { code: 401 } }) }
@@ -47,7 +53,7 @@ function ticketPage(t) {
 
 test('真实购票页和api封装：跨客户迟到401不重发，A凭据保留且B无旧意图', async () => {
   const t = setup(), page = ticketPage(t), pending = page.onBuySubmit()
-  await flush(); assert.strictEqual(t.sent.length, 1)
+  await flush(); await flush(); assert.strictEqual(t.sent.length, 1); assert.strictEqual(t.capabilities.length, 1)
   const original = t.sent[0].data.idempotencyKey
   t.login(8, 'B'); expired(t.sent[0]); await pending
   assert.strictEqual(t.sent.length, 1)

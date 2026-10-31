@@ -3,15 +3,15 @@
   <view class="login-content">
     <view class="logo-section">
       <view class="logo-wrap">
-        <image class="logo" src="/assets/logo/aquaflow.jpg" mode="aspectFit"></image>
+        <image class="logo" src="/assets/logo/aiquan-mark.png" mode="aspectFit"></image>
       </view>
-      <text class="app-name">AquaFlow</text>
-      <text class="app-desc">桶装水配送服务</text>
+      <text class="app-name">艾泉订水</text>
+      <text class="app-desc">AquaFlow · 桶装水配送服务</text>
     </view>
 
     <view class="login-section">
       <!-- 微信一键登录：仅 wx.login 静默换 openid，不弹任何授权框 -->
-      <button class="wx-login-btn" bindtap="onWxLogin" disabled="{{loading}}">
+      <button class="af-action af-action--primary af-action--block" bindtap="onWxLogin" disabled="{{loading}}">
         <text wx:if="{{loading}}">登录中...</text>
         <text wx:else>微信一键登录</text>
       </button>
@@ -25,11 +25,13 @@
         <text class="agreement-text agreement-link" bindtap="onOpenAgreement" data-type="privacy">《隐私政策》</text>
       </view>
 
-      <!-- [2026-09-20] 仅非正式版显示：它直连 /api/auth/dev-login，该端点在 prod 下不存在。
-           开发版/体验版保留（真机联调微信登录不通时的唯一退路），判断见 index.js 的注释。 -->
-      <view class="dev-login-btn" bindtap="onDevLogin" wx:if="{{showDevLogin}}">
-        <text>测试账号直接登录</text>
-      </view>
+    <view class="test-login" wx:if="{{showTestLogin}}">
+      <text class="test-login-title">测试账号登录</text>
+      <input class="test-login-input" value="{{testAccount}}" placeholder="测试账号" maxlength="48" bindinput="onTestAccountInput" disabled="{{loading}}" />
+      <input class="test-login-input" value="{{testPassword}}" placeholder="密码" password="{{true}}" maxlength="72" bindinput="onTestPasswordInput" disabled="{{loading}}" />
+      <button class="af-action af-action--quiet af-action--block" bindtap="onTestLogin" loading="{{loading}}" disabled="{{loading}}">登录测试账号</button>
+    </view>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

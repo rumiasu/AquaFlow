@@ -1,3 +1,4 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 /** Actual pages/API/request modules and WXML projection; synthetic transport, no native GUI/service/DB. */
 const assert = require('assert')
 const fs = require('fs')
@@ -51,7 +52,7 @@ function customers(enabled = true) {
     else if (/\/customers(?:\?|$)/.test(call.url)) success(call, [{ id: 7, name: 'Synthetic customer', customerType: 1, phone: '13800000007' }])
     else throw new Error('unexpected request: ' + call.method + ' ' + call.url)
   })
-  const enterpriseText = () => t.elements().filter(e => /(?:^|\s)(?:ent-entry-desc|ent-empty)(?:\s|$)/.test(e.className)).map(e => e.text).join('\n')
+  const enterpriseText = () => t.elements().filter(e => /(?:^|\s)(?:ent-entry-desc|ent-empty)(?:\s|$)/.test(e.className) || e.className.includes('af-action__face') && /^待审申请(?:未核实|读取失败)/.test(e.text)).map(e => e.text).join('\n')
   const titles = () => t.elements().filter(e => e.text.startsWith('企业身份申请')).map(e => e.text).join('\n')
   return { ...t, pending, enterpriseText, titles }
 }
@@ -166,6 +167,7 @@ function order(paymentResult, readResult) {
     if (call.method === 'POST' && Array.isArray(call.data.items)) { writes.push(copy(call.data)); success(call, { orderId: 777, warnings: [] }) }
     else if (call.method === 'POST' && call.data.orderId) { payments.push(call.data.orderId); paymentResult(call) }
     else if (/\/orders\/777(?:\?|$)/.test(call.url)) { reads.push(777); readResult(call) }
+    else if (call.url.endsWith('/api/payments/capabilities')) success(call, { wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟付款', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } } })
     else success(call, {})
   })
   // Unknown outcome's primary confirm now reads the original order.
@@ -257,6 +259,7 @@ for (const independentRights of [true, false]) {
     assert.strictEqual(t.page.data.returnForm.pickupModeText, independentRights ? '到店办理' : '到店退桶')
     if (independentRights) {
       assert(!tip.includes('3 桶'))
+      t.page.onToggleReturnRules()
       assert(t.elements().some(e => e.text.includes('需交回的实物桶仍按批准安排交回')))
       t.wx.showActionSheet = opts => {
         assert.strictEqual(opts.itemList[0], '到店办理')
@@ -308,15 +311,18 @@ test('ENT: 未核实和失败仅原核实/重试入口成为主按钮，加载�
   const tokens = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/app.wxss'), 'utf8')
   for (const state of ['unverified', 'error']) {
     t.page.setData({ entAppliesState: state })
-    const action = t.elements().find(e => e.attrs.bindtap === 'onEntRetry' && e.className.includes('ent-state-action'))
+    const action = t.elements().find(e => e.attrs.bindtap === 'onEntRetry' && e.className.includes('b3-on-ent-retry'))
     assert(action, 'both actionable states keep the existing local retry handler')
-    const foreground = textColor(css, action.className, tokens)
-    const background = /--primary-color:\s*(#[0-9a-fA-F]{6})/.exec(tokens)[1]
-    assert(contrast(foreground, background) >= 4.5, 'primary action text must remain legible')
+    const actions = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/styles/actions.wxss'), 'utf8')
+    assert(action.className.includes('af-action--quiet'))
+    assert(/\.af-action--quiet[^{}]*\{[^}]*color:var\(--af-ink\)/.test(actions)); assert(/\.af-action__face\s*\{[^}]*background:var\(--af-soft\)/.test(actions))
+    const foreground = /--af-ink:\s*(#[0-9a-fA-F]{6})/.exec(actions)[1]
+    const background = /--af-soft:\s*(#[0-9a-fA-F]{6})/.exec(actions)[1]
+    assert(contrast(foreground, background) >= 4.5, 'quiet action text must remain legible')
   }
   for (const state of ['loading', 'ready']) {
     t.page.setData({ entAppliesState: state, entApplies: [] })
-    assert(!t.elements().some(e => e.className.includes('ent-state-action')))
+    assert(!t.elements().some(e => e.className.includes('b3-on-ent-retry')))
   }
   assert.strictEqual(t.calls.length, 0, 'rendering does not add requests')
 })
@@ -337,7 +343,7 @@ test('CONTRAST: 同名无电话的地址/来源与退款金额/登记核实文�
   const phoneFontRpx = Number(phoneFont[1])
   assert.strictEqual(phoneFontRpx, 28, 'customer phone keeps the confirmed 14px text size')
   const amounts = environment('miniapp-user/pages/barrel/index.js', false, () => {})
-  amounts.page.setData({ loading: false, summary: {}, records: [{ id: 1, type: 2, depositRefund: '100.00',
+  amounts.page.setData({ loading: false, summary: {}, showAllRecords: true, records: [{ id: 1, type: 2, depositRefund: '100.00',
     statusText: '已登记', refundPaidTime: '2026-10-09 12:34', handleNote: 'Synthetic handling note' }] })
   const userCss = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/barrel/index.wxss'), 'utf8')
   const userTokens = fs.readFileSync(path.join(ROOT, 'miniapp-user/styles/variable.wxss'), 'utf8')

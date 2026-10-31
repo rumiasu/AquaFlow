@@ -3,6 +3,7 @@ const { captureSession, isCurrentSession } = require('../../utils/token')
 
 Component({
   properties: {
+    compact: { type: Boolean, value: false },
     stationId: { type: Number, value: null },
     stationName: { type: String, value: '' },
     statusText: { type: String, value: '' },

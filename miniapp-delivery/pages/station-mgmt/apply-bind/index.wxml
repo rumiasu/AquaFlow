@@ -1,4 +1,4 @@
-<view class="container">
+<view class="container b2-page b2-d07 af2-page lv2-page lv2-apply">
   <!-- ⚠️ 本页用 wx.getLocation（就近找站），**必须**在根节点下渲染隐私弹窗：
        组件在 attached 里注册 wx.onNeedPrivacyAuthorization，不挂载 = 真机上定位被隐私授权拦下
        且没有任何提示（2026-09-20 真机事故的同一形状）。见 components/PrivacyPopup/index.js 文件头。 -->
@@ -9,14 +9,75 @@
        没记录时不渲染整块，免得新用户看到一个空卡片。 -->
 
 
-  <view class="ui-state" wx:if="{{historyError}}"><text class="ui-state-copy">{{historyError}}</text><button size="mini" bindtap="onRetryHistory">重新读取申请历史</button></view>
-  <view class="section-card" wx:if="{{history.length > 0}}">
+  <view class="section-card" wx:if="{{history.length && history[0].handleNote}}"><text class="card-title">申请记录 · {{history[0].statusName}}</text><text class="history-note">站长说明：{{history[0].handleNote}}</text></view>
+
+  <view class="section-card">
     <view class="card-header">
-      <text class="card-title">申请历史</text>
-      <text class="card-desc">共 {{history.length}} 条，含被拒绝与已解绑的记录</text>
+      <view class="lv2-station-title"><icon name="location" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /><text class="card-title">选择水站</text></view>
+      <!-- 文案按"有没有定位"分两种：有定位说"由近到远"，没定位说清可以按名称找。
+           不写"请开启定位"这种命令句 —— 定位只是排序，不是门槛。 -->
+      <text class="card-desc" wx:if="{{hasLocation}}">按距离排序</text>
+      <text class="card-desc" wx:else>按水站名称搜索</text>
     </view>
 
-    <view class="history-list">
+    <!-- 定位状态行：拿到 / 被拒 两种，都要说清"还能怎么找站" -->
+    <view class="loc-row" wx:if="{{!hasLocation}}">
+      <text class="loc-text" wx:if="{{locDenied}}">没拿到定位，暂时按名称排列。也可以搜索站名或地址。</text>
+      <text class="loc-text" wx:else>可按当前位置排序</text>
+      <text wx:if="{{locDenied}}" bindtap="onRequestLocation" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">重试定位</text></text>
+      <text wx:else bindtap="onRequestLocation" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">用我的位置排序</text></text>
+    </view>
+
+    <!-- 名称/地址搜索（就近之外的兜底：知道站名、或定位不可用时都能找到） -->
+    <view class="search-row">
+      <input class="search-input" value="{{keyword}}" placeholder="搜索水站名称或地址"
+             confirm-type="search" bindinput="onKeywordInput" bindconfirm="onKeywordInput" />
+      <text wx:if="{{keyword}}" bindtap="onKeywordClear" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">清空</text></text>
+    </view>
+
+    <view class="station-list" wx:if="{{stationList.length > 0}}">
+      <view class="station-item station-clickable" wx:for="{{stationList}}" wx:key="id" data-id="{{item.id}}" data-station="{{item}}">
+        <view class="station-main">
+          <view class="station-icon-wrap"><icon name="building" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /></view>
+          <view class="station-info">
+            <view class="station-name-row">
+              <text class="station-name">{{item.name}}</text>
+              <!-- 距离由服务端算下发（前端不做距离计算）；没坐标的站显示"位置未设置"而不是消失 -->
+              <text class="station-distance" wx:if="{{item.distanceText}}">{{item.distanceText}}</text>
+            </view>
+            <text class="station-address">{{item.address || '暂无详细地址'}}</text>
+            <!-- 地图入口：光看公里数不直观，能在地图上确认"在哪个方向"更有用。
+                 没有坐标的站不给这个入口（点了也没东西可看）。 -->
+            <text wx:if="{{item.lat && item.lng}}" catchtap="onOpenStationMap" data-id="{{item.id}}" class="station-map-link af-entry">在地图上看位置 ›</text>
+          </view>
+        </view>
+        <view class="af-action af-action--secondary b2-join-action" bindtap="onApplyStation" data-id="{{item.id}}" data-station="{{item}}">
+          <text class="apply-btn-text">申请加入</text>
+          <text class="apply-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="ui-state" wx:if="{{loadError}}"><text class="ui-state-title">水站列表加载失败</text><text class="ui-state-copy">{{loadError}}</text><button bindtap="onRetryStations" class="af-action af-action--quiet"><view class="af-action__face">重新加载水站</view></button></view>
+    <view class="empty-tip" wx:if="{{loaded && !loading && !loadError && stationList.length === 0}}">
+      <text wx:if="{{keyword}}">没有找到匹配的水站，换个名称或地址试试</text>
+      <text wx:else>暂无可申请水站，请联系站长核实水站是否已创建</text>
+    </view>
+
+    <view class="loading-tip" wx:if="{{loading}}">
+      <text>加载水站列表中...</text>
+    </view>
+  </view>
+
+
+  <view class="ui-state" wx:if="{{historyError}}"><text class="ui-state-copy">{{historyError}}</text><button bindtap="onRetryHistory" class="af-action af-action--quiet"><view class="af-action__face">重新读取申请历史</view></button></view>
+  <view class="section-card" wx:if="{{history.length > 0}}">
+    <view bindtap="onToggleHistory" class="card-header history-toggle af-entry">
+      <text class="card-title">申请历史 · {{historyExpanded ? '收起' : '展开'}}</text>
+      <text class="card-desc">{{history.length}} 条记录</text>
+    </view>
+
+    <view class="history-list" wx:if="{{historyExpanded}}">
       <view class="history-item" wx:for="{{history}}" wx:key="id">
         <view class="history-head">
           <text class="history-type">{{item.typeName}}</text>
@@ -31,65 +92,6 @@
     </view>
   </view>
 
-  <view class="section-card">
-    <view class="card-header">
-      <text class="card-title">选择要加入的水站</text>
-      <!-- 文案按"有没有定位"分两种：有定位说"由近到远"，没定位说清可以按名称找。
-           不写"请开启定位"这种命令句 —— 定位只是排序，不是门槛。 -->
-      <text class="card-desc" wx:if="{{hasLocation}}">已按离你的距离由近到远排列，点击卡片直接申请</text>
-      <text class="card-desc" wx:else>按名称搜索，点击卡片直接申请</text>
-    </view>
-
-    <!-- 定位状态行：拿到 / 被拒 两种，都要说清"还能怎么找站" -->
-    <view class="loc-row" wx:if="{{!hasLocation}}">
-      <text class="loc-text" wx:if="{{locDenied}}">没拿到定位，暂时按名称排列。也可以搜索站名或地址。</text>
-      <text class="loc-text" wx:else>按离你最近的水站排序，找起来更快。</text>
-      <text class="loc-action" wx:if="{{locDenied}}" bindtap="onRequestLocation">重试定位</text>
-      <text class="loc-action" wx:else bindtap="onRequestLocation">用我的位置排序</text>
-    </view>
-
-    <!-- 名称/地址搜索（就近之外的兜底：知道站名、或定位不可用时都能找到） -->
-    <view class="search-row">
-      <input class="search-input" value="{{keyword}}" placeholder="搜索水站名称或地址"
-             confirm-type="search" bindinput="onKeywordInput" bindconfirm="onKeywordInput" />
-      <text class="search-clear" wx:if="{{keyword}}" bindtap="onKeywordClear">清空</text>
-    </view>
-
-    <view class="station-list" wx:if="{{stationList.length > 0}}">
-      <view class="station-item station-clickable" wx:for="{{stationList}}" wx:key="id" data-id="{{item.id}}" data-station="{{item}}" bindtap="onApplyStation" hover-class="station-hover">
-        <view class="station-main">
-          <view class="station-icon-wrap">
-          </view>
-          <view class="station-info">
-            <view class="station-name-row">
-              <text class="station-name">{{item.name}}</text>
-              <!-- 距离由服务端算下发（前端不做距离计算）；没坐标的站显示"位置未设置"而不是消失 -->
-              <text class="station-distance" wx:if="{{item.distanceText}}">{{item.distanceText}}</text>
-            </view>
-            <text class="station-address">{{item.address || '暂无详细地址'}}</text>
-            <!-- 地图入口：光看公里数不直观，能在地图上确认"在哪个方向"更有用。
-                 没有坐标的站不给这个入口（点了也没东西可看）。 -->
-            <text class="station-map-link" wx:if="{{item.lat && item.lng}}" catchtap="onOpenStationMap" data-id="{{item.id}}">在地图上看位置 ›</text>
-          </view>
-        </view>
-        <view class="station-action">
-          <text class="apply-btn-text">申请加入</text>
-          <text class="apply-arrow">›</text>
-        </view>
-      </view>
-    </view>
-
-    <view class="ui-state" wx:if="{{loadError}}"><text class="ui-state-title">水站列表待核实</text><text class="ui-state-copy">{{loadError}}</text><button size="mini" bindtap="onRetryStations">重新加载水站</button></view>
-    <view class="empty-tip" wx:if="{{loaded && !loading && !loadError && stationList.length === 0}}">
-      <text wx:if="{{keyword}}">没有找到匹配的水站，换个名称或地址试试</text>
-      <text wx:else>暂无可申请水站，请联系站长核实水站是否已创建</text>
-    </view>
-
-    <view class="loading-tip" wx:if="{{loading}}">
-      <text>加载水站列表中...</text>
-    </view>
-  </view>
-
 
 
     <view class="footer">
@@ -100,11 +102,12 @@
       <help-tip title="绑定规则" text="配送员主动申请，站长审批后生效；申请期间无法查看业务数据。" />
     </view>
     <!-- 选择身份只是登记意向，生效前允许改选；生效后后端会拒绝（按钮会给出提示） -->
-    <view class="footer-action" bindtap="onBackToRoleSelect">
+    <view bindtap="onBackToRoleSelect" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">
       <text>返回，重新选择身份</text>
-    </view>
-    <view class="footer-action" bindtap="onLogout">
+    </text></view>
+    <view bindtap="onLogout" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">
       <text>退出登录</text>
-    </view>
+    </text></view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

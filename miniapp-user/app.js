@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('./utils/business-dialog')
 const { STORAGE_KEYS } = require('./utils/storage-keys')
 const { stationStorage } = require('./utils/storage')
 const { captureSession, isCurrentSession, isCurrentCredentials, beginSession } = require('./utils/token')
@@ -79,12 +80,12 @@ App({
         // Config/SDK validation can fail synchronously inside onLaunch before getApp is available.
         // That immediate branch cannot belong to a later login; async init failures still need the guard.
         if (error && error.transportConfiguration) {
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '服务暂不可用', content: '暂时无法连接服务，请稍后重试。', showCancel: false })
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '服务暂不可用', content: '暂时无法连接服务，请稍后重试。', showCancel: false })
           return
         }
         if (!isCurrentCredentials(session)) return
         if (error && error.requestMayHaveOccurred === false) {
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '服务暂不可用', content: '暂时无法连接服务，请稍后重试。', showCancel: false })
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '服务暂不可用', content: '暂时无法连接服务，请稍后重试。', showCancel: false })
           return
         }
         console.warn('[App] 验证登录状态失败，保留本地状态')
@@ -98,6 +99,7 @@ App({
   },
 
   setLoginInfo(accessToken, refreshToken, userInfo) {
+    this._uiDraftCleanup = require('./utils/draft-guard').endSessionDrafts(this, wx)
     this.persistCart()
     this.globalData.cart = {}
     this._cartOwner = null
@@ -116,6 +118,7 @@ App({
   },
 
   clearLoginInfo() {
+    this._uiDraftCleanup = require('./utils/draft-guard').endSessionDrafts(this, wx)
     this.persistCart()
     this.globalData.cart = {}
     this._cartOwner = null

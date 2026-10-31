@@ -1,6 +1,7 @@
 'use strict'
 const assert = require('assert'), path = require('path')
 const { createWx, armWatchdog, ROOT } = require('./harness')
+const { withHttpsTransportFixture } = require('./https-transport-fixture')
 const done = armWatchdog(), tests = [], test = (name, run) => tests.push({ name, run })
 const COPY = '上报结果未确认，请稍后核对'
 function assertSemanticCopy(actual, expected) {
@@ -14,8 +15,10 @@ function setup() {
   let app; global.App = value => { app = value }; global.getApp = () => app
   global.getCurrentPages = () => [{ route: 'pages/home/index' }]
   for (const name of ['miniapp-user/app.js','miniapp-user/utils/token.js','miniapp-user/utils/request.js']) delete require.cache[require.resolve(path.join(ROOT,name))]
-  require(path.join(ROOT,'miniapp-user/app.js'))
-  const request = require(path.join(ROOT,'miniapp-user/utils/request.js'))
+  const request = withHttpsTransportFixture(() => {
+    require(path.join(ROOT,'miniapp-user/app.js'))
+    return require(path.join(ROOT,'miniapp-user/utils/request.js'))
+  })
   const login = id => app.setLoginInfo('synthetic-access-'+id,'synthetic-refresh-'+id,{customerId:id})
   login(7); return { wx, sent, request, login }
 }

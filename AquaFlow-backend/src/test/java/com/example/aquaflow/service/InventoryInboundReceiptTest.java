@@ -55,7 +55,7 @@ class InventoryInboundReceiptTest {
         var second = service.inboundWithReceipt(8L,items(3),KEY);
         assertEquals(first,second); assertEquals("APPLIED",second.get("status")); assertEquals(KEY,second.get("clientRequestId"));
         verify(inventory,times(1)).upsertQuantity(8L,42L,3);
-        verify(ledger,times(1)).recordChange(eq(8L),eq(42L),eq(3),anyString(),isNull(),eq(20L),anyString());
+        verify(ledger,times(1)).recordChangeWithCost(eq(8L),eq(42L),eq(3),anyString(),isNull(),eq(20L),anyString(),isNull());
         verify(reservations,times(1)).backfillReservations(8L,42L);
     }
     @Test void sameKeyChangedContentIsRejectedButGenuineNewKeyCanReceiveAnotherBatch() {

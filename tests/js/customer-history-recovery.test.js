@@ -172,7 +172,7 @@ async function main() {
     for (const handler of ['loadProducts', 'refreshQuote', 'loadPurchases', 'onWithdraw']) assert(wxml.includes('bindtap="' + handler + '"'))
     assert(wxml.includes('wx:elif="{{purchasesError}}"')); assert(wxml.includes('wx:elif="{{purchasesLoaded && purchases.length === 0}}"'))
     assert(wxml.indexOf('wx:elif="{{purchasesError}}"') < wxml.indexOf('purchasesLoaded && purchases.length === 0'))
-    assert(wxml.includes('已交钱但水站尚未确认')); assert(wxml.includes('购买编号 {{item.id}}'))
+    assert(wxml.includes('已付款但水站未确认，请先联系水站核实，勿直接撤回')); assert(wxml.includes('购买编号 {{item.id}}'))
     for (const ext of ['js', 'wxml', 'wxss']) {
       const bytes = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/barrel/purchase.' + ext))
       assert.notEqual(bytes.subarray(0, 3).toString('hex'), 'efbbbf')

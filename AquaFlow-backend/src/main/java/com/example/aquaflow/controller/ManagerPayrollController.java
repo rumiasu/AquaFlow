@@ -13,6 +13,7 @@ import com.example.aquaflow.mapper.StaffPayrollMapper;
 import com.example.aquaflow.mapper.StaffPieceRateMapper;
 import com.example.aquaflow.service.StaffEarningItemService;
 import com.example.aquaflow.service.StaffEarningService;
+import com.example.aquaflow.service.PayrollPreviewService;
 import com.example.aquaflow.util.AuthContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,32 @@ public class ManagerPayrollController {
     @Autowired private StaffPayrollMapper staffPayrollMapper;
     @Autowired private StaffEarningService staffEarningService;
     @Autowired private StaffEarningItemService staffEarningItemService;
+    @Autowired private PayrollPreviewService payrollPreviewService;
+
+    /** 员工端站长只读应发预览；无需先生成结算单，站别取登录态。 */
+    @GetMapping("/payroll/preview")
+    public Result<Map<String,Object>> previewPayroll(@RequestParam Long staffId,
+            @RequestParam java.time.LocalDate periodStart, @RequestParam java.time.LocalDate periodEnd) {
+        return Result.success(payrollPreviewService.preview(AuthContext.requireStationId(), staffId, periodStart, periodEnd));
+    }
+
+    /** 员工端站长登记线下实际发薪；预览变化时拒绝，保留原历史。 */
+    @PostMapping("/payroll/settle")
+    public Result<StaffPayroll> settlePayroll(@RequestBody PayrollDTO.Settle body) {
+        return Result.success(payrollPreviewService.settle(AuthContext.requireStationId(), body));
+    }
+
+    /** 员工端站长核对历史未发工资的金额与状态。 */
+    @GetMapping("/payroll/{id}/settlement-preview")
+    public Result<Map<String,Object>> historicalSettlementPreview(@PathVariable Long id) {
+        return Result.success(payrollPreviewService.historicalPreview(AuthContext.requireStationId(), id));
+    }
+
+    /** 员工端站长结算历史草稿或已确认记录；单次登记，不操作资金渠道。 */
+    @PostMapping("/payroll/{id}/settle")
+    public Result<StaffPayroll> settleHistoricalPayroll(@PathVariable Long id, @RequestBody PayrollDTO.Settle body) {
+        return Result.success(payrollPreviewService.settleHistorical(AuthContext.requireStationId(), id, body));
+    }
 
     /** 读本站计件单价（productId 省略 = 该站默认价）。没配过时返回全 0 的默认配置而不是 404。 */
     @GetMapping("/piece-rate")
@@ -59,7 +86,7 @@ public class ManagerPayrollController {
     }
 
     /**
-     * 保存计件单价。负值一律归零（负数工钱会让站长倒欠配送员，属能少付钱的输入，必须挡住）。
+     * 保存明确填写的计件单价；缺值和负值拒绝，不能把未配置悄悄保存为0。
      *
      * <p>⚠️ 2026-09-18（v42）起只有两项：每桶计件价 + 楼层补贴（免费层数）。少收空桶的扣减已删除 ——
      * 少收空桶本身仍有记录（订单的 {@code barrel_discrepancy} + 桶异常单），只是不再自动扣钱。</p>
@@ -68,6 +95,13 @@ public class ManagerPayrollController {
     public Result<StaffPieceRate> savePieceRate(@RequestBody PayrollDTO.PieceRate body) {
         Long stationId = AuthContext.requireStationId();
         Long productId = body.getProductId() != null ? body.getProductId() : 0L;
+        // 2026-10-27：原来缺值/负值都归零，保存后却被视作已配置，导致漏算工钱。
+        if (!validRate(body.getPerBucketAmount()) || productId < 0
+                || (body.getFloorBonusPerLevel() != null && !validRate(body.getFloorBonusPerLevel()))
+                || (body.getFloorFreeLevel() != null && body.getFloorFreeLevel() < 0))
+            return Result.error("请明确填写非负计件金额，金额最多两位小数；不计件请填0");
+        if (productId == 0L && body.getFloorBonusPerLevel() != null && body.getFloorBonusPerLevel().signum() > 0
+                && body.getFloorFreeLevel() == null) return Result.error("启用楼层补贴后，请填写几层以内不补");
 
         StaffPieceRate r = StaffPieceRate.defaults(stationId, productId);
         r.setPerBucketAmount(nn(body.getPerBucketAmount()));
@@ -216,6 +250,10 @@ public class ManagerPayrollController {
     private static BigDecimal nn(BigDecimal v) {
         if (v == null) return BigDecimal.ZERO;
         return v.signum() < 0 ? BigDecimal.ZERO : v;
+    }
+
+    private static boolean validRate(BigDecimal value) {
+        return value != null && value.signum() >= 0 && value.scale() <= 2 && value.precision() - value.scale() <= 8;
     }
 
     private static Integer nn(Integer v) {

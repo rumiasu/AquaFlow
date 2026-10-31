@@ -132,7 +132,7 @@ console.log('入口 → 落地视图一致性 + 文案禁开发词')
 
   await test('M05 页面口径说明收进「?」：不把数据库注释铺在正文里', async () => {
     const wxml = renderedWxml('miniapp-delivery/pages/station-mgmt/receivables/index.wxml')
-    assert.ok(wxml.indexOf('这里只算客户还没付的订单款') > -1, '正文要写成人话')
+    assert.ok(wxml.indexOf('未付订单款；逾期不加收费用') > -1, '正文要写成人话')
     assert.strictEqual(/<text[^>]*>\s*\{\{overview\.scopeNote\}\}/.test(wxml), false,
       'scopeNote（「支付状态为待收款且未取消…」）是数据库口径，不许当成正文铺在页面上')
     // 后端那句口径仍然可达（只是不再常显）：作为 help-tip 的 text 传入
@@ -144,7 +144,7 @@ console.log('入口 → 落地视图一致性 + 文案禁开发词')
   await test('M05 逾期视图的空态给出回「全部待收」的路（空列表 ≠ 本站账全清了）', async () => {
     const wxml = renderedWxml('miniapp-delivery/pages/station-mgmt/receivables/index.wxml')
     assert.ok(wxml.indexOf('onlyOverdue') > -1, '空态要按筛选分叉')
-    assert.ok(wxml.indexOf('没有逾期的欠款客户') > -1, '逾期视图的空态要说清"只是没有逾期的"')
+    assert.ok(wxml.indexOf('暂无逾期客户；全部待收仍可查询') > -1, '逾期视图的空态要说清"只是没有逾期的"')
   })
 
   /* ============================ M06：渲染文案禁开发词 ============================ */

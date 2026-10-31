@@ -110,11 +110,13 @@ for (const change of ['customer', 'hide', 'refresh']) test('pending switch dialo
   assert.equal(t.wx.getStorageSync('selectedStation').id, 1); assert.equal(modals.length, 1)
   assert.equal(t.wx.getStorageSync('stationSwitchNoticeDisabled'), false)
 })
-test('second dialog cannot persist its preference or station after identity changes', async () => {
+test('remember preference and station cannot persist after identity changes during the single confirmation', async () => {
   const t = fixture(); await t.page.loadData(); t.wx.setStorageSync('stationSwitchNoticeDisabled', false)
-  const modals = []; t.wx.showModal = options => { modals.push(options); if (modals.length === 1) options.success({ confirm: true }) }
-  const pending = t.page.onSelectStation(event(2)); await Promise.resolve(); t.app.globalData.customerId = 8
-  modals[1].success({ confirm: true }); await pending
+  t.page.onSwitchRememberChange({ detail: { value: ['remember'] } })
+  const modals = []; t.wx.showModal = options => { modals.push(options) }
+  const pending = t.page.onSelectStation(event(2)); t.app.globalData.customerId = 8
+  modals[0].success({ confirm: true }); await pending
+  assert.equal(modals.length, 1)
   assert.equal(t.wx.getStorageSync('selectedStation').id, 1); assert.equal(t.wx.getStorageSync('stationSwitchNoticeDisabled'), false)
 })
 for (const change of ['station', 'customer']) test('stale visible products cannot mutate cart after ' + change, async () => {
@@ -169,11 +171,11 @@ test('malformed successful product data is not exposed as a catalog', async () =
   const t = fixture({ products: async () => response({ invalid: true }) }); await t.page.loadData()
   assert(Array.isArray(t.page.data.allProducts)); assert(t.page.data.loadError)
 })
-test('valid switch keeps both confirmation dialogs and does not infer inactive stations as available', async () => {
+test('valid switch confirms once and does not infer inactive stations as available', async () => {
   const t = fixture({ list: async () => response([station(2), { ...station(3), status: 0 }]) })
   await t.page.loadData(); await t.page.loadStationList(); assert.deepStrictEqual(t.page.data.stationList.map(s => s.id), [2])
   t.wx.setStorageSync('stationSwitchNoticeDisabled', false); await t.page.onSelectStation(event(2))
-  assert.equal(t.wx.__calls.modal.length, 2); assert.equal(t.wx.getStorageSync('selectedStation').id, 2)
+  assert.equal(t.wx.__calls.modal.length, 1); assert.equal(t.wx.getStorageSync('selectedStation').id, 2)
 })
 ;(async () => {
   let failed = 0

@@ -287,3 +287,29 @@
 .value, .item-info, .status-sub { min-width: 0; overflow-wrap: anywhere; }
 .action-section { flex-wrap: wrap; }
 .load-error { font-size: 28rpx; line-height: 1.65; white-space: normal; }
+.contact-actions { display: flex; gap: 16rpx; width: 100%; }
+.contact-actions .btn-action { flex: 1; min-width: 0; width: auto; margin: 0; }
+.btn-contact-primary { background: var(--primary-color); color: #fff; }
+
+.action-section { margin:20rpx 24rpx; padding:20rpx; background:#fff; border:1rpx solid var(--border-light); border-radius:12rpx; }
+.contact-actions { display:flex; flex-wrap:wrap; gap:16rpx; align-items:center; }
+.contact-actions button { flex:1 1 230rpx; margin:0; min-height:44px; }
+.btn-action { min-height:44px; height:auto; font-size:16px; line-height:1.5; white-space:normal; }
+.btn-pay { min-height:48px; }
+.phone-state,.pay-hint { display:block; font-size:14px; line-height:1.6; color:var(--text-regular); }
+.item-info,.value { min-width:0; overflow-wrap:anywhere; }
+.info-row { gap:16rpx; }
+
+/* 支付是当前主动作；联系与取消保留独立短操作，不均分宽度。 */
+.action-section { gap:8px; }
+.contact-actions .af-action { flex:none; width:auto; margin:0; }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.status-card { background:var(--af2-surface-order); border-radius:14px; }
+.status-main { color:var(--af2-ink-order); }
+.action-section,.info-section { border-radius:14px; }
+.info-row { gap:12px; }
+.value { min-width:0; overflow-wrap:anywhere; }
+
+.info-section .contact-actions { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 12px; }
+.info-section .contact-actions .af-action { min-height:44px; }

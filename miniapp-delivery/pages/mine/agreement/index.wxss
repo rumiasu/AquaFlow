@@ -19,7 +19,7 @@
   flex-shrink: 0;
   font-size: 24rpx;
   font-weight: 600;
-  color: var(--warning-color);
+  color: var(--af-text-secondary);
   padding-top: 2rpx;
 }
 
@@ -92,8 +92,37 @@
 }
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
-.doc-notice button { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
+.doc-notice button:not(.af-action):not(.af-choice) { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 
 .doc-head { padding: 24rpx; background: #fff; margin-bottom: 24rpx; }
 .doc-notice { flex-wrap: wrap; }
 .doc-notice-text { min-width: 0; overflow-wrap: anywhere; }
+
+.doc-reader { background:#fff; border:1rpx solid var(--border-color); border-radius:12rpx; padding:24rpx; }
+.doc-reader .doc-head { padding:0 0 24rpx; margin:0 0 24rpx; border:0; border-bottom:1rpx solid var(--border-color); border-radius:0; }
+.doc-reader .doc-section { margin:0; padding:0 0 28rpx; border-radius:0; }
+.doc-loading { padding:32rpx; color:var(--text-regular); font-size:28rpx; }
+
+/* 2026-10-28 B2: local layout only; B0 owns action/choice faces and tokens. */
+ .b2-page { --primary-color: var(--af-primary); --primary-bg: var(--af-soft); --text-primary: var(--af-ink); --text-regular: var(--af-text-secondary); --text-secondary: var(--af-text-secondary); --bg-gray: var(--af-soft); --success-color: var(--af-positive); --error-color: var(--af-danger); --error-bg: var(--af-danger-soft); --bg-color: var(--af-canvas); --bg-card: var(--af-surface); --border-color: var(--af-border); }
+
+/* 2026-10-29 visual-L: page-local composition; shared controls and palette stay V0-owned. */
+.lv2-page { --bg-color:var(--af2-page); --bg-card:var(--af2-surface); --border-color:var(--af2-line); --text-primary:var(--af2-ink); --text-regular:var(--af2-muted); background:var(--af2-page); color:var(--af2-ink); box-sizing:border-box; font-size:15px; line-height:24px; }
+.lv2-page .ui-state { box-sizing:border-box; margin:12px 0; padding:16px; border-radius:14px; border:1px solid var(--af2-line); }
+.lv2-title-row { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.lv2-title-row > text { flex:1; min-width:0; font-size:22px; line-height:30px; font-weight:600; }
+.lv2-page .af2-icon-tile { background:var(--af2-surface-order); }
+.lv2-page .lv2-neutral-tile { background:var(--af2-surface-neutral); }
+.lv2-page .lv2-physical-tile { background:var(--af2-surface-physical); }
+.lv2-page .lv2-money-tile { background:var(--af2-surface-money); }
+
+.lv2-agreement { padding:20px 16px 32px; }
+.lv2-agreement .doc-reader { background:var(--af2-surface); border:0; border-radius:16px; padding:20px 16px; }
+.lv2-agreement .doc-head { padding:0 0 20px; border-bottom:1px solid var(--af2-line); margin-bottom:20px; }
+.lv2-agreement .doc-title { font-size:23px; line-height:32px; font-weight:600; }
+.lv2-agreement .doc-updated { font-size:12px; line-height:20px; color:var(--af2-muted); }
+.lv2-agreement .doc-heading { font-size:17px; line-height:26px; margin-bottom:10px; }
+.lv2-agreement .doc-body { font-size:15px; line-height:27px; color:var(--af2-ink); white-space:pre-wrap; }
+.lv2-agreement .doc-section { margin:0 0 24px; }
+.lv2-agreement .doc-notice { margin:0 0 16px; border-radius:12px; padding:14px; background:var(--af2-surface-neutral); }
+.lv2-agreement .doc-notice-text, .lv2-agreement .doc-foot-text { font-size:13px; line-height:22px; color:var(--af2-muted); }

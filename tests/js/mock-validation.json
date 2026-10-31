@@ -1,0 +1,8 @@
+{
+  "scope": "synthetic bytes and SDK/filesystem mocks only",
+  "passed": 37,
+  "failed": 0,
+  "realSdkTested": false,
+  "realImageUploaded": false,
+  "cosTested": false
+}

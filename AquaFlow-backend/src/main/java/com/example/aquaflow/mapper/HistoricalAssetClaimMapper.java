@@ -6,9 +6,11 @@ import java.util.List;
 
 @Mapper
 public interface HistoricalAssetClaimMapper {
-    @Select("select p.id,p.name,p.spec,p.category from product p join inventory i on i.product_id=p.id "
+    @Select("select p.id,p.name,p.spec,p.category,coalesce(nullif(i.image_object_name_override,''),p.image_object_name) as image_object_name,null as image_url from product p join inventory i on i.product_id=p.id "
         +"where i.station_id=#{station} and (p.owner_station_id is null or p.owner_station_id=#{station}) order by p.id")
     List<com.example.aquaflow.dto.HistoricalAssetClaimDTO.ProductOption> catalog(Long station);
+    @Select("select station_id from historical_asset_claim_photo where customer_id=#{customer} and client_token=#{token}")
+    Long photoStation(@Param("customer") Long customer,@Param("token") String token);
     // 同一客户的申请/核对按固定顺序串行；不读取姓名、电话、openid 等档案。
     @Select("select id from customer where id=#{customer} for update")
     Long lockCustomer(Long customer);

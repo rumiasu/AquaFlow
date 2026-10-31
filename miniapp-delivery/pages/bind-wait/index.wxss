@@ -63,7 +63,7 @@
 }
 
 .status-pending {
-  color: var(--warning-color);
+  color: var(--af-text-secondary);
   font-weight: 500;
 }
 
@@ -102,7 +102,7 @@
 
 .tip-text {
   font-size: 26rpx;
-  color: var(--warning-color);
+  color: var(--af-text-secondary);
   line-height: 1.6;
 }
 
@@ -127,3 +127,34 @@
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
 .btn-primary, .btn-outline { height: auto; min-height: 48px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; flex: 1 1 240rpx; }
+
+.btn-primary { background:#fff; color:var(--primary-color); border:1rpx solid var(--border-color); }
+
+/* 2026-10-28 B2: local layout only; B0 owns action/choice faces and tokens. */
+ .b2-page { --primary-color: var(--af-primary); --primary-bg: var(--af-soft); --text-primary: var(--af-ink); --text-regular: var(--af-text-secondary); --text-secondary: var(--af-text-secondary); --bg-gray: var(--af-soft); --success-color: var(--af-positive); --error-color: var(--af-danger); --error-bg: var(--af-danger-soft); --bg-color: var(--af-canvas); --bg-card: var(--af-surface); --border-color: var(--af-border); }
+ .actions, .btn-group { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; } .b2-page > .af-action { margin: 8px auto; }
+
+.btn-wrap { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; } .b2-current-state { border-left: 4px solid var(--af-primary); } .status-value { color: var(--af-strong); }
+
+/* 2026-10-29 visual-L: page-local composition; shared controls and palette stay V0-owned. */
+.lv2-page { --bg-color:var(--af2-page); --bg-card:var(--af2-surface); --border-color:var(--af2-line); --text-primary:var(--af2-ink); --text-regular:var(--af2-muted); background:var(--af2-page); color:var(--af2-ink); box-sizing:border-box; font-size:15px; line-height:24px; }
+.lv2-page .ui-state { box-sizing:border-box; margin:12px 0; padding:16px; border-radius:14px; border:1px solid var(--af2-line); }
+.lv2-title-row { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.lv2-title-row > text { flex:1; min-width:0; font-size:22px; line-height:30px; font-weight:600; }
+.lv2-page .af2-icon-tile { background:var(--af2-surface-order); }
+.lv2-page .lv2-neutral-tile { background:var(--af2-surface-neutral); }
+.lv2-page .lv2-physical-tile { background:var(--af2-surface-physical); }
+.lv2-page .lv2-money-tile { background:var(--af2-surface-money); }
+
+.lv2-bind { padding:24px 16px 32px; }
+.lv2-bind-scene { width:144px; height:96px; margin:0 auto 20px; display:flex; align-items:center; justify-content:center; }
+.lv2-bind-scene image { width:144px; height:96px; }
+.lv2-bind .empty-title { font-size:24px; line-height:32px; margin-bottom:10px; }
+.lv2-bind .empty-desc { font-size:14px; line-height:23px; margin-bottom:20px; }
+.lv2-bind .empty-desc text { display:block; }
+.lv2-bind .status-card { margin:0 0 16px; background:var(--af2-surface-order); border:0; border-radius:16px; padding:16px; text-align:left; }
+.lv2-bind .status-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.lv2-bind .status-label { flex:1; font-size:14px; color:var(--af2-ink-order); }
+.lv2-bind .status-value { font-size:16px; line-height:24px; color:var(--af2-ink); }
+.lv2-bind .btn-wrap { display:flex; flex-wrap:wrap; gap:8px 16px; padding:12px 0; margin:0; justify-content:center; }
+.lv2-bind > .b2-inline-tool { margin-top:24px; }

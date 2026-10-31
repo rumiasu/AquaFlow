@@ -218,3 +218,54 @@
 .payroll-no, .payroll-period, .item-detail { overflow-wrap: anywhere; }
 
 .item-right { max-width: 100%; overflow-wrap: anywhere; }
+
+/* 2026-10-28：本页信息层级、小屏长字与触控下限；业务语义由原数据决定。 */
+button:not(.af-action):not(.af-choice) { min-height:44px; height:auto; line-height:1.45; white-space:normal; box-sizing:border-box; }
+.btn-primary,.primary-button,.btn-confirm { min-height:48px; }
+
+.summary { display:block; padding:20px; }
+.summary-main { padding-bottom:16px; border-bottom:1px solid #dbe3ed; }
+.summary-side { margin-top:16px; padding:0; }
+.summary-label,.summary-hint { font-size:14px; line-height:1.6; }
+.summary-value,.summary-value-sm { white-space:normal; overflow-wrap:anywhere; }
+.payroll-row { flex-wrap:wrap; gap:8px 12px; }
+.payroll-period { font-size:16px; font-weight:600; }
+.payroll-no { font-size:13px; color:#637083; }
+.payroll-amount { font-size:22px; overflow-wrap:anywhere; }
+.chip { display:inline-flex; align-items:center; min-height:44px; min-width:44px; box-sizing:border-box; }
+.item-meta,.item-detail,.note { font-size:14px; line-height:1.6; }
+
+/* 2026-10-28 B2: local layout only; B0 owns action/choice faces and tokens. */
+ .b2-page { --primary-color: var(--af-primary); --primary-bg: var(--af-soft); --text-primary: var(--af-ink); --text-regular: var(--af-text-secondary); --text-secondary: var(--af-text-secondary); --bg-gray: var(--af-soft); --success-color: var(--af-positive); --error-color: var(--af-danger); --error-bg: var(--af-danger-soft); --bg-color: var(--af-canvas); --bg-card: var(--af-surface); --border-color: var(--af-border); }
+ .chips { gap: 8px; } .b2-choice .af-choice__face { min-width: 100px; } .summary { border-left: 4px solid var(--af-primary); box-shadow: none; }
+
+.b2-earnings-scope { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 8px 12px; gap: 12px; border: 1px solid var(--af-border); border-radius: 8px; font-size: 14px; color: var(--af-text-secondary); }
+
+/* 2026-10-29 visual-L: page-local composition; shared controls and palette stay V0-owned. */
+.lv2-page { --bg-color:var(--af2-page); --bg-card:var(--af2-surface); --border-color:var(--af2-line); --text-primary:var(--af2-ink); --text-regular:var(--af2-muted); background:var(--af2-page); color:var(--af2-ink); box-sizing:border-box; font-size:15px; line-height:24px; }
+.lv2-page .ui-state { box-sizing:border-box; margin:12px 0; padding:16px; border-radius:14px; border:1px solid var(--af2-line); }
+.lv2-title-row { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.lv2-title-row > text { flex:1; min-width:0; font-size:22px; line-height:30px; font-weight:600; }
+.lv2-page .af2-icon-tile { background:var(--af2-surface-order); }
+.lv2-page .lv2-neutral-tile { background:var(--af2-surface-neutral); }
+.lv2-page .lv2-physical-tile { background:var(--af2-surface-physical); }
+.lv2-page .lv2-money-tile { background:var(--af2-surface-money); }
+
+.lv2-earnings { padding:20px 16px 28px; }
+.lv2-earnings .summary { margin:0 0 16px; padding:18px; border:0; border-radius:16px; box-shadow:none; background:var(--af2-surface-money); gap:16px; }
+.lv2-earnings .summary-main { min-width:0; flex:1 1 100%; }
+.lv2-earnings .summary-side { flex:1 1 100%; min-width:0; padding-top:14px; border-top:1px solid var(--af2-line); }
+.lv2-earnings .summary-label { font-size:13px; line-height:21px; color:var(--af2-ink-money); }
+.lv2-earnings .summary-value { font-size:30px; line-height:40px; color:var(--af2-ink); }
+.lv2-earnings .summary-value-sm { font-size:22px; line-height:30px; color:var(--af2-ink); }
+.lv2-earnings .summary-hint { font-size:12px; line-height:20px; color:var(--af2-muted); }
+.lv2-earnings .chips { gap:8px; margin-bottom:16px; }
+.lv2-earnings .card { margin:0 0 16px; padding:16px; border:0; border-radius:16px; }
+.lv2-earnings .card-title { font-size:17px; line-height:26px; margin-bottom:10px; }
+.lv2-earnings .payroll, .lv2-earnings .item { padding:14px 0; border-bottom:1px solid var(--af2-line); }
+.lv2-earnings .payroll-period, .lv2-earnings .item-kind { font-size:14px; line-height:22px; }
+.lv2-earnings .payroll-status { background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); font-size:12px; line-height:20px; padding:3px 8px; border-radius:6px; }
+.lv2-earnings .payroll-amount { font-size:20px; line-height:28px; color:var(--af2-ink); }
+.lv2-earnings .payroll-paid, .lv2-earnings .item-meta, .lv2-earnings .item-detail { font-size:12px; line-height:20px; }
+.lv2-earnings .item-amount { font-size:18px; line-height:26px; }
+.lv2-earnings .summary-value, .lv2-earnings .summary-value-sm, .lv2-earnings .payroll-amount, .lv2-earnings .item-amount { max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-all; }

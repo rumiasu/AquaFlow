@@ -99,6 +99,12 @@ public class StationSetupGuideService {
     private StationDeliveryConfigMapper stationDeliveryConfigMapper;
 
     @Autowired
+    private DeliveryConfigGuideService deliveryConfigGuideService;
+
+    @Autowired
+    private TicketTierService ticketTierService;
+
+    @Autowired
     private StaffMapper staffMapper;
 
     @Autowired
@@ -166,10 +172,14 @@ public class StationSetupGuideService {
                 "客户看不到任何商品就没法下单；「选品」不等于「上架」，还要填售价与库存",
                 null, onShelf.isEmpty() ? "先选 1~2 款常卖的水上架（其余可以后补）" : null));
 
-        boolean feeConfigured = stationDeliveryConfigMapper.getByStationId(stationId) != null;
-        items.add(item("deliveryFee", "配送计费", P0, feeConfigured, "配送计费",
-                "没保存过 = 起送量 / 配送范围 / 运费 / 楼层费一条都没生效（全按 0 处理）",
-                null, feeConfigured ? null : "哪怕本站不收配送费，也去页面点一次保存 —— 保存过才算「明确表示不收」"));
+        var feeConfig = stationDeliveryConfigMapper.getByStationId(stationId);
+        var missingAmounts = feeConfig == null || !deliveryConfigGuideService.hasNonBarrelOnShelf(stationId)
+                ? java.util.Collections.<String>emptyList() : deliveryConfigGuideService.missingAmountFields(feeConfig);
+        boolean feeReady = feeConfig != null;
+        String missingText = String.join("、", missingAmounts.stream().map(key -> "minOrderAmount".equals(key) ? "起送金额" : "免运费金额").collect(java.util.stream.Collectors.toList()));
+        items.add(item("deliveryFee", "配送计费", P0, feeReady, "配送计费",
+                feeConfig == null ? "尚未保存配送计费规则" : missingAmounts.isEmpty() ? "配送计费规则已保存" : "规则已保存，非桶装订单不按桶数门槛判断；可选补充" + missingText,
+                null, feeReady ? null : feeConfig == null ? "到「配送计费」按教程设置并保存；不收费也请明确保存" : "到「配送计费」按教程填写" + missingText + "并保存"));
 
         // ---- P1：影响钱或客户体验 ----
         int deliveryStaff = 0;
@@ -178,15 +188,18 @@ public class StationSetupGuideService {
             deliveryStaff = staffs == null ? 0 : staffs.size();
         }
         StaffPieceRate defaultRate = staffPieceRateMapper.getByStationAndProduct(stationId, 0L);
+        // 2026-10-27：商品专属价也是真实工资规则；全部在架商品已覆盖时不能反复说未配工资。
         boolean rateOk = defaultRate != null && defaultRate.getPerBucketAmount() != null;
+        if (!rateOk && !onShelf.isEmpty()) rateOk = onShelf.stream().allMatch(inv ->
+                staffPieceRateMapper.getByStationAndProduct(stationId, inv.getProductId()) != null);
         items.add(item("staffPayroll", "员工工资结构", P1, deliveryStaff == 0 || rateOk, "工资设置",
                 deliveryStaff == 0
                         ? "本站还没有配送员；一旦有人，就要先定工资结构，否则他送的水会按 0 元记工钱"
-                        : rateOk ? "站级默认计件单价已配置；可在计件工资页核对商品单价与结算规则"
-                        : "有 " + deliveryStaff + " 名配送员，但没配计件单价 —— 他们送的水会按 0 元记工钱（结算单也是 0）",
+                        : rateOk ? "默认单价或当前在架商品的专属计件价已配置；新增商品时请继续核对工资规则"
+                        : "有 " + deliveryStaff + " 名配送员，但尚未配置默认计件单价；未配置部分不会产生计件流水，应发工资需要核实",
                 null,
                 (deliveryStaff > 0 && !rateOk)
-                        ? "到「计件工资」页填站级默认单价；若采用固定工资结算，本期先忽略此项（固定工资模式尚未实现，见 docs/design/25）"
+                        ? "到「计件工资」页填写默认计件单价；不计件请明确填0。已有漏算工钱需核实后补录，不会按新单价追算历史"
                         : null));
 
         // ⚠️ 水票档位有**两套并存的定价方式**，判据必须两套都认（2026-09-24 修的真实缺陷）：
@@ -198,14 +211,14 @@ public class StationSetupGuideService {
         boolean unifiedTicket = stationId != null && stationTicketDiscountMapper.countOnShelf(stationId) > 0;
         Map<Long, Boolean> ticketProductHasPackage = new LinkedHashMap<>();
         List<String> ticketedWithoutPackage = new ArrayList<>();
-        if (!unifiedTicket) {
+        {
             for (Inventory inv : onShelf) {
                 if (inv.getTicketEnabled() == null || !Integer.valueOf(1).equals(inv.getTicketEnabled())) {
                     continue;
                 }
                 Product p = productMapper.getById(inv.getProductId());
-                List<TicketPackage> pkgs = ticketPackageMapper.listOnShelf(stationId, inv.getProductId());
-                boolean has = pkgs != null && !pkgs.isEmpty();
+                // 与新客户端实际售票档位同源：包括可用的单张散买，尊重停用1张档占位。
+                boolean has = !ticketTierService.customerTiers(stationId, inv.getProductId(), true).isEmpty();
                 ticketProductHasPackage.put(inv.getProductId(), has);
                 if (!has) {
                     ticketedWithoutPackage.add(p != null && p.getName() != null ? p.getName() : ("商品 " + inv.getProductId()));
@@ -216,12 +229,11 @@ public class StationSetupGuideService {
         items.add(item("ticketPackage", "水票档位", P1, ticketOk, "商品与库存",
                 ticketOk
                         ? (unifiedTicket
-                                ? "本站用的是站级「统一折扣」，价目表已配好"
-                                : "没有「开了水票却没配档位」的商品")
-                        : "这些商品开了水票但没有档位，客户想买票却看不到价目表：" + String.join("、", ticketedWithoutPackage),
+                                ? "商品已有可购买票价，含适用的站级统一折扣"
+                                : "商品已有可购买的单张价或套餐价；优惠档位可按需设置")
+                        : "这些商品已开水票但暂时没有可购买票价：" + String.join("、", ticketedWithoutPackage),
                 null, ticketOk ? null
-                        : "两种配法任选其一：给这些商品逐个配 10 / 20 / 100 张的档位，"
-                          + "或到「水票档位」页改用**站级统一折扣**（一次配好，全站商品共用）"));
+                        : "到商品编辑设置1张或多张套餐，或在「水票档位」设置适用的站级统一折扣；已有单张价可继续使用。"));
 
         items.add(item("stationNotice", "营业公告", P2, true, "营业状态与公告",
                 "歇业/放假时客户能提前知道（软状态，不阻断下单）", null, null));
@@ -247,27 +259,16 @@ public class StationSetupGuideService {
         result.put("summaryText", p0Pending > 0
                 ? "还需完成 " + p0Pending + " 项必填"
                 : "已具备上线条件");
-        result.put("onlineHint", onlineHintOf(station, p0Pending));
+        result.put("onlineHint", onlineHintOf(station, p0Pending, feeReady));
         return result;
     }
 
-    /**
-     * 「还差这些」之后那句"下一步做什么"（2026-09-24 产品要求：待填项那里加一句"全部填完可设置上线"）。
-     *
-     * <p>⚠️ 三种站况必须给**不同**的话，不能一句"配好就能上线"打天下：</p>
-     * <ul>
-     *   <li><b>已在营业 + 还有必填没配</b>（例：甘泉桶装水）—— 它早就在正常运营了，
-     *       对它说"配好就能上线"是**假话**，会让站长以为自己的站还没上线。这时候该说的是
-     *       "不影响接单，配好规则才算得准"。</li>
-     *   <li><b>待上线 + 还有必填没配</b> —— 这才是产品那句话的主场。</li>
-     *   <li><b>必填都配好了</b> —— 直接指向面板底部那个「设置营业状态」按钮（本仓口径：
-     *       文案要给出可执行的下一步，不要只说"已完成"）。</li>
-     * </ul>
-     *
-     * <p>营业状态是**软状态**（v32，见 {@code constant.StationOperatingStatus}）：这里只做提示，
-     * 文案里**不许**写成"不配好就不能营业"—— 系统从不因待填项阻断下单。</p>
-     */
-    private static String onlineHintOf(Station station, int p0Pending) {
+    /** 营业状态仍独立展示；计费缺项单独说明报价与下单边界，不阻止保存商品。 */
+    private static String onlineHintOf(Station station, int p0Pending, boolean feeReady) {
+        if (!feeReady) {
+            return "当前营业状态：" + (station == null ? "待核实" : station.getOperatingStatusText())
+                    + "；商品可先保存上架，配送计费完善前顾客暂不能下单";
+        }
         if (p0Pending <= 0) {
             return station != null && StationOperatingStatus.isPendingLaunch(station.getOperatingStatus())
                     ? "已具备上线条件，可到营业状态开始营业"

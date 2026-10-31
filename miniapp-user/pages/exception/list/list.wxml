@@ -1,43 +1,36 @@
 <view class="page-container">
-  <view class="header"><text class="header-title">我的异常记录</text><text class="header-subtitle">查看订单异常事实、水站处理进度与补偿结果</text></view>
-  <view class="state-card" wx:if="{{loading && !loaded}}"><text class="state-title">正在读取异常记录</text><text class="state-note">请稍候，记录正在加载。</text></view>
+  <view class="header"><text class="header-title">我的异常记录</text></view>
+  <view class="state-card" wx:if="{{loading && !loaded}}"><text class="state-title">正在读取异常记录</text></view>
   <view class="state-banner" wx:if="{{loading && loaded}}">正在更新，以下为上次读取的记录。</view>
   <view class="state-card state-error" wx:if="{{loadError || accessDenied}}">
     <text class="state-title">{{accessDenied ? '暂时无法访问记录' : '异常记录读取失败'}}</text><text class="state-note">{{loadError || moreError}}</text>
     <text class="state-note" wx:if="{{loaded && !accessDenied}}">以下为上次读取的内容，处理状态与金额可能已变化。</text>
-    <view class="state-actions"><button class="state-button" bindtap="onRetry" loading="{{loading}}" disabled="{{loading}}">重新读取</button><button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button></view>
+    <view class="state-actions"><button class="af-action af-action--quiet" bindtap="onRetry" loading="{{loading}}" disabled="{{loading}}"><text class="af-action__face">重新读取</text></button><button wx:if="{{accessDenied}}" class="af-action af-action--secondary" bindtap="onLogin">去登录</button></view>
   </view>
   <view class="exception-list" wx:if="{{exceptions.length > 0 && !accessDenied}}">
     <view wx:for="{{exceptions}}" wx:key="id" class="exception-card" bindtap="onExceptionTap" data-id="{{item.id}}" role="button" aria-label="查看{{item.orderLabel}}的异常处理详情">
-      <view class="card-header"><view class="order-info"><text class="order-id">订单 {{item.orderLabel}}</text><text class="time">{{item.timeText}}</text></view><text class="status-badge {{item.statusColor}}">{{item.statusLabel}}</text></view>
+      <view class="card-header"><text class="status-badge {{item.statusColor}}">{{item.statusLabel}}</text><view class="order-info"><text class="order-id">订单 {{item.orderLabel}}</text><text class="time">{{item.timeText}}</text></view></view>
       <view class="card-body">
         <view class="info-row"><text class="label">异常类型</text><text class="value">{{item.categoryLabel}}</text></view>
         <view class="info-row"><text class="label">回桶差异</text><text class="value discrepancy-value">{{item.discrepancyText}}</text></view>
         <view class="info-row compensation-row"><text class="label">补偿信息</text><text class="value">{{item.compensationText}}</text></view>
       </view>
       <view class="card-footer">
-        <view class="progress-info" wx:if="{{item.stepIndex >= 0 && item.statusLabel !== '状态待核实'}}">
-          <view class="step active"><view class="step-dot"></view><text class="step-text">已记录</text></view>
-          <view class="step-line {{item.stepIndex >= 1 ? 'active' : ''}}"></view>
-          <view class="step {{item.stepIndex >= 1 ? 'active' : ''}}"><view class="step-dot"></view><text class="step-text">水站处理</text></view>
-          <view class="step-line {{item.stepIndex >= 3 ? 'active' : ''}}"></view>
-          <view class="step {{item.stepIndex >= 3 ? 'active' : ''}}"><view class="step-dot"></view><text class="step-text">处理完成</text></view>
-        </view>
-        <text class="detail-link">查看说明与处理详情 ›</text>
+        <text class="detail-link">查看详情 ›</text>
       </view>
     </view>
   </view>
   <view class="state-card" wx:if="{{loaded && !loading && !loadError && !accessDenied && exceptions.length === 0}}">
-    <text class="state-title">暂无异常记录</text><text class="state-note">配送过程中记录的问题与处理进度会显示在这里。</text><button class="state-button secondary" bindtap="onRetry">刷新记录</button>
+    <text class="state-title">暂无异常记录</text><button class="af-action af-action--quiet" bindtap="onRetry"><text class="af-action__face">刷新记录</text></button>
   </view>
   <view class="load-more" wx:if="{{exceptions.length && !accessDenied && !loadError && !loading}}">
     <text class="state-note" wx:if="{{moreError}}">{{moreError}}</text>
-    <button wx:if="{{!noMore}}" class="state-button secondary" bindtap="loadMore" disabled="{{loadingMore}}" loading="{{loadingMore}}">{{loadingMore ? '正在读取后续记录' : moreError ? '重试读取后续记录' : '加载更多记录'}}</button>
+    <button wx:if="{{!noMore}}" class="af-action af-action--quiet" bindtap="loadMore" disabled="{{loadingMore}}" loading="{{loadingMore}}"><text class="af-action__face">{{loadingMore ? '正在读取后续记录' : moreError ? '重试读取后续记录' : '加载更多记录'}}</text></button>
     <text class="state-note" wx:else>已显示全部记录</text>
   </view>
   <view class="detail-mask" wx:if="{{detailVisible && selectedException && !accessDenied}}" catchtap="onCloseDetail">
     <view class="detail-panel" catchtap="onDetailPanelTap" role="dialog" aria-label="异常处理详情">
-      <view class="detail-heading"><text class="state-title">异常处理详情</text><button class="close-button" bindtap="onCloseDetail">关闭</button></view>
+      <view class="detail-heading"><text class="state-title">异常处理详情</text><button class="af-action af-action--cancel" bindtap="onCloseDetail">关闭</button></view>
       <scroll-view scroll-y class="detail-scroll">
         <view class="detail-content">
           <text class="detail-order">订单 {{selectedException.orderLabel}}</text>
@@ -45,11 +38,20 @@
           <text class="detail-line">记录时间：{{selectedException.timeText}}</text>
           <view class="detail-important"><text class="detail-line">{{selectedException.discrepancyText}}</text><text class="detail-line">{{selectedException.compensationText}}</text></view>
           <text class="state-note" wx:if="{{loading || loadError}}">当前为上次读取的记录，处理状态和金额请刷新后核对。</text>
+        <view class="progress-info" wx:if="{{selectedException.stepIndex >= 0 && selectedException.statusLabel !== '状态待核实'}}">
+          <view class="step active"><view class="step-dot"></view><text class="step-text">已记录</text></view>
+          <view class="step-line {{selectedException.stepIndex >= 1 ? 'active' : ''}}"></view>
+          <view class="step {{selectedException.stepIndex >= 1 ? 'active' : ''}}"><view class="step-dot"></view><text class="step-text">水站处理</text></view>
+          <view class="step-line {{selectedException.stepIndex >= 3 ? 'active' : ''}}"></view>
+          <view class="step {{selectedException.stepIndex >= 3 ? 'active' : ''}}"><view class="step-dot"></view><text class="step-text">处理完成</text></view>
+        </view>
           <text class="detail-label">配送员说明</text><text class="detail-note">{{selectedException.staffNote || '暂无配送员说明'}}</text>
           <text class="detail-label">水站处理说明</text><text class="detail-note">{{selectedException.managerNote || '暂无水站处理说明，请联系水站核实处理安排'}}</text>
         </view>
       </scroll-view>
-      <button class="state-button" bindtap="onCloseDetail">知道了</button>
+      <button class="af-action af-action--quiet" bindtap="onContactStation"><text class="af-action__face">联系水站</text></button>
+      <button class="af-action af-action--cancel" bindtap="onCloseDetail">知道了</button>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

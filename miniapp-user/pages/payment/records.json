@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "账单记录",
+  "navigationBarTitleText": "付款记录",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "loading": "../../components/Loading/index",

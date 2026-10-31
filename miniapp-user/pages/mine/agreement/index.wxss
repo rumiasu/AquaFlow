@@ -86,8 +86,13 @@
 }
 
 .doc-notice button { min-height: 44px; padding: 18rpx 28rpx; font-size: 14px; line-height: 1.6; border-radius: var(--radius-sm); color: var(--primary-color); background: #fff; margin: 0; }
-.doc-heading { border-left: 5rpx solid var(--primary-color); padding-left: 16rpx; }
+.doc-heading { line-height: 1.5; }
 .doc-body { white-space: pre-wrap; word-break: break-all; }
 
 /* 本页所有状态共用的可读与触控边界。 */
 .doc-notice-text, .doc-updated, .doc-foot-text { font-size: 28rpx; line-height: 1.75; }
+
+/* Visual v2: page hierarchy and reading rhythm. */
+.doc-head,.doc-section { background:var(--af2-surface); }
+.doc-title { line-height:1.4; overflow-wrap:anywhere; }
+.doc-body { line-height:1.8; overflow-wrap:anywhere; }

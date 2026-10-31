@@ -24,6 +24,9 @@ public class InventoryRecord {
     /** 库存变动量：正=入库/回补，负=消耗/出库 */
     private Integer delta;
 
+    /** 本次库存变动的成本金额快照，NULL=未知，明确0为零成本。 */
+    private java.math.BigDecimal costAmount;
+
     /** 变动类型，见 {@link com.example.aquaflow.constant.InventoryChangeType} */
     private String type;
 

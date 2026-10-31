@@ -27,10 +27,10 @@ import java.util.Map;
  *
  * <p>渠道现状：真实微信支付未接入，当前可用的是现金（货到付款）与水票。
  * [2026-09-20] 新增<b>微信支付模拟渠道</b>（{@code app.payment.mock-wechat-pay}，默认 <b>false</b>）：
- * 开启时 {@code availableMethods()} 把微信置为可选、{@code createPayment} 对 method=1
- * <b>当场置为已付款</b>（只取代"真实付款"这一下：金额重算、活跃流水唯一键、押金入账、
+ * 隔离环境与本客户授权同时通过时，报价才把微信置为可选；模拟原款先持久化 PENDING，
+ * 再由内部适配器调用共用确认入口（金额重算、活跃流水唯一键、押金入账、
  * 订单付款状态只前进等校验全部照跑）；关闭时行为与之前逐字一致。
- * <b>两条退款路径的口径随之联动</b>——模拟开启时微信退款也按"原路退回（模拟）"放行并在
+ * <b>两条退款路径的口径随之联动</b>——只对有持久模拟标识的授权测试原款放行模拟退款，并在
  * {@code note} 里写明是模拟；关闭时维持原状：手工退款（{@code refundPayment}）对微信流水直接拒绝
  * （它的唯一产出就是"钱"），订单取消链（{@code refundOrder}）只记凭据 + 写明"需线下退款"，
  * 不阻断取消（取消还要连锁退押金 / 回补库存 / 清配送中桶）。取舍理由见两个方法的 javadoc。</p>
@@ -46,7 +46,7 @@ import java.util.Map;
  */
 public interface PaymentService {
 
-    /** 仅对锁后仍符合全部超时条件、且没有结果未知活跃原款的微信单执行取消。 */
+    /** 仅对锁后仍符合超时条件、没有活跃原款的微信/水票单执行取消；现金货到付款不参与。 */
     boolean cancelTimedOutWechatOrder(Long orderId, int timeoutMinutes);
 
     /** 创建支付记录 */
@@ -75,15 +75,15 @@ public interface PaymentService {
      *
      * <p><b>为什么需要它：</b>水票购买是客户的<b>自助预付</b>，不是「等水站同意」
      * （产品口径：「水票购买不需要水站同意，直接微信收款就行，现在只是没做收款实现而已」）。
-     * 下单类支付走 {@code createPayment}，在模拟渠道下当场就是 PAID；而在线购票走的是
+     * 下单类支付走 {@code createPayment}，与在线购票一样先持久化 PENDING；在线购票走的是
      * {@code TicketAccountServiceImpl.purchaseTicket}，它只落一条 PENDING 流水 ——
      * 于是模拟渠道下这笔钱明明"已经收到"，却要站长去「待确认收款」点一下，
      * 界面看起来正是"买票要水站审批"。这个不对称是缺陷，不是设计。</p>
      *
-     * <p><b>判据只认流水自己：</b>{@code payment_method = 微信} <b>且</b>模拟开关开着
-     * <b>且</b>仍是待收款(1)。现金购票（{@code payment_method = 现金}）<b>照旧留在待收款</b> ——
+     * <p><b>判据：</b>隔离环境、本客户登录与白名单、持久模拟标识、锁后待收款状态同时成立。
+     * 现金购票（{@code payment_method = 现金}）<b>照旧留在待收款</b> ——
      * 那一步是「确认收到钱」，站长没收到钱就不能入账（与水站是否"同意"无关）。
-     * 非待收款状态（已付款 / 已退款 / 已取消）原样返回，不抛异常 —— 幂等重放走的就是这条路。</p>
+     * 已付款重放返回原款；已退款、已取消或订单关闭拒绝，不复活终态。</p>
      *
      * <p><b>副作用一律走 {@link #confirmPayment}</b>（CAS + 水票入账 + 批次单价快照），
      * 这里不另写一套入账逻辑。真实微信渠道接入后，本方法应与 {@code mockWechatPay} 开关一起删除：
@@ -239,4 +239,7 @@ public interface PaymentService {
      * 由本方法统一判定，实体 {@code Orders.getCanRepay()} 只负责取投影结果。</p>
      */
     boolean canSelfPay(Orders order);
+
+    /** 顾客取自登录态；只读渠道能力不创建原款、不改变资产。 */
+    Map<String,Object> channelCapabilities(Long customerId);
 }

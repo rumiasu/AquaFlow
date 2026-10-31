@@ -149,7 +149,7 @@ async function main() {
       const list = content.children.find(n => n.tag === 'scroll-view')
       assert(list && 'scroll-y' in list.attrs && !('catchtouchmove' in list.attrs))
       const button = content.children.find(n => n.tag === 'button')
-      assert.strictEqual(button.attrs.class, 'modal-cancel')
+      assert(button.attrs.class.split(/\s+/).includes('af-action--cancel'), 'keep the cancel action family')
       assert.strictEqual(button.attrs.bindtap, close)
       assert(!('wx:if' in button.attrs) && !('hidden' in button.attrs), 'keep the required close action visible')
     }
@@ -248,7 +248,7 @@ async function main() {
   await test('detail fixed actions retain a safe-area gap on the smallest supported width', () => {
     const value = paddingFor(['container'], [read('miniapp-delivery/app.wxss'), read('miniapp-delivery/pages/order/detail.wxss')])
     for (const width of [320, 375]) for (const safe of [0, 34]) {
-      const expr = value.replace(/calc\((.*)\)/, '$1').replace(/env\(safe-area-inset-bottom\)/g, String(safe)).replace(/([\d.]+)rpx/g, (_, x) => String(Number(x) * width / 750))
+      const expr = value.replace(/calc\((.*)\)/, '$1').replace(/env\(safe-area-inset-bottom\)/g, String(safe)).replace(/([\d.]+)rpx/g, (_, x) => String(Number(x) * width / 750)).replace(/([\d.]+)px/g, '$1')
       assert(/^[\d. +()-]+$/.test(expr))
       assert(Function('return (' + expr + ')')() >= 180 * width / 750 + safe + 8)
     }

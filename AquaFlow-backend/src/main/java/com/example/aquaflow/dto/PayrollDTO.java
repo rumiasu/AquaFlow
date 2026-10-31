@@ -47,6 +47,17 @@ public final class PayrollDTO {
         private String note;
     }
 
+    /** POST /payroll/settle 或 /payroll/{id}/settle：核实预览后登记线下发薪。 */
+    @Data
+    public static class Settle {
+        private Long staffId;
+        private LocalDate periodStart;
+        private LocalDate periodEnd;
+        private String previewToken;
+        private Boolean paidOffline;
+        private String note;
+    }
+
     /** POST /api/manager/payroll/adjust：人工调整（可正可负） */
     @Data
     public static class Adjust {

@@ -43,6 +43,16 @@ public class HistoricalAssetClaimSchemaGuard {
             valid &= rows.stream().map(r->r.get("column_name")).toList().equals(key.subList(1,key.size()))&&rows.stream().allMatch(r->r.get("sub_part")==null);
         }
         if(!valid) throw new IllegalStateException("历史资产认领结构不完整，请核对并手工执行 sql/migration_v80_historical_asset_claim.sql");
+        var photoColumns=jdbc.queryForList("select column_name,data_type,is_nullable,collation_name,character_maximum_length from information_schema.columns where table_schema=database() and table_name='historical_asset_claim_photo'");
+        boolean photoValid=jdbc.queryForList("select engine from information_schema.tables where table_schema=database() and table_name='historical_asset_claim_photo'")
+            .stream().anyMatch(r -> "InnoDB".equals(r.get("engine")));
+        for(var field:Map.of("customer_id","bigint","station_id","bigint","client_token","varchar","object_name","varchar","create_time","datetime").entrySet())
+            photoValid &= photoColumns.stream().anyMatch(c -> field.getKey().equals(c.get("column_name"))&&field.getValue().equals(c.get("data_type"))&&"NO".equals(c.get("is_nullable")));
+        photoValid &= photoColumns.stream().anyMatch(c -> "client_token".equals(c.get("column_name"))&&"utf8mb4_bin".equals(c.get("collation_name"))&&Long.valueOf(64).equals(c.get("character_maximum_length")));
+        photoValid &= photoColumns.stream().anyMatch(c -> "object_name".equals(c.get("column_name"))&&Long.valueOf(512).equals(c.get("character_maximum_length")));
+        var photoKey=jdbc.queryForList("select column_name,sub_part from information_schema.statistics where table_schema=database() and table_name='historical_asset_claim_photo' and index_name='PRIMARY' and non_unique=0 order by seq_in_index");
+        photoValid &= photoKey.stream().map(r -> r.get("column_name")).toList().equals(List.of("customer_id","client_token"))&&photoKey.stream().allMatch(r -> r.get("sub_part")==null);
+        if(!photoValid) throw new IllegalStateException("认领照片结构不完整，请先手工执行 sql/migration_v86_historical_asset_claim_photo.sql 再更新后端");
     }
 
     private String canonicalExpression(String sql) {

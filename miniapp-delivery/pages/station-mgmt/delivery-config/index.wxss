@@ -8,7 +8,7 @@
   background: #fff;
   border-radius: 16rpx;
   padding: 24rpx;
-  margin-bottom: 24rpx;
+  margin: 0 0 24rpx;
 }
 
 /* 金额门槛引导（2026-09-19）：上架非桶装商品后必须补金额门槛，这里给一条显眼的提示 */
@@ -193,6 +193,11 @@
 .fee-rule-summary-title { min-width:0; font-size:27rpx; font-weight:600; color:var(--text-primary); }
 .fee-rule-summary-copy { display:block; margin-top:6rpx; font-size:25rpx; line-height:1.55; color:var(--text-regular); overflow-wrap:anywhere; }
 .fee-rule-summary-link { display:block; margin-top:6rpx; text-align:right; font-size:24rpx; color:var(--primary-color); }
+.fee-rule-toggle,.fee-section-toggle { width:auto; min-height:40px; height:auto; margin:8rpx 0 0; padding:8rpx 12rpx; color:var(--primary-color); background:transparent; font-size:13px; line-height:1.4; }
+.fee-rule-toggle::after,.fee-section-toggle::after { border:0; }
+.fee-rule-toggle { display:block; padding-left:0; padding-right:0; }
+.fee-section-toggle { margin-left:auto; }
+.fee-editor-fields { padding-top:4rpx; }
 .fee-section-heading { gap:10rpx; }
 .fee-section-number { flex:none; width:42rpx; height:42rpx; line-height:42rpx; text-align:center; border-radius:50%; color:var(--primary-color); background:var(--primary-bg); font-size:22rpx; font-weight:600; }
 .fee-choice-row { display:flex; gap:8rpx; margin:8rpx 0 12rpx; }
@@ -200,3 +205,73 @@
 .fee-choice::after { border:0; }
 .fee-choice.active { color:var(--primary-color); background:var(--primary-bg); border-color:var(--primary-color); font-weight:600; }
 .fee-inline-help { display:block; margin:12rpx 0 4rpx; color:var(--text-regular); font-size:24rpx; line-height:1.6; }
+
+/* 2026-10-26：四项教程直接属于上线准备；编辑状态随标题排布，数值与不限同一行。 */
+.fee-setup-card { margin:16rpx 0 20rpx; padding:20rpx; border:1rpx solid var(--border-color); border-left:4rpx solid var(--primary-color); border-radius:12rpx; background:#fff; }
+.fee-rule-summary-head { align-items:baseline; flex-wrap:wrap; gap:6rpx 12rpx; }
+.fee-rule-summary-title { flex:1; }
+.fee-rule-summary-state { margin-left:auto; font-size:22rpx; }
+.fee-rule-summary-guide { display:block; font-size:26rpx; line-height:1.6; color:var(--text-primary); margin-top:8rpx; }
+.fee-rule-summary-copy { font-size:23rpx; color:var(--text-secondary); }
+.fee-section-heading { flex-wrap:nowrap; gap:8rpx; }
+.fee-section-heading .card-title { flex:1; min-width:0; font-size:29rpx; }
+.fee-section-toggle { flex:none; min-height:44px; margin:0 0 0 auto; padding:4rpx; font-size:23rpx; white-space:nowrap; }
+.fee-threshold-row { display:flex; align-items:center; gap:12rpx; }
+.fee-threshold-row .input { flex:1; width:0; min-width:0; }
+.fee-unlimited { flex:none; width:auto; min-height:44px; padding:8rpx 12rpx; display:flex; align-items:center; gap:8rpx; font-size:24rpx; }
+.fee-checkbox { flex:none; width:28rpx; height:28rpx; line-height:28rpx; border:1rpx solid currentColor; border-radius:4rpx; text-align:center; }
+.fee-threshold-note,.fee-draft-note { display:block; margin-top:10rpx; font-size:24rpx; line-height:1.6; color:var(--text-regular); }
+.fee-next { width:100%; margin:24rpx 0 0; min-height:44px; height:auto; padding:16rpx; background:var(--primary-bg); color:var(--primary-color); font-size:27rpx; line-height:1.5; border-radius:10rpx; }
+.fee-next::after,.fee-exit::after { border:0; }
+.fee-save-actions { display:flex; align-items:center; gap:16rpx; }
+.fee-save-actions .btn-primary { flex:1; width:0; min-width:0; }
+.fee-exit { flex:none; margin:0; min-height:48px; padding:12rpx 16rpx; font-size:27rpx; background:var(--bg-gray); color:var(--text-regular); line-height:1.5; display:flex; align-items:center; }
+
+/* 2026-10-28：本页信息层级、小屏长字与触控下限；业务语义由原数据决定。 */
+button:not(.af-action):not(.af-choice):not(.af-entry) { min-height:44px; height:auto; line-height:1.45; white-space:normal; box-sizing:border-box; }
+.btn-primary,.primary-button,.btn-confirm { min-height:48px; }
+
+.fee-rule-summary { display:block; width:100%; box-sizing:border-box; margin:0; padding:12px 0; border:0; border-bottom:1px solid #e2e8f0; background:transparent; text-align:left; }
+.fee-rule-summary-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; }
+.fee-rule-summary-title { font-size:15px; }
+.fee-rule-summary-state,.fee-rule-summary-copy,.fee-rule-summary-guide,.fee-rules-note,.fee-threshold-note,.option-desc { font-size:14px; line-height:1.6; }
+.fee-rule-summary-copy { display:block; margin-top:4px; }
+.fee-section-nav { gap:6px; }
+.fee-nav-item { min-width:0; padding:10px 6px; font-size:14px; }
+.input,.fee-threshold-row input { min-height:48px; }
+.option { min-height:44px; box-sizing:border-box; display:flex; justify-content:center; flex-direction:column; }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Page-specific role grouping. */
+
+.fee-section-nav .af-choice { flex:1; min-width:0; }
+.fee-choice-row .af-choice { flex:1; min-width:0; }
+.options .af-choice { flex:1; min-width:0; align-items:stretch; }
+.options .af-choice__face { justify-content:center; padding:6px 8px; }
+.fee-section-heading .b3-on-section-tap { margin-left:auto; flex:none; }
+.fee-section .b3-on-complete-section { margin-top:12px; }
+
+/* Visual v2: page-specific information and action grouping. */
+ .fee-setup-card { border-radius:14px; background:var(--af2-surface-order); border:0; } .fee-rules-title,.fee-rule-summary-title { color:var(--af2-ink-order); } .fee-rule-summary { border-bottom:1px solid var(--af-border); } .fee-section-number { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:8px; background:var(--af2-surface-order); color:var(--af2-ink-order); font-size:14px; font-weight:600; } .fee-section { border-radius:14px; box-shadow:none; } .fee-section-nav .af-choice { flex:1; min-width:0; }
+
+/* Group real rule summaries with compact native markers. */
+.fee-rule-summary { position:relative; padding:10px 0 10px 42px; }
+.s-fee-marker { position:absolute; left:0; top:10px; display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:8px; background:var(--af2-surface); color:var(--af2-ink-order); font-size:13px; font-weight:600; }
+.fee-rule-summary-copy { display:block; margin-top:4px; }
+

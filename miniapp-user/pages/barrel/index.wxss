@@ -771,7 +771,6 @@
 
 .bucket-detail-toggle { min-height: 88rpx; display: flex; align-items: center; }
 .asset-bucket-item { align-items: flex-start; gap: 16rpx; }
-.barrel-record > button { min-height: 44px; margin: 20rpx 0 0; border-radius: var(--radius-sm); font-size: 14px; color: var(--primary-color); background: var(--primary-bg); white-space: normal; }
 
 .eco-card { display: flex; flex-wrap: wrap; align-items: center; gap: 16rpx; padding: 20rpx 24rpx; border-radius: var(--radius-md); }
 .eco-content { flex: 1; min-width: 280rpx; margin-bottom: 0; }
@@ -781,7 +780,6 @@
 .stale-note { display: block; margin: 20rpx 24rpx; color: var(--warning-color); background: var(--bg-gray); padding: 20rpx; font-size: 26rpx; line-height: 1.65; border-left: 4rpx solid var(--warning-color); }
 .container { padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
 .bucket-detail, .bucket-info { min-width: 0; overflow-wrap: anywhere; }
-.record-actions button[disabled] { color: var(--text-regular); background: var(--bg-gray); }
 
 .local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }
 .modal-btn.confirm.disabled { background: var(--bg-gray); color: var(--text-regular); }
@@ -791,3 +789,87 @@
 .empty-asset-action { margin:20rpx 24rpx; min-height:88rpx; padding:20rpx; background:var(--primary-color); color:#fff; border-radius:12rpx; font-size:28rpx; line-height:1.6; }
 .empty-asset-action.secondary { color:var(--primary-color); background:var(--primary-bg); }
 .bucket-detail-pressed { background:var(--primary-bg); }
+
+/* 2026-10-28：当前资产优先；明细与规则保留为44px可展开入口。 */
+.stats-card { flex-wrap:wrap; gap:16rpx; padding:24rpx; background:#fff; border:1rpx solid var(--border-light); }
+.stat-col { flex:1 1 170rpx; min-width:0; overflow-wrap:anywhere; }
+.stat-divider { display:none; }
+.stat-number { font-size:26px; line-height:1.25; }
+.stat-label,.stat-link,.bucket-time,.water-type-qty { font-size:14px; line-height:1.6; }
+.stat-link,.bucket-detail-toggle,.modal-close,.return-btn-small,.water-type-item,.form-row,.preview-row { min-height:44px; box-sizing:border-box; }
+.history-toggle,.detail-toggle { margin:0; padding:10px 12px; min-height:44px; height:auto; font-size:14px; line-height:1.5; color:var(--primary-color); background:transparent; white-space:normal; }
+.detail-toggle { justify-content:flex-start; text-align:left; }
+.history-toggle::after,.detail-toggle::after { border:0; }
+.section-header { flex-wrap:wrap; gap:12rpx; }
+.record-header,.record-actions { flex-wrap:wrap; gap:16rpx; }
+.record-actions button { min-height:44px; white-space:normal; }
+.asset-bucket-item { flex-wrap:wrap; }
+.qty-btn { min-width:48px; min-height:48px; }
+.qty-input { min-height:48px; }
+.modal-close { min-width:44px; }
+.modal-body { min-height:0; overflow-y:auto; }
+.modal-btn.confirm { min-height:48px; }
+.quantity-error { display:block; color:var(--error-color); font-size:14px; line-height:1.6; }
+.eco-card { background:#fff; border-top:1rpx solid var(--border-light); }
+
+.ui-draft-notice { margin:16rpx 24rpx; padding:20rpx; background:#fff; border:1rpx solid var(--border-light); border-radius:12rpx; font-size:14px; line-height:1.6; }
+.ui-draft-notice .af-action { margin:4px 8px 0 0; }
+.ui-draft-notice button::after { border:0; }
+
+.asset-key { display:flex; flex-wrap:wrap; gap:8px; margin:8px 12px 16px; }
+.asset-key > view { flex:1 1 70px; display:flex; align-items:center; gap:5px; color:var(--af-text-secondary); font-size:13px; line-height:1.4; }
+.modal-footer { gap:8px; }
+.modal-footer .af-action--cancel { width:80px; }
+
+/* 数量与押金各有明确标题、单位，颜色仅辅助区分。 */
+.stats-card { gap:8px; margin:12px 16px; background:transparent; overflow:visible; }
+.stat-col { background:var(--af2-surface-physical); border-radius:14px; padding:14px 8px; box-sizing:border-box; }
+.stat-col.stat-money { background:var(--af2-surface-money); }
+.stat-divider { display:none; }
+.stat-label,.stat-unit { color:var(--af2-ink); }
+.stat-link { color:var(--af2-ink-money); }
+.asset-key { background:var(--af2-surface-neutral); border-radius:12px; }
+@media (max-width:340px) { .stats-card { flex-wrap:wrap; } .stat-col { flex:1 1 85px; } .stat-number { overflow-wrap:anywhere; } }
+
+/* Bounded phone feedback: asset facts, product identity and money actions have separate hierarchy. */
+.barrel-assets-page { padding:12px 16px calc(24px + env(safe-area-inset-bottom)); box-sizing:border-box; }
+.barrel-assets-page .stats-card { display:flex; flex-wrap:nowrap; gap:8px; margin:12px 0; padding:0; border:0; }
+.barrel-assets-page .stat-col { flex:1 1 0; min-width:0; padding:12px 6px; gap:6px; border-radius:12px; }
+.barrel-assets-page .stat-label,.barrel-assets-page .stat-unit { font-size:13px; line-height:20px; }
+.barrel-assets-page .stat-number { font-size:24px; line-height:32px; }
+.barrel-assets-page .stat-money .stat-number { color:var(--af2-ink-money); }
+.barrel-assets-page .stat-neutral { background:var(--af2-surface-neutral); }
+.barrel-assets-page .stat-owed { background:var(--af2-surface-physical); }
+.barrel-assets-page .stat-link { min-height:0; font-size:13px; line-height:20px; }
+.barrel-assets-page .rights-actions { margin:0 0 16px; justify-content:flex-start; align-items:center; flex-wrap:wrap; gap:8px 12px; }
+.barrel-assets-page .rights-purchase { display:flex; align-items:center; gap:8px; min-height:48px; margin:0; background:var(--af2-ink-money); color:#FFFFFF; }
+.rights-purchase-note { color:var(--af2-muted); font-size:14px; line-height:22px; }
+.barrel-assets-page .section { margin:0 0 16px; padding:14px; border:1px solid var(--af2-line); border-radius:14px; }
+.barrel-assets-page .section-header { margin-bottom:12px; gap:4px 8px; }
+.barrel-assets-page .section-title { font-size:17px; line-height:25px; }
+.barrel-return-entry .af-action__face { background:transparent; color:var(--af2-ink-money); padding-left:4px; padding-right:4px; }
+.barrel-assets-page .asset-bucket-item { display:block; width:100%; padding:12px 0; background:transparent; border-bottom:1px solid var(--af2-line); }
+.asset-bucket-item:last-child { border-bottom:0; }
+.barrel-assets-page .asset-bucket-item .bucket-info { width:100%; display:flex; align-items:flex-start; gap:12px; }
+.asset-product-photo { display:block; width:72px; height:96px; flex:0 0 72px; border-radius:10px; background:var(--af2-surface-neutral); }
+.asset-photo-placeholder { display:flex; align-items:center; justify-content:center; }
+.barrel-assets-page .asset-bucket-item .bucket-detail { flex:1; min-width:0; gap:4px; }
+.barrel-assets-page .asset-bucket-item .bucket-id { display:block; white-space:normal; overflow-wrap:anywhere; word-break:break-word; font-size:15px; line-height:23px; font-weight:600; }
+.bucket-spec { font-size:13px; line-height:20px; color:var(--af2-muted); }
+.barrel-assets-page .asset-bucket-item .bucket-time { font-size:14px; line-height:22px; }
+.asset-deposit-standard { font-size:14px; line-height:22px; color:var(--af2-ink-money); }
+.barrel-assets-page .bucket-detail-toggle { margin-top:0; min-height:44px; font-size:14px; line-height:22px; }
+.barrel-rules-link { display:flex; align-items:center; min-height:44px; padding:0 4px; color:var(--af2-muted); font-size:14px; line-height:22px; }
+.barrel-assets-page .local-empty { display:block; margin:8px 0; padding:12px 8px; font-size:14px; line-height:22px; }
+
+/* 资产指标同容器；空态两项操作有明确层级与间距。 */
+.barrel-assets-page .stats-card { gap:0; padding:4px; background:#fff; border:1px solid #DDE5EF; border-radius:14px; }
+.barrel-assets-page .stat-col,.barrel-assets-page .stat-col.stat-money { background:transparent; border-radius:0; }
+.barrel-assets-page .stat-divider { display:block; align-self:stretch; width:1px; margin:12px 0; background:#DDE5EF; }
+.barrel-assets-page .rights-purchase { background:#1264D6; }
+.empty-actions { display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-top:12px; }
+.empty-actions button.af-action { width:auto; min-height:44px; margin:0; }
+.empty-barrel-icon { display:flex; align-items:center; justify-content:center; width:64px; height:64px; margin:0 auto 8px; border-radius:50%; background:#EAF2FF; }
+.barrel-assets-page .status-1 { color:#244D7D; background:#EAF2FF; }
+.barrel-assets-page .preview-hint,.barrel-assets-page .preview-blocked,.barrel-assets-page .preview-warn,.barrel-assets-page .stale-note { border-left-color:#1264D6; }
+.barrel-assets-page .preview-hint text,.barrel-assets-page .preview-blocked text,.barrel-assets-page .preview-warn text,.barrel-assets-page .stale-note { color:#244D7D; }

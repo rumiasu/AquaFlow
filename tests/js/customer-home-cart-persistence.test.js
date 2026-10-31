@@ -29,7 +29,7 @@ function fixture(options = {}) {
     'api/station': { getStationStatus: async () => ({ code: 0, data: {} }) },
     'api/payment': { getQuote: async () => ({ code: 0, data: { independentRights: false } }) }
   } })
-  page.setData({ isLogin: true, currentStationId: 1, products, cart: app.getCart(1) })
+  page.setData({ isLogin: true, loading: false, catalogState: 'ready', currentStationId: 1, products, cart: app.getCart(1) })
   return Object.assign(t, { page })
 }
 const change = (page, id, type) => page.onCartQtyChange({ currentTarget: { dataset: { id, type } } })
@@ -82,7 +82,7 @@ test('a failed save keeps the latest visible and in-memory selection and the pri
   assert.equal(t.wx.getStorageSync(K.CART_PREFIX + '7').stations['1']['10'], 2)
 })
 test('different stations retain their own latest selections on restart', () => {
-  const t = fixture(); change(t.page, 10, 'add'); t.page.setData({ currentStationId: 2, cart: t.app.getCart(2) })
+  const t = fixture(); change(t.page, 10, 'add'); t.page.setData({ currentStationId: 2, cart: t.app.getCart(2) }); t.page.refreshDerived(undefined, false)
   change(t.page, 11, 'add'); change(t.page, 11, 'add')
   const cold = restart(t); assert.deepStrictEqual(cold.getCart(1), { 10: 1 }); assert.deepStrictEqual(cold.getCart(2), { 11: 2 })
 })
@@ -124,10 +124,17 @@ test('poster failure preserves current product identity, zero price and saved se
     product: { name: '当前目录商品', spec: '12L', priceText: '0.00', quantityUnit: '桶', imageUrl: '/bad.jpg' }
   }, { includeText: true })
   assert.ok(!nodes.some(n => n.className === 'poster-art-image'))
-  assert.ok(nodes.some(n => n.className.includes('poster-product-placeholder')))
-  assert.ok(nodes.some(n => n.text === '当前目录商品'))
-  assert.ok(nodes.some(n => n.text === '¥0.00'))
+  assert.ok(nodes.some(n => n.className === 'poster-fallback-icon'))
   assert.ok(nodes.some(n => n.text.includes('新增押金在确认页核算')))
+  // The scene no longer duplicates the SKU; verify the real product row instead.
+  const find = node => (node.attrs && node.attrs.class === 'prod') ? node : (node.children || []).map(find).find(Boolean)
+  const row = find(tree); assert.ok(row)
+  const attrs = { ...row.attrs }; delete attrs['wx:for']; delete attrs['wx:key']
+  const item = { id: 10, name: '当前目录商品', spec: '12L', priceText: '0.00', quantityUnit: '桶', imageUrl: '/bad.jpg', qtyDraft: 1 }
+  const product = renderElements({ tag: '#root', children: [{ ...row, attrs }] }, { item, loading: false, catalogState: 'ready' }, { includeText: true })
+  assert.ok(product.some(n => n.tag === 'image' && n.attrs.src === '{{item.imageUrl}}'))
+  assert.ok(product.some(n => n.text === '当前目录商品'))
+  assert.ok(product.some(n => n.text === '¥0.00'))
 })
 
 test('fresh product load permits retrying the current product photo after an earlier failure', async () => {

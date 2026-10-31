@@ -103,11 +103,11 @@ test('late native close after an account switch cannot save the old form under t
   assert.equal(f.p.data.showEdit, false); assert.equal(f.p.data.productEditorResume, false)
   assert.equal(f.p.data.editForm.name, undefined)
 })
-test('native container owns only the editor and preserves the original two-page stack on first Back', () => {
+test('one native container owns both tasks and preserves the original two-page stack on first Back', () => {
   const root = tree(), containers = find(root, n => n.tag === 'page-container')
   assert.equal(containers.length, 1)
   const node = containers[0].node
-  assert.equal(node.attrs.show, '{{showEdit}}'); assert(!('wx:if' in node.attrs))
+  assert.equal(node.attrs.show, '{{showEdit || showInventory || showRecords}}'); assert(!('wx:if' in node.attrs))
   assert.equal(node.attrs['close-on-slide-down'], '{{false}}')
   const f = pageFixture('product'), stack = ['pages/home/index', 'pages/station-mgmt/products/index']
   f.p.openAdd()
@@ -119,7 +119,7 @@ test('native container owns only the editor and preserves the original two-page 
 })
 test('close button and dismiss area stay outside scroll handling; touching the form cannot close it', () => {
   const root = tree(); validateConditionalSiblings(root)
-  const button = find(root, n => cls(n, 'product-edit-close'))[0]
+  const button = find(root, n => n.tag === 'button' && n.attrs.bindtap === 'closeEdit')[0]
   assert.equal(button.node.tag, 'button'); assert.equal(button.node.attrs.bindtap, 'closeEdit')
   const body = find(root, n => cls(n, 'product-edit-body'))
   for (const { node, ancestors } of body) {
@@ -128,7 +128,7 @@ test('close button and dismiss area stay outside scroll handling; touching the f
   }
   const sheet = button.ancestors.find(n => cls(n, 'product-edit-modal'))
   assert.equal(sheet.attrs.catchtap, 'stopPropagation')
-  assert(find(root, n => cls(n, 'product-editor-dismiss-area')).every(({ node, ancestors }) => node.attrs.bindtap === 'closeEdit' && !ancestors.includes(sheet)))
+  assert(find(root, n => cls(n, 'product-editor-dismiss-area')).every(({ node, ancestors }) => ['closeEdit', 'closeInventory'].includes(node.attrs.bindtap) && !ancestors.includes(sheet)))
   const picker = find(root, n => cls(n, 'product-preset-mask'))[0]
   assert(picker.ancestors.some(n => n.tag === 'page-container'), 'gallery must share the native layer rather than sit behind it')
 })

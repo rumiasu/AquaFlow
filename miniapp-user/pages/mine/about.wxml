@@ -1,29 +1,27 @@
 <view class="container">
   <view class="about-section">
     <view class="logo-section">
-      <image class="logo" src="/assets/logo/aquaflow.png" mode="aspectFit"></image>
-      <text class="app-name">AquaFlow</text>
-      <text class="app-version">版本 {{version}}</text>
+      <image class="logo" src="/assets/logo/aiquan-mark.png" mode="aspectFit"></image>
+      <text class="app-name">艾泉订水</text>
+      <text class="brand-english">AquaFlow</text>
+      <text class="app-version">{{version ? '版本 ' + version : '版本暂未提供'}}</text>
     </view>
 
     <view class="info-section">
-      <view class="info-item" bindtap="onOpenAgreement" data-type="user">
+      <view class="info-item af-entry" bindtap="onOpenAgreement" data-type="user">
         <text class="info-label">服务协议</text>
         <text class="info-arrow">›</text>
       </view>
-      <view class="info-item" bindtap="onOpenAgreement" data-type="privacy">
+      <view class="info-item af-entry" bindtap="onOpenAgreement" data-type="privacy">
         <text class="info-label">隐私政策</text>
         <text class="info-arrow">›</text>
       </view>
-      <view class="info-item" bindtap="onOpenService">
+      <view class="info-item af-entry" bindtap="onOpenService">
         <text class="info-label">联系水站与反馈</text>
         <text class="info-arrow">›</text>
       </view>
     </view>
 
-    <view class="copyright">
-      <text>AquaFlow · 桶装水配送服务</text>
-      <text>协议与隐私政策可随时查阅</text>
-    </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

@@ -1,17 +1,17 @@
 <view class="container">
   <view class="page-intro">
     <text class="page-intro-title">{{from === 'home' || from === 'order' ? '选择送水地址' : '收货地址'}}</text>
-    <text class="page-intro-note">{{from === 'home' || from === 'order' ? '请选择本次送水使用的地址' : '管理联系人、门牌与默认地址'}}</text>
+    
   </view>
   <view class="state-card" wx:if="{{loading && !loaded}}">
-    <text class="state-title">正在读取地址</text><text class="state-note">请稍候，读取成功后可管理或选择地址。</text>
+    <text class="state-title">正在读取地址</text>
   </view>
-  <view class="state-banner" wx:if="{{loading && loaded}}">正在更新，以下为上次读取的地址，暂不可选择。</view>
+  <view class="state-banner" wx:if="{{loading && loaded}}">正在更新地址，暂显示上次加载的地址，不可选择。</view>
   <view class="state-card state-error" wx:if="{{loadError}}">
     <text class="state-title">{{accessDenied ? '暂时无法访问地址' : '地址读取失败'}}</text>
     <text class="state-note">{{loadError}}</text>
     <text class="state-note" wx:if="{{loaded && !accessDenied}}">以下为上次读取的内容，可能已变化；刷新成功后才能选择或操作。</text>
-    <view class="state-actions"><button class="state-button" bindtap="onRetry" loading="{{loading}}" disabled="{{loading || mutationPending}}">重新读取</button><button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button></view>
+    <view class="state-actions"><button class="af-action af-action--quiet" bindtap="onRetry" loading="{{loading}}" disabled="{{loading || mutationPending}}"><text class="af-action__face">重新读取</text></button><button wx:if="{{accessDenied}}" class="af-action af-action--secondary" bindtap="onLogin">去登录</button></view>
   </view>
   <view class="state-card" wx:if="{{actionMessage}}">
     <text class="state-note">{{actionMessage}}</text>
@@ -19,20 +19,19 @@
   <view class="address-list" wx:if="{{!accessDenied}}">
     <view class="address-item {{from === 'home' || from === 'order' ? 'selectable' : ''}}" wx:for="{{addresses}}" wx:key="id" bindtap="onSelectAddress" data-item="{{item}}">
       <view class="address-info">
-        <view class="address-header"><text class="address-name">{{item.name}}</text><text class="address-phone">{{item.phone}}</text><text class="default-tag" wx:if="{{item.isDefault}}">默认地址</text></view>
+        <view class="address-header"><text class="address-name">{{item.name}}</text><text class="address-phone">{{item.phone}}</text><text class="default-tag" wx:if="{{item.isDefault}}">默认地址</text><button class="address-edit af-action af-action--quiet" wx:if="{{from !== 'home' && from !== 'order'}}" catchtap="onEditAddress" data-id="{{item.id}}" disabled="{{mutationPending || actionUnknown}}"><text class="af-action__face">编辑</text></button></view>
         <view class="address-detail"><text>{{item.addressText || item.detail || '详细地址待核实'}}</text></view>
         <text class="address-label" wx:if="{{item.label}}">{{item.label}}</text>
       </view>
       <view class="address-actions" wx:if="{{from !== 'home' && from !== 'order'}}">
-        <button class="action-btn" catchtap="onSetDefault" data-id="{{item.id}}" disabled="{{mutationPending || actionUnknown || loading || !!loadError || item.isDefault}}">{{item.isDefault ? '当前默认' : '设为默认'}}</button>
-        <button class="action-btn" catchtap="onEditAddress" data-id="{{item.id}}" disabled="{{mutationPending || actionUnknown}}">编辑</button>
-        <button class="action-btn delete" catchtap="onDeleteAddress" data-id="{{item.id}}" disabled="{{mutationPending || actionUnknown || loading || !!loadError}}">删除</button>
+        <button class="af-action af-action--quiet" catchtap="onMoreAddress" data-id="{{item.id}}" disabled="{{mutationPending || actionUnknown || loading || !!loadError}}"><text class="af-action__face">更多</text></button>
       </view>
-      <text class="select-hint" wx:if="{{from === 'home' || from === 'order'}}">{{loading || loadError ? '更新后可选择' : '选择此地址 ›'}}</text>
+      <text class="select-hint" wx:if="{{from === 'home' || from === 'order'}}">{{loading || loadError ? '更新后可选择' : '›'}}</text>
     </view>
   </view>
   <view class="state-card" wx:if="{{loaded && !loading && !loadError && !accessDenied && addresses.length === 0}}">
-    <text class="state-title">还没有收货地址</text><text class="state-note">新增联系人与门牌信息，下单时即可选择。</text>
+    <text class="state-title">还没有收货地址</text>
   </view>
-  <button class="add-btn" bindtap="onAddAddress" disabled="{{mutationPending || accessDenied}}">新增收货地址</button>
+  <button class="address-add af-action af-action--secondary af-action--block" bindtap="onAddAddress" disabled="{{mutationPending || accessDenied}}">新增收货地址</button>
 </view>
+<business-dialog id="business-dialog" />

@@ -14,7 +14,11 @@ function itemsOf(items) {
   if (!Array.isArray(items) || items.length !== 1 || !items[0]) throw new Error('请核对原入库商品')
   const { productId, quantity } = items[0]
   if (!positive(productId) || !positive(quantity) || quantity > 2147483647) throw new Error('请填写有效入库数量')
-  return [{ productId, quantity }]
+  const raw = items[0].costAmount
+  if (raw === null || raw === undefined) return [{ productId, quantity }]
+  const text = String(raw).trim()
+  if (!/^(0|[1-9]\d{0,8})(\.\d{1,2})?$/.test(text)) throw new Error('进货总成本请填非负金额，最多两位小数')
+  return [{ productId, quantity, costAmount: Number(Number(text).toFixed(2)) }]
 }
 function read(actor, productId) {
   let raw

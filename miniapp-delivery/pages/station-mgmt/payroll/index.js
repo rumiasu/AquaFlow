@@ -1,3 +1,6 @@
+const { createDraftGuard } = require('../../../utils/draft-guard')
+const { getTransportConfig } = require('../../../config/api')
+const { showBusinessModal } = require('../../../utils/business-dialog')
 // ⚠️ 直接用 utils/request，不引 api/station-mgmt.js 与 config/api.js：
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
 // 路径常量写在本文件里，理由同上。
@@ -24,11 +27,11 @@ const ITEM_DISABLED = 0
 const DEFAULT_PRODUCT_ID = 0
 
 /**
- * 站长端「计件工资」：单价配置 + 结算单 + 自定义工资条目。规格见 docs/design/18。
+ * 站长端「计件工资」：应发预览、线下发薪登记、单价配置与自定义条目。规格见 docs/design/18。
  *
  * 三条口径（改这个页面时必须守住）：
  *   1. **发钱是线下动作**（微信转账/现金）。系统只做两件事：算清楚、留痕迹。
- *      所以这里**没有**打款/提现/钱包入口 —— 只有「标记已发放」，它落的是发放时间与操作人。
+ *      结算确认登记实际线下发薪，保留发放时间与操作人；只读预览不生成或确认单据。
  *   2. 按商品数量计件，不按订单数；展示单位跟随品类，专属价优先，否则回落默认价（product_id=0）。
  *   3. **收益只在订单「完成配送」之后产生**（钉在状态 CAS 成功之后），
  *      所以结算单里的明细一定是"能取消的单还没产生收益"的那批，不存在回滚问题。
@@ -45,7 +48,8 @@ const DEFAULT_PRODUCT_ID = 0
  */
 Page({
   data: {
-    tab: 'rate',
+    tab: 'settle', payrollDraftAvailable: false, payrollDraftStatus: '', adjustExpanded: false, adjustDirection: 'add', adjustMagnitude: '', rateDraftNotice: '',
+    preview: null, previewLoading: false, previewError: '',
     stationId: null,
     loading: true,
     isManager: false,
@@ -74,7 +78,7 @@ Page({
      */
     tips: {
       rate: '工资只有两项：送水计件 + 楼层补贴。商品专属价优先，没配的商品用「默认单价」兜底。\n\n'
-        + '留空等于不补（与填 0 等价，但不是同一件事：留空表示没配过，会被默认价接管）。\n\n'
+        + '保存商品专属价后，填 0 表示该商品不计件，不再使用默认单价。金额必须明确填写。\n\n'
         + '回收空桶与少收空桶都不折算成钱 —— 少收空桶有订单差异与异常单留痕，只提醒不扣款。',
       period: '结算期间包含结束日当天：比如选了 1 号到 10 号，'
         + '10 号当天的收益也会结进去。',
@@ -104,14 +108,9 @@ Page({
     // 未配单价时的空态文案。**在 js 里拼好再下发** —— wxml 的属性里做带 \n 的拼接会
     // 直接编译报错（Bad attr），而本地门禁查不出来（AGENTS §6）。
     // ⚠️ 纯文本，不要写 markdown 的 ** 粗体 —— <text> 会原样渲染成星号。
-    rateEmptyText: '还没有配过单价。\n\n'
-      + '这种情况下，配送员完成配送不会产生计件工资，也没有楼层补贴 —— 收入台账会是空的。\n\n'
-      + '要发工钱：先点「默认单价（所有商品兜底）」填每件多少钱并保存；'
-      + '只想给某一款水单独定价，就点那款商品再填。只填默认价也能覆盖所有商品。',
-    // 有商品专属价为 0 时的说明。判据：专属价优先，默认价兜不住它（见 decorateRates）。
-    productZeroText: '有商品的单价是 0 —— 那几款水完成配送算 0 元。\n\n'
-      + '商品单独配过价就按那个价算，不会再回落到「默认单价」。'
-      + '要给它们算钱，点那款商品把计件金额填上。',
+    rateEmptyText: '未配置单价：配送不产生计件工资或楼层补贴。先保存默认单价。',
+    // 商品专属价为0不回落默认价；仍须直接提醒。
+    productZeroText: '部分商品单价为0，计件工资为0；专属价不使用默认价。',
     rateForm: {
       productId: String(DEFAULT_PRODUCT_ID),
       perBucketAmount: '',
@@ -148,6 +147,10 @@ Page({
     detailLoading: false
   },
 
+  onLoad(options) {
+    if (options && options.tab === 'rate') this.setData({ tab: 'rate' })
+  },
+
   onShow() {
     this._payrollGone = false
     const app = getApp()
@@ -174,9 +177,72 @@ Page({
       return
     }
     this.setData({ stationId, isManager: true })
-    this.loadAll().then(() => this.restoreAdjustmentIntent())
+    const identity = this.payrollContext().identity
+    if (this._payrollDraftIdentity && this._payrollDraftIdentity !== identity) {
+      this._rateDrafts = new Map(); this._recordDrafts = new Map(); this._rateDraftChanged = false
+      this._payrollDraftToken = null; this._savedPayrollDraft = null
+      this.setData({ rateForm: { productId: '0', perBucketAmount: '', floorBonusPerLevel: '', floorFreeLevel: '' },
+        adjustForm: { staffId: '', amount: '', note: '' }, adjustMagnitude: '', record: null,
+        payrollDraftAvailable: false, payrollDraftStatus: '', rateDraftNotice: '' })
+    }
+    this._payrollDraftIdentity = identity
+    return this.loadAll().then(() => { this.restoreAdjustmentIntent(); this.offerPayrollDraft() })
   },
 
+  payrollDraftGuard() {
+    if (typeof createDraftGuard !== 'function' || typeof getTransportConfig !== 'function') return null
+    if (!this._payrollDraftGuard) this._payrollDraftGuard = createDraftGuard(() => {
+      const app = getApp(), u = app.globalData.userInfo || {}, route = getTransportConfig()
+      if (!this.canManage() || !u.staffId || !u.stationId || String(u.stationId) !== String(this.data.stationId)) return null
+      return { app: 'miniapp-delivery', actor: u.staffId, station: u.stationId,
+        route: 'pages/station-mgmt/payroll', entity: JSON.stringify([route.mode, route.env, route.service, route.baseUrl, 'editing']), generation: app._loginGeneration || 0 }
+    })
+    return this._payrollDraftGuard
+  },
+  offerPayrollDraft() {
+    const guard = this.payrollDraftGuard()
+    if (!guard || this._payrollGone) return
+    const token = this._payrollDraftToken = guard.begin(), result = guard.read(token)
+    // 原工资请求的身份和内容优先，不用普通输入草稿覆盖待核实的原请求。
+    if (adjustmentIntent.pending(this.adjustmentActor())) { this.setData({ payrollDraftAvailable: false }); return }
+    const draft = result.draft
+    const valid = result.state === 'saved' && draft && draft.rateForm && draft.adjustForm
+      && Array.isArray(draft.rateDrafts) && Array.isArray(draft.recordDrafts)
+    this._savedPayrollDraft = valid ? draft : null
+    this.setData({ payrollDraftAvailable: !!valid, payrollDraftStatus: result.state === 'unknown' || result.state === 'saved' && !valid ? '工资输入草稿尚未确认，请保留当前内容后核对。' : '' })
+  },
+  onRestorePayrollDraft() {
+    const draft = this._savedPayrollDraft
+    if (!this.data.payrollDraftAvailable || !draft || this.data.adjusting || this.data.recording || this.data.savingRate) return
+    if (adjustmentIntent.pending(this.adjustmentActor())) { wx.showToast({ title: '请先核对原工资请求', icon: 'none' }); return }
+    const guard = this.payrollDraftGuard()
+    if (!guard || guard.read(this._payrollDraftToken).state !== 'saved') return
+    this._rateDrafts = new Map(draft.rateDrafts); this._recordDrafts = new Map(draft.recordDrafts)
+    this._rateDraftActor = this.adjustmentActor(); this._rateDraftChanged = !!draft.rateChanged
+    this.setData({ rateForm: draft.rateForm, adjustForm: draft.adjustForm, record: draft.record || null,
+      selectedRateName: this.productName(this.data.products, draft.rateForm.productId),
+      adjustExpanded: !!draft.adjustForm.amount, adjustDirection: Number(draft.adjustForm.amount) < 0 ? 'deduct' : 'add',
+      adjustMagnitude: String(draft.adjustForm.amount || '').replace(/^-/, ''), payrollDraftAvailable: false,
+      payrollDraftStatus: '已恢复输入，尚未提交或保存。' })
+  },
+  onDiscardPayrollDraft() {
+    const guard = this.payrollDraftGuard(), result = guard && guard.clear(this._payrollDraftToken)
+    this._savedPayrollDraft = null
+    this.setData({ payrollDraftAvailable: false, payrollDraftStatus: result && result.state === 'empty' ? '' : '旧草稿清理尚未确认。' })
+  },
+  persistPayrollDraft() {
+    const guard = this.payrollDraftGuard()
+    if (!guard) return
+    const token = this._payrollDraftToken || (this._payrollDraftToken = guard.begin())
+    const record = this.data.record, adjust = this.data.adjustForm
+    const dirty = !!(this._rateDraftChanged || this._rateDrafts && this._rateDrafts.size || this._recordDrafts && this._recordDrafts.size
+      || adjust.amount || adjust.note || record && (record.amount || record.note))
+    const result = dirty ? guard.save(token, { rateForm: this.data.rateForm, rateChanged: !!this._rateDraftChanged,
+      adjustForm: adjust, record, rateDrafts: Array.from(this._rateDrafts || []), recordDrafts: Array.from(this._recordDrafts || []) }) : guard.clear(token)
+    this.setData({ payrollDraftAvailable: false, payrollDraftStatus: result.state === 'saved' ? '输入草稿已保留；保存或提交后生效。' : result.state === 'empty' ? '' : '输入草稿尚未确认保存，请留在本页完成操作。' })
+    if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '工资有未提交输入，已尝试保留草稿' })
+    if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+  },
   adjustmentActor() {
     const info = getApp().globalData.userInfo || {}
     return String(this.data.stationId) + ':' + String(info.staffId || info.id || info.userId)
@@ -189,7 +255,7 @@ Page({
     if (!value || !value.input) return
     const input = value.input
     if (input.itemId == null) {
-      this.setData({ tab: 'settle', adjustForm: { staffId: input.staffId, amount: String(input.amount), note: input.note || '' } })
+      this.setData({ tab: 'settle', payrollDraftAvailable: false, payrollDraftStatus: '', adjustExpanded: true, adjustDirection: input.amount < 0 ? 'deduct' : 'add', adjustMagnitude: String(Math.abs(input.amount)), adjustForm: { staffId: input.staffId, amount: String(input.amount), note: input.note || '' } })
     } else {
       const item = this.data.items.find(row => row.id === input.itemId)
       this.setData({ tab: 'items', record: { itemId: input.itemId, itemName: item ? item.name : '原工资条目',
@@ -213,6 +279,7 @@ Page({
     return context.app === current.app && context.stationId === current.stationId && context.identity === current.identity
   },
   invalidatePayrollReads() {
+    this.invalidatePreview()
     this._payrollLoadSeq = (this._payrollLoadSeq || 0) + 1
     this._payrollMoreSeq = (this._payrollMoreSeq || 0) + 1
     this._summarySeq = (this._summarySeq || 0) + 1
@@ -234,6 +301,7 @@ Page({
       rateReady: false, defaultCurrentText: '待加载', defaultRateText: '', hasProductZero: false,
       selectedRateName: '默认单价', selectedRateUnit: '件',
       rateForm: { productId: String(DEFAULT_PRODUCT_ID), perBucketAmount: '', floorBonusPerLevel: '', floorFreeLevel: '' } })
+    this.invalidatePreview()
   },
 
   onPayrollSearch(e) {
@@ -359,9 +427,16 @@ Page({
         loaded: true
       })
       this._payrollReadContext = context
+      if (!this.data.genForm.periodStart || !this.data.genForm.periodEnd) {
+        const today = new Date(), year = today.getFullYear(), month = String(today.getMonth() + 1).padStart(2, '0')
+        this.setData({ 'genForm.periodStart': year + '-' + month + '-01',
+          'genForm.periodEnd': year + '-' + month + '-' + String(today.getDate()).padStart(2, '0') })
+      }
+      if (!this.data.genForm.staffId && this.data.staffList.length) this.setData({ 'genForm.staffId': this.data.staffList[0].id })
       if (firstLoad) this.onRateProduct({ currentTarget: { dataset: { id: this.data.rateForm.productId } } })
       this.applyPayrollFilters()
       await this.loadSummary()
+      await this.loadPreview()
     } catch (err) {
       if (seq !== this._payrollLoadSeq || !this.payrollContextCurrent(context)) return
       this.setData({ payrollReadError: err.message || '工资数据加载失败，请重试' })
@@ -514,13 +589,20 @@ Page({
   onRateProduct(e) {
     if (this.data.savingRate) return
     const productId = String(e.currentTarget.dataset.id)
+    const actor = this.adjustmentActor()
+    const drafts = this._rateDrafts || (this._rateDrafts = new Map())
+    if (this._rateDraftChanged && this._rateDraftActor === actor) drafts.set(actor + ':' + this.data.rateForm.productId, { ...this.data.rateForm })
+    this._rateDraftActor = actor
+    const draft = drafts.get(actor + ':' + productId)
+    this._rateDraftChanged = !!draft
     // 切商品时把该商品**已配**的值回填，没配过就清空（清空 = 用默认价兜底，不要伪造一个 0 让人以为配过）
     const existing = this.data.rates.find(r => String(r.productId) === productId)
     const product = this.data.products.find(p => String(p.id) === productId)
     this.setData({
       selectedRateName: this.productName(this.data.products, productId),
       selectedRateUnit: productId === '0' ? '件' : itemUnit(product),
-      'rateForm': {
+      rateDraftNotice: draft ? '已恢复该商品未保存的单价' : '',
+      'rateForm': draft || {
         productId,
         perBucketAmount: this.str(existing && existing.perBucketAmount),
         floorBonusPerLevel: this.str(existing && existing.floorBonusPerLevel),
@@ -531,7 +613,9 @@ Page({
 
   onRateInput(e) {
     if (this.data.savingRate) return
-    this.setData({ ['rateForm.' + e.currentTarget.dataset.field]: e.detail.value })
+    this._rateDraftChanged = true
+    this.setData({ ['rateForm.' + e.currentTarget.dataset.field]: e.detail.value, rateDraftNotice: '单价有未保存修改；切换商品会保留本页草稿。' })
+    this.persistPayrollDraft()
   },
 
   str(v) {
@@ -548,6 +632,15 @@ Page({
   async onSaveRate() {
     if (!this.canManage() || this.data.savingRate || this.data.loading || this.data.payrollReadError) return
     const f = this.data.rateForm
+    if (!/^\d+(\.\d{1,2})?$/.test(String(f.perBucketAmount).trim())) {
+      wx.showToast({ title: '请填写计件金额，不计件请填0', icon: 'none' }); return
+    }
+    if (f.productId === '0' && f.floorBonusPerLevel !== '' && !/^\d+(\.\d{1,2})?$/.test(String(f.floorBonusPerLevel).trim())) {
+      wx.showToast({ title: '楼层补贴最多两位小数', icon: 'none' }); return
+    }
+    if (f.productId === '0' && this.num(f.floorBonusPerLevel) > 0 && !/^\d+$/.test(String(f.floorFreeLevel).trim())) {
+      wx.showToast({ title: '启用楼层补贴后请填免费层数', icon: 'none' }); return
+    }
     this.setData({ savingRate: true })
     try {
       await put(PIECE_RATE, {
@@ -556,11 +649,16 @@ Page({
         floorBonusPerLevel: this.num(f.floorBonusPerLevel),
         floorFreeLevel: this.num(f.floorFreeLevel)
       })
+      if (this._rateDrafts) this._rateDrafts.delete(this.adjustmentActor() + ':' + f.productId)
+      this._rateDraftChanged = false
+      this.setData({ rateDraftNotice: '' })
+      this.persistPayrollDraft()
       wx.showToast({ title: '已保存', icon: 'success' })
       const res = await get(PIECE_RATE)
       const d = this.decorateRates((res.data || {}).rates || [], this.data.products)
       this.setData({ rates: d.rates, rateProducts: d.products, defaultCurrentText: d.defaultCurrentText,
         rateReady: d.rateReady, hasProductZero: d.hasProductZero, defaultRateText: d.defaultRateText })
+      await this.loadPreview()
     } catch (err) {
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
     } finally {
@@ -572,14 +670,98 @@ Page({
 
   onGenStaff(e) {
     this.setData({ 'genForm.staffId': this.data.staffList[e.detail.value].id })
+    return this.loadPreview()
   },
 
   onGenDate(e) {
+    if (!['periodStart', 'periodEnd'].includes(e.currentTarget.dataset.field)) return
     this.setData({ ['genForm.' + e.currentTarget.dataset.field]: e.detail.value })
+    return this.loadPreview()
   },
 
   onGenNote(e) {
     this.setData({ 'genForm.note': e.detail.value })
+  },
+
+  invalidatePreview() {
+    this._previewSeq = (this._previewSeq || 0) + 1
+    this.setData({ preview: null, previewLoading: false, previewError: '' })
+  },
+
+  /** 2026-10-27：只读预览独立于建单；旧金额在日期、员工或身份变化后立即失效。 */
+  async loadPreview() {
+    this.invalidatePreview()
+    if (!this.canManage() || this._payrollGone) return
+    const f = { ...this.data.genForm }, context = this.payrollContext(), seq = this._previewSeq
+    if (!f.staffId || !f.periodStart || !f.periodEnd) return
+    if (f.periodStart > f.periodEnd) { this.setData({ previewError: '开始日期不能晚于结束日期' }); return }
+    this.setData({ previewLoading: true })
+    try {
+      const res = await get(PAYROLL + '/preview?staffId=' + f.staffId + '&periodStart=' + f.periodStart + '&periodEnd=' + f.periodEnd)
+      if (seq !== this._previewSeq || !this.payrollContextCurrent(context)) return
+      const p = res && res.data
+      if (!p || Array.isArray(p) || typeof p.complete !== 'boolean' || !Array.isArray(p.earnings)
+          || !p.previewToken || ['recordedAmount', 'unpaidAmount', 'paidAmount', 'settleAmount'].some(k => p[k] == null || !Number.isFinite(Number(p[k])))
+          || (p.complete && (p.payableAmount == null || !Number.isFinite(Number(p.payableAmount))))) throw new Error('应发金额尚未核实，请重试')
+      this.setData({ preview: { ...p, earningCount: p.earnings.length, earnings: p.earnings.slice(0, 50), payableText: p.complete ? this.money(p.payableAmount) : '待核实',
+        recordedText: this.money(p.recordedAmount), unpaidText: p.statusKnown === false ? '待核实' : this.money(p.unpaidAmount),
+        paidText: p.statusKnown === false ? '待核实' : this.money(p.paidAmount),
+        settleText: this.money(p.settleAmount) } })
+    } catch (err) {
+      if (seq === this._previewSeq && this.payrollContextCurrent(context)) this.setData({ previewError: err.message || '应发计算失败，请重试' })
+    } finally {
+      if (seq === this._previewSeq && this.payrollContextCurrent(context)) this.setData({ previewLoading: false })
+    }
+  },
+
+  onGoRates() { this.setData({ tab: 'rate' }) },
+
+  /** 核对人、期间、金额后登记实际线下发薪；取消、身份变化与重复回调均不提交。 */
+  onSettle() {
+    const p = this.data.preview, context = this.payrollContext()
+    if (!this.canManage() || this.data.generating || this.data.adjusting || this.data.recording || this.data.savingRate
+        || this.data.payrollBusyId !== null || this.data.loading || this.data.payrollReadError
+        || this.data.previewLoading || !p || !p.complete || !p.canSettle || this.data.previewError) return
+    const body = { ...this.data.genForm, previewToken: p.previewToken, paidOffline: true }
+    this.setData({ generating: true })
+    this.confirmSettlement(p.staffName, body.periodStart, body.periodEnd, p.settleText,
+      () => this.payrollContextCurrent(context) && this.data.preview && this.data.preview.previewToken === body.previewToken,
+      () => post(PAYROLL + '/settle', body), () => this.setData({ generating: false }))
+  },
+
+  async onSettlePayroll(e) {
+    const id = Number(e.currentTarget.dataset.id), slip = this.data.payrolls.find(p => p.id === id)
+    if (!this.canManage() || this.data.generating || this.data.adjusting || this.data.recording || this.data.savingRate || this.data.loading || this.data.payrollReadError
+        || this.data.payrollBusyId !== null || !slip || ![1, 2].includes(slip.status)) return
+    const context = this.payrollContext()
+    this.setData({ payrollBusyId: id })
+    try {
+      const res = await get(PAYROLL + '/' + id + '/settlement-preview'), p = res && res.data
+      if (!this.payrollContextCurrent(context)) { this.setData({ payrollBusyId: null }); return }
+      if (!p || !p.canSettle || !p.previewToken || !p.payroll) throw new Error('工资金额或状态待核实，请刷新后查看')
+      this.confirmSettlement(p.staffName, p.payroll.periodStart, p.payroll.periodEnd, this.money(p.payroll.totalAmount),
+        () => this.payrollContextCurrent(context),
+        () => post(PAYROLL + '/' + id + '/settle', { previewToken: p.previewToken, paidOffline: true }),
+        () => this.setData({ payrollBusyId: null }))
+    } catch (err) { this.setData({ payrollBusyId: null }); wx.showToast({ title: err.message || '金额核对失败', icon: 'none' }) }
+  },
+
+  confirmSettlement(name, start, end, amount, current, submit, release) {
+    let consumed = false
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083', title: '结算 · 登记已发工资', confirmText: '已发登记', cancelText: '暂不结算',
+      content: name + '\n' + start + ' 至 ' + end + '\n本次金额 ¥' + amount + '\n请核实已在线下实际付清工资。确认后登记已发及操作人、时间。',
+      success: async r => {
+        if (consumed) return
+        consumed = true
+        if (!r.confirm || !current() || !this.canManage()) { release(); return }
+        try { await submit(); if (current()) wx.showToast({ title: '已登记结算发薪', icon: 'success' }); await this.loadAll() }
+        catch (err) {
+          if (current()) wx.showToast({ title: err.message || '登记结果待核实，请刷新历史', icon: 'none' })
+          // 响应丢失也先重新核对已发历史，不用旧快照重发。
+          this.invalidatePreview(); await this.loadAll()
+        } finally { release() }
+      }, fail: () => { if (!consumed) { consumed = true; release() } }
+    })
   },
 
   async onGenerate() {
@@ -606,7 +788,7 @@ Page({
         note: f.note || null
       })
       const p = (res.data || {}).payroll || {}
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '结算单已生成',
         content: (p.payrollNo || '') + '\n合计 ¥' + p.totalAmount + '\n（状态：' + (p.statusText || '') + '）',
         showCancel: false
@@ -682,7 +864,7 @@ Page({
     this.setData({ payrollBusyId: id })
     let consumed = false
     const that = this
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: action === 'pay' ? '登记已实际发放' : '确认结算单',
       confirmText: buttonText || '确认办理',
       cancelText: '暂不办理',
@@ -705,25 +887,42 @@ Page({
     })
   },
 
+  onToggleAdjust() { this.setData({ adjustExpanded: !this.data.adjustExpanded }) },
+  onAdjustDirection(e) {
+    if (this.data.adjusting) return
+    const direction = e.currentTarget.dataset.direction
+    if (!['add', 'deduct'].includes(direction)) return
+    const magnitude = this.data.adjustMagnitude || String(this.data.adjustForm.amount || '').replace(/^-/, '')
+    this.setData({ adjustDirection: direction, adjustMagnitude: magnitude,
+      'adjustForm.amount': magnitude === '' ? '' : (direction === 'deduct' ? '-' : '') + magnitude })
+    this.persistPayrollDraft()
+  },
+  onAdjustMagnitude(e) {
+    if (this.data.adjusting) return
+    const value = String(e.detail.value)
+    // 2026-10-28：数值键盘只收正金额；方向明确选择，底层仍传原有有符号金额。
+    this.setData({ adjustMagnitude: value, 'adjustForm.amount': value === '' ? '' : (this.data.adjustDirection === 'deduct' ? '-' : '') + value })
+    this.persistPayrollDraft()
+  },
   onAdjustStaff(e) {
     this.setData({ 'adjustForm.staffId': this.data.staffList[e.detail.value].id })
   },
 
   onAdjustInput(e) {
-    this.setData({ ['adjustForm.' + e.currentTarget.dataset.field]: e.detail.value })
+    if (!this.data.adjusting) { this.setData({ ['adjustForm.' + e.currentTarget.dataset.field]: e.detail.value }); this.persistPayrollDraft() }
   },
 
   /**
    * 人工调整：补一笔或扣一笔。
    *
    * ⚠️ 这是**唯一允许带负号**的入口（其余收益方向由 kind 决定、调用方一律传正数）。
-   * 所以这里必须让站长明确填负数来扣钱，而不是给两个按钮替他决定符号。
+   * 方向由站长明确选择，正金额输入转换为既有有符号金额；恢复仍沿用原请求。
    *
    * 要按自定义条目录入请走条目行上的「记一笔」（那条路径带 itemId，只能填正数）——
    * 两条路径都打到 POST /payroll/adjust，区别只在带不带 itemId。
    */
   async onAdjust() {
-    if (!this.canManage() || this.data.adjusting || this.data.loading || this.data.payrollReadError) return
+    if (!this.canManage() || this.data.adjusting || this.data.generating || this.data.recording || this.data.payrollBusyId !== null || this.data.loading || this.data.payrollReadError) return
     const f = this.data.adjustForm
     if (!f.staffId) {
       wx.showToast({ title: '请先选择配送员', icon: 'none' })
@@ -735,6 +934,7 @@ Page({
       return
     }
     this.setData({ adjusting: true })
+    this.invalidatePreview()
     let intent
     try {
       intent = adjustmentIntent.prepare(this.adjustmentActor(),
@@ -742,13 +942,15 @@ Page({
       await post(PAYROLL + '/adjust', adjustmentIntent.payload(intent))
       adjustmentIntent.clear(intent)
       wx.showToast({ title: '已调整', icon: 'success' })
-      this.setData({ 'adjustForm.amount': '', 'adjustForm.note': '' })
+      this.setData({ 'adjustForm.amount': '', 'adjustForm.note': '', adjustMagnitude: '' })
+      this.persistPayrollDraft()
       await this.loadAll()
     } catch (err) {
       if (intent && err.businessRejected) adjustmentIntent.clear(intent)
       wx.showToast({ title: err.message || '调整失败', icon: 'none' })
     } finally {
       this.setData({ adjusting: false })
+      if (!this.data.preview && !this.data.payrollReadError) await this.loadPreview()
     }
   },
 
@@ -859,7 +1061,7 @@ Page({
     this.setData({ itemBusyId: id })
     let consumed = false
     const that = this
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认删除',
+    showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认删除',
       title: '删除条目',
       content: '删除「' + it.name + '」？已被工资流水用过的条目不能删，只能停用。',
       success(r) {
@@ -917,8 +1119,9 @@ Page({
       wx.showToast({ title: '该条目已停用，先启用再记', icon: 'none' })
       return
     }
+    const saved = this._recordDrafts && this._recordDrafts.get(this.adjustmentActor() + ':' + it.id)
     this.setData({
-      record: {
+      record: saved || {
         itemId: it.id,
         itemName: it.name,
         directionText: it.directionText,
@@ -931,7 +1134,13 @@ Page({
 
   onRecordClose() {
     if (this.data.recording) return
+    const record = this.data.record
+    if (record && (record.staffId || record.amount || record.note)) {
+      const drafts = this._recordDrafts || (this._recordDrafts = new Map())
+      drafts.set(this.adjustmentActor() + ':' + record.itemId, { ...record })
+    }
     this.setData({ record: null })
+    this.persistPayrollDraft()
   },
 
   onRecordStaff(e) {
@@ -944,6 +1153,7 @@ Page({
   onRecordInput(e) {
     if (this.data.recording || !this.data.record) return
     this.setData({ ['record.' + e.currentTarget.dataset.field]: e.detail.value })
+    this.persistPayrollDraft()
   },
 
   /**
@@ -953,7 +1163,7 @@ Page({
    * 这里先拦一次只是为了少一个来回，不替代后端校验。
    */
   async onRecordSubmit() {
-    if (!this.canManage() || this.data.recording) return
+    if (!this.canManage() || this.data.recording || this.data.generating || this.data.adjusting || this.data.payrollBusyId !== null) return
     const f = this.data.record
     if (!f) return
     const item = this.data.items.find(it => it.id === f.itemId)
@@ -971,6 +1181,7 @@ Page({
       return
     }
     this.setData({ recording: true })
+    this.invalidatePreview()
     let intent
     try {
       intent = adjustmentIntent.prepare(this.adjustmentActor(), {
@@ -983,13 +1194,16 @@ Page({
       adjustmentIntent.clear(intent)
       wx.showToast({ title: '已记录', icon: 'success' })
       // 顺手把下面的明细切到刚记账的这个人，站长不用再选一次
+      if (this._recordDrafts) this._recordDrafts.delete(this.adjustmentActor() + ':' + f.itemId)
       this.setData({ record: null, summaryStaffId: f.staffId })
+      this.persistPayrollDraft()
       await this.loadSummary()
     } catch (err) {
       if (intent && err.businessRejected) adjustmentIntent.clear(intent)
       wx.showToast({ title: err.message || '记账失败', icon: 'none' })
     } finally {
       this.setData({ recording: false })
+      await this.loadPreview()
     }
   },
 
@@ -1001,7 +1215,7 @@ Page({
   },
 
   onShowHelp() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
       title: '计件工资怎么算',
       content: '按商品数量计件，不按单：单位随商品显示，' +
         '楼层补贴按超过免费层数的层数算。商品专属价优先，没配的商品用「默认单价」。\n\n' +

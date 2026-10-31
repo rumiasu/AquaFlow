@@ -1,3 +1,5 @@
+const uiScene = require('../../utils/ui-scene')
+const { showBusinessModal } = require('../../utils/business-dialog')
 // 我的 · Step6 重构（2026-09-12）
 // 结构：用户行 → 押金/水票/桶三项卡 → 账单 / 我的信息 / 服务 三组菜单。
 // 数字全部读后端派生口径（押金/水票张数/水桶），前端不做业务加减。
@@ -62,12 +64,18 @@ function assetsView(v, stationRequired = false) {
     depositText: stationRequired ? ASSET_STATION_REQUIRED : (loaded.deposit ? fmtMoney(v.deposit) : ASSET_UNLOADED),
     ticketText: stationRequired ? ASSET_STATION_REQUIRED : (loaded.ticket ? String(v.ticket) : ASSET_UNLOADED),
     barrelText: stationRequired ? ASSET_STATION_REQUIRED : (loaded.barrel ? String(v.barrel) : ASSET_UNLOADED),
+    assetLongValues: (loaded.deposit && fmtMoney(v.deposit).length > 6) || (loaded.ticket && String(v.ticket).length > 5) || (loaded.barrel && String(v.barrel).length > 5),
     unloadedCount: stationRequired ? 0 : Object.keys(loaded).filter(k => !loaded[k]).length
   }
 }
 
 Page({
   data: {
+    sceneImageUrl: uiScene.LOCAL,
+    entryGraphicFailed: false,
+    avatarFailed: false,
+    assetLongValues: false,
+    assetLargeText: false,
     isLogin: false,
     userInfo: null,
     // ⚠️ 这三项的 `null` 是有意的：见 assetsView 的说明。**不要**改回 0 当占位。
@@ -87,10 +95,16 @@ Page({
     isCompany: false
   },
 
+  onEntryGraphicError(e) { uiScene.imageError(this, e, 'entryGraphicFailed') },
+  onAvatarError() { this.setData({ avatarFailed: true }) },
+
   onShow() {
+    uiScene.show(this, 'entryGraphicFailed')
     this._assetUnloaded = false
     const session = captureSession()
     const { isLogin, userInfo } = app.globalData
+    let assetLargeText = false
+    try { assetLargeText = Number(wx.getSystemInfoSync().fontSizeSetting) > 16 } catch (_) {}
     assetViewStation.activate(this)
     const stationId = assetViewStation.id(this)
     // [2026-09-27 走查 C05 修] 换站必须**先清空**上一站的数字：
@@ -110,7 +124,10 @@ Page({
     }
     this.setData({
       isLogin,
-      userInfo
+      userInfo,
+      avatarFailed: false,
+      entryGraphicFailed: false,
+      assetLargeText
     })
     if (isLogin) {
       return this.loadAssets()
@@ -193,15 +210,7 @@ Page({
       ...view
     })
 
-    // 失败出声：toast 说明**哪几格**没加载出来（不再说"显示的可能是 0"——
-    // 那正是这次要修掉的误导：没加载出来的格子已经不显示 0 了）
-    if (view.unloadedCount > 0) {
-      wx.showToast({
-        title: '有 ' + view.unloadedCount + ' 项没加载出来，已标「' + ASSET_UNLOADED + '」，不是 0',
-        icon: 'none',
-        duration: 3000
-      })
-    }
+    // 2026-10-28：未读取项及重试入口已在资产卡持续显示，避免重复 toast。
   },
 
   /** [2026-09-27 走查 C05 修] 未加载的那几格点一下重新拉一次（不跳转、不刷新整页） */
@@ -211,12 +220,13 @@ Page({
   },
 
   onUnload() {
+    uiScene.hide(this)
     assetViewStation.suspend(this)
     this._assetUnloaded = true
     this._assetReadSeq = (this._assetReadSeq || 0) + 1
   },
 
-  onHide() { assetViewStation.suspend(this) },
+  onHide() { uiScene.hide(this); assetViewStation.suspend(this) },
 
   onAssetStationChange(e) {
     if (assetViewStation.select(this, e.detail)) { this.setData({ assetsLoading: false }); return this.onRetryAssets() }
@@ -245,7 +255,7 @@ Page({
   },
 
   onLogout() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '提示',
       content: '确定退出登录吗？',
       success: (res) => {

@@ -169,6 +169,43 @@ class AuthRefreshTransactionIntegrationTest extends AbstractIntegrationTest {
         assertEquals(1, tokenRows(old));
     }
 
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void roleReselectionRevokesConcurrentOldRoleRefreshAndKeepsItsOwnSession(boolean roleEntersFirst) throws Exception {
+        long id = user("staff");
+        jdbc.update("update staff set station_id=null where id=?", id);
+        String old = seed(id, "staff");
+        Gate gate = new Gate(id, "staff"); gate.holdRevoke = roleEntersFirst; boundary.gate = gate;
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Callable<JsonNode> changeRole = () -> authPost("/api/auth/select-role", access(id,"staff"), Map.of("role","DELIVERY"));
+            Future<JsonNode> rotation, selection;
+            if (roleEntersFirst) {
+                selection = pool.submit(changeRole);
+                assertTrue(gate.beforeRevoke.await(10,TimeUnit.SECONDS));
+                rotation = pool.submit(() -> refresh(old));
+                assertTrue(gate.beforeInsert.await(10,TimeUnit.SECONDS));
+            } else {
+                rotation = pool.submit(() -> refresh(old));
+                assertTrue(gate.beforeInsert.await(10,TimeUnit.SECONDS));
+                selection = pool.submit(changeRole);
+                assertTrue(gate.beforeRevoke.await(10,TimeUnit.SECONDS));
+            }
+            gate.release.countDown();
+            JsonNode selected = selection.get(20,TimeUnit.SECONDS), rotated = rotation.get(20,TimeUnit.SECONDS);
+            assertEquals(0, selected.path("code").asInt(), selected.toString());
+            assertTrue(rotated.path("code").asInt()==0 || rotated.path("code").asInt()==1, rotated.toString());
+            assertEquals("DELIVERY", jdbc.queryForObject("select role from staff where id=?",String.class,id));
+            String selectedToken = selected.path("data").path("refreshToken").asText();
+            assertEquals(1, tokenRows(selectedToken));assertEquals(0,tokenRows(old));
+            assertEquals(1, intOf("select count(*) from user_token where user_id=? and user_type='staff'",id));
+            boundary.gate = null;
+            if(rotated.path("code").asInt()==0)assertEquals(1,refresh(rotated.path("data").path("refreshToken").asText()).path("code").asInt());
+            assertEquals(0,refresh(selectedToken).path("code").asInt(),"The selected role's returned session remains usable");
+        } finally {
+            gate.release.countDown();pool.shutdownNow();assertTrue(pool.awaitTermination(20,TimeUnit.SECONDS));
+        }
+    }
+
     /** The test hook never replaces the mapper, JDBC connection or transaction manager. */
     @TestConfiguration static class Hooks {
         @Bean WriteBoundary authRefreshWriteBoundary() { return new WriteBoundary(); }
@@ -179,7 +216,7 @@ class AuthRefreshTransactionIntegrationTest extends AbstractIntegrationTest {
         final CountDownLatch beforeInsert = new CountDownLatch(1), beforeRevoke = new CountDownLatch(1), release = new CountDownLatch(1);
         final CountDownLatch secondQuery = new CountDownLatch(1);
         final AtomicInteger queryEntries = new AtomicInteger();
-        volatile boolean failInsert;
+        volatile boolean failInsert, holdRevoke;
         Gate(long id, String type) { this.id = id; this.type = type; }
     }
 
@@ -202,8 +239,10 @@ class AuthRefreshTransactionIntegrationTest extends AbstractIntegrationTest {
                 if (!current.release.await(15, TimeUnit.SECONDS)) throw new AssertionError("refresh insertion gate timed out");
             }
             if (current != null && statement.endsWith("UserTokenMapper.deleteByUser") && parameter instanceof Map<?, ?> args
-                    && args.get("userId").equals(current.id) && current.type.equals(args.get("userType")))
+                    && args.get("userId").equals(current.id) && current.type.equals(args.get("userType"))) {
                 current.beforeRevoke.countDown();
+                if(current.holdRevoke && !current.release.await(15,TimeUnit.SECONDS))throw new AssertionError("role revocation gate timed out");
+            }
             return invocation.proceed();
         }
     }

@@ -78,9 +78,9 @@
   flex-shrink: 0;
 }
 .bind-dot.bind-BOUND { background: var(--success-color); }
-.bind-dot.bind-PENDING { background: var(--warning-color); }
+.bind-dot.bind-PENDING { background: var(--af-text-secondary); }
 .bind-dot.bind-REJECTED { background: var(--error-color); }
-.bind-dot.bind-PENDING_UNBIND { background: var(--warning-color); }
+.bind-dot.bind-PENDING_UNBIND { background: var(--af-text-secondary); }
 .bind-dot.bind-UNBOUND { background: var(--text-placeholder); }
 
 .bind-text {
@@ -160,8 +160,8 @@
   flex-wrap: wrap;
   gap: 12rpx;
 }
-.bind-info-line.bind-info-warning { background: var(--bg-gray); border-left:4rpx solid var(--warning-color); }
-.bind-info-line.bind-info-wait { background: var(--bg-gray); border-left:4rpx solid var(--warning-color); }
+.bind-info-line.bind-info-warning { background: var(--bg-gray); border-left:4rpx solid var(--af-text-secondary); }
+.bind-info-line.bind-info-wait { background: var(--bg-gray); border-left:4rpx solid var(--af-text-secondary); }
 .bind-info-line.bind-info-danger { background: var(--error-bg); }
 .bind-info-line.bind-info-none { background: var(--bg-gray); }
 
@@ -176,8 +176,8 @@
   font-weight: 600;
   color: var(--primary-color);
 }
-.bind-info-warning .bind-info-value { color: var(--warning-color); }
-.bind-info-wait .bind-info-value { color: var(--warning-color); }
+.bind-info-warning .bind-info-value { color: var(--af-text-secondary); }
+.bind-info-wait .bind-info-value { color: var(--af-text-secondary); }
 .bind-info-danger .bind-info-value { color: var(--error-color); }
 .bind-info-none .bind-info-value { color: var(--text-regular); }
 
@@ -600,7 +600,7 @@
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
 .bind-action-btn, .btn-login, .staff-btn, .staff-remove-btn { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 .staff-action-col { flex-direction: row; flex-wrap: wrap; width: 100%; }
-.staff-action-col button { flex: 1; }
+.staff-action-col button:not(.af-action):not(.af-choice) { flex: 1; }
 .user-info, .manager-entry-text { min-width: 0; overflow-wrap: anywhere; }
 .section-head-right { flex-wrap: wrap; gap: 16rpx; }
 .section-toggle, .section-link { min-height: 96rpx; display: inline-flex; align-items: center; }
@@ -617,3 +617,114 @@
 
 .station-info-link {min-height:48px;padding:12rpx 8rpx;border-radius:12rpx;}
 .station-entry-pressed {opacity:.75;background:rgba(0,100,180,.08);}
+
+/* 2026-10-28 B2: local layout only; B0 owns action/choice faces and tokens. */
+ .b2-page { --primary-color: var(--af-primary); --primary-bg: var(--af-soft); --text-primary: var(--af-ink); --text-regular: var(--af-text-secondary); --text-secondary: var(--af-text-secondary); --bg-gray: var(--af-soft); --success-color: var(--af-positive); --error-color: var(--af-danger); --error-bg: var(--af-danger-soft); --bg-color: var(--af-canvas); --bg-card: var(--af-surface); --border-color: var(--af-border); }
+ .menu-list { padding: 0 16px; } .b2-menu-entry, .b2-feature-entry { gap: 12px; justify-content: space-between; border-bottom: 1px solid var(--af-border); } .b2-feature-icon { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid var(--af-border); border-radius: 8px; color: var(--af-primary); font-size: 17px; } .staff-action-col { display: flex; gap: 8px; flex-wrap: wrap; } .bind-actions-row { display: flex; justify-content: flex-end; } .b2-logout { margin: 24px auto; width: auto; } .mgmt-tabs { display: flex; gap: 8px; } .mgmt-tabs .af-choice { flex: 1; }
+
+.b2-feature-group { margin: 16px; display: flex; flex-direction: column; gap: 8px; }
+.b2-feature-group .b2-feature-entry { border: 0; }
+.b2-line-document { width: 20px; height: 25px; border: 1.5px solid var(--af-primary); border-radius: 3px; box-sizing: border-box; padding: 5px 4px; }
+.b2-line-document view { height: 1.5px; margin-bottom: 4px; background: var(--af-primary); }
+.b2-line-clock { position: relative; width: 24px; height: 24px; border: 1.5px solid var(--af-primary); border-radius: 50%; box-sizing: border-box; }
+.b2-clock-hand { position: absolute; left: 10px; top: 4px; width: 6px; height: 8px; border-left: 1.5px solid var(--af-primary); border-bottom: 1.5px solid var(--af-primary); }
+
+.role-chip.role-manager, .role-chip.role-delivery { background: var(--af-soft); color: var(--af-strong); border-radius: 6px; border: 1px solid var(--af-border); }
+.bind-status.bind-ok { color: var(--af-text-secondary); }
+.manager-entry-card { border-color: var(--af-border); border-radius: 10px; box-shadow: none; }
+.manager-entry-title { font-size: 16px; line-height: 24px; font-weight: 600; }
+.manager-entry-desc { font-size: 12px; line-height: 18px; color: var(--af-text-secondary); }
+
+/* User decision: a single compact workbench entry in manager Mine; original handler is unchanged. */
+.manager-entry-card.v2-manager-entry { display:flex; align-items:center; gap:12px; min-height:56px; padding:12px 16px; margin:12px 16px; border:1px solid var(--af2-line); border-radius:12px; background:#FFFFFF; }
+.v2-manager-entry .manager-entry-title { flex:1; min-width:0; color:var(--af2-ink); font-size:16px; line-height:24px; font-weight:600; overflow-wrap:anywhere; }
+.v2-manager-entry .manager-entry-arrow { color:var(--af2-primary); font-size:22px; line-height:28px; }
+
+.manager-entry-card.v2-manager-entry { background:var(--af2-surface-current); border-color:var(--af2-surface-current); }
+
+/* Astra26 D11: identity, business assets and navigation keep different density. */
+.b2-d11{background:var(--af2-page);color:var(--af2-ink)}
+.header{padding:16px 16px 12px;background:var(--af2-top);border:0}
+.user-row{gap:12px;min-height:56px}
+.avatar{width:48px;height:48px;margin:0;border:0;border-radius:16px;background:#FFFFFF}
+.nickname{font-size:20px;line-height:28px;color:var(--af2-ink)}
+.bind-text{font-size:14px;line-height:22px;color:var(--af2-muted)}
+.role-chip{font-size:12px;line-height:18px}
+.manager-entry-card.v2-manager-entry{box-sizing:border-box;min-height:56px;margin:12px 0 0;padding:10px 12px;background:#F9FBFC;border-color:var(--af2-line)}
+.stats-card{margin:16px;padding:12px;background:#FFFFFF;border:1px solid var(--af2-line);border-radius:16px;box-shadow:none}
+.stats-row{gap:8px;align-items:stretch}
+.stats-divider{display:none}
+.stats-item{flex:1;min-width:0;padding:4px;border-radius:10px;box-sizing:border-box}
+.stats-item.v2-money-stat{background:transparent;color:var(--af2-ink)}
+.stats-value{font-size:22px;line-height:30px;white-space:normal;overflow-wrap:anywhere;word-break:break-all}
+.stats-label,.stats-sub{font-size:13px;line-height:20px;white-space:normal}
+.stats-sub{min-height:44px;display:flex;align-items:center;justify-content:center}
+.section-card,.bind-action-card{margin:16px;border:1px solid var(--af2-line);border-radius:16px;box-shadow:none;background:#FFFFFF}
+.section-title{font-size:16px;line-height:24px}
+.b2-feature-group{margin:16px;gap:10px}
+.b2-feature-entry{min-height:64px;background:#FFFFFF;border:1px solid var(--af2-line);border-radius:14px;padding:12px}
+.b2-feature-icon{width:40px;height:40px;border:0;border-radius:10px;background:var(--af2-surface-neutral)}
+.v2-money-entry{background:var(--af2-surface-money);border-color:var(--af2-surface-money)}
+.v2-money-entry .b2-feature-icon{background:rgba(255,255,255,.55)}
+.menu-list{margin:16px;padding:0 16px;border:1px solid var(--af2-line);border-radius:14px;background:#FFFFFF}
+.b2-menu-entry{min-height:52px;padding-left:0;padding-right:0}
+.menu-text{font-size:15px;line-height:23px}
+@media(max-width:340px){.stats-row{gap:4px}.stats-item{padding-left:2px;padding-right:2px}.stats-value{font-size:22px}}
+
+/* Astra33: personal delivery shortcuts precede low-frequency station management. */
+.user-nick-wrap { flex-wrap:wrap; gap:8px; }
+.role-chip.role-manager,.role-chip.role-delivery { display:inline-flex; align-items:center; box-sizing:border-box; min-height:24px; margin:0; padding:1px 8px; border:1px solid var(--af2-line); border-radius:6px; font-size:13px; line-height:20px; }
+.role-chip.role-manager { background:var(--af2-surface-neutral); color:var(--af2-ink); }
+.role-chip.role-delivery { background:var(--af2-surface-current); color:var(--af2-primary); }
+.stats-heading { display:block; margin:4px 4px 10px; font-size:15px; line-height:23px; font-weight:600; color:var(--af2-ink); }
+.stats-item.role-stat-current { background:transparent; }
+.stats-item.role-stat-physical { background:transparent; }
+.role-stat-current .stats-value { color:var(--af2-ink); }
+.role-stat-physical .stats-value:not(.stats-warn) { color:var(--af2-ink); }
+.personal-shortcuts { margin:16px; }
+.personal-shortcuts-heading { display:block; margin:0 0 8px; font-size:15px; line-height:23px; font-weight:600; color:var(--af2-ink); }
+.personal-shortcuts-grid { display:flex; flex-wrap:wrap; gap:8px; }
+.personal-shortcut { display:flex; flex:1 1 104px; flex-direction:row; align-items:center; justify-content:center; gap:6px; min-width:104px; min-height:56px; padding:8px 6px; box-sizing:border-box; border-radius:12px; }
+.personal-shortcut text { font-size:15px; line-height:23px; text-align:center; white-space:normal; overflow-wrap:anywhere; }
+.personal-shortcut-money { background:#F9FBFC; color:var(--af2-ink); }
+.personal-shortcut-physical { background:#F9FBFC; color:var(--af2-ink); }
+.personal-shortcut-history { background:#F9FBFC; color:var(--af2-ink); }
+.personal-history-icon { width:20px; height:20px; border-color:var(--af2-muted); }
+.personal-history-icon .b2-clock-hand { left:8px; top:3px; width:5px; height:7px; border-color:var(--af2-muted); }
+.bind-action-card.bind-action-compact { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding:4px 12px; }
+.bind-action-compact .bind-info-line { flex:1 1 140px; min-width:0; margin:0; padding:0; background:transparent; gap:4px 8px; flex-wrap:wrap; }
+.bind-action-compact .bind-info-label,.bind-action-compact .bind-info-value { font-size:14px; line-height:22px; overflow-wrap:anywhere; }
+.bind-action-compact .bind-actions-row { flex:0 1 auto; min-width:0; margin:0; }
+.bind-action-compact .af-action { min-height:44px; margin:0; }
+
+
+/* The custom tab bar is 100rpx + 1rpx border + safe area; reserve it once. */
+.container.custom-tabbar-page.b2-d11 { box-sizing:border-box; padding-bottom:calc(101rpx + 16px + env(safe-area-inset-bottom)); }
+.stats-heading { margin:0 0 8px; }
+.stats-value { color:var(--af2-ink); margin-bottom:4px; }
+.stats-row { flex-wrap:wrap; }
+.stats-row .stats-item { flex:1 1 80px; }
+.manager-stats-row .stats-item { flex:1 1 120px; }
+.mine-risk-summary { display:flex; flex-wrap:wrap; gap:4px 12px; padding-top:8px; margin-top:8px; border-top:1px solid var(--af2-line); }
+.mine-risk-entry { box-sizing:border-box; display:flex; flex:1 1 120px; align-items:center; gap:6px; min-width:0; min-height:44px; font-size:13px; line-height:20px; color:var(--af2-ink); }
+.mine-risk-entry icon { flex:none; }
+.mine-risk-count { margin-left:auto; min-width:0; overflow-wrap:anywhere; }
+.mine-risk-arrow { flex:none; color:var(--af2-primary); }
+.personal-shortcut icon,.personal-history-icon { flex:none; }
+.section-card { padding:12px; }
+.mine-station-card .section-header { margin-bottom:6px; }
+.mine-station-card .section-title { font-size:14px; line-height:22px; }
+.mine-station-card .station-info-link { min-height:44px; padding:0; gap:4px; }
+.mine-station-title { display:flex; align-items:baseline; gap:10px; min-width:0; }
+.mine-station-title .station-name { flex:1; min-width:0; font-size:16px; line-height:24px; color:var(--af2-ink); overflow-wrap:anywhere; }
+.mine-station-title .station-edit-hint { flex:none; margin:0; font-size:13px; line-height:20px; color:var(--af2-primary); }
+.mine-station-detail { display:flex; flex-wrap:wrap; gap:2px 12px; align-items:baseline; min-width:0; }
+.mine-station-detail .station-address { flex:1 1 160px; min-width:0; font-size:13px; line-height:20px; overflow-wrap:anywhere; }
+.mine-station-detail .station-phone { font-size:13px; line-height:20px; color:var(--af2-muted); overflow-wrap:anywhere; }
+
+.b2-menu-entry { gap:10px; }
+.b2-menu-entry icon { flex:none; }
+.b2-menu-entry .menu-text { flex:1; min-width:0; }
+.b2-logout { box-sizing:border-box; display:flex; align-items:center; justify-content:center; width:160px; min-height:48px; margin:20px auto; padding:8px 20px; color:#5D6B7D; background:#FFFFFF; border:1px solid #7C8A9C; border-radius:8px; }
+.personal-shortcut { background:#FFFFFF; border:1px solid #DDE5EF; }
+.stats-card { background:#EAF2FF; }

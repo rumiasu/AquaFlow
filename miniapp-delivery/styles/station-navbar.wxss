@@ -271,29 +271,6 @@
   border-bottom-color: var(--primary-color);
 }
 
-/* 展开后的说明块：why（为什么必须填）+ suggestion（具体怎么做） */
-.st-item-why-box {
-  margin-top: 14rpx;
-  padding: 16rpx 20rpx;
-  border-radius: 10rpx;
-  background: var(--bg-color);
-}
-
-.st-item-why {
-  display: block;
-  font-size: 24rpx;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.st-item-suggestion {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  color: var(--success-color);
-  line-height: 1.6;
-}
-
 .st-summary {
   display: block;
   padding: 12rpx 0 0;
@@ -339,4 +316,16 @@
 .status-chip-unloaded .status-chip-text,.status-chip-unloaded .status-chip-note,.st-status-unloaded .st-status-text { color:var(--text-regular); }
 .status-chip-unloaded .status-dot { background:var(--text-secondary); }
 
-.st-module-title { display:block; padding:16rpx 0 8rpx; font-size:14px; font-weight:600; color:var(--text-primary); }
+.st-module-card { margin:12rpx 0; padding:18rpx; border:1rpx solid var(--border-color); border-radius:10rpx; }
+.st-module-head { gap:12rpx; min-height:40px; }
+.st-module-title { flex:1; min-width:0; font-size:15px; font-weight:600; color:var(--text-primary); }
+.st-module-summary { display:block; }
+.st-module-copy { display:block; min-width:0; font-size:13px; line-height:1.6; color:var(--text-secondary); }
+
+/* B0: routine readiness uses neutral blue-gray, with real state text intact. */
+.status-chip-warn,.st-status-warn{background:var(--af-soft);color:var(--af-strong);border-color:var(--af-border)}.status-chip-badge{background:var(--af-soft);color:var(--af-strong)}.st-actions{display:flex;gap:8px;align-items:stretch}.st-actions .st-btn.af-action--cancel{flex:0 0 80px;width:80px;min-width:80px;background:var(--af-soft);color:var(--af-ink)}.st-actions .st-btn.af-action--primary{flex:1;min-width:44px;background:var(--af-primary);color:var(--af-on-primary)}
+
+/* Completed preparation keeps its module name and accessible check only. */
+.st-module-done{flex:none;font-size:16px;line-height:24px;color:var(--af2-ink-success,#326451)}
+.st-module-head{gap:8px;min-height:44px}
+.st-module-title{flex:1;min-width:0}

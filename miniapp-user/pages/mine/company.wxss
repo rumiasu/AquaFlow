@@ -31,4 +31,18 @@
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }
 button::after { border: 0; }
-button[disabled] { color: #637083; background: #e8edf3; opacity: 1; }
+
+.company-name-row { display: flex; align-items: flex-start; gap: 16rpx; }
+.company-name { flex: 1; min-width: 0; }
+.heading-action { flex-shrink:0; margin:0; }
+
+.company-group { display: block; padding-top: 24rpx; color: var(--text-primary); font-size: 28rpx; font-weight: 600; }
+
+.state-card > .af-action { margin:8px 8px 0 0; }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.company-card { border-radius:14px; }
+.company-group { padding-top:12px; }
+.info-row { gap:12px; }
+.value { min-width:0; overflow-wrap:anywhere; }
+.input { min-height:44px; box-sizing:border-box; }

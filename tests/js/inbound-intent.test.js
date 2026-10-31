@@ -57,7 +57,7 @@ test('keyed API uses a separate receipt route so old additive servers cannot ign
   })
   module.exports.inboundProducts(11, items, 'INB-original-key-0001')
   module.exports.inboundProducts(11, items)
-  assert.equal(calls[0].url, '/receipt-inbound?stationId=11'); assert.equal(calls[0].body.clientRequestId, 'INB-original-key-0001')
+  assert.equal(calls[0].url, '/api/inventory/inbound-with-cost-receipt?stationId=11'); assert.equal(calls[0].body.clientRequestId, 'INB-original-key-0001')
   assert.equal(calls[1].url, '/legacy-inbound?stationId=11'); assert.equal(calls[1].body.clientRequestId, undefined)
 })
 for (const t of tests) { t.run(); console.log('PASS ' + t.name) }

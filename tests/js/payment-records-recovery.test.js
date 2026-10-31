@@ -171,8 +171,11 @@ async function main() {
   })
   await test('real payment API/request wrapper turns business error into persistent page failure', async () => {
     const t = setup(undefined, true)
-    t.wx.request = options => { t.wx.__calls.request.push(options); options.success({ statusCode: 200, data: { code: 1, message: '仅限本人查询' } }) }
-    await t.page.onShow(); assert.match(t.wx.__calls.request[0].url, /\/api\/payments\/by-customer$/)
+    t.wx.cloud = { Cloud: function() { this.init = async () => {}; this.callContainer = async options => {
+      t.wx.__calls.request.push(options)
+      return { statusCode: 200, data: { code: 1, message: '仅限本人查询' } }
+    } } }
+    await t.page.onShow(); assert.equal(t.wx.__calls.request[0].path, '/api/payments/by-customer')
     assert.equal(t.wx.__calls.request[0].header.Authorization, 'Bearer customer-seven')
     assert.equal(t.page.data.loaded, false); assert.match(t.page.data.error, /仅限本人/)
   })

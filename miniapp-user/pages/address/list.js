@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { getAddresses, deleteAddress, setDefaultAddress } = require('../../api/address')
 const { storage } = require('../../utils/storage')
@@ -64,10 +65,25 @@ Page({
     if (this.data.mutationPending || this.data.actionUnknown || this.data.accessDenied) return
     wx.navigateTo({ url: '/pages/address/edit?id=' + e.currentTarget.dataset.id })
   },
+  onMoreAddress(e) {
+    if (!this.ensurePageSession() || this._disposed || this.data.mutationPending || this.data.actionUnknown || this.data.accessDenied || this.data.loading || this.data.loadError) return
+    const id = e.currentTarget.dataset.id, session = captureSession(), readId = this._readId
+    const row = this.data.addresses.find(item => String(item.id) === String(id))
+    if (!row) return
+    const actions = row.isDefault ? ['删除地址'] : ['设为默认', '删除地址']
+    wx.showActionSheet({ itemList: actions, success: res => {
+      if (this._disposed || readId !== this._readId || !isCurrentSession(session) || this.data.loading || this.data.loadError || this.data.mutationPending || this.data.actionUnknown) return
+      const current = this.data.addresses.find(item => String(item.id) === String(id))
+      if (!current || !!current.isDefault !== !!row.isDefault) return
+      const event = { currentTarget: { dataset: { id } } }
+      if (actions[res.tapIndex] === '设为默认') this.onSetDefault(event)
+      else if (actions[res.tapIndex] === '删除地址') this.onDeleteAddress(event)
+    } })
+  },
   onDeleteAddress(e) {
     if (this.data.mutationPending || this.data.actionUnknown || this.data.accessDenied || this.data.loading || this.data.loadError) return
     const { id } = e.currentTarget.dataset
-    wx.showModal({ cancelColor: '#637083',  title: '删除收货地址', content: '删除后将不能再选择此地址，确认删除吗？',
+    showBusinessModal({ cancelColor: '#637083',  title: '删除收货地址', content: '删除后将不能再选择此地址，确认删除吗？',
       confirmText: '删除', confirmColor: '#BD3328',
       success: res => { if (res.confirm) this.changeAddress(id, 'delete') } })
   },

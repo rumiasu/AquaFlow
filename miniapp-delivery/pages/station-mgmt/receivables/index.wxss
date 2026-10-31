@@ -1,273 +1,53 @@
-.page {
-  background: var(--bg-color);
-  min-height: 100vh;
-  padding: 24rpx;
-  padding-bottom: 60rpx;
-}
+/* Financial page presentation consumes visual-v2-V0-3. Business controls stay in actions.wxss. */
+page { background:var(--af2-page); color:var(--af2-ink); }
+.finance-page { box-sizing:border-box; padding:16px 16px calc(24px + env(safe-area-inset-bottom)); font-size:14px; line-height:1.5; }
+.card { box-sizing:border-box; padding:16px; margin:0 0 16px; background:var(--af2-surface); border:1px solid var(--af2-line); border-radius:16px; }
+.card-title,.section-title { font-size:18px; line-height:26px; font-weight:600; color:var(--af2-ink); overflow-wrap:anywhere; }
+.card-title-row,.finance-section-head { display:flex; align-items:center; gap:8px; min-width:0; }
+.card-title-row { flex-wrap:wrap; }
+.card-count { margin-left:auto; font-size:13px; color:var(--af2-muted); }
+.card-sub,.row-sub,.hint,.slip-sub { display:block; font-size:14px; line-height:22px; color:var(--af2-muted); overflow-wrap:anywhere; }
+.card-sub { margin-top:8px; }
+.field { margin-top:16px; min-width:0; }
+.label { display:block; font-size:14px; line-height:20px; color:var(--af2-muted); margin-bottom:8px; }
+.input,.picker,.dialog-input { box-sizing:border-box; width:100%; min-height:48px; padding:12px; border:1px solid var(--af2-line); border-radius:9px; background:var(--af2-surface); color:var(--af2-ink); font-size:16px; line-height:22px; overflow-wrap:anywhere; }
+.input,.dialog-input { height:48px; }
+.picker { display:flex; align-items:center; }
+.picker-empty { color:var(--af2-muted); }
+.field-2col { display:flex; gap:12px; margin-top:16px; }.field.col { flex:1; margin-top:0; }
+.row { display:flex; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid var(--af2-line); }
+.row:last-child { border-bottom:0; }.row-main { flex:1; min-width:0; }
+.row-between { display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px 12px; }
+.row-title { color:var(--af2-ink); font-size:16px; line-height:24px; overflow-wrap:anywhere; }
+.row-amount { margin-left:auto; font-size:18px; line-height:26px; font-weight:600; color:var(--af2-ink); text-align:right; overflow-wrap:anywhere; }
+.empty { padding:24px 12px; color:var(--af2-muted); font-size:14px; line-height:22px; overflow-wrap:anywhere; }
+.finance-empty { display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; padding:32px 16px; }
+.load-error,.ui-state { padding:16px; margin:12px 0; border-radius:12px; background:var(--af2-surface-danger); color:var(--af2-ink); line-height:22px; overflow-wrap:anywhere; }
+.ui-state-title { display:block; font-size:16px; font-weight:600; }.ui-state-copy { display:block; margin:6px 0; }
+.load-error .af-action,.ui-state .af-action { margin-top:8px; }
+.mask { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(25,42,63,.38); z-index:90; }
+.dialog { position:fixed; left:0; right:0; bottom:0; top:auto; z-index:100; box-sizing:border-box; max-height:88vh; padding:20px 20px calc(20px + env(safe-area-inset-bottom)); border-radius:20px 20px 0 0; background:var(--af2-surface); overflow-y:auto; }
+.dialog-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.dialog-title { flex:1; min-width:0; font-size:18px; line-height:26px; font-weight:600; overflow-wrap:anywhere; }
+.dialog-close { flex:none; font-size:24px; margin-left:auto; }
+.kv { display:flex; align-items:flex-start; gap:12px; padding:10px 0; font-size:14px; line-height:22px; }
+.kv-k { flex:0 0 7em; color:var(--af2-muted); }.kv-v { flex:1; min-width:0; text-align:right; color:var(--af2-ink); overflow-wrap:anywhere; }
+.pill,.tag { display:inline-block; font-size:13px; line-height:20px; padding:3px 8px; border-radius:6px; background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); }
+.pill-on,.pill-paid { background:var(--af2-surface-success); color:var(--af2-ink-success); }
+.pill-confirmed { background:var(--af2-surface-current); color:var(--af2-ink-current); }
+.pill-off,.pill-draft { background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); }
+.form-submit { margin-top:20px; }.form-cancel { margin-top:8px; }
+@media (max-width:350px) { .field-2col { flex-direction:column; }.row-amount { max-width:100%; } }
 
-/* 总览：三个数字一眼看完，逾期标红 */
+.receivables-page.has-settlement { padding-bottom:220px; }
+.receivable-overview { padding:20px; margin-bottom:12px; border-radius:16px; }.receivable-overview-main { padding:16px 0; }.receivable-amount { display:block; font-size:30px; line-height:40px; font-weight:600; overflow-wrap:anywhere; color:var(--af2-ink-money); }.receivable-label { display:block; color:var(--af2-ink-money); font-size:14px; margin-top:4px; }.receivable-overview-details { display:flex; gap:16px; border-top:1px solid var(--af2-line); padding-top:16px; }.receivable-metric { flex:1; min-width:0; }.receivable-aux { font-size:22px; line-height:30px; font-weight:600; color:var(--af2-ink-money); overflow-wrap:anywhere; }.hero-danger,.row-danger { color:var(--af2-ink-danger); }
+.hint { margin:8px 0 16px; }.hint help-tip { display:inline-block; vertical-align:middle; }
+.filter-bar { display:flex; gap:2px; padding:4px; margin-bottom:12px; background:var(--af2-surface-neutral); border-radius:10px; }.filter-bar .af-choice { flex:1; min-width:0; }
+.receivable-customer { display:flex; align-items:center; gap:12px; padding:16px; margin-bottom:8px; }.receivable-customer-body { flex:1; min-width:0; }.receivable-customer-arrow { flex:none; font-size:22px; color:var(--af2-muted); }.overdue-tag { margin-top:8px; color:var(--af2-ink-danger); font-size:13px; line-height:20px; }
+.btn-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }.link { display:inline-flex; align-items:center; min-height:44px; padding:0 8px; color:var(--af-primary); }
+.check { display:flex; align-items:center; justify-content:center; flex:none; width:22px; height:22px; margin-top:2px; border:1px solid var(--af2-line); border-radius:6px; box-sizing:border-box; }.check-on { background:var(--af-primary); border-color:var(--af-primary); color:var(--af-on-primary); }.row { min-height:56px; }
+.settlement-bar { position:fixed; bottom:0; left:0; right:0; z-index:30; border-radius:16px 16px 0 0; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); margin:0; box-shadow:0 -2px 12px rgba(29,67,101,.06); }.settlement-total { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px; color:var(--af2-muted); }.settlement-amount { font-size:24px; line-height:32px; font-weight:600; color:var(--af2-ink-money); overflow-wrap:anywhere; }.settlement-caution { font-size:13px; line-height:20px; margin:4px 0 12px; }.settlement-bar .hint { font-size:13px; line-height:20px; margin:8px 0 0; }.settlement-receipt { padding:8px; margin-bottom:8px; color:var(--af2-ink-success); background:var(--af2-surface-success); border-radius:8px; }
+.risk-box { padding:16px; margin:12px 0; border-radius:12px; background:var(--af2-surface-money); }.risk-line { display:flex; gap:12px; justify-content:space-between; padding:6px 0; }.risk-label { color:var(--af2-ink-money); }.risk-value { text-align:right; color:var(--af2-ink-money); overflow-wrap:anywhere; }.risk-note { margin-top:8px; color:var(--af2-muted); font-size:13px; line-height:20px; }
+.dialog .btn-row { flex-wrap:nowrap; margin-top:16px; }.dialog .af-action--cancel { flex:0 0 80px; }.recalc-note { margin-top:20px; border-top:1px solid var(--af2-line); padding-top:16px; font-size:14px; color:var(--af2-muted); }
 
-
-
-.hero-danger {
-  color: var(--error-color);
-}
-
-
-.card {
-  background: var(--bg-card);
-  border-radius: 20rpx;
-  padding: 24rpx;
-  margin-bottom: 20rpx;
-  box-shadow: var(--shadow-sm);
-}
-.card-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.row-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.row-title {
-  font-size: 28rpx;
-  color: var(--text-primary);
-}
-.row-amount {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.row-sub {
-  font-size: 24rpx;
-  color: var(--text-secondary);
-  margin-top: 8rpx;
-  line-height: 36rpx;
-}
-.row-danger {
-  display: block;
-  font-size: 24rpx;
-  color: var(--error-color);
-  margin-top: 6rpx;
-}
-
-.overdue-tag {
-  margin-top: 12rpx;
-  background: rgba(181, 68, 44, 0.08);
-  color: var(--error-color);
-  font-size: 23rpx;
-  line-height: 44rpx;
-  padding: 0 16rpx;
-  border-radius: 8rpx;
-  display: inline-block;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid var(--border-light);
-}
-.row:last-child {
-  border-bottom: none;
-}
-.row-main {
-  flex: 1;
-  overflow: hidden;
-}
-
-.check {
-  width: 44rpx;
-  height: 44rpx;
-  line-height: 44rpx;
-  text-align: center;
-  border: 1rpx solid var(--border-color);
-  border-radius: 8rpx;
-  margin-right: 20rpx;
-  font-size: 28rpx;
-  color: #fff;
-  flex-shrink: 0;
-}
-.check-on {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-}
-
-.link {
-  color: var(--primary-color);
-  font-size: 26rpx;
-}
-
-.btn-row {
-  display: flex;
-  align-items: center;
-  margin-top: 20rpx;
-}
-.btn-ghost {
-  padding: 12rpx 28rpx;
-  border: 1rpx solid var(--border-color);
-  border-radius: 12rpx;
-  font-size: 14px;
-  color: var(--text-regular);
-  margin-right: 16rpx;
-}
-.btn-primary {
-  height: auto;
-  line-height: 1.5;
-  text-align: center;
-  background: var(--primary-gradient);
-  color: #fff;
-  border-radius: 12rpx;
-  font-size: 16px;
-  font-weight: 600; min-height:44px; display:flex; align-items:center; justify-content:center; }
-.btn-inline {
-  flex: 1;
-  margin-left: 16rpx;
-}
-.btn-disabled {
-  opacity: 0.45;
-}
-
-.empty {
-  font-size: 26rpx;
-  color: var(--text-secondary);
-  padding: 24rpx 0;
-  line-height: 40rpx;
-}
-.hint {
-  font-size: 23rpx;
-  color: var(--text-secondary);
-  line-height: 36rpx;
-  margin-top: 12rpx;
-}
-
-/* 本页已有 24rpx 内边距，全局 .load-error 的左右 margin 会让提示条比卡片窄一截，这里对齐卡片 */
-.load-error {
-  margin: 0 0 20rpx;
-}
-
-/* ========== 当前筛选（[2026-09-27 走查 M05]） ==========
-   首页「逾期应收」入口带 ?overdue=1 进来 ⇒ 落地就是逾期视图，这里必须让人**看得见**
-   自己正在看哪个集合，并且一键切回全部（报告要求保留未逾期应收的查询能力）。
-   样式与站内其他页签条同族：选中项用主色底。 */
-.filter-bar {
-  display: flex;
-  gap: 16rpx;
-  margin-top: 20rpx;
-}
-.filter-item {
-  flex: 1;
-  text-align: center;
-  padding: 16rpx 0;
-  border-radius: 12rpx;
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  font-size: 26rpx;
-  box-shadow: var(--shadow-sm);
-}
-.filter-item.active {
-  background: var(--primary-color);
-  color: #fff;
-  font-weight: 600;
-}
-
-/* ========== 验资块（v60，账期弹窗内） ==========
-   数字与那句话**全部来自服务端**（GET /customers/{id}/risk），这里只负责排版与配色。
-   只染"预警/冻结"为红、"关注"为黄 —— 与后端 CustomerRiskService 的两档口径一致：
-   关注是**正常经营**（月结客户天天如此），别做成告警的样子。 */
-.risk-box {
-  background: var(--bg-gray);
-  border-radius: 12rpx;
-  padding: 18rpx 20rpx;
-  margin-bottom: 20rpx; border-left: 4rpx solid var(--warning-color); }
-.risk-line {
-  display: flex;
-  justify-content: space-between;
-  font-size: 25rpx;
-  line-height: 42rpx;
-}
-.risk-label { color: var(--text-secondary); }
-.risk-value { color: var(--text-primary); font-weight: 500; }
-.risk-note {
-  font-size: 23rpx;
-  color: var(--warning-color);
-  line-height: 34rpx;
-  margin-top: 8rpx;
-}
-
-/* 「把未结账单也改成新账期」—— 与保存按钮分开一格，避免误点 */
-.btn-recalc {
-  display: block;
-  margin-top: 20rpx;
-  text-align: center;
-}
-
-/* 账期编辑弹层 */
-.mask {
-  position: fixed;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.45);
-}
-.dialog {
-  position: fixed;
-  left: 48rpx;
-  right: 48rpx;
-  top: 30%;
-  background: var(--bg-card);
-  border-radius: 20rpx;
-  padding: 32rpx;
-  z-index: 10;
-  box-shadow: var(--shadow-lg);
-}
-.dialog-title {
-  display: block;
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 20rpx;
-}
-.dialog-input {
-  height: 80rpx;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 12rpx;
-  padding: 0 20rpx;
-  font-size: 28rpx;
-}
-
-/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
-
-.page { box-sizing: border-box; }
-
-
-
-
-
-
-.card { border-radius: 12rpx; box-shadow: none; }
-.row-between { align-items: flex-start; flex-wrap: wrap; gap: 12rpx; }
-.row-title { min-width: 0; word-break: break-all; }
-.row-amount { margin-left: auto; font-size: 34rpx; word-break: break-all; }
-.row-main { min-width: 0; overflow: visible; }
-.btn-row { flex-wrap: wrap; gap: 12rpx; }
-.btn-ghost,.btn-primary,.filter-item,.link { box-sizing: border-box; min-height: 48px; height: auto; padding: 20rpx; border-radius: 8rpx; line-height: 1.6; display: flex; justify-content: center; align-items: center; white-space: normal; word-break: break-all; }
-.btn-primary { background: var(--primary-color); }
-.btn-ghost { margin-right: 0; flex: 1; min-width: 150rpx; }
-.btn-inline { margin-left: 0; }.link { padding: 16rpx; }
-.settlement-caution { color: var(--text-primary); font-size: 28rpx; font-weight: 600; line-height: 1.6; margin-bottom: 18rpx; }
-.dialog { left: 24rpx; right: 24rpx; top: 8%; max-height: 82vh; overflow-y: auto; box-sizing: border-box; border-radius: 12rpx; padding: 28rpx; }
-.dialog-input { height: 88rpx; box-sizing: border-box; width: 100%; }
-
-.receivable-overview {padding:28rpx 24rpx;margin-bottom:20rpx;border-radius:20rpx;background:var(--bg-card);box-shadow:var(--shadow-sm);}
-.receivable-overview-main {display:block;width:100%;min-width:0;padding-bottom:24rpx;}
-.receivable-amount-scroll {display:block;width:100%;overflow-x:auto;}
-.receivable-amount {display:block;white-space:nowrap;font-size:48rpx;font-weight:600;line-height:1.3;overflow-wrap:anywhere;word-break:break-word;}
-.receivable-overview-details {display:flex;flex-wrap:wrap;gap:20rpx;padding-top:24rpx;border-top:1rpx solid var(--border-light);}
-.receivable-metric {flex:1 1 8em;min-width:0;font-size:36rpx;}
-.receivable-aux {display:block;font-size:36rpx;font-weight:600;line-height:1.4;overflow-wrap:anywhere;word-break:break-word;}
-.receivable-label {display:block;margin-top:8rpx;font-size:30rpx;line-height:1.5;color:var(--text-regular);word-break:normal;overflow-wrap:break-word;}
+.settlement-total > view { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px; min-width:0; max-width:100%; }.settlement-label { font-size:13px; }

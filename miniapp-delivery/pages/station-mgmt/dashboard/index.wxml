@@ -1,9 +1,9 @@
 <view class="page">
   <!-- 时间范围切换 -->
   <view class="range-bar">
-    <view class="range-item {{range === item.key ? 'active' : ''}}"
+    <view class="af-choice b3-on-range-change {{range === item.key ? 'af-choice--selected' : ''}}"
           wx:for="{{ranges}}" wx:key="key"
-          bindtap="onRangeChange" data-key="{{item.key}}">{{item.label}}</view>
+          bindtap="onRangeChange" data-key="{{item.key}}"><view class="af-choice__face">{{item.label}}</view></view>
   </view>
 
   <view class="loading" wx:if="{{loading}}">加载中...</view>
@@ -28,7 +28,7 @@
         <text class="section-note">对比上一周期</text>
       </view>
       <view class="metric-grid">
-        <view class="metric-card" wx:for="{{report.metricCards}}" wx:key="key">
+        <view class="metric-card {{item.key === 'grossAmount' || item.key === 'paidAmount' ? 's-money-metric' : (item.key === 'barrelsIn' ? 's-physical-metric' : 's-neutral-metric')}}" wx:for="{{report.metricCards}}" wx:key="key">
           <text class="metric-value">{{item.valueText}}</text>
           <text class="metric-label">{{item.label}}</text>
           <view class="delta {{item.deltaDir}} {{item.good === true ? 'good' : (item.good === false ? 'bad' : '')}}">
@@ -66,13 +66,15 @@
       <view class="section-head">
         <view class="section-title">{{trendTitle}}</view>
         <view class="metric-switch" wx:if="{{metricSwitchable}}">
-          <text class="ms-item {{trendMetric === 'orders' ? 'on' : ''}}" bindtap="onMetricChange" data-key="orders">单量</text>
-          <text class="ms-item {{trendMetric === 'amount' ? 'on' : ''}}" bindtap="onMetricChange" data-key="amount">金额</text>
+          <view class="af-choice b3-on-metric-change {{trendMetric === 'orders' ? 'af-choice--selected' : ''}}" bindtap="onMetricChange" data-key="orders"><view class="af-choice__face">单量</view></view>
+          <view class="af-choice b3-on-metric-change {{trendMetric === 'amount' ? 'af-choice--selected' : ''}}" bindtap="onMetricChange" data-key="amount"><view class="af-choice__face">金额</view></view>
         </view>
       </view>
       <canvas type="2d" id="trendCanvas" class="chart-canvas trend"></canvas>
     </view>
 
+    <button class="af-action af-action--quiet b3-on-toggle-analysis" bindtap="onToggleAnalysis" wx:if="{{report.hasData}}" hover-class="af-action--pressed"><view class="af-action__face">{{analysisExpanded ? '收起详细分析' : '查看状态、收款方式与排行'}}</view></button>
+    <block wx:if="{{analysisExpanded}}">
     <!-- 订单状态分布 + 支付方式 -->
     <view class="two-col" wx:if="{{report.hasData}}">
       <view class="section col">
@@ -151,18 +153,19 @@
     </view>
 
     <!-- 下单时段分布 -->
-    <view class="section" wx:if="{{hourChart}}">
+    <view class="section" wx:if="{{hourChart && report.range !== 'today'}}">
       <view class="section-head">
         <view class="section-title">下单时段分布</view>
         <text class="section-note">0-23 点，用于安排运力</text>
       </view>
-      <view class="hour-chart">
+      <scroll-view scroll-x class="hour-scroll"><view class="hour-chart">
         <view class="hour-col" wx:for="{{hourChart.bars}}" wx:key="label">
           <view class="hour-bar" style="height:{{item.height}}%"></view>
           <text class="hour-label">{{item.label}}</text>
         </view>
-      </view>
+      </view></scroll-view>
     </view>
+    </block>
 
     <!--
       [2026-09-19 IA 重组 C2] 这里原有「欠桶客户 TOP N」一块，与「欠桶台账」页
@@ -171,3 +174,4 @@
     -->
   </block>
 </view>
+<business-dialog id="business-dialog" />

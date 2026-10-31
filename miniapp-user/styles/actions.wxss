@@ -1,0 +1,54 @@
+/* AquaFlow B0 v1: opt-in action families. Legacy pages keep their current skin. */
+page, :host {
+  --af-primary:#1264D6; --af-primary-pressed:#1152A5; --af-on-primary:#FFFFFF;
+  --af-ink:#223247; --af-strong:#223247; --af-text-secondary:#5D6B7D;
+  --af-canvas:#F3F6FA; --af-surface:#FFFFFF; --af-soft:#EAF2FF; --af-border:#DDE5EF;
+  --af-disabled-bg:#E6EBF0; --af-disabled-text:#59677A;
+  --af-danger:#BD3545; --af-danger-soft:#FFF4F2; --af-positive:#24734F;
+}
+/* 2026-10-29: nonshrinking actions previously had no width ceiling; long labels could overflow narrow cards. Keep intrinsic short actions and wrap only at the containing width. */
+.af-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; box-sizing:border-box; min-width:0; max-width:100%; }
+.af-actions--footer { flex-wrap:nowrap; align-items:stretch; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:var(--af-surface); }
+/* Geometry defaults deliberately use one class: page width/margin/flex wins without !important. Role colors, typography and 44px touch protection remain canonical below. */
+.af-action { display:inline-flex; flex:none; width:auto; max-width:100%; height:auto; margin:0; }
+.af-action, button.af-action { box-sizing:border-box; align-items:center; justify-content:center; min-width:44px; min-height:44px; padding:10px 14px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--af-ink); font-size:14px; line-height:20px; font-weight:400; text-align:center; white-space:normal; word-break:break-all; }
+.af-action::after, button.af-action::after { border:0; }
+.af-action--primary, button.af-action--primary { min-height:48px; background:var(--af-primary); color:var(--af-on-primary); font-size:16px; line-height:22px; font-weight:600; }
+.af-action--secondary, button.af-action--secondary { background:var(--af-surface); border-color:#7C8A9C; color:var(--af-primary); }
+.af-action--cancel, button.af-action--cancel { background:var(--af-soft); color:var(--af-ink); }
+.af-action--quiet, button.af-action--quiet { padding:0; background:transparent; color:var(--af-ink); }
+.af-action__face { box-sizing:border-box; display:flex; align-items:center; justify-content:center; min-width:44px; min-height:30px; max-width:100%; padding:5px 10px; border-radius:6px; background:var(--af-soft); color:inherit; font-size:14px; line-height:20px; white-space:normal; word-break:break-all; }
+.af-action--danger-quiet, button.af-action--danger-quiet { background:transparent; color:var(--af-danger); }
+.af-action--danger, button.af-action--danger { min-height:48px; background:var(--af-danger); color:var(--af-on-primary); font-size:16px; line-height:22px; font-weight:600; }
+.af-action--form, button.af-action--form { min-height:48px; }
+.af-action--final, button.af-action--final { min-height:52px; }
+.af-action--block, button.af-action--block { display:flex; width:100%; }
+.af-action--grow, button.af-action--grow { flex:1; min-width:44px; }
+.af-action--pressed { background:var(--af-soft); }
+.af-action--primary.af-action--pressed { background:var(--af-primary-pressed); }
+.af-action[disabled],button.af-action[disabled],.af-action.is-disabled { opacity:1; background:var(--af-disabled-bg); border-color:var(--af-border); color:var(--af-disabled-text); }
+.af-action--quiet[disabled],button.af-action--quiet[disabled],.af-action--danger-quiet[disabled] { background:transparent; border-color:transparent; }
+.af-action[disabled] .af-action__face { background:var(--af-disabled-bg); color:var(--af-disabled-text); }
+.af-choice { display:inline-flex; max-width:100%; height:auto; margin:0; }
+.af-choice,button.af-choice { box-sizing:border-box; align-items:center; justify-content:center; min-width:44px; min-height:44px; padding:4px 0; border:0; background:transparent; color:var(--af-text-secondary); font-size:14px; line-height:20px; white-space:normal; }
+.af-choice::after { border:0; }
+.af-choice__face { box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:6px; min-height:32px; width:100%; padding:5px 12px; border:1px solid transparent; border-radius:6px; background:var(--af-soft); line-height:20px; min-width:0; max-width:100%; white-space:normal; word-break:break-all; }
+.af-choice--selected .af-choice__face { border-color:var(--af-primary); background:var(--af-surface); color:var(--af-primary); font-weight:600; }
+.af-choice__mark { flex:none; color:var(--af-primary); font-weight:600; }
+.af-choice[disabled],button.af-choice[disabled] { opacity:1; color:var(--af-disabled-text); }
+.af-choice[disabled] .af-choice__face { background:var(--af-disabled-bg); color:var(--af-disabled-text); }
+.af-entry { box-sizing:border-box; display:flex; align-items:center; gap:12px; min-width:44px; min-height:52px; padding:12px 0; background:transparent; color:var(--af-ink); text-align:left; max-width:100%; height:auto; margin:0; font-size:16px; line-height:24px; white-space:normal; word-break:break-all; }
+.af-entry--two-line { min-height:60px; }
+.af-entry--feature { min-height:88px; padding:12px; border-radius:10px; background:var(--af-soft); }
+.af-entry__icon { flex:none; width:24px; height:24px; color:var(--af-primary); }
+.af-entry__body { flex:1; min-width:0; }
+.af-entry__title { display:block; color:var(--af-ink); font-size:16px; line-height:24px; font-weight:600; overflow-wrap:anywhere; }
+.af-entry__summary { display:block; color:var(--af-text-secondary); font-size:12px; line-height:18px; overflow-wrap:anywhere; }
+.af-entry__arrow { flex:none; color:var(--af-text-secondary); font-size:20px; }
+.af-graphic-slot--entry { flex:none; width:56px; height:42px; }
+.af-graphic-slot--claim { flex:none; width:144px; height:96px; }
+
+.af-actions--footer > .af-action--cancel { flex:0 0 80px; width:80px; padding:10px; }
+.af-actions--footer > .af-action--primary,.af-actions--footer > .af-action--danger { flex:1; min-width:44px; }
+.af-entry[disabled],.af-entry[aria-disabled="true"],.af-entry.is-disabled { color:var(--af-disabled-text); }
+.af-entry[disabled] .af-entry__title,.af-entry[disabled] .af-entry__summary,.af-entry[aria-disabled="true"] .af-entry__title,.af-entry[aria-disabled="true"] .af-entry__summary { color:var(--af-disabled-text); }

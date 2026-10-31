@@ -1,12 +1,17 @@
-.scope-card { margin-bottom: 24rpx; padding: 24rpx; background: var(--bg-card); border: 1rpx solid var(--border-color); border-radius: 20rpx; }
+@import "../../styles/presentation.wxss";
+@import "../../styles/actions.wxss";
+.scope-card { margin: 20rpx 0; padding: 20rpx 24rpx; background: var(--bg-card); border: 1rpx solid var(--border-color); border-radius: var(--radius-lg); }
+.scope-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8rpx 16rpx; }
+.scope-badge { padding: 4rpx 12rpx; border-radius: 8rpx; background: var(--primary-bg); color: var(--primary-color); font-size: 26rpx; line-height: 1.5; }
 .scope-row { display: flex; align-items: center; gap: 20rpx; }
 .scope-main, .picker-main { flex: 1; min-width: 0; }
-.scope-caption { display: block; font-size: 30rpx; color: var(--text-regular); }
-.scope-name { display: block; margin-top: 8rpx; font-size: 34rpx; font-weight: 600; color: var(--text-primary); overflow-wrap: break-word; }
-.scope-switch { flex-shrink: 0; color: var(--primary-color); font-size: 34rpx; padding: 12rpx 0; }
+.scope-caption { font-size: 30rpx; color: var(--text-regular); }
+.scope-name { display: block; font-size: 34rpx; font-weight: 600; line-height: 1.4; color: var(--text-primary); overflow-wrap: break-word; }
+.scope-switch { flex-shrink: 0; color: var(--primary-color); font-size: 34rpx; padding: 12rpx 0; min-height: 44px; display: flex; align-items: center; box-sizing: border-box; }
+.scope-context { display: block; margin-top: 4rpx; font-size: 28rpx; line-height: 1.5; color: var(--text-secondary); }
 .scope-tip, .scope-order { display: block; font-size: 34rpx; line-height: 1.6; color: var(--text-regular); margin-top: 8rpx; overflow-wrap: break-word; }
 .scope-status { display: block; font-size: 30rpx; line-height: 1.6; color: var(--text-regular); margin-top: 8rpx; overflow-wrap: break-word; }
-.scope-order { padding-top: 12rpx; margin-top: 12rpx; border-top: 1rpx solid var(--border-color); }
+.picker-scope { padding: 0 16rpx 16rpx; margin-bottom: 12rpx; border-radius: 12rpx; background: var(--bg-gray); }
 .picker-mask { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,.4); }
 .picker { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1101; padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom)); border-radius: 28rpx 28rpx 0 0; background: var(--bg-card); }
 .picker-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 34rpx; gap: 16rpx; }
@@ -23,10 +28,7 @@
 .picker-message { display: block; padding: 28rpx 8rpx; font-size: 34rpx; color: var(--text-regular); line-height: 1.7; white-space: normal; overflow-wrap: break-word; }
 .picker-retry { margin-top: 20rpx; font-size: 34rpx; color: var(--primary-color); background: var(--bg-gray); }
 
-.scope-card { border-radius: var(--radius-lg); padding: 24rpx; box-shadow: none; }
-.scope-switch, .picker-close { min-height: 88rpx; display: flex; align-items: center; box-sizing: border-box; }
-.scope-row { flex-wrap: wrap; }
-.scope-main { min-width: 240rpx; }
+.picker-close { min-height: 88rpx; display: flex; align-items: center; box-sizing: border-box; }
 .picker { border-radius: 20rpx 20rpx 0 0; }
 
 /* 弹层不进入胶囊区；小屏触控尺寸不随rpx缩小。 */
@@ -35,3 +37,35 @@
 .scope-row, .picker-row { min-height: 48px; }
 .picker-close, .picker-retry { min-height: 44px; min-width: 44px; }
 .picker-processing { display: block; color: var(--text-regular); font-size: 28rpx; line-height: 1.6; margin: 0 8rpx 16rpx; }
+
+.scope-row.af-entry{min-height:52px;background:transparent;padding:8px 0}.picker-head button.af-action{width:auto;min-height:44px;padding:0}.picker-list button.af-action{width:auto;min-height:44px;margin:8px 0}.picker-row{min-height:52px}.picker-row.selected{border-left:3px solid var(--af-primary);background:var(--af-soft)}
+
+/* Asset scope remains independent of order station; only the presentation changes. */
+.scope-card { margin:12px 0; padding:12px 14px; border:1px solid var(--af2-line); border-radius:14px; box-shadow:var(--af2-shadow); background:var(--af2-surface); }
+.scope-caption { font-size:12px; line-height:18px; }
+.scope-badge { font-size:12px; line-height:18px; background:var(--af2-top); color:var(--af2-primary); }
+.scope-row { gap:10px; min-height:48px; }
+.scope-symbol { flex:none; }
+.scope-name { font-size:16px; line-height:24px; }
+.scope-switch { font-size:14px; line-height:22px; }
+.scope-context { font-size:12px; line-height:18px; }
+.scope-status { font-size:13px; line-height:20px; margin-top:2px; }
+
+/* Opt-in only for barrel assets; other asset pages retain their current scope card. */
+.scope-card.scope-card--compact { margin:0; padding:6px 10px; box-shadow:none; }
+.scope-card--compact .scope-row { padding:4px 0; min-height:44px; }
+.scope-card--compact .scope-main { display:flex; flex-wrap:wrap; gap:0 8px; align-items:baseline; }
+.scope-card--compact .scope-caption { flex:none; line-height:22px; }
+.scope-card--compact .scope-name { flex:1; min-width:0; font-size:15px; line-height:22px; }
+.scope-card--compact .scope-status { width:100%; margin:0; line-height:20px; }
+
+/* 选站提示保留资产隔离与下单站不变，短列表不占满屏幕。 */
+.picker-head { font-weight:700; }
+.picker-scope { margin:8px 0 12px; padding:10px 12px; background:#EAF2FF; }
+.picker-scope .scope-tip,.picker-scope .scope-order { margin:0; font-size:14px; line-height:22px; color:#244D7D; }
+.picker-list--short { height:128px; max-height:55vh; }
+.picker-row { border:1px solid transparent; border-bottom:1px solid #DDE5EF; border-radius:10px; }
+.picker-row.selected { border:1px solid #1264D6; background:#EAF2FF; }
+.picker-name { font-weight:700; font-size:16px; line-height:24px; }
+.picker-status { font-size:13px; line-height:20px; margin-top:2px; }
+.picker-selected { font-size:14px; color:#1264D6; }

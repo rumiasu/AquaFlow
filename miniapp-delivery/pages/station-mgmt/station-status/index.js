@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { jumpToSettingSection } = require('../../../utils/settings-sections')
 const {
   getStationStatus,
@@ -58,10 +59,10 @@ Page({
     statusLoaded: false,
     statusOptions: STATUS_OPTIONS,
     current: unknownStatus(),
-    // 「顾客那边会怎样」：跟着**当前显示的那个状态**走 —— 打开页面显示当前状态的，
+    // 「顾客端显示效果」：跟着**当前显示的那个状态**走 —— 打开页面显示当前状态的，
     // 点了别的选项就换成那个选项的，**再点一次同一个就撤回当前状态**（见 onPickStatus）。
     // 文案全部来自后端（options[].effect / currentEffect）。
-    effectLabel: '当前状态，顾客那边：',
+    effectLabel: '当前状态下顾客端显示：',
     effectText: '',
     // 当前状态的效果（单独存一份）：点选项再撤回时要还原成它。
     // ⚠️ 不能从 `current.customerHint` 里取 —— 那是给**顾客**看的一句话，口径与 effect 不同。
@@ -91,22 +92,58 @@ Page({
       app.routeByRole(true)
       return
     }
-    this.loadStatus()
+    const owner = this.statusOwner()
+    // 2026-10-28：后台返回时重读曾覆盖未保存留言；仅同一身份保留当前草稿。
+    const changed = this._statusOwner !== owner
+    if (changed) {
+      this._noticeEditVersion = (this._noticeEditVersion || 0) + 1
+      this._unverifiedStatusDraft = null
+      this.setData({ showEdit: false, editForm: { title: '', content: '' }, noteInput: '' })
+    }
+    this._statusOwner = owner
+    if (changed || !this.statusDraftDirty()) this.loadStatus()
     this.loadNotices()
   },
 
-  onPullDownRefresh() {
-    Promise.all([this.loadStatus(), this.loadNotices()]).then(() => wx.stopPullDownRefresh())
+  statusOwner() {
+    const app = getApp(), user = app.globalData.userInfo || {}
+    return JSON.stringify([app._loginGeneration || 0, user.staffId || user.id, user.role, user.stationId])
   },
+
+  onPullDownRefresh() {
+    Promise.all([this.statusDraftDirty() ? Promise.resolve() : this.loadStatus(), this.loadNotices()]).then(() => wx.stopPullDownRefresh())
+  },
+
+  statusDraftDirty() {
+    return this.data.statusLoaded && (this.data.picked !== this.data.current.operatingStatus || this.data.noteInput !== this.data.current.note)
+  },
+
+  syncExitGuard() {
+    const initial = this._noticeInitial || { title: '', content: '' }, form = this.data.editForm
+    const dirtyNotice = this.data.showEdit && (form.title !== initial.title || form.content !== initial.content)
+    if (this.statusDraftDirty() || dirtyNotice || this._unverifiedStatusDraft) {
+      if (typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '营业状态或公告尚未保存。', fail: () => this.setData({ exitGuardError: '离开提醒未能开启，请先保存或确认放弃修改。' }) })
+      else this.setData({ exitGuardError: '当前无法开启离开提醒，请先保存或确认放弃修改。' })
+    } else {
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload({})
+      this.setData({ exitGuardError: '' })
+    }
+  },
+
+  onUnload() { if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload({}) },
 
   onRetryStatus() { return this.loadStatus() },
   onRetryNotices() { return this.loadNotices() },
 
   async loadStatus() {
+    const owner = this.statusOwner(), seq = this._statusReadSeq = (this._statusReadSeq || 0) + 1
+    const current = () => seq === this._statusReadSeq && owner === this.statusOwner()
+    const draftVersion = this._statusDraftVersion || 0
     this.setData({ loading: true, statusError: '', statusLoaded: false, current: unknownStatus(),
       picked: null, effectText: '', currentEffect: '' })
     try {
       const res = await getStationStatus()
+      if (!current()) return
       const d = statusData(res)
       const patch = {
         statusLoaded: true,
@@ -126,20 +163,29 @@ Page({
       if (opts.length) patch.statusOptions = opts
       // 打开页面先显示**当前状态**的效果；点了别的选项再换成那个选项的。
       // ⚠️ 待上线**不在可选项里**，所以它的效果只能从 currentEffect 拿（见后端 toView）。
-      patch.effectLabel = '当前状态，顾客那边：'
+      patch.effectLabel = '当前状态下顾客端显示：'
       patch.effectText = d.currentEffect || ''
       patch.currentEffect = d.currentEffect || ''
-      this.setData(patch)
+      if (this._unverifiedStatusDraft) {
+        patch.picked = this._unverifiedStatusDraft.picked
+        patch.noteInput = this._unverifiedStatusDraft.note
+        this._unverifiedStatusDraft = null
+      } else if ((this._statusDraftVersion || 0) !== draftVersion) {
+        patch.picked = this.data.picked
+        patch.noteInput = this.data.noteInput
+      }
+      this.setData(patch, () => this.syncExitGuard())
     } catch (err) {
+      if (!current()) return
       this.setData({ statusError: '营业状态尚未读取，请重试后再修改' })
       wx.showToast({ title: (err && err.message) || '营业状态加载失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      if (current()) this.setData({ loading: false })
     }
   },
 
   /**
-   * 选一个状态 → **就地显示"选了它顾客那边会怎样"**（2026-09-24 产品要求）。
+   * 选一个状态 → **就地显示选中后顾客端会看到什么**（2026-09-24 产品要求）。
    * **再点一次已选中的那个 = 取消锁定**，回到"当前状态"那一句（2026-09-24 追加）。
    *
    * ⚠️ 文案来自后端下发的 `options[].effect` / `currentEffect`，**前端不拼句子**：原来这里是前端用
@@ -150,6 +196,7 @@ Page({
     if (this.data.loading || !this.data.statusLoaded || this.data.saving) return
     const value = Number(e.currentTarget.dataset.value)
     const current = this.data.current.operatingStatus
+    this._statusDraftVersion = (this._statusDraftVersion || 0) + 1
 
     // 「取消锁定」：点的正是**已经选中**的那个，且它跟当前状态不同 → 撤回当前状态，不提交任何改动。
     // 判据带上 `picked !== current` 是为了让"本来就没改过"时再点一下**什么都不发生**
@@ -157,22 +204,23 @@ Page({
     if (value === this.data.picked && this.data.picked !== current) {
       this.setData({
         picked: current,
-        effectLabel: '当前状态，顾客那边：',
+        effectLabel: '当前状态下顾客端显示：',
         effectText: this.data.currentEffect || ''
-      })
+      }, () => this.syncExitGuard())
       return
     }
 
     const opt = (this.data.statusOptions || []).find(o => o.value === value)
     this.setData({
       picked: value,
-      effectLabel: '选了它，顾客那边：',
+      effectLabel: '选中后顾客端显示：',
       effectText: (opt && opt.effect) || ''
-    })
+    }, () => this.syncExitGuard())
   },
 
   onNoteInput(e) {
-    this.setData({ noteInput: e.detail.value })
+    this._statusDraftVersion = (this._statusDraftVersion || 0) + 1
+    this.setData({ noteInput: e.detail.value }, () => this.syncExitGuard())
   },
 
   async onSaveStatus() {
@@ -181,6 +229,7 @@ Page({
     try {
       const res = await updateStationStatus(this.data.picked, this.data.noteInput)
       const d = statusData(res)
+      this._unverifiedStatusDraft = null
       this.setData({
         current: {
           operatingStatus: d.operatingStatus,
@@ -191,16 +240,17 @@ Page({
         },
         picked: d.operatingStatus,
         noteInput: d.note || '',
-        effectLabel: '当前状态，顾客那边：',
+        effectLabel: '当前状态下顾客端显示：',
         effectText: d.currentEffect || '',
         currentEffect: d.currentEffect || ''
-      })
+      }, () => this.syncExitGuard())
       wx.showToast({ title: '已保存', icon: 'success' })
     } catch (err) {
       // 业务拒绝未改变状态；网络/响应异常则须重新只读核实，不能按默认值再次保存。
       if (!err || !err.businessRejected) {
+        this._unverifiedStatusDraft = { picked: this.data.picked, note: this.data.noteInput }
         this.setData({ statusLoaded: false, current: unknownStatus(), picked: null,
-          effectText: '', currentEffect: '' })
+          effectText: '', currentEffect: '', statusError: '保存结果尚未核实，请重新读取；填写内容会保留。' }, () => this.syncExitGuard())
       }
       wx.showToast({ title: (err && err.message) || '保存失败', icon: 'none' })
     } finally {
@@ -243,6 +293,8 @@ Page({
    *   ③ 现在 = 一步两键，**默认方向是右键发布**，左键才是草稿。
    */
   openAddNotice() {
+    this._noticeEditVersion = (this._noticeEditVersion || 0) + 1
+    this._noticeInitial = { title: '', content: '' }
     this.setData({
       showEdit: true,
       isAdd: true,
@@ -263,8 +315,10 @@ Page({
    *    `editStatus` 只用来判断"要不要问那一句"，不再直接决定保存后的状态。
    */
   openEditNotice(e) {
+    this._noticeEditVersion = (this._noticeEditVersion || 0) + 1
     const item = e.currentTarget.dataset.item
     const published = item.status === 1
+    this._noticeInitial = { title: item.title || '', content: item.content || '' }
     this.setData({
       showEdit: true,
       isAdd: false,
@@ -278,7 +332,16 @@ Page({
   },
 
   closeEditNotice() {
-    this.setData({ showEdit: false })
+    if (this.data.saving) return
+    const initial = this._noticeInitial || { title: '', content: '' }
+    const form = this.data.editForm
+    if (form.title === initial.title && form.content === initial.content) {
+      this.setData({ showEdit: false }, () => this.syncExitGuard())
+      return
+    }
+    const version = this._noticeEditVersion, owner = this.statusOwner()
+    showBusinessModal({ title: '放弃修改？', content: '未保存的公告内容将丢失。', confirmText: '放弃', cancelText: '继续编辑',
+      success: res => { if (res.confirm && version === this._noticeEditVersion && owner === this.statusOwner()) this.setData({ showEdit: false }, () => this.syncExitGuard()) } })
   },
 
   stopPropagation() {},
@@ -288,7 +351,7 @@ Page({
 
   onNoticeFieldInput(e) {
     const field = e.currentTarget.dataset.field
-    this.setData({ ['editForm.' + field]: e.detail.value })
+    this.setData({ ['editForm.' + field]: e.detail.value }, () => this.syncExitGuard())
   },
 
   /** 表单校验（两个按钮都要过）：标题与内容都不能空。 */
@@ -338,6 +401,7 @@ Page({
    *   ② **把已发布的打成草稿必须先确认** —— 那是"顾客端立刻消失"，不能靠手滑决定。
    */
   _submitNotice(nextStatus) {
+    if (this.data.saving) return
     const { isAdd, editId, editForm, editStatus } = this.data
     if (this._noticeFormInvalid()) {
       return
@@ -345,7 +409,7 @@ Page({
     // 只有"编辑一条原本已发布的公告、并选了存草稿"才需要二次确认
     const willUnpublish = !isAdd && editStatus === 1 && nextStatus === 0
     if (willUnpublish) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '转为草稿并下架？',
         content: '保存后这条公告会立刻从顾客端消失（内容不会丢，之后还能在列表里重新发布）。',
         // ⚠️ **按钮文案最多 4 个字符**（微信 showModal 的硬限制）。写过 5 个字的
@@ -390,7 +454,7 @@ Page({
         icon: 'none',
         duration: 2500
       })
-      this.setData({ showEdit: false })
+      this.setData({ showEdit: false }, () => this.syncExitGuard())
       this.loadNotices()
     } catch (err) {
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
@@ -417,7 +481,7 @@ Page({
 
   onDeleteNotice(e) {
     const item = e.currentTarget.dataset.item
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '删除公告',
       content: '删除后客户立刻看不到该公告，确认删除？',
       confirmText: '删除',

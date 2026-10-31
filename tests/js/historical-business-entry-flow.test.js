@@ -138,7 +138,7 @@ async function main() {
   await test('actual templates wire pagination, ID lookup, filters and complete return-list navigation',()=>{
     for(const [file,handlers] of [['barrel-return',['onScopeChange','onRecordSearch','onClearRecordSearch','onMoreRecords']],['business-waiting',['onRefusalScope','onRefusalSearch','onClearRefusalSearch','onMoreRefusals','onAllReturns']]]){
       const template=fs.readFileSync(path.join(ROOT,'miniapp-delivery/pages/station-mgmt',file,'index.wxml'),'utf8')
-      const state={scope:'ALL',nextBeforeId:1,refusalScope:'ALL',refusalNextBeforeId:1,ready:{},counts:{},errors:{},list:[],refusals:[],returns:[],stock:[],barrels:[],tickets:[],recoveries:[]}
+      const state={activeSection:'all',scope:'ALL',nextBeforeId:1,refusalScope:'ALL',refusalNextBeforeId:1,ready:{},counts:{},errors:{},list:[],refusals:[],returns:[],stock:[],barrels:[],tickets:[],recoveries:[]}
       const elements=[...renderElements(parseWxml(template),state),...renderElements(parseWxml(template),{...state,recordId:1,refusalOrderId:1})]
       for(const handler of handlers)assert(elements.some(e=>Object.values(e.attrs).includes(handler)),file+': '+handler+'必须是真实可达的绑定')
     }

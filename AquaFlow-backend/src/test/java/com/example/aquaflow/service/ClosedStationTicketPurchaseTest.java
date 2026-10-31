@@ -60,7 +60,7 @@ class ClosedStationTicketPurchaseTest {
         product.setTicketEnabled(1); product.setTicketPrice(new BigDecimal("8.00"));
         product.setPrice(new BigDecimal("20.00"));
         when(catalog.getById(5L)).thenReturn(product);
-        Inventory inventory = new Inventory(); inventory.setEnabled(1);
+        Inventory inventory = new Inventory(); inventory.setEnabled(1); inventory.setTicketPrice(new BigDecimal("8.00"));
         when(dependency(InventoryMapper.class).getByStationAndProduct(1L, 5L)).thenReturn(inventory);
         when(dependency(TicketTierService.class).usesCustomTicket(product, inventory)).thenReturn(true);
     }

@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../../utils/business-dialog')
 // 客户画像（站长视角）
 const { getCustomerProfile, getCustomerAssets, updateOfflinePayment, returnEmptyBuckets } = require('../../../../api/station-mgmt')
 const returnIntent = require('../../../../utils/return-empty-intent')
@@ -23,6 +24,7 @@ Page({
     assetsLoading: false,
     // 流水默认只展示前若干条，展开仅显示本次已取回记录
     recordsExpanded: false,
+    consumptionExpanded: false,
     recordsPreviewCount: 5,
     // ===== 纯还桶（只冲减 over，不扣权益、不退款） =====
     showReturnEmpty: false,
@@ -190,7 +192,7 @@ Page({
     const type = e.currentTarget.dataset.type
     const t = this.data.grantableTypes.find(x => x.type === type)
     if (!t) return
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认授予',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认授予',
       title: '授予特权',
       content: (t.text || '特权类型待核实') + '：' + (t.desc || ''),
       success: async (r) => {
@@ -209,7 +211,7 @@ Page({
   /** 撤销。后端在"本来就没有"时会报错——如实弹出，不要无条件提示成功（AGENTS §8.20）。 */
   onRevokePrivilege(e) {
     const type = e.currentTarget.dataset.type
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认撤销',
+    showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083',  confirmText: '确认撤销',
       title: '撤销特权？',
       content: '撤销后该客户在本站立即恢复默认规则。',
       success: async (r) => {
@@ -255,6 +257,14 @@ Page({
   decorateAssets(a) {
     const money = (v) => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '待核实' : Number(v).toFixed(2)
     const int = (v) => Number(v || 0)
+
+    // 2026-10-28：旧展示复用了数值兜底，缺失资产会显示为零；保留计算口径，展示单独标明未知。
+    const countText = (v) => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? '待核实' : String(v)
+    a.heldBucketsDisplay = countText(a.heldBuckets)
+    a.actualBucketsDisplay = countText(a.actualBuckets)
+    a.inTransitBucketsDisplay = countText(a.inTransitBuckets)
+    a.owedBucketsDisplay = countText(a.owedBuckets)
+    a.ticketQuantityDisplay = countText(a.ticketQuantity)
 
     a.heldBuckets = int(a.heldBuckets)
     a.inTransitBuckets = int(a.inTransitBuckets)
@@ -308,6 +318,15 @@ Page({
 
   onToggleRecords() {
     this.setData({ recordsExpanded: !this.data.recordsExpanded })
+  },
+
+  onToggleConsumption() {
+    this.setData({ consumptionExpanded: !this.data.consumptionExpanded })
+  },
+
+  onRecentOrderTap(e) {
+    const id = e.currentTarget.dataset.id
+    if (/^[1-9][0-9]*$/.test(String(id))) wx.navigateTo({ url: `/pages/order/detail?id=${id}` })
   },
 
   onRefreshAssets() {
@@ -376,23 +395,23 @@ Page({
       wx.showToast({ title: '该客户当前没有可还的桶', icon: 'none' })
       return
     }
+    this._returnInitial = JSON.stringify(items.map(item => String(item.qty)))
     this.setData({ showReturnEmpty: true, returnItems: items })
   },
 
   onCloseReturnEmpty() {
     if (this.data.returnSubmitting || this._returnFlight) return
-    this._returnModalContext = null
-    this.setData({ showReturnEmpty: false })
+    const context = this._returnModalContext
+    const close = () => { this._returnModalContext = null; this.setData({ showReturnEmpty: false }) }
+    if (this.data.returnPending || this._returnInitial === JSON.stringify(this.data.returnItems.map(item => String(item.qty)))) { close(); return }
+    showBusinessModal({ title: '放弃还桶填写？', content: '未提交的数量将丢失。', confirmText: '放弃', cancelText: '继续填写',
+      success: r => { if (r.confirm && context === this._returnModalContext && this.currentReturnContext(context)) close() } })
   },
 
   onReturnEmptyQtyInput(e) {
     if (this.data.returnSubmitting || this.data.returnPending) return
     const idx = Number(e.currentTarget.dataset.idx)
-    const max = Number(e.currentTarget.dataset.max)
-    let v = parseInt(e.detail.value) || 0
-    if (v < 0) v = 0
-    if (v > max) v = max
-    this.setData({ ['returnItems[' + idx + '].qty']: v })
+    this.setData({ ['returnItems[' + idx + '].qty']: String(e.detail.value) })
   },
 
   async onSubmitReturnEmpty() {
@@ -415,7 +434,13 @@ Page({
         this.setData({ returnMessage: '请先重新核对客户资产，再办理本次还桶' })
         return
       }
-      if (!intent) intent = returnIntent.prepare(context.actor, context.customerId, (this.data.returnItems || []).filter(i => i.qty > 0))
+      if (!intent) {
+        const items = this.data.returnItems || []
+        if (items.some(i => String(i.qty) !== '' && (!/^\d+$/.test(String(i.qty)) || !Number.isSafeInteger(Number(i.qty)) || Number(i.qty) > i.max))) {
+          this.setData({ returnMessage: '请核对每种商品的还桶数量' }); return
+        }
+        intent = returnIntent.prepare(context.actor, context.customerId, items.filter(i => Number(i.qty) > 0))
+      }
       this._returnIntent = intent
       if (!this.currentReturnContext(context) || this._returnHidden) return
       this.setData({ returnPending: true, returnRecoveryError: '', returnMessage: '正在核对原还桶登记，请勿再次交桶。' })

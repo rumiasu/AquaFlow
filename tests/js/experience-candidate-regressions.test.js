@@ -1,9 +1,11 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 /** Actual pages/API/request modules with synthetic in-memory wx transport; no service/DB or real WeChat. */
 const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
 const { parseWxml, renderElements } = require('./wxml-tree')
+const findNode = (node, predicate) => predicate(node) ? node : (node.children || []).map(child => findNode(child, predicate)).find(Boolean)
 const tests = [], results = [], observations = []
 const test = (name, run) => tests.push({ name, run })
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve() }
@@ -53,14 +55,16 @@ function orderPage(paymentResult, queryResult, action = '查原单') {
       payments.push(copy(call.data)); paymentResult(call, payments.length)
     } else if (method === 'GET' && /\/orders\/777(?:\?|$)/.test(call.url)) {
       reads.push(777); queryResult(call, reads.length)
+    } else if (call.url.endsWith('/api/payments/capabilities')) {
+      success(call, { wechatPay: { method: 1, enabled: true, simulated: true, label: '模拟付款', simulationAuthorization: { version: 1, scope: 'LOCAL_TEST', customerId: 7 } } })
     } else success(call, {})
   })
   // 2026-10-10：旧布尔值把确认固定当重试，主次交换后会测错路径；按用户所选动作定位按钮。
   const showModal = env.wx.showModal.bind(env.wx)
   env.wx.showModal = modal => {
-    if (modal.title.startsWith('订单已提交')) {
+    if (env.page.data.lastSubmittedOrder) {
       assert([modal.confirmText, modal.cancelText].includes(action), 'requested payment action must be visible')
-      if (modal.title.includes('支付结果未知')) {
+      if (env.page.data.lastSubmittedOrder.paymentState === 'unknown') {
         assert.strictEqual(modal.confirmText, '查原单')
         assert.strictEqual(modal.cancelText, '再试一次')
       }
@@ -121,8 +125,11 @@ test('A control: 原单确认已付后不重付；未付确认后的续办始终
 test('A: 支付接口回应成功但原单回查超时，也只能告知结果未知', async () => {
   const t = orderPage(call => success(call, { status: 1 }), timeout)
   await t.page.onSubmit()
-  const modal = t.wx.__calls.modal.find(m => m.title.includes('支付结果未知'))
-  assert(modal && modal.content.includes('订单号 777') && modal.confirmText === '查原单')
+  assert.strictEqual(t.wx.__calls.modal.length, 1)
+  const modal = t.wx.__calls.modal[0]
+  assert.match(modal.title, /(?:付款|支付).*待确认|(?:付款|支付)结果未知/)
+  assert(modal.content.includes('订单号 777') && modal.content.includes('暂时查不到是否已付款'))
+  assert.strictEqual(modal.confirmText, '查原单')
   assert.strictEqual(modal.cancelText, '再试一次')
   assert.strictEqual(t.writes.length, 1); assert.strictEqual(t.payments.length, 1)
   assert.deepStrictEqual(t.reads, [777])
@@ -299,7 +306,9 @@ test('B: 输入、筛选、下拉和离页重入均只采用当前查询，失�
   const pull = t.page.onPullDownRefresh(); await flush(); timeout(t.pending[2]); await pull; await flush()
   assert(t.page.data.loadError, 'failure must remain visible until retry')
   const root = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/customers/index.wxml'), 'utf8'))
-  assert(renderElements(root, t.page.data, { includeText: true }).some(e => e.attrs.bindtap === 'onSearch' && /重试/.test(e.text)))
+  const retry = findNode(root, n => n.attrs && n.attrs.bindtap === 'onSearch' && n.attrs['wx:if'] === '{{!loading && loadError}}')
+  assert(retry); const retryNodes = renderElements({ children: [retry] }, t.page.data, { includeText: true })
+  assert(retryNodes.some(e => e.attrs.bindtap === 'onSearch')); assert(retryNodes.some(e => /重试/.test(e.text)))
   t.page.onSearch(); await flush(); const left = t.pending[3]
   assert.strictEqual(typeof t.page.onHide, 'function'); t.page.onHide(); t.page.onShow(); await flush()
   success(t.pending[4], [{ ...customer(4, 'Synthetic current'), customerType: 2 }]); await flush()
@@ -322,7 +331,7 @@ test('C: 关闭重开后的旧试算不能复活，失败期间不得提交且�
   record({ writes: t.writes, note: t.page.data.returnForm.note })
 })
 test('F: 原退桶申请在待交接和登记退款后持续展示应退额，不声称实际到账', async () => {
-  const t = barrels(); t.page.setData({ loading: false, showReturnModal: false, summary: {} })
+  const t = barrels(); t.page.setData({ loading: false, showReturnModal: false, showAllRecords: true, summary: {} })
   const root = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/barrel/index.wxml'), 'utf8'))
   for (const state of [ { status: 1, statusText: '待交接', depositRefund: '50.00' },
     { status: 3, statusText: '已退款', depositRefund: '0.00', refundPaidTime: '2026-10-09 10:00' } ]) {

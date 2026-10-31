@@ -5,7 +5,7 @@
 
   <view class="loading" wx:elif="{{loading && !detail}}"><text>加载中...</text></view>
 
-  <view class="ui-state" wx:elif="{{loadError}}"><text class="ui-state-title">调整单尚未读取</text><text class="ui-state-copy" wx:if="{{id}}">调整单编号：{{id}}</text><text class="ui-state-copy">{{loadError}}</text><view class="ui-state-actions"><button wx:if="{{id}}" size="mini" bindtap="onRetry">重新读取</button><button size="mini" bindtap="onBackList">返回列表</button></view></view>
+  <view class="ui-state" wx:elif="{{loadError}}"><text class="ui-state-title">调整单尚未读取</text><text class="ui-state-copy" wx:if="{{id}}">调整单编号：{{id}}</text><text class="ui-state-copy">{{loadError}}</text><view class="ui-state-actions"><button wx:if="{{id}}" size="mini" bindtap="onRetry" class="af-action af-action--quiet b3-on-retry" hover-class="af-action--pressed"><view class="af-action__face">重新读取</view></button><button size="mini" bindtap="onBackList" class="af-action af-action--cancel b3-on-back-list" hover-class="af-action--pressed">返回列表</button></view></view>
   <view class="empty" wx:elif="{{!loading && !detail}}"><text>暂未读取到调整单，请返回列表重新选择</text></view>
 
   <block wx:elif="{{detail}}">
@@ -13,12 +13,22 @@
     <view class="card">
       <view class="head">
         <view class="head-left">
-          <text class="adjust-no">{{detail.adjustNo}}</text>
           <text class="adjust-type">{{detail.adjustTypeText}}</text>
+          <text class="adjust-no">{{detail.adjustNo}}</text>
         </view>
         <text class="status {{detail.statusClass}}">{{detail.statusText}}</text>
       </view>
 
+      <view class="row">
+        <text class="label">客户</text>
+        <text class="value">{{detail.customerText}}</text>
+      </view>
+      <view class="row" wx:if="{{detail.productId}}">
+        <text class="label">商品</text>
+        <text class="value">{{detail.productText}}</text>
+      </view>
+
+      <view class="row" wx:if="{{!detail.hasQty && !detail.hasAmount}}"><text class="label">调整量</text><text class="value">待核实</text></view>
       <view class="row" wx:if="{{detail.hasQty}}">
         <text class="label">数量</text>
         <text class="value strong">{{detail.qtyText}}</text>
@@ -42,14 +52,6 @@
         <text class="value">{{detail.priceSourceText}}</text>
       </view>
       <view class="row">
-        <text class="label">客户</text>
-        <text class="value">{{detail.customerText}}</text>
-      </view>
-      <view class="row" wx:if="{{detail.productId}}">
-        <text class="label">商品</text>
-        <text class="value">{{detail.productText}}</text>
-      </view>
-      <view class="row">
         <text class="label">创建时间</text>
         <text class="value">{{detail.createTimeText}}</text>
       </view>
@@ -63,11 +65,11 @@
       </view>
       <view class="row" wx:if="{{detail.reverses}}">
         <text class="label">撤销的原单</text>
-        <text class="value link" bindtap="onOpenRelated" data-id="{{detail.reverses}}">#{{detail.reverses}}</text>
+        <view class="af-action af-action--quiet b3-on-open-related" bindtap="onOpenRelated" data-id="{{detail.reverses}}"><view class="af-action__face">#{{detail.reverses}}</view></view>
       </view>
       <view class="row" wx:if="{{detail.reversedBy}}">
         <text class="label">反向单</text>
-        <text class="value link" bindtap="onOpenRelated" data-id="{{detail.reversedBy}}">#{{detail.reversedBy}}</text>
+        <view class="af-action af-action--quiet b3-on-open-related" bindtap="onOpenRelated" data-id="{{detail.reversedBy}}"><view class="af-action__face">#{{detail.reversedBy}}</view></view>
       </view>
     </view>
 
@@ -102,7 +104,7 @@
     </view>
 
     <view class="card" wx:if="{{detail.beforeRaw || detail.afterRaw}}">
-      <view class="raw-toggle" bindtap="onToggleRaw"><text>登记记录详情</text><text>{{rawExpanded ? '收起' : '展开'}} ›</text></view>
+      <view class="af-action af-action--quiet b3-on-toggle-raw" bindtap="onToggleRaw"><view class="af-action__face"><text>登记记录详情</text><text>{{rawExpanded ? '收起' : '展开'}} ›</text></view></view>
       <block wx:if="{{rawExpanded}}">
       <view class="raw-block" wx:if="{{detail.beforeDisplay}}">
         <text class="raw-label">调整前登记记录</text>
@@ -117,13 +119,14 @@
 
     <!-- ============ 操作按钮 ============ -->
     <view class="footer" wx:if="{{detail.isPending}}">
-      <view class="btn-main" bindtap="onExecute"><text>{{executing ? '执行中...' : '执行（立即改写客户资产）'}}</text></view>
+      <view class="af-action af-action--primary b3-on-execute af-action--grow" bindtap="onExecute"><text>{{executing ? '执行中...' : '执行（立即改写客户资产）'}}</text></view>
     </view>
     <view class="footer" wx:elif="{{detail.isEffective}}">
-      <view class="btn-danger" bindtap="onReverse"><text>{{reversing ? '撤销中...' : '撤销（生成反向单）'}}</text></view>
+      <view class="af-action af-action--danger-quiet b3-on-reverse" bindtap="onReverse"><text>{{reversing ? '撤销中...' : '撤销（生成反向单）'}}</text></view>
     </view>
     <view class="footer-tip" wx:else>
       <text>当前状态「{{detail.statusText}}」，无可执行操作。如需修正请新建一张调整单。</text>
     </view>
   </block>
 </view>
+<business-dialog id="business-dialog" />

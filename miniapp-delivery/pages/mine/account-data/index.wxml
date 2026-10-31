@@ -1,38 +1,41 @@
-<view class="page">
+<view class="page b2-page b2-d03 af2-page lv2-page lv2-account">
+  <view class="view-tabs"><button data-view="apply" bindtap="onSetView" class="af-choice b2-choice {{activeView === 'apply' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeView === 'apply'}}">✓</text>申请办理</view></button><button data-view="records" bindtap="onSetView" class="af-choice b2-choice {{activeView === 'records' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeView === 'records'}}">✓</text>申请记录</view></button></view>
   <view class="card">
-    <text class="title">个人资料申请</text>
-    <text class="body">用于申请查询、更正、导出、删除个人资料或注销账户。</text>
+    <view class="lv2-title-row"><view class="af2-icon-tile lv2-neutral-tile"><icon name="user" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text>个人资料申请</text></view>
+    <text class="body">查询、更正、导出、删除资料或注销账户</text>
     <text class="body" wx:if="{{options && !options.intakeEnabled}}">申请暂未开放</text>
     <text class="body" wx:if="{{options.intakeEnabled && options.intakeContact}}">受理联系渠道：{{options.intakeContact}}</text>
-    <button class="details-toggle" size="mini" bindtap="onToggleDetails">办理说明 {{detailsExpanded ? '收起 −' : '展开 +'}}</button>
+    <button bindtap="onToggleDetails" class="af-action af-action--quiet"><view class="af-action__face">办理说明 {{detailsExpanded ? '收起 −' : '展开 +'}}</view></button>
     <view wx:if="{{detailsExpanded}}"><text class="body">申请登记后需人工核实，登记不代表办理完成。</text><text class="body" wx:if="{{options.notice}}">{{options.notice}}</text><text class="body">不会自动导出、删除或匿名化资料，也不会注销账户或清理未结业务。</text></view>
     <text class="error" wx:if="{{error}}">{{error}}</text>
-    <button size="mini" bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}">重新查询</button>
+    <button bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}" class="af-action af-action--quiet"><view class="af-action__face">重新查询</view></button>
   </view>
-  <view class="card" wx:if="{{options.closureCheckSupported}}">
+  <view class="card" wx:if="{{activeView === 'apply' && options.closureCheckSupported}}">
     <text class="title">注销前检查</text>
-    <text class="body">检查本人未结事项，不会注销账户。</text>
+    <text class="body">仅检查未结事项，不执行注销</text>
     <text class="error" wx:if="{{checkError}}">{{checkError}}</text>
-    <button size="mini" bindtap="onCheck" disabled="{{loading}}">查询未结事项</button>
+    <button bindtap="onCheck" disabled="{{loading}}" class="af-action af-action--quiet"><view class="af-action__face">查询未结事项</view></button>
     <text class="body" wx:if="{{check}}">{{check.message}}</text>
     <view wx:for="{{check.blockingItems}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>
   </view>
-  <view class="card" wx:if="{{options.intakeEnabled}}">
+  <view class="card" wx:if="{{activeView === 'apply' && options.intakeEnabled}}">
     <text class="title">登记本人申请</text>
     <picker range="{{options.requestTypes}}" range-key="label" bindchange="onType" disabled="{{pending || submitting}}"><view class="body">{{selectedLabel}} ›</view></picker>
+    <text class="body">未提交内容离页不保存</text>
     <textarea placeholder="补充说明（选填，最多500字）" value="{{note}}" maxlength="500" bindinput="onNote" disabled="{{pending || submitting}}" />
+    <text class="body" wx:if="{{pending && !originalUnavailable}}">原申请类型：{{selectedLabel}}；原说明：{{note || '未填写'}}</text>
     <text class="body" wx:if="{{submitNotice}}">{{submitNotice}}</text>
-    <button bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting || loading}}">{{pending ? '重试原申请' : '登记申请'}}</button>
+    <view class="lv2-request-impact"><icon name="user" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /><text>登记后需人工核实，不会立即注销账户。</text></view><button bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting || loading || originalUnavailable}}" class="af-action af-action--primary af-action--block">{{originalUnavailable ? '请先核对记录' : (pending ? '重试原申请' : '登记申请')}}</button>
   </view>
-  <view class="card">
+  <view class="card" wx:if="{{activeView === 'records'}}">
     <text class="title">我的申请记录</text>
     <text class="body" wx:if="{{options && items.length === 0 && !loading && !error}}">暂无登记记录。</text>
-    <view class="record" wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="onDetail"><text class="body">{{item.requestTypeText}} · {{item.statusText}} ›</text></view>
-    <button size="mini" wx:if="{{nextBeforeId}}" bindtap="onMore" disabled="{{loading}}">更多记录</button>
+    <view wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="onDetail" class="record af-entry"><text class="body">{{item.requestTypeText}} · {{item.statusText}} ›</text></view>
+    <button wx:if="{{nextBeforeId}}" bindtap="onMore" disabled="{{loading}}" class="af-action af-action--quiet"><view class="af-action__face">更多记录</view></button>
   </view>
-  <view class="card" wx:if="{{detail}}">
+  <view class="card lv2-request-result" wx:if="{{activeView === 'records' && detail}}">
     <text class="title">{{detail.request.requestTypeText}}</text>
-    <text class="body">{{detail.request.statusText}}</text>
+    <text class="lv2-request-status">{{detail.request.statusText}}</text>
     <text class="body" wx:if="{{detail.request.note}}">{{detail.request.note}}</text>
     <text class="body">{{detail.request.notice}}</text>
     <text class="body" wx:if="{{detail.checkNotice}}">{{detail.checkNotice}}</text>
@@ -40,3 +43,4 @@
     <view wx:for="{{detail.closureCheck.blockingItems}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

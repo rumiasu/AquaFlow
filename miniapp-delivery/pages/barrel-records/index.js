@@ -4,7 +4,7 @@ function validId(value) { return /^[1-9][0-9]*$/.test(String(value)) }
 function validTime(value) { return value == null || value === '' || (typeof value === 'string' && Number.isFinite(new Date(value).getTime())) }
 
 Page({
-  data: { records: [], loading: true, loaded: false, error: '', totalDeliveries: 0, totalReturn: 0, totalDiscrepancy: 0, },
+  data: { records: [], loading: true, loaded: false, error: '', totalDeliveries: 0, totalReturn: 0, totalDiscrepancy: 0, totalShort: 0, totalExtra: 0, totalReturnText: '未提供', totalShortText: '未提供', totalExtraText: '未提供', unknownReturn: 0, unknownDiscrepancy: 0, },
 
   onLoad() { this._unloaded = false },
   // 2026-10-02：首屏只在 onShow 读取，重试也走同一访问守卫。
@@ -41,14 +41,25 @@ Page({
             && ['returnBucketQty', 'barrelDiscrepancy'].every(k => r[k] == null || Number.isInteger(r[k])))) {
         throw new Error('收到的数据不完整，请重试。')
       }
+      // 2026-10-28：缺值不能变成 0 或“多还 0”；仅已提供的数量参与已知小计。
       const records = res.data.map(r => {
-        const disc = r.barrelDiscrepancy || 0
-        return { ...r, timeText: r.deliveryTime ? this.formatDate(r.deliveryTime) : '送达日期待核实', discAbsText: Math.abs(disc) + '',
-          discLabel: disc > 0 ? '欠桶' : '多还', discTagClass: disc > 0 ? 'owe' : 'extra' }
+        const known = r.barrelDiscrepancy != null, disc = r.barrelDiscrepancy
+        return { ...r, timeText: r.deliveryTime ? this.formatDate(r.deliveryTime) : '送达日期待核实',
+          returnText: r.returnBucketQty == null ? '回收数量未提供' : '回收 ' + r.returnBucketQty + '桶',
+          discKnown: known, hasDiscrepancy: known && disc !== 0, discAbsText: known ? String(Math.abs(disc)) : '',
+          discLabel: known ? (disc > 0 ? '少回' : disc < 0 ? '多回' : '无差异') : '差异未提供',
+          discTagClass: known ? (disc > 0 ? 'owe' : 'extra') : 'unknown' }
       })
-      const totalReturn = records.reduce((s, r) => s + (r.returnBucketQty || 0), 0)
-      const totalDiscrepancy = records.reduce((s, r) => s + (r.barrelDiscrepancy || 0), 0)
-      this.setData({ records, totalDeliveries: records.length, totalReturn, totalDiscrepancy, loaded: true })
+      const totalReturn = records.reduce((s, r) => s + (r.returnBucketQty == null ? 0 : r.returnBucketQty), 0)
+      const totalShort = records.reduce((s, r) => s + (r.barrelDiscrepancy > 0 ? r.barrelDiscrepancy : 0), 0)
+      const totalExtra = records.reduce((s, r) => s + (r.barrelDiscrepancy < 0 ? -r.barrelDiscrepancy : 0), 0)
+      const hasReturn = records.some(r => r.returnBucketQty != null)
+      const hasDiscrepancy = records.some(r => r.discKnown)
+      this.setData({ records, totalDeliveries: records.length, totalReturn, totalShort, totalExtra,
+        totalReturnText: hasReturn ? String(totalReturn) : '未提供',
+        totalShortText: hasDiscrepancy ? String(totalShort) : '未提供', totalExtraText: hasDiscrepancy ? String(totalExtra) : '未提供',
+        totalDiscrepancy: totalShort - totalExtra, unknownReturn: records.filter(r => r.returnBucketQty == null).length,
+        unknownDiscrepancy: records.filter(r => !r.discKnown).length, loaded: true })
     } catch (err) {
       if (!this._current(version, context)) return
       const reason = err && typeof err.message === 'string' && err.message.trim() ? err.message : '暂时无法加载，请重试。'

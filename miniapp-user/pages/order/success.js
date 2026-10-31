@@ -213,6 +213,11 @@ Page({
     wx.switchTab({ url: '/pages/home/index' })
   },
 
+  onViewCurrentOrder() {
+    if (this.data.orderId) wx.navigateTo({ url: '/pages/order/detail?id=' + encodeURIComponent(this.data.orderId) })
+    else this.onViewOrders()
+  },
+
   onViewOrders() {
     wx.switchTab({ url: '/pages/order/list' })
   }

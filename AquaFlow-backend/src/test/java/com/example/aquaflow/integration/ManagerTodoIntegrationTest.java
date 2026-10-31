@@ -90,7 +90,7 @@ class ManagerTodoIntegrationTest extends AbstractIntegrationTest {
         Api res = todo(mgrToken);
         assertTrue(res.isSuccess(), "实际=" + res);
         assertEquals(1, countOf(res, "overdueReceivable"), "1 位客户逾期");
-        assertEquals(1, countOf(res, "costNotFilled"), "1 个上架商品没填成本");
+        assertEquals(0, countOf(res, "costNotFilled"), "可选入库成本不产生独立待办");
         assertEquals(1, countOf(res, "draftPayroll"), "1 张待确认结算单");
         assertEquals(1, countOf(res, "pendingBarrelException"), "1 单待处理桶异常");
         assertTrue(res.data().path("hasAny").asBoolean(), "有待办时 hasAny=true");

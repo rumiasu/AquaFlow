@@ -183,6 +183,7 @@ const BASE_ENV = {
 /** [场景名, 摘掉的变量, 期望 start|refuse, 期望在输出里出现的 ASCII 片段] */
 const SCENARIOS = [
   ['全部齐备（正例）', null, 'start', 'Started AquaFlowApplication'],
+  ['现有部署仅开测试付款', 'PAYMENT_TEST_MODE_ON', 'start', 'Started AquaFlowApplication'],
   ['摘掉 JWT_SECRET', 'JWT_SECRET', 'refuse', 'JWT_SECRET'],
   ['JWT_SECRET 只有 8 位', 'JWT_SECRET_SHORT', 'refuse', '32'],
   ['摘掉 WX_APP_ID', 'WX_APP_ID', 'refuse', 'WX_APP_ID'],
@@ -199,7 +200,9 @@ const SCENARIOS = [
 
 function runCase(drop, waitMs) {
   const env = { ...process.env, ...BASE_ENV }
-  if (drop === 'JWT_SECRET_SHORT') env.JWT_SECRET = 'tooshort'
+  env.PAYMENT_TEST_MODE = 'false'
+  if (drop === 'PAYMENT_TEST_MODE_ON') env.PAYMENT_TEST_MODE = 'true'
+  else if (drop === 'JWT_SECRET_SHORT') env.JWT_SECRET = 'tooshort'
   else if (drop) delete env[drop]
   const out = fs.openSync(LOG, 'w')
   const child = spawn('java', ['-jar', JAR, '--spring.profiles.active=prod', `--server.port=${PORT}`],

@@ -24,4 +24,15 @@
 .state-button.secondary { color: #155aaf; background: #edf3fb; }
 button { font-family: inherit; }
 button::after { border: 0; }
-button[disabled] { color: #637083; background: #e8edf3; opacity: 1; }
+
+.notice-list { background: #fff; border: 1rpx solid #dce3ed; border-radius: 20rpx; overflow: hidden; }
+.notice-item { margin: 0; border: 0; border-radius: 0; border-bottom: 1rpx solid #e3e8ef; min-height: 44px; }
+.notice-item:last-child { border-bottom: 0; }
+
+.notice-item.af-entry { display:block; }
+
+/* Visual v2: page hierarchy and reading rhythm. */
+.notice-list { margin:12px 16px; border-radius:14px; overflow:hidden; }
+.notice-item { min-height:64px; box-sizing:border-box; }
+.notice-title { min-width:0; overflow-wrap:anywhere; }
+.notice-time { color:var(--af2-muted); }

@@ -1,4 +1,9 @@
-/* 辅助说明图形保持小，独立触控区为 88rpx；费用、后果与异常仍由页面常显。 */
+@import "../../styles/actions.wxss";
+/* 辅助说明图形保持小，独立触控区至少44 CSS px；费用、后果与异常仍由页面常显。 */
 .help-tip { flex-shrink: 0; display: inline-flex; width: 88rpx; height: 88rpx; align-items: center; justify-content: center; vertical-align: middle; }
 .help-tip-glyph { width: 36rpx; height: 36rpx; line-height: 34rpx; text-align: center; border-radius: 50%; border: 1rpx solid var(--border-color); color: var(--text-regular); font-size: 26rpx; }
 .help-tip-hover { background: var(--bg-gray); }
+
+.help-tip{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;background:transparent;color:var(--af-text-secondary)}.help-tip-glyph{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid var(--af-border);border-radius:50%;font-size:14px;color:var(--af-text-secondary);background:var(--af-soft)}
+
+.help-tip{border:0;padding:0;box-shadow:none}

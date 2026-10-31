@@ -14,10 +14,10 @@ function login(root, current) {
   let wxCallback
   wx.login = o => { wxCallback = o }
   const page = loadPage(root + '/pages/login/index.js', { wx, app, stubs: {
-    'api/agreements': { current }, 'config/api': { isReleaseEnv: () => true },
+    'api/agreements': { current }, 'config/api': { isReleaseEnv: () => true, isTestLoginClientEnv: () => true },
     'api/auth': { wxLogin: async (...args) => { calls.push(args); return { code: 1, data: null } },
       wxLoginStaff: async (...args) => { calls.push(args); return { code: 1, data: null } },
-      devLogin: async (...args) => { calls.push(['dev', ...args]); return { code: 1, data: null } } }
+      testLogin: async (...args) => { calls.push(['test', ...args]); return { code: 1, data: null } } }
   } })
   return { page, wx, calls, complete: () => wxCallback.success({ code: 'synthetic-code' }) }
 }
@@ -32,12 +32,12 @@ for (const root of ['miniapp-user', 'miniapp-delivery']) {
     assert.deepStrictEqual(t.calls, [['synthetic-code', { termsVersionId: catalog.documents[0].versionId, privacyVersionId: catalog.documents[1].versionId }]])
     assert.equal(t.page.data.loading, false)
   })
-  test(root + ': drafts and developer login never fabricate acceptance', async () => {
+  test(root + ': drafts and test account login never fabricate acceptance', async () => {
     const t = login(root, async () => { throw Error('offline') }); await t.page.loadAgreements()
     assert.equal(t.page.data.agreementCatalog.enabled, false)
     const request = t.page.onWxLogin(); t.complete(); await request
-    assert.deepStrictEqual(t.calls[0], ['synthetic-code', undefined]); t.page.onDevLogin(); await tick()
-    assert.equal(t.calls[1][0], 'dev'); assert.equal(t.calls[1].length, 2)
+    assert.deepStrictEqual(t.calls[0], ['synthetic-code', undefined]); t.page.setData({showTestLogin:true,testAccount:'unit-account',testPassword:'unit-password'}); await t.page.onTestLogin(); await tick()
+    assert.deepStrictEqual(t.calls[1], ['test','unit-account','unit-password'])
   })
   test(root + ': malformed catalog cannot retain earlier active versions', async () => {
     let value = published(root); const t = login(root, async () => ({ data: value })); await t.page.loadAgreements()

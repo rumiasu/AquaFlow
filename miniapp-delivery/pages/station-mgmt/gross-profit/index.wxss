@@ -1,258 +1,53 @@
-.page {
-  padding: 24rpx;
-  padding-bottom: 60rpx;
-}
+/* Financial page presentation consumes visual-v2-V0-3. Business controls stay in actions.wxss. */
+page { background:var(--af2-page); color:var(--af2-ink); }
+.finance-page { box-sizing:border-box; padding:16px 16px calc(24px + env(safe-area-inset-bottom)); font-size:14px; line-height:1.5; }
+.card { box-sizing:border-box; padding:16px; margin:0 0 16px; background:var(--af2-surface); border:1px solid var(--af2-line); border-radius:16px; }
+.card-title,.section-title { font-size:18px; line-height:26px; font-weight:600; color:var(--af2-ink); overflow-wrap:anywhere; }
+.card-title-row,.finance-section-head { display:flex; align-items:center; gap:8px; min-width:0; }
+.card-title-row { flex-wrap:wrap; }
+.card-count { margin-left:auto; font-size:13px; color:var(--af2-muted); }
+.card-sub,.row-sub,.hint,.slip-sub { display:block; font-size:14px; line-height:22px; color:var(--af2-muted); overflow-wrap:anywhere; }
+.card-sub { margin-top:8px; }
+.field { margin-top:16px; min-width:0; }
+.label { display:block; font-size:14px; line-height:20px; color:var(--af2-muted); margin-bottom:8px; }
+.input,.picker,.dialog-input { box-sizing:border-box; width:100%; min-height:48px; padding:12px; border:1px solid var(--af2-line); border-radius:9px; background:var(--af2-surface); color:var(--af2-ink); font-size:16px; line-height:22px; overflow-wrap:anywhere; }
+.input,.dialog-input { height:48px; }
+.picker { display:flex; align-items:center; }
+.picker-empty { color:var(--af2-muted); }
+.field-2col { display:flex; gap:12px; margin-top:16px; }.field.col { flex:1; margin-top:0; }
+.row { display:flex; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid var(--af2-line); }
+.row:last-child { border-bottom:0; }.row-main { flex:1; min-width:0; }
+.row-between { display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px 12px; }
+.row-title { color:var(--af2-ink); font-size:16px; line-height:24px; overflow-wrap:anywhere; }
+.row-amount { margin-left:auto; font-size:18px; line-height:26px; font-weight:600; color:var(--af2-ink); text-align:right; overflow-wrap:anywhere; }
+.empty { padding:24px 12px; color:var(--af2-muted); font-size:14px; line-height:22px; overflow-wrap:anywhere; }
+.finance-empty { display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; padding:32px 16px; }
+.load-error,.ui-state { padding:16px; margin:12px 0; border-radius:12px; background:var(--af2-surface-danger); color:var(--af2-ink); line-height:22px; overflow-wrap:anywhere; }
+.ui-state-title { display:block; font-size:16px; font-weight:600; }.ui-state-copy { display:block; margin:6px 0; }
+.load-error .af-action,.ui-state .af-action { margin-top:8px; }
+.mask { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(25,42,63,.38); z-index:90; }
+.dialog { position:fixed; left:0; right:0; bottom:0; top:auto; z-index:100; box-sizing:border-box; max-height:88vh; padding:20px 20px calc(20px + env(safe-area-inset-bottom)); border-radius:20px 20px 0 0; background:var(--af2-surface); overflow-y:auto; }
+.dialog-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.dialog-title { flex:1; min-width:0; font-size:18px; line-height:26px; font-weight:600; overflow-wrap:anywhere; }
+.dialog-close { flex:none; font-size:24px; margin-left:auto; }
+.kv { display:flex; align-items:flex-start; gap:12px; padding:10px 0; font-size:14px; line-height:22px; }
+.kv-k { flex:0 0 7em; color:var(--af2-muted); }.kv-v { flex:1; min-width:0; text-align:right; color:var(--af2-ink); overflow-wrap:anywhere; }
+.pill,.tag { display:inline-block; font-size:13px; line-height:20px; padding:3px 8px; border-radius:6px; background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); }
+.pill-on,.pill-paid { background:var(--af2-surface-success); color:var(--af2-ink-success); }
+.pill-confirmed { background:var(--af2-surface-current); color:var(--af2-ink-current); }
+.pill-off,.pill-draft { background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); }
+.form-submit { margin-top:20px; }.form-cancel { margin-top:8px; }
+@media (max-width:350px) { .field-2col { flex-direction:column; }.row-amount { max-width:100%; } }
 
-.card {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  margin-bottom: 20rpx;
-}
-.card-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 16rpx;
-}
-
-.picker {
-  height: 72rpx;
-  line-height: 72rpx;
-  background: var(--bg-gray);
-  border-radius: 10rpx;
-  padding: 0 18rpx;
-  font-size: 26rpx;
-  color: var(--text-primary);
-  margin-bottom: 14rpx;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-}
-.chip {
-  padding: 12rpx 26rpx;
-  border: 1rpx solid var(--border-color);
-  border-radius: 32rpx;
-  font-size: 25rpx;
-  color: var(--text-primary);
-  margin: 0 16rpx 16rpx 0;
-}
-.chip-warn {
-  border-color: var(--warning-bg);
-  color: var(--warning-color);
-  background: var(--warning-bg);
-}
-
-/* 合计：三个数字一眼看完；利润算不出（缺成本）时给警示色而不是 0 */
-.hero {
-  display: flex;
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 28rpx 12rpx;
-  margin-bottom: 12rpx;
-}
-.hero-item {
-  flex: 1;
-  text-align: center;
-}
-.hero-num {
-  display: block;
-  font-size: 34rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.hero-ok {
-  color: var(--success-color);
-}
-.hero-warn {
-  color: var(--warning-color);
-  font-size: 28rpx;
-}
-.hero-label {
-  display: block;
-  font-size: 23rpx;
-  color: var(--text-secondary);
-  margin-top: 8rpx;
-}
-
-.notice {
-  background: var(--bg-gray);
-  border: 1rpx solid var(--warning-bg);
-  border-radius: 12rpx;
-  padding: 18rpx 20rpx;
-  font-size: 24rpx;
-  color: var(--warning-color);
-  line-height: 38rpx;
-  margin-bottom: 12rpx; border-left: 4rpx solid var(--warning-color); }
-
-/* 收入构成与净利（[2026-09-19]）：一张"减法账"，每行一个数字，合计行加重。
-   颜色沿用本页既有的语义：绿 = 正常给数（.hero-ok），橙 = 给不出数/需注意（.hero-warn）。 */
-.ledger-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid #E8ECF1;
-}
-.ledger-row:last-of-type {
-  border-bottom: none;
-}
-.ledger-label {
-  font-size: 26rpx;
-  color: var(--text-regular);
-}
-.ledger-value {
-  font-size: 28rpx;
-  color: var(--text-primary);
-}
-.ledger-strong {
-  border-top: 1rpx solid #E8ECF1;
-}
-.ledger-strong .ledger-label,
-.ledger-strong .ledger-value {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.ledger-ok {
-  color: var(--success-color);
-}
-.ledger-warn {
-  color: var(--warning-color);
-  font-size: 27rpx;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #E8ECF1;
-}
-.row:last-child {
-  border-bottom: none;
-}
-.row-main {
-  flex: 1;
-  overflow: hidden;
-}
-.row-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.row-title {
-  font-size: 27rpx;
-  color: var(--text-primary);
-}
-.row-amount {
-  font-size: 27rpx;
-  color: var(--text-primary);
-}
-.row-sub {
-  display: block;
-  font-size: 23rpx;
-  color: var(--text-secondary);
-  margin-top: 6rpx;
-  line-height: 34rpx;
-}
-.row-warn {
-  color: var(--warning-color);
-}
-.row-arrow {
-  color: var(--text-placeholder);
-  font-size: 34rpx;
-  padding-left: 12rpx;
-}
-
-.btn-primary {
-  height: auto;
-  line-height: 1.5;
-  text-align: center;
-  background: var(--primary-color);
-  color: #fff;
-  border-radius: 12rpx;
-  font-size: 16px; min-height:44px; display:flex; align-items:center; justify-content:center; }
-.btn-ghost {
-  height: auto;
-  line-height: 1.5;
-  text-align: center;
-  border: 1rpx solid var(--border-color);
-  border-radius: 12rpx;
-  font-size: 27rpx;
-  color: var(--text-primary); min-height:44px; display:flex; align-items:center; justify-content:center; }
-.btn-ghost.block {
-  margin-top: 18rpx;
-}
-.btn-disabled {
-  background: var(--primary-bg);
-}
-
-.empty {
-  font-size: 26rpx;
-  color: var(--text-secondary);
-  padding: 20rpx 0;
-  line-height: 40rpx;
-}
-.hint {
-  font-size: 23rpx;
-  color: var(--text-secondary);
-  line-height: 36rpx;
-  margin-top: 12rpx;
-}
-
-.mask {
-  position: fixed;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.45);
-}
-.dialog {
-  position: fixed;
-  left: 48rpx;
-  right: 48rpx;
-  top: 28%;
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 32rpx;
-  z-index: 10;
-}
-.dialog-title {
-  display: block;
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 20rpx;
-}
-.dialog-input {
-  height: 80rpx;
-  background: var(--bg-gray);
-  border-radius: 12rpx;
-  padding: 0 20rpx;
-  font-size: 28rpx;
-}
-.dialog-footer {
-  display: flex;
-  align-items: center;
-  margin-top: 24rpx;
-}
-.dialog-footer .flex1 {
-  flex: 1;
-  margin-right: 12rpx;
-}
-.dialog-footer .flex1:last-child {
-  margin-right: 0;
-}
-
-/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
-
-.page { min-height: 100vh; box-sizing: border-box; background: var(--bg-color); }.card,.hero { border-radius: 12rpx; }
-.period-card { display: flex; flex-wrap: wrap; gap: 12rpx; }.period-card .card-title { width: 100%; margin-bottom: 0; }.period-card > picker { flex: 1 1 260rpx; min-width: 0; }.period-card .chips,.period-card .hint { width: 100%; }.picker { margin-bottom: 0; height: 88rpx; line-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; }
-.chip { min-height: 88rpx; box-sizing: border-box; border-radius: 8rpx; padding: 20rpx; display: flex; align-items: center; line-height: 1.6; white-space: normal; word-break: break-all; }
-.hero { flex-wrap: wrap; gap: 20rpx 0; padding: 24rpx; }.hero-item { min-width: 0; word-break: break-all; }.hero-item:last-child { flex: 0 0 100%; text-align: left; border-top: 1rpx solid var(--border-color); padding-top: 20rpx; }.hero-item:last-child .hero-num { font-size: 42rpx; }
-.hero-label,.hint,.row-sub { font-size: 25rpx; color: var(--text-regular); line-height: 1.6; }.row-main { min-width: 0; overflow: visible; }.row-between,.ledger-row { gap: 16rpx; align-items: flex-start; }.row-between { flex-wrap: wrap; }.row-title { word-break: break-all; }.row-amount { margin-left: auto; word-break: break-all; }.ledger-row,.row,.ledger-strong { border-color: var(--border-color); }.ledger-value { text-align: right; word-break: break-all; }
-.btn-primary,.btn-ghost { min-height: 48px; height: auto; box-sizing: border-box; padding: 20rpx; display: flex; justify-content: center; align-items: center; line-height: 1.6; border-radius: 8rpx; white-space: normal; word-break: break-all; }
-.dialog { top: 12%; left: 24rpx; right: 24rpx; max-height: 78vh; overflow-y: auto; box-sizing: border-box; border-radius: 12rpx; }.dialog-footer { flex-wrap: wrap; gap: 12rpx; }.dialog-footer .flex1 { margin-right: 0; flex: 1 1 150rpx; }.dialog-input { height: 88rpx; }
+.hero { display:flex; flex-wrap:wrap; gap:16px; padding:20px; margin-bottom:16px; border-radius:16px; }
+.hero-item { min-width:0; flex:1 1 100px; }.hero-label { display:block; font-size:14px; color:var(--af2-ink-money); }.hero-num { display:block; font-size:22px; line-height:30px; font-weight:600; color:var(--af2-ink-money); overflow-wrap:anywhere; }
+.hero-profit { position:relative; order:0; flex-basis:100%; padding-bottom:16px; border-bottom:1px solid var(--af2-line); }.hero-profit icon { position:absolute; right:0; top:0; }.hero-profit .hero-num { font-size:30px; line-height:40px; margin-top:6px; }.hero-income { order:1; }.hero-cost { order:2; }.hero-income-only .hero-num { font-size:30px; line-height:40px; }
+.income-only-note { display:block; padding:0 4px 16px; color:var(--af2-muted); font-size:14px; line-height:22px; }
+.period-card { display:flex; flex-wrap:wrap; gap:8px 12px; }.period-card .finance-section-head { width:100%; }.period-note { margin-left:auto; font-size:13px; color:var(--af2-muted); }.period-card > picker { flex:1; min-width:100px; }.period-card .picker { font-size:14px; min-height:44px; padding:10px; }
+.chips { display:flex; gap:2px; width:100%; background:var(--af2-surface-neutral); padding:4px; margin-top:4px; border-radius:10px; box-sizing:border-box; }.chips .af-choice { flex:1; min-width:0; }.chips .af-choice__face { padding:5px 6px; }
+.analysis-entry { padding:12px; margin-bottom:12px; border-radius:12px; background:var(--af2-surface); }.card .analysis-entry { padding:0; margin:0; }.analysis-entry .af-entry__body { font-size:16px; font-weight:600; }.analysis-entry .af-entry__arrow { font-size:14px; }
+.ledger-row { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--af2-line); font-size:14px; line-height:22px; }.ledger-label { flex:1; min-width:0; color:var(--af2-muted); }.ledger-value { max-width:55%; text-align:right; font-size:16px; color:var(--af2-ink); overflow-wrap:anywhere; }.ledger-strong { font-weight:600; }.ledger-strong .ledger-label { color:var(--af2-ink); }
+.hero-warn,.ledger-warn,.row-warn { color:var(--af2-muted); }
+.profit-chart-row { display:flex; align-items:center; gap:8px; padding:8px 0; }.profit-chart-label { flex:0 0 64px; font-size:14px; }.profit-chart-track { flex:1; min-width:16px; height:8px; border-radius:4px; overflow:hidden; background:var(--af2-surface-neutral); }.profit-chart-bar { height:100%; border-radius:4px; background:var(--af2-ink-money); }.chart-cost { background:var(--af2-muted); }.chart-profit { background:var(--af2-ink-money); }.profit-chart-bar.chart-negative { background:var(--af2-ink-danger); }.profit-chart-value { flex:0 1 100px; min-width:0; text-align:right; font-size:14px; overflow-wrap:anywhere; }.profit-chart-note { display:block; margin-top:12px; font-size:13px; line-height:20px; color:var(--af2-muted); }
+.profit-help-entry,.profit-help-toggle { display:flex; justify-content:space-between; align-items:center; gap:12px; min-height:52px; }.profit-help-entry-title,.profit-help-title { font-size:16px; color:var(--af2-ink); }.profit-help-action { flex:none; color:var(--af2-muted); font-size:14px; }.profit-help-body { padding:0 0 12px; }.profit-help-note { display:block; padding:6px 0; font-size:14px; line-height:22px; color:var(--af2-muted); }.profit-help-group { border-top:1px solid var(--af2-line); }.profit-help-all { display:flex; align-items:center; min-height:44px; font-size:14px; color:var(--af2-muted); }
+@media screen and (max-width: 359px) { .ledger-value { max-width:55%; }.period-card > picker { flex-basis:100%; } }

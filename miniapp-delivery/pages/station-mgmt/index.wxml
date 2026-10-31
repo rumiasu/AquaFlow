@@ -1,68 +1,70 @@
 <!-- 宫格仅作功能目录；真实待办保留独立读数，所有既有功能在零待办时仍可达。 -->
-<view class="container">
-  <view class="work-head"><text class="work-title">水站管理</text><text class="work-desc">处理本站待办，管理商品、客户与收款。</text></view>
+<view class="container af2-page v2-management">
+  <view class="v2-management-overview af2-scene"><view class="v2-management-copy"><text class="v2-management-title">工作台</text></view><image wx:if="{{!v2SceneFailed}}" class="v2-management-scene" src="/assets/ui/scene-station-delivery.webp" mode="aspectFit" binderror="onV2SceneError" aria-hidden="true" /><view class="v2-management-scene v2-management-fallback" wx:else><icon name="truck" variant="duotone" size="64px" color="#FFFFFF" fill-color="#526D89" /></view></view>
   <view class="badge-error" wx:if="{{badgeError}}" bindtap="loadBadgeCounts">{{badgeError}}</view>
   <view class="pending-board">
-    <view class="board-head"><text class="group-title">待处理</text><button size="mini" bindtap="loadBadgeCounts" loading="{{badgeLoading}}" disabled="{{badgeLoading}}">刷新</button></view>
+    <view class="board-head"><text class="group-title">待处理</text><button size="mini" bindtap="loadBadgeCounts" loading="{{badgeLoading}}" disabled="{{badgeLoading}}" class="af-action af-action--quiet b3-load-badge-counts" hover-class="af-action--pressed"><view class="af-action__face">刷新</view></button></view>
     <view class="pending-clear" wx:if="{{receivablesBadgeCount === 0 && businessWaitingBadgeCount === 0 && barrelReturnBadgeCount === 0 && refundDisputeBadgeCount === 0}}">待办已核对，当前暂无待处理事项</view>
     <view class="pending-cards" wx:else>
-      <view class="pending-card pending-entry" wx:if="{{receivablesBadgeCount === null || receivablesBadgeCount > 0}}" bindtap="onNavigate" data-url="/pages/station-mgmt/receivables/index" hover-class="entry-pressed">
-        <text class="entry-title">逾期客户</text><text class="pending-value" wx:if="{{receivablesBadgeCount !== null}}">{{receivablesBadgeCount}}<text class="pending-unit">户</text></text><text class="entry-unknown" wx:else>{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-desc">查看处理 ›</text>
+      <view class="v2-pending--current pending-card pending-entry af-entry b3-record-entry" wx:if="{{businessWaitingBadgeCount === null || businessWaitingBadgeCount > 0}}" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index" hover-class="entry-pressed"><icon class="v2-pending-icon" name="bill" variant="duotone" size="28px" color="#1264D6" />
+        <text class="entry-title">业务待办</text><text class="pending-value" wx:if="{{businessWaitingBadgeCount !== null}}">{{businessWaitingBadgeCount}}<text class="pending-unit">项</text></text><text class="entry-unknown" wx:else>{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-desc" aria-hidden="true">›</text>
       </view>
-      <view class="pending-card pending-entry" wx:if="{{businessWaitingBadgeCount === null || businessWaitingBadgeCount > 0}}" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index" hover-class="entry-pressed">
-        <text class="entry-title">业务待办</text><text class="pending-value" wx:if="{{businessWaitingBadgeCount !== null}}">{{businessWaitingBadgeCount}}<text class="pending-unit">项</text></text><text class="entry-unknown" wx:else>{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-desc">查看处理 ›</text>
+      <view class="v2-pending--physical pending-card pending-entry af-entry b3-record-entry" wx:if="{{barrelReturnBadgeCount === null || barrelReturnBadgeCount > 0}}" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index" hover-class="entry-pressed"><icon class="v2-pending-icon" name="barrel" variant="duotone" size="28px" color="#1264D6" />
+        <text class="entry-title">退桶申请</text><text class="pending-value" wx:if="{{barrelReturnBadgeCount !== null}}">{{barrelReturnBadgeCount}}<text class="pending-unit">项</text></text><text class="entry-unknown" wx:else>{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-desc" aria-hidden="true">›</text>
       </view>
-      <view class="pending-card pending-entry" wx:if="{{barrelReturnBadgeCount === null || barrelReturnBadgeCount > 0}}" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index" hover-class="entry-pressed">
-        <text class="entry-title">退桶申请</text><text class="pending-value" wx:if="{{barrelReturnBadgeCount !== null}}">{{barrelReturnBadgeCount}}<text class="pending-unit">项</text></text><text class="entry-unknown" wx:else>{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-desc">查看处理 ›</text>
+      <view class="v2-pending--money pending-card pending-entry af-entry b3-record-entry" wx:if="{{receivablesBadgeCount === null || receivablesBadgeCount > 0}}" bindtap="onNavigate" data-url="/pages/station-mgmt/receivables/index" hover-class="entry-pressed"><icon class="v2-pending-icon" name="wallet" variant="duotone" size="28px" color="#1264D6" />
+        <text class="entry-title">逾期客户</text><text class="pending-value" wx:if="{{receivablesBadgeCount !== null}}">{{receivablesBadgeCount}}<text class="pending-unit">户</text></text><text class="entry-unknown" wx:else>{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-desc" aria-hidden="true">›</text>
       </view>
-      <view class="pending-card pending-entry" wx:if="{{refundDisputeBadgeCount === null || refundDisputeBadgeCount > 0}}" bindtap="onNavigate" data-url="/pages/station-mgmt/customer-feedback/index" hover-class="entry-pressed">
-        <text class="entry-title">退款争议</text><text class="pending-value" wx:if="{{refundDisputeBadgeCount !== null}}">{{refundDisputeBadgeCount}}<text class="pending-unit">项</text></text><text class="entry-unknown" wx:else>{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-desc">查看处理 ›</text>
+      <view class="v2-pending--neutral pending-card pending-entry af-entry b3-record-entry" wx:if="{{refundDisputeBadgeCount === null || refundDisputeBadgeCount > 0}}" bindtap="onNavigate" data-url="/pages/station-mgmt/customer-feedback/index" hover-class="entry-pressed"><icon class="v2-pending-icon" name="chat" variant="duotone" size="28px" color="#1264D6" />
+        <text class="entry-title">退款争议</text><text class="pending-value" wx:if="{{refundDisputeBadgeCount !== null}}">{{refundDisputeBadgeCount}}<text class="pending-unit">项</text></text><text class="entry-unknown" wx:else>{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-desc" aria-hidden="true">›</text>
       </view>
     </view>
   </view>
   <view class="group">
     <view class="group-head"><text class="group-title">常用管理</text></view>
     <view class="management-grid">
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/orders/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/orders.png" mode="aspectFit" /><text class="tile-label">订单管理</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/products/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/products.png" mode="aspectFit" /><text class="tile-label">商品库存</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/customers/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/customers.png" mode="aspectFit" /><text class="tile-label">客户管理</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/receivables/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/receivables.png" mode="aspectFit" /><text class="tile-label">应收账款</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/payments/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/payments.png" mode="aspectFit" /><text class="tile-label">收款确认</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/staff/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/staff.png" mode="aspectFit" /><text class="tile-label">员工管理</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/orders/index" hover-class="entry-pressed"><icon class="management-icon" name="bill" variant="duotone" size="26px" color="#1264D6" /><text class="tile-label">订单管理</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/products/index" hover-class="entry-pressed"><icon class="management-icon" name="products" variant="duotone" size="26px" color="#1264D6" /><text class="tile-label">商品库存</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/customers/index" hover-class="entry-pressed"><icon class="management-icon" name="user" variant="duotone" size="26px" color="#1264D6" /><text class="tile-label">客户管理</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/receivables/index" hover-class="entry-pressed"><icon class="management-icon" name="wallet" variant="duotone" size="26px" color="#1264D6" /><text class="tile-label">应收账款</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/payments/index" hover-class="entry-pressed"><icon class="management-icon" name="bill" variant="duotone" size="26px" color="#1264D6" /><text class="tile-label">收款确认</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/staff/index" hover-class="entry-pressed"><icon class="management-icon" name="user" variant="duotone" size="26px" color="#1264D6" /><text class="tile-label">员工管理</text></view>
+    </view>
+  </view>
+  <view class="management-tile af-entry b3-record-entry v2-dashboard" bindtap="onNavigate" data-url="/pages/station-mgmt/dashboard/index" hover-class="entry-pressed"><icon class="management-icon" name="chart" variant="duotone" size="26px" color="#1264D6" /><view class="v2-dashboard-body"><text class="tile-label">经营看板</text></view><text class="v2-dashboard-arrow">›</text></view>
+  <view class="group">
+    <view class="group-head group-toggle b3-disclosure" bindtap="onToggleGroup" data-group="aftercare" hover-class="entry-pressed"><icon name="chat" variant="duotone" size="24px" color="#1264D6" /><text class="group-title">退还与异常</text><text class="group-action">{{expandedGroups.aftercare ? '收起 −' : '展开 +'}}</text></view>
+    <view class="management-list" wx:if="{{expandedGroups.aftercare}}">
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/returns.png" mode="aspectFit" /><text class="tile-label">退桶审批</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/customer-feedback/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/feedback.png" mode="aspectFit" /><text class="tile-label">客户反馈</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/exceptions/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/exception.png" mode="aspectFit" /><text class="tile-label">桶异常处理</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/waiting.png" mode="aspectFit" /><text class="tile-label">业务待办与退出</text></view>
     </view>
   </view>
   <view class="group">
-    <view class="group-head group-toggle" bindtap="onToggleGroup" data-group="aftercare" hover-class="entry-pressed"><text class="group-title">退还与异常</text><text class="group-action">{{expandedGroups.aftercare ? '收起 −' : '展开 +'}}</text></view>
-    <view class="management-grid" wx:if="{{expandedGroups.aftercare}}">
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/returns.png" mode="aspectFit" /><text class="tile-label">退桶审批</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/customer-feedback/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/feedback.png" mode="aspectFit" /><text class="tile-label">客户反馈</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/exceptions/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/exception.png" mode="aspectFit" /><text class="tile-label">桶异常处理</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/waiting.png" mode="aspectFit" /><text class="tile-label">业务待办与退出</text></view>
+    <view class="group-head group-toggle b3-disclosure" bindtap="onToggleGroup" data-group="assets" hover-class="entry-pressed"><icon name="barrel" variant="duotone" size="24px" color="#1264D6" /><text class="group-title">桶与客户资产</text><text class="group-action">{{expandedGroups.assets ? '收起 −' : '展开 +'}}</text></view>
+    <view class="management-list" wx:if="{{expandedGroups.assets}}">
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/asset-claims/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/claims.png" mode="aspectFit" /><text class="tile-label">历史资产认领</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/customers/adjust/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/adjust.png" mode="aspectFit" /><text class="tile-label">客户资产调整</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/owed-barrels/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/owed.png" mode="aspectFit" /><text class="tile-label">欠桶台账</text></view>
     </view>
   </view>
   <view class="group">
-    <view class="group-head group-toggle" bindtap="onToggleGroup" data-group="assets" hover-class="entry-pressed"><text class="group-title">桶与客户资产</text><text class="group-action">{{expandedGroups.assets ? '收起 −' : '展开 +'}}</text></view>
-    <view class="management-grid" wx:if="{{expandedGroups.assets}}">
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/asset-claims/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/claims.png" mode="aspectFit" /><text class="tile-label">历史资产认领</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/customers/adjust/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/adjust.png" mode="aspectFit" /><text class="tile-label">客户资产调整</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/owed-barrels/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/owed.png" mode="aspectFit" /><text class="tile-label">欠桶台账</text></view>
+    <view class="group-head group-toggle b3-disclosure" bindtap="onToggleGroup" data-group="settings" hover-class="entry-pressed"><icon name="settings" variant="duotone" size="24px" color="#1264D6" /><text class="group-title">水站设置</text><text class="group-action">{{expandedGroups.settings ? '收起 −' : '展开 +'}}</text></view>
+    <view class="management-list" wx:if="{{expandedGroups.settings}}">
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/station-info/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/station.png" mode="aspectFit" /><text class="tile-label">水站资料</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/delivery-config/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/delivery.png" mode="aspectFit" /><text class="tile-label">配送计费</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/station-status/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/notice.png" mode="aspectFit" /><text class="tile-label">营业与公告</text></view>
     </view>
   </view>
   <view class="group">
-    <view class="group-head group-toggle" bindtap="onToggleGroup" data-group="settings" hover-class="entry-pressed"><text class="group-title">水站设置</text><text class="group-action">{{expandedGroups.settings ? '收起 −' : '展开 +'}}</text></view>
-    <view class="management-grid" wx:if="{{expandedGroups.settings}}">
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/station-info/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/station.png" mode="aspectFit" /><text class="tile-label">水站资料</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/delivery-config/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/delivery.png" mode="aspectFit" /><text class="tile-label">配送计费</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/station-status/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/notice.png" mode="aspectFit" /><text class="tile-label">营业与公告</text></view>
-    </view>
-  </view>
-  <view class="group">
-    <view class="group-head group-toggle" bindtap="onToggleGroup" data-group="reports" hover-class="entry-pressed"><text class="group-title">工资与经营</text><text class="group-action">{{expandedGroups.reports ? '收起 −' : '展开 +'}}</text></view>
-    <view class="management-grid" wx:if="{{expandedGroups.reports}}">
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/payroll/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/payroll.png" mode="aspectFit" /><text class="tile-label">计件工资</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/inter-station/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/settlement.png" mode="aspectFit" /><text class="tile-label">站间结算</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/gross-profit/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/profit.png" mode="aspectFit" /><text class="tile-label">利润报表</text></view>
-      <view class="management-tile" bindtap="onNavigate" data-url="/pages/station-mgmt/dashboard/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/dashboard.png" mode="aspectFit" /><text class="tile-label">经营看板</text></view>
+    <view class="group-head group-toggle b3-disclosure" bindtap="onToggleGroup" data-group="reports" hover-class="entry-pressed"><icon name="wallet" variant="duotone" size="24px" color="#1264D6" /><text class="group-title">工资与经营</text><text class="group-action">{{expandedGroups.reports ? '收起 −' : '展开 +'}}</text></view>
+    <view class="management-list" wx:if="{{expandedGroups.reports}}">
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/payroll/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/payroll.png" mode="aspectFit" /><text class="tile-label">计件工资</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/inter-station/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/settlement.png" mode="aspectFit" /><text class="tile-label">站间结算</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/gross-profit/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/profit.png" mode="aspectFit" /><text class="tile-label">利润报表</text></view>
+      
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

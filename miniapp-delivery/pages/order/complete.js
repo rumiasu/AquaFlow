@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const imageDisplay = require('../../behaviors/imageDisplay')
 const { wrapUploadRecovery } = require('../../utils/upload-recovery-page')
 const { completeOrder, getOrderDetail } = require('../../api/delivery')
@@ -38,6 +39,8 @@ function buildDeliveryItems(order) {
     return {
       id: it.id,
       name,
+      // Display only: preserve an existing SKU URL, never fetch or invent product art.
+      imageUrl: typeof it.imageUrl === 'string' ? it.imageUrl.trim() : '',
       spec,
       qty,
       // wxml 不做拼接与算术：整行文案在这里算好
@@ -196,17 +199,20 @@ Page({
   },
 
   onShow() {
+    if (this._completionDestroyed) return
     this._completionHidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
     }
+    this.syncCompletionReceipt()
   },
 
   onHide() { this.invalidateCompletion() },
-  onUnload() { this.invalidateCompletion() },
+  onUnload() { this.invalidateCompletion(); this._completionDestroyed = true },
   invalidateCompletion() {
+    if (this._completionLoadingFlight) { wx.hideLoading(); this._completionLoadingFlight = null }
     this._completionHidden = true
     this._completionEpoch = (this._completionEpoch || 0) + 1
     this._completionAction = null
@@ -220,12 +226,26 @@ Page({
   },
   completionContextCurrent(context) {
     const now = this.completionContext()
-    return !this._completionHidden && context && context.app === now.app && context.generation === now.generation
+    return !this._completionHidden && !this._completionDestroyed && context && context.app === now.app && context.generation === now.generation
       && context.identity === now.identity && context.epoch === now.epoch
       && String(context.orderId) === String(now.orderId) && context.orderVersion === now.orderVersion
   },
   completionActionCurrent(action) {
     return action && this._completionAction === action && !action.used && this.completionContextCurrent(action.context)
+  },
+  sameCompletionOwner(context) {
+    const now = this.completionContext()
+    return context && context.app === now.app && context.generation === now.generation
+      && context.identity === now.identity && String(context.orderId) === String(now.orderId)
+  },
+  /** A dispatched request survives leaving; reconcile its receipt only in the original order and identity. */
+  syncCompletionReceipt() {
+    const receipt = this._completionReceipt
+    if (!receipt || this._completionHidden || this._completionDestroyed || !this.sameCompletionOwner(receipt.context)) return
+    this._completionReceipt = null
+    if (receipt.state === 'success') this._orderLoadSeq = (this._orderLoadSeq || 0) + 1
+    this.setData({ resultState: receipt.state, unknownHint: receipt.hint || '',
+      ...(receipt.state === 'success' ? { showStockPrepPrompt: false, stockPrepText: '' } : {}) })
   },
 
   onRetryOrder() { if (this.data.orderId && !this.data.orderLoading) return this.loadOrder(this.data.orderId) },
@@ -452,7 +472,8 @@ Page({
    */
   onGoInventory() {
     const app = getApp()
-    const role = app && app.globalData ? app.globalData.role : null
+    const globalData = app && app.globalData || {}
+    const role = globalData.isLogin && globalData.userInfo ? globalData.userInfo.role : null
     if (role !== 'STATION_MANAGER') {
       wx.showToast({ title: '请让站长补货后再送', icon: 'none' })
       return
@@ -739,29 +760,7 @@ Page({
     }
     if (!this._validate()) { this._completionAction = null; return }
 
-    const { items, isFirstBarrelOrder } = this.data
-    const hasAnyReturn = items.some(it => it.actual > 0)
-
-    // 首单（押金桶）本来就不回桶，不再问"全部为 0 是否确认"（契约 C1）：
-    // 首单页面连步进器都不画，actual 恒为 0 ⇒ 每个首单都必弹一次这个窗，纯噪音。
-    if (!isFirstBarrelOrder && !hasAnyReturn && items.length > 0) {
-      action.stage = 'returns'
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-        title: '确认回桶数',
-        content: '本单桶装水的回桶数都是 0，是否确认无误？',
-        confirmText: '确认无误',
-        success: (res) => {
-          if (!this.completionActionCurrent(action) || action.stage !== 'returns') return
-          if (res.confirm) this._showConfirmDialog(action)
-          else this._completionAction = null
-        },
-        fail: () => { if (this._completionAction === action) this._completionAction = null }
-      })
-      return
-    }
-
-    // 不再单独问一次"确认未收款"：收款在页面上已经要人明确选过（collectedChosen），
-    // 下面那份摘要会把它写成"已送达，待收款"——同一件事问两遍正是契约 C2 要收敛掉的。
+    // 回桶数与完成配送共用一次确认；收款仍须在页面上明确选择。
     this._showConfirmDialog(action)
   },
 
@@ -794,7 +793,7 @@ Page({
     s += '\n' + view.confirmationResultText
     s += '\n计件工钱在配送完成后记账，本次配送操作不能撤回。'
 
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '确认完成配送',
       content: s.trim(),
       confirmText: '确认完成',
@@ -823,7 +822,7 @@ Page({
       const order = res && res.data
       if (!order || String(order.id) !== String(orderId)) throw new Error('原订单尚未核实')
       if (Number(order.status) !== 2) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '请核对原订单', content: [3, 4].includes(Number(order.status)) ? '原订单已送达或已完成，无需重复提交。请打开原订单查看收款与交付记录。' : '原订单当前不是配送中，请打开原订单核对最新状态。', showCancel: false, confirmText: '知道了' })
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '请核对原订单', content: [3, 4].includes(Number(order.status)) ? '原订单已送达或已完成，无需重复提交。请打开原订单查看收款与交付记录。' : '原订单当前不是配送中，请打开原订单核对最新状态。', showCancel: false, confirmText: '知道了' })
         return false
       }
       // 核实只授权本次确认；保留未知提示和原输入，最终写入前仍须核对同一会话、页面和订单。
@@ -849,7 +848,9 @@ Page({
     }
     if (action) { action.used = true; this._completionAction = null }
     const { orderId, items, noteText, collected, needCollect, reportedFloor } = this.data
-    this.setData({ submittingComplete: true, resultState: 'submitting' })
+    const flight = { context: this.completionContext() }
+    this._completionWriteFlight = flight
+    this.setData({ submittingComplete: true, resultState: 'submitting', unknownHint: '' })
 
     const itemReturns = items.map(it => ({
       orderItemId: it.id,
@@ -860,6 +861,7 @@ Page({
     }))
 
     wx.showLoading({ title: '提交中...' })
+    this._completionLoadingFlight = flight
     try {
       await completeOrder(orderId, {
         itemReturns,
@@ -871,14 +873,21 @@ Page({
         // 与客户地址里填的不一致时后端会在收益明细里标记出来（防虚报）。
         reportedFloor: reportedFloor === '' || reportedFloor === null ? null : Number(reportedFloor)
       })
-      wx.hideLoading()
+      if (this._completionLoadingFlight === flight) { wx.hideLoading(); this._completionLoadingFlight = null }
+      // 2026-10-26：晚回执曾在其他页面弹成功并返回两层；请求保留，提示与导航只归原生命周期。
+      if (!this.completionContextCurrent(flight.context)) {
+        this._completionReceipt = { context: flight.context, state: 'success' }
+        return
+      }
       // [2026-09-27 走查 D03 修] 成功态**只在这里**置位：页头的大绿勾与「完成配送」由它驱动。
       // 原来这两个视觉元素是一进页面就画的，"还没提交就已经成功"。
       // 成功回执后不再需要备货；保留原投影，并作废早于回执的在途读取。
       this._orderLoadSeq = (this._orderLoadSeq || 0) + 1
+      const navigationContext = this.completionContext()
       this.setData({ resultState: 'success', showStockPrepPrompt: false, stockPrepText: '' })
       wx.showToast({ title: '配送完成！', icon: 'success' })
       setTimeout(() => {
+        if (!this.completionContextCurrent(navigationContext) || this.data.resultState !== 'success') return
         if (this.data.from === 'home') {
           wx.switchTab({ url: '/pages/home/index' })
         } else {
@@ -888,7 +897,7 @@ Page({
     } catch (err) {
       // 停在原页、保留现场填写的内容，让人按提示改（契约 C3：给能做的下一步，不吞异常）。
       // 服务端文案已按 C3 改成"一句事实 + 订单号"，内部术语只留在后端日志里。
-      wx.hideLoading()
+      if (this._completionLoadingFlight === flight) { wx.hideLoading(); this._completionLoadingFlight = null }
       // [2026-09-27 走查 D03 修] 失败与**结果未知**必须分开：
       //   · 网络断开/超时 ⇒ 请求可能已经送到服务端（订单可能已经完成），
       //     这时**不能**显示失败、更不能让人盲目重提交（重复提交虽被 CAS 挡住，但那会给出误导性的报错）；
@@ -899,13 +908,19 @@ Page({
       const isNetwork = err && err.requestMayHaveOccurred !== false && !err.businessRejected && (
         err.requestMayHaveOccurred === true || msg.indexOf('网络') === 0 || msg.indexOf('网络超时') >= 0
         || err.malformedResponse || err.sessionChanged || Number(err.statusCode) >= 500 || Number(err.backendCode) >= 500)
+      if (!this.completionContextCurrent(flight.context)) {
+        this._completionReceipt = { context: flight.context, state: isNetwork ? 'unknown' : 'failed',
+          hint: isNetwork ? '原送达提交结果待核实，请打开原订单查看最新状态，勿重复交付。'
+            : '原送达提交未能完成：' + (msg || '请核对原订单后重试') }
+        return
+      }
       if (isNetwork) {
         this.setData({
           resultState: 'unknown',
           unknownHint: '这次提交没等到回应（' + msg + '）。配送结果可能已登记，'
             + '请点「核实原订单」查看最新状态：若已送达或已完成，无需重提；若仍在配送中，可保留现场填写再提交。'
         })
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '送达结果待确认',
           content: '这次提交没等到回应（' + msg + '）。请点页面上的「核实原订单」查看最新状态；已送达或已完成就无需重提，仍在配送中可用原内容再提交。',
           showCancel: false,
@@ -913,7 +928,7 @@ Page({
         })
       } else {
         this.setData({ resultState: 'failed' })
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '没能完成配送',
           content: msg || '提交失败，请检查网络后重试',
           showCancel: false,
@@ -922,7 +937,11 @@ Page({
       }
     } finally {
       // 成功/失败都要放开闸门，否则失败后连重试都点不动
-      this.setData({ submittingComplete: false })
+      if (this._completionWriteFlight === flight) {
+        this._completionWriteFlight = null
+        if (!this._completionDestroyed && this.sameCompletionOwner(flight.context)) this.setData({ submittingComplete: false })
+        this.syncCompletionReceipt()
+      }
     }
   }
 }, 'order')

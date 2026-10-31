@@ -12,7 +12,13 @@ const fs = require('fs')
 const path = require('path')
 
 const ROOT = path.resolve(__dirname, '..', '..')
-const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
+function read(rel, stack = []) {
+  if (stack.includes(rel)) throw new Error('cyclic WXSS import: ' + rel)
+  const source = fs.readFileSync(path.join(ROOT, rel), 'utf8')
+  if (!rel.endsWith('.wxss')) return source
+  return source.replace(/^\s*@import\s+['"]([^'"]+)['"]\s*;?/gm, (_, imported) =>
+    read(path.posix.normalize(path.posix.join(path.posix.dirname(rel), imported)), [...stack, rel]))
+}
 const cleanWxml = (text) => text.replace(/<!--[\s\S]*?-->/g, '')
 
 function parseRules(text) {
@@ -58,9 +64,9 @@ function getProperty(sheets, selectors, property) {
 }
 
 function pageTokens(sheet) {
-  const page = sheet.rules.find((rule) => rule.selector === 'page')
-  assert.ok(page, sheet.rel + ' 缺少 page token')
-  return page.declarations
+  const pages = sheet.rules.filter((rule) => rule.selector === 'page')
+  assert.ok(pages.length, sheet.rel + ' 缺少 page token')
+  return Object.assign({}, ...pages.map(page => page.declarations))
 }
 
 function resolveColor(value, tokens) {
@@ -141,23 +147,24 @@ function viewClassStackAt(wxml, marker) {
 
 function fontRpx(sheets, selectors) {
   const value = getProperty(sheets, selectors, 'font-size')
-  const match = /^(\d+(?:\.\d+)?)rpx$/.exec(value)
-  assert.ok(match, '字号须是可计算的 rpx：' + value)
-  return Number(match[1])
+  const match = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(value)
+  assert.ok(match, '字号须是可计算的 rpx 或 CSS px：' + value)
+  return { value: Number(match[1]), unit: match[2] }
 }
 
 function assertFontFloor(name, rpx, minimumPx) {
   for (const width of [320, 390]) {
-    const cssPx = rpx * width / 750
+    const cssPx = rpx.unit === 'px' ? rpx.value : rpx.value * width / 750
     assert.ok(cssPx >= minimumPx,
       name + ' 在 ' + width + 'px 仅 ' + cssPx.toFixed(2) + 'px，低于 ' + minimumPx + 'px')
   }
 }
 
-const userTokens = pageTokens(readSheet('miniapp-user/styles/variable.wxss'))
+const userTokens = pageTokens(readSheet('miniapp-user/app.wxss'))
 const deliveryTokens = pageTokens(readSheet('miniapp-delivery/app.wxss'))
 const userCommon = readSheet('miniapp-user/styles/common.wxss')
 const orderSheet = readSheet('miniapp-user/pages/order/create.wxss')
+const userActions = readSheet('miniapp-user/styles/actions.wxss')
 const assetSheet = readSheet('miniapp-user/components/AssetStationView/index.wxss')
 const managerHomeSheet = readSheet('miniapp-delivery/pages/coordination/index.wxss')
 const managerIndexSheet = readSheet('miniapp-delivery/pages/station-mgmt/index.wxss')
@@ -221,12 +228,12 @@ test('订单顶层错误和白卡报价错误按各自实际祖先底色核算',
 })
 
 test('提交禁用态可读，站长未核对徽标文字在白卡上达到 4.5:1', () => {
-  assertRenderedClass(orderWxml, 'submit-btn', '下单主动作')
+  assertRenderedClass(orderWxml, 'checkout-submit', '下单主动作')
   assert.ok(orderWxml.includes('暂不可下单') && orderWxml.includes('提交中...'), '禁用/提交中文案状态缺失')
   const submitBackground = resolveColor(
-    getProperty([orderSheet], '.submit-btn.disabled', 'background'), userTokens)
+    getProperty([userActions], '.af-action.is-disabled', 'background'), userTokens)
   const submitForeground = resolveColor(
-    getProperty([orderSheet], ['.submit-btn', '.submit-btn.disabled'], 'color'), userTokens)
+    getProperty([userActions], '.af-action.is-disabled', 'color'), userTokens)
   const submitRatio = contrast(composite(submitForeground, [255, 255, 255]),
     composite(submitBackground, [255, 255, 255]))
   assert.ok(submitRatio >= 4.5, '提交禁用态白卡上文字仅 ' + submitRatio.toFixed(4) + ':1')
@@ -269,17 +276,17 @@ test('关键正文/金额/站点名与辅助标签/状态在 320 和 390 宽度�
     [orderWxml, [orderSheet], '.subtotal-value', 14, 'product subtotal'],
     [orderWxml, [orderSheet], '.fee-label', 14, 'fee label'],
     [orderWxml, [orderSheet], '.fee-value', 14, 'fee amount'],
-    [orderWxml, [orderSheet], '.fee-cover', 14, 'ticket cover text'],
+    [orderWxml, [orderSheet], '.detail-total-label', 14, 'ticket cover text'],
     [orderWxml, [orderSheet], '.submit-unknown-text', 14, 'unknown result text'],
-    [orderWxml, [orderSheet], '.detail-item-qty', 14, 'detail quantity'],
+    [orderWxml, [orderSheet], '.detail-item-meta', 14, 'detail quantity'],
     [orderWxml, [orderSheet], '.detail-item-price', 14, 'detail amount'],
-    [orderWxml, [orderSheet], '.detail-subtotal-value', 14, 'detail subtotal'],
+    [orderWxml, [orderSheet], '.detail-total-value', 14, 'detail total'],
     [orderWxml, [orderSheet], '.pending-order-text', 14, 'pending order message'],
     [orderWxml, [orderSheet], '.method-name', 14, '支付方式'],
     [orderWxml, [orderSheet], '.fee-warn-text', 14, '报价限制说明'],
     [orderWxml, [orderSheet], '.asset-warning .popup-desc', 14, '统一确认弹窗付款/押金说明'],
     [orderWxml, [orderSheet], '.warn-action', 14, '报价下一步动作'],
-    [orderWxml, [orderSheet], '.submit-btn', 14, '下单主动作'],
+    [orderWxml, [userActions, orderSheet], '.af-action--primary', 14, '下单主动作'],
     [assetWxml, [assetSheet], '.scope-name', 14, '资产查看水站名'],
     [assetWxml, [assetSheet], '.scope-tip', 14, '资产适用限制'],
     [assetWxml, [assetSheet], '.scope-order', 14, '本次下单水站说明'],
@@ -307,17 +314,16 @@ test('关键正文/金额/站点名与辅助标签/状态在 320 和 390 宽度�
   const auxiliary = [
     [orderWxml, [orderSheet], '.address-phone', '收件电话'],
     [orderWxml, [orderSheet], '.product-spec', 'product spec'],
-    [orderWxml, [orderSheet], '.fee-caption', 'deposit quantity label'],
+    [orderWxml, [orderSheet], '.detail-item-meta', 'deposit quantity label'],
     [orderWxml, [orderSheet], '.popup-desc', 'confirmation dialog copy'],
-    [orderWxml, [orderSheet], '.detail-item-spec', 'detail spec'],
-    [orderWxml, [orderSheet], '.detail-subtotal-label', 'detail subtotal label'],
+    [orderWxml, [orderSheet], '.detail-item-name', 'detail label'],
     [orderWxml, [orderSheet], '.detail-total-label', 'detail total label'],
     [orderWxml, [orderSheet], '.pending-order-sub', 'pending order status'],
     [orderWxml, [orderSheet], '.method-desc', '支付方式说明'],
     [orderWxml, [orderSheet], '.total-label', '应付金额标签'],
     [assetWxml, [assetSheet], '.scope-caption', '资产范围标签'],
     [assetWxml, [assetSheet], '.scope-status', '资产站状态'],
-    [assetWxml, [assetSheet], '.picker-tip', '水站筛选说明'],
+    [assetWxml, [assetSheet], '.scope-tip', '水站筛选说明'],
     [assetWxml, [assetSheet], '.picker-status', '水站状态'],
     [assetWxml, [assetSheet], '.picker-selected', '当前查看状态'],
     [managerHomeWxml, [managerHomeSheet], '.todo-label', '待办标签'],
@@ -379,9 +385,10 @@ test('报价限制说明在页面暖纸底与半透明提示底合成后达到 4
 test('站长 badgeError 是可重试错误状态，警示底上对比度达标', () => {
   const error = '<view class="badge-error" wx:if="{{badgeError}}" bindtap="loadBadgeCounts">{{badgeError}}</view>'
   assert.ok(managerIndexWxml.includes(error), 'badge-error 未显示真实错误文案并保留重试动作')
-  assert.deepStrictEqual(viewClassStackAt(managerIndexWxml, error), ['container'],
-    'badge-error 的实际祖先应为站长页容器')
-  const pageBackground = resolveColor(deliveryTokens['--bg-color'], deliveryTokens).rgb
+  const errorAncestors = viewClassStackAt(managerIndexWxml, error)
+  assert.ok(errorAncestors.includes('container') && errorAncestors.includes('v2-management'),
+    'badge-error 的实际祖先应为当前站长页容器')
+  const pageBackground = resolveColor(getProperty([managerIndexSheet], '.v2-management', 'background'), deliveryTokens).rgb
   const background = composite(
     resolveColor(getProperty([managerIndexSheet], '.badge-error', 'background'), deliveryTokens),
     pageBackground)
@@ -392,20 +399,17 @@ test('站长 badgeError 是可重试错误状态，警示底上对比度达标',
   assert.ok(ratio >= 4.5, 'badge-error 对实际警示底仅 ' + ratio.toFixed(4) + ':1')
 })
 
-test('费用明细中的商品数量在实际白色明细卡上达到 4.5:1', () => {
-  const quantity = '<text class="detail-item-qty">x{{item.quantity}}</text>'
-  assert.ok(orderWxml.includes(quantity), 'detail-item-qty 未显示真实商品数量')
+test('费用明细中的新增押金份数在浅蓝底上达到 4.5:1', () => {
+  const quantity = '<text class="detail-item-meta">本次新增 {{extraDepositBuckets}} 份</text>'
+  assert.ok(orderWxml.includes(quantity), '未显示本次新增份数')
   const ancestors = viewClassStackAt(orderWxml, quantity)
-  assert.ok(ancestors.includes('popup-content') && ancestors.includes('detail-sheet'),
-    '商品数量不在费用明细白卡中')
-  const pageBackground = resolveColor(userTokens['--bg-color'], userTokens).rgb
-  const background = composite(
-    resolveColor(getProperty([orderSheet], '.detail-sheet', 'background-color'), userTokens),
-    pageBackground)
-  const foreground = colorPair([orderSheet], '.detail-item-qty', 'color', userTokens, background)
+  assert.ok(ancestors.includes('popup-content') && ancestors.includes('detail-sheet') && ancestors.includes('detail-sheet-content'),
+    '新增份数不在费用明细内容中')
+  const background = resolveColor(getProperty([orderSheet], '.detail-sheet-content', 'background'), userTokens).rgb
+  const foreground = colorPair([orderSheet], '.detail-item-meta', 'color', userTokens, background)
   const ratio = contrast(foreground, background)
-  console.log('      detail-item-qty/白色明细卡：' + ratio.toFixed(4) + ':1')
-  assert.ok(ratio >= 4.5, 'detail-item-qty 对白色明细卡仅 ' + ratio.toFixed(4) + ':1')
+  console.log('      新增份数/浅蓝明细卡：' + ratio.toFixed(4) + ':1')
+  assert.ok(ratio >= 4.5, '新增份数对浅蓝明细卡仅 ' + ratio.toFixed(4) + ':1')
 })
 
 if (failed) {

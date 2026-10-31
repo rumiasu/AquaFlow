@@ -437,3 +437,54 @@
 .product-brand, .catalog-note { color: var(--text-regular); line-height: 1.6; }
 
 .local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }
+
+.container { padding-bottom:calc(100px + env(safe-area-inset-bottom)); }
+.catalog-quantity { display:flex; align-items:center; gap:8px; }
+.catalog-quantity button { width:48px; min-width:48px; min-height:48px; height:auto; margin:0; padding:8px; background:var(--primary-bg); color:var(--primary-color); font-size:20px; line-height:1.4; }
+.catalog-quantity input { min-width:44px; width:56px; min-height:48px; text-align:center; font-size:18px; border:1rpx solid var(--border-color); border-radius:8rpx; }
+.btn-row { flex-wrap:wrap; justify-content:flex-start; gap:12px; }
+.buy-btn { min-height:44px; padding:8px 0; background:transparent; color:var(--primary-color); flex:none; font-size:14px; }
+.buy-btn text { color:var(--primary-color); }
+.fab-cart { width:auto; height:auto; min-height:48px; left:24rpx; right:24rpx; bottom:calc(16rpx + env(safe-area-inset-bottom)); padding:12px 16px; box-sizing:border-box; border-radius:12rpx; font-size:16px; line-height:1.5; }
+.quantity-error { color:var(--error-color); font-size:14px; line-height:1.6; }
+.switch-remember label { display:flex; align-items:center; min-height:44px; padding:12px; font-size:14px; line-height:1.6; color:var(--text-regular); }
+.station-picker-close,.station-picker-item,.search-clear,.station-bar { min-height:44px; }
+
+.product-img { width:60px; height:84px; margin:12px 0 12px 12px; border-radius:8rpx; }
+.product-info { padding:12px; }
+.product-card { align-items:flex-start; }
+.catalog-quantity { flex-wrap:wrap; }
+.buy-btn { height:auto; line-height:1.5; box-shadow:none; border-radius:0; }
+
+.catalog-quantity-shared { width:180px; max-width:100%; min-width:0; }
+
+.buy-link { flex:none; margin:0; }
+.fab-cart.af-action { background:var(--af-primary); box-shadow:none; border-radius:8px; }
+.station-picker .af-action--quiet, .load-error .af-action--quiet { padding:0; }
+
+/* 真实商品图和购买工具分层；窄屏操作行自然换行。 */
+.station-bar { background:var(--af2-surface-order); }
+.product-card { align-items:flex-start; gap:12px; padding:16px 0; }
+.product-img { width:20%; max-width:76px; min-width:56px; height:96px; margin:0; background:var(--af2-surface-neutral); border-radius:10px; }
+.product-info { padding:0; gap:6px; }
+.product-price { color:var(--af2-ink); font-size:20px; }
+.btn-row { align-items:center; gap:4px 12px; }
+.catalog-quantity-shared { width:142px; }
+.buy-link { min-height:44px; }
+@media (max-width:340px) { .product-card { flex-wrap:wrap; } .product-info { flex:1 1 175px; } .btn-row { width:100%; } }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.search-bar { margin:12px 16px 0; padding:0; background:transparent; }
+.search-input-wrap { background:var(--af2-surface); }
+.section { margin:12px 16px; border-radius:14px; }
+
+/* 商品操作归属原行；小屏先给数量工具完整宽度。 */
+.product-card { flex-wrap:wrap; }
+.product-img { width:76px; min-width:76px; }
+.product-info { flex:1 1 0; }
+.btn-row { flex:0 0 calc(100% - 88px); width:calc(100% - 88px); margin:0 0 0 88px; }
+.quantity-error { flex-basis:100%; }
+@media (max-width:340px) {
+  .product-img { width:68px; min-width:68px; }
+  .btn-row { flex-basis:100%; width:100%; margin-left:0; }
+}

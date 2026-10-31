@@ -46,6 +46,10 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     private OrderMapper orderMapper;
 
     @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.example.aquaflow.service.BarrelService barrelService;
+
+    @Autowired
     private BarrelAssetService barrelAssetService;
 
     @Autowired
@@ -85,6 +89,12 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         }
 
         int delivery = order.getDeliveryBucketQty() != null ? order.getDeliveryBucketQty() : 0;
+        if (barrelLedgerService.independentOrder(orderId)) {
+            // The server return plan excludes first pickups of already-paid bucket rights.
+            // Reservation snapshots survive delivery, so the same plan remains authoritative here.
+            delivery = barrelService.returnPlanOfOrder(orderId, order.getCustomerId(), order.getStationId())
+                    .stream().mapToInt(com.example.aquaflow.service.BarrelService.ReturnPlanItem::getSuggestedQty).sum();
+        }
         int actual = input.getActualReturn() != null ? input.getActualReturn() : 0;
         int diff = delivery - actual; // 正=少回
 

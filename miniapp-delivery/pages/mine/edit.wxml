@@ -1,4 +1,6 @@
-<view class="container">
+<view class="container b2-page b2-d45 af2-page lv2-page lv2-edit">
+<view class="lv2-title-row"><view class="af2-icon-tile lv2-neutral-tile"><icon name="user" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text>编辑个人资料</text></view>
+  <text class="edit-draft-note">未保存内容离页不保留</text>
   <view class="form-section">
     <view class="section">
       <view class="form-item">
@@ -6,13 +8,13 @@
         <input class="form-input" placeholder="请输入昵称" value="{{nickname}}" disabled="{{submitting}}" bindinput="onNicknameInput" />
       </view>
       <view class="form-item">
-        <text class="form-label">手机号</text>
+        <text class="form-label">手机号（选填）</text>
         <input class="form-input" placeholder="请输入手机号" type="number" maxlength="11" value="{{phone}}" disabled="{{submitting}}" bindinput="onPhoneInput" />
       </view>
     </view>
   </view>
 
-  <view class="submit-btn {{submitting ? 'disabled' : ''}}" bindtap="onSubmit">
-    <text>{{submitting ? '保存中...' : '保存'}}</text>
-  </view>
+  <text class="edit-error" wx:if="{{error}}">{{error}}</text>
+  <button bindtap="onSubmit" disabled="{{submitting}}" loading="{{submitting}}" class="af-action af-action--primary af-action--block">{{submitting ? '保存中...' : '保存'}}</button>
 </view>
+<business-dialog id="business-dialog" />

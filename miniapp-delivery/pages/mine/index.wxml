@@ -1,12 +1,12 @@
-<view class="container custom-tabbar-page">
+<view class="container custom-tabbar-page b2-page b2-d11">
   <!-- 蓝色头部 -->
   <view class="header">
     <view class="user-row" bindtap="{{isLogin ? 'onEditProfile' : 'onLogin'}}">
       <image class="avatar" src="{{isLogin && userInfo.avatarUrl ? userInfo.avatarUrl : '/assets/image/default-avatar.png'}}" mode="aspectFill" binderror="onDisplayImageError" data-src="{{isLogin && userInfo.avatarUrl ? userInfo.avatarUrl : '/assets/image/default-avatar.png'}}" wx:if="{{!displayImageErrors[isLogin && userInfo.avatarUrl ? userInfo.avatarUrl : '/assets/image/default-avatar.png']}}" /><view class="avatar ui-image-fallback" wx:else>员工</view>
       <view class="user-info">
         <view class="user-nick-wrap">
-          <text class="nickname">{{isLogin ? (userInfo.nickname || userInfo.nickName || '配送员') : '点击登录'}}</text>
-          <text class="role-chip role-{{isManager ? 'manager' : 'delivery'}}" wx:if="{{isLogin}}">{{roleLabel}}</text>
+          <text class="nickname">{{isLogin ? (userInfo.nickname || userInfo.nickName || roleLabel || '员工') : '点击登录'}}</text>
+          <text class="role-chip role-{{isManager ? 'manager' : 'delivery'}}" wx:if="{{isLogin && (isManager || isDelivery) && (userInfo.nickname || userInfo.nickName) && (userInfo.nickname || userInfo.nickName) !== roleLabel}}">{{roleLabel}}</text>
         </view>
         <view class="bind-status" wx:if="{{isLogin && isDelivery}}">
           <text class="bind-dot bind-{{bindStatus}}"></text>
@@ -14,33 +14,27 @@
         </view>
         <view class="bind-status bind-ok" wx:if="{{isLogin && isManager && stationInfo}}">
           <text class="bind-dot bind-BOUND"></text>
-          <text class="bind-text">已创建水站 · {{stationInfo.name || '我的水站'}}</text>
+          <text class="bind-text">{{stationInfo.name || '我的水站'}}</text>
         </view>
       </view>
       <text class="arrow" wx:if="{{isLogin}}">></text>
     </view>
 
     <!-- 站长模式入口（高亮） -->
-    <view class="manager-entry-card" bindtap="onGoStationMgmt" hover-class="station-entry-pressed" wx:if="{{isLogin && isManager}}">
-      <view class="manager-entry-left">
-        <view class="manager-entry-text">
-          <text class="manager-entry-title">水站管理</text>
-          <text class="manager-entry-desc">商品、收款、客户与水站设置</text>
-        </view>
-      </view>
-      <text class="manager-entry-arrow">进入 ›</text>
+    <view class="manager-entry-card v2-manager-entry" bindtap="onGoStationMgmt" hover-class="station-entry-pressed" wx:if="{{isLogin && isManager}}" aria-role="button" aria-label="进入工作台">
+      <icon name="products" variant="duotone" size="28px" color="#1264D6" /><text class="manager-entry-title">工作台</text><text class="manager-entry-arrow" aria-hidden="true">›</text>
     </view>
   </view>
 
   <!-- 配送员绑定操作 -->
-  <view class="bind-action-card" wx:if="{{isLogin && isDelivery}}">
+  <view class="bind-action-card {{bindStatus === 'BOUND' ? 'bind-action-compact' : ''}}" wx:if="{{isLogin && isDelivery}}">
     <block wx:if="{{bindStatus === 'BOUND'}}">
       <view class="bind-info-line">
         <text class="bind-info-label">当前水站</text>
         <text class="bind-info-value">{{userInfo.stationName || '已绑定'}}</text>
       </view>
       <view class="bind-actions-row">
-        <button class="bind-action-btn bind-action-gray" bindtap="onApplyUnbind">申请解绑</button>
+        <button bindtap="onApplyUnbind" class="af-action af-action--quiet"><view class="af-action__face">申请解绑</view></button>
       </view>
     </block>
     <block wx:elif="{{bindStatus === 'PENDING_UNBIND'}}">
@@ -49,7 +43,7 @@
         <text class="bind-info-value">等待站长确认</text>
       </view>
       <view class="bind-actions-row">
-        <button class="bind-action-btn bind-action-blue" bindtap="onWithdrawUnbind">撤回解绑申请</button>
+        <button bindtap="onWithdrawUnbind" class="af-action af-action--quiet"><view class="af-action__face">联系站长处理</view></button>
       </view>
     </block>
     <block wx:elif="{{bindStatus === 'PENDING'}}">
@@ -58,7 +52,7 @@
         <text class="bind-info-value">等待站长同意</text>
       </view>
       <view class="bind-actions-row">
-        <button class="bind-action-btn bind-action-gray" bindtap="onWithdrawUnbind">撤回绑定申请</button>
+        <button bindtap="onWithdrawUnbind" class="af-action af-action--quiet"><view class="af-action__face">联系站长处理</view></button>
       </view>
     </block>
     <block wx:elif="{{bindStatus === 'REJECTED'}}">
@@ -67,7 +61,7 @@
         <text class="bind-info-value">可重新提交绑定申请</text>
       </view>
       <view class="bind-actions-row">
-        <button class="bind-action-btn bind-action-blue" bindtap="onLogin">重新申请绑定</button>
+        <button bindtap="onLogin" class="af-action af-action--secondary">重新申请绑定</button>
       </view>
     </block>
     <block wx:else>
@@ -76,7 +70,7 @@
         <text class="bind-info-value">请先申请绑定水站才能接单</text>
       </view>
       <view class="bind-actions-row">
-        <button class="bind-action-btn bind-action-blue" bindtap="onLogin">申请绑定水站</button>
+        <button bindtap="onLogin" class="af-action af-action--secondary">申请绑定水站</button>
       </view>
     </block>
   </view>
@@ -91,82 +85,81 @@
     配送员那一支绝不能去请求它 —— 那不是显示成 0，而是直接拿一个权限错误。
   -->
   <view class="stats-card" wx:if="{{isLogin && canAccessBusiness}}">
-    <!-- 站长：经营 -->
-    <view class="stats-row" wx:if="{{isManager}}">
-      <!--
-        [2026-09-26 产品口径] 缺成本时**这一格照常显示**，不许整块藏起来：
-        数字位写「未填成本」（js 里算好的展示态，缺字段时是「—」），
-        下面再加一行"利润算不了"把后果说清 —— 只说「算不出」等于让站长自己猜。
-        整格 bindtap 进的是利润报表页，那里能给「未填成本的商品」直接补录成本价。
-      -->
-      <view class="stats-item" bindtap="onGoTodayProfit">
+    <text class="stats-heading">{{isManager ? '本站概况' : '今日配送'}}</text>
+    <!-- Cost-complete profit and known revenue keep their original data contract. -->
+    <view class="stats-row manager-stats-row" wx:if="{{isManager}}">
+      <view class="stats-item v2-money-stat" bindtap="onGoTodayProfit">
         <text class="stats-value stats-money {{todayProfit.netProfitWarn ? 'stats-warn' : ''}}">{{managerStatsLoading ? '待核实' : todayProfit.netProfitText}}</text>
-        <text class="stats-label">今日净利</text>
-        <text class="stats-sub" wx:if="{{todayProfit.costMissing}}">利润算不了 ›</text>
+        <text class="stats-label">{{todayProfit.metricLabel || '今日收入'}}</text>
       </view>
-      <view class="stats-divider"></view>
       <view class="stats-item" bindtap="onGoTodayProfit">
         <text class="stats-value">{{managerStatsLoading ? '待核实' : todayProfit.orderCount}}</text>
         <text class="stats-label">今日单数</text>
-      </view>
-      <view class="stats-divider"></view>
-      <!--
-        第三格一格里放两个数：异常单是"要处理的事"，欠桶是"要回收的账"。
-        点主数字进桶异常页（可处置），点下面那行欠桶进欠桶台账 —— 两个目标各自可点，
-        故内层用 catchtap 阻止冒泡（否则会跟着外层跳到桶异常页）。
-      -->
-      <view class="stats-item" bindtap="onGoBarrelException">
-        <!--
-          [2026-09-20 真机联调] 「0 桶异常」「欠桶 0 户」原来与"接口没拉到"长得一模一样 ——
-          加载失败时 risk 保留默认 0，站长会直接跳过这两项待办（AGENTS §8.22）。
-          现在失败就显示「—」并给警示色，与今日净利的"算不出"同一套口径（宁可没数，不给假 0）。
-        -->
-        <text class="stats-value {{(risk.barrelExceptionCount > 0 || risk.barrelExceptionFailed) ? 'stats-warn' : ''}}">{{managerStatsLoading || risk.barrelExceptionFailed ? '待核实' : risk.barrelExceptionCount}}</text>
-        <text class="stats-label">桶异常</text>
-        <text class="stats-sub" catchtap="onGoOwedBarrels">欠桶 {{managerStatsLoading || risk.owedCustomerFailed ? '待核实' : risk.owedCustomerCount}} 户 ›</text>
       </view>
     </view>
 
     <!-- 配送员：自己的活（口径全部按人统计，见 /api/delivery/stats/today） -->
     <view class="stats-row" wx:else>
-      <view class="stats-item">
-        <text class="stats-value">{{statsReady && todayStats.completedCount !== null && todayStats.completedCount !== undefined ? todayStats.completedCount : '待核实'}}</text>
-        <text class="stats-label">今日送达</text>
-      </view>
-      <view class="stats-divider"></view>
-      <view class="stats-item">
+      <view class="stats-item role-stat-current">
         <text class="stats-value">{{statsReady && todayStats.deliveringCount !== null && todayStats.deliveringCount !== undefined ? todayStats.deliveringCount : '待核实'}}</text>
         <text class="stats-label">配送中</text>
       </view>
       <view class="stats-divider"></view>
       <view class="stats-item">
+        <text class="stats-value">{{statsReady && todayStats.completedCount !== null && todayStats.completedCount !== undefined ? todayStats.completedCount : '待核实'}}</text>
+        <text class="stats-label">今日送达</text>
+      </view>
+      <view class="stats-divider"></view>
+      <view class="stats-item role-stat-physical">
         <text class="stats-value">{{statsReady && todayStats.returnBarrels !== null && todayStats.returnBarrels !== undefined ? todayStats.returnBarrels : '待核实'}}</text>
         <text class="stats-label">回桶数</text>
       </view>
     </view>
+    <!-- Hide only verified zero counts. Unknown and failed reads stay actionable. -->
+    <view class="mine-risk-summary" wx:if="{{isManager && (managerStatsLoading || risk.barrelExceptionFailed || risk.owedCustomerFailed || risk.barrelExceptionCount !== 0 || risk.owedCustomerCount !== 0)}}">
+      <view class="mine-risk-entry" bindtap="onGoBarrelException" wx:if="{{managerStatsLoading || risk.barrelExceptionFailed || risk.barrelExceptionCount !== 0}}">
+        <icon name="barrel" size="20px" color="#1264D6" /><text>桶异常</text><text class="mine-risk-count">{{managerStatsLoading || risk.barrelExceptionFailed || risk.barrelExceptionCount === null || risk.barrelExceptionCount === undefined ? '待核实' : risk.barrelExceptionCount}}</text><text class="mine-risk-arrow">›</text>
+      </view>
+      <view class="mine-risk-entry" catchtap="onGoOwedBarrels" wx:if="{{managerStatsLoading || risk.owedCustomerFailed || risk.owedCustomerCount !== 0}}">
+        <icon name="barrel" size="20px" color="#1264D6" /><text>欠桶</text><text class="mine-risk-count">{{managerStatsLoading || risk.owedCustomerFailed || risk.owedCustomerCount === null || risk.owedCustomerCount === undefined ? '待核实' : risk.owedCustomerCount}}<text wx:if="{{!managerStatsLoading && !risk.owedCustomerFailed && risk.owedCustomerCount !== null && risk.owedCustomerCount !== undefined}}"> 户</text></text><text class="mine-risk-arrow">›</text>
+      </view>
+    </view>
   </view>
 
-  <view class="ui-state" wx:if="{{isLogin && !isManager && statsError}}"><text class="ui-state-copy">{{statsError}}</text><button size="mini" bindtap="onRetryStats">重新核对配送统计</button></view>
+  <view class="ui-state" wx:if="{{isLogin && !isManager && statsError}}"><text class="ui-state-copy">{{statsError}}</text><button bindtap="onRetryStats" class="af-action af-action--quiet"><view class="af-action__face">重新核对配送统计</view></button></view>
   <view class="ui-state" wx:if="{{isLogin && !isManager && statsReady && todayStats.deliveryTimeUnverifiedCount > 0}}"><text class="ui-state-copy">另有 {{todayStats.deliveryTimeUnverifiedCount}} 张历史订单的送达日期待核实，未计入今日。</text></view>
-  <view class="ui-state" wx:if="{{isLogin && isManager && managerStatsError}}"><text class="ui-state-copy">{{managerStatsError}}</text><button size="mini" bindtap="onRetryStats">重新核对经营统计</button></view>
+  <view class="ui-state" wx:if="{{isLogin && isManager && managerStatsError}}"><text class="ui-state-copy">{{managerStatsError}}</text><button bindtap="onRetryStats" class="af-action af-action--quiet"><view class="af-action__face">重新核对经营统计</view></button></view>
+  <view class="personal-shortcuts" wx:if="{{isLogin && canAccessBusiness}}">
+    <text class="personal-shortcuts-heading" wx:if="{{isManager}}">我的配送</text>
+    <view class="personal-shortcuts-grid">
+      <view bindtap="onMyEarnings" class="personal-shortcut personal-shortcut-money" aria-role="button">
+        <icon name="wallet" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" /><text>我的工资</text>
+      </view>
+      <view bindtap="onBarrelRecords" class="personal-shortcut personal-shortcut-physical" aria-role="button">
+        <icon name="barrel" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" /><text>空桶记录</text>
+      </view>
+      <view bindtap="onHistory" class="personal-shortcut personal-shortcut-history" aria-role="button">
+        <view class="b2-line-clock personal-history-icon"><view class="b2-clock-hand"></view></view><text>配送历史</text>
+      </view>
+    </view>
+  </view>
+
   <!-- 站长：水站摘要 + 配送员管理 / 绑定申请 Tab -->
   <block wx:if="{{isLogin && isManager}}">
     <!-- 我的水站整行进入本站资料管理。 -->
-    <view class="section-card">
+    <view class="section-card mine-station-card">
       <view class="section-header">
         <text class="section-title">我的水站</text>
       </view>
       <view class="station-info-row station-info-link" wx:if="{{stationInfo}}" bindtap="onGoStationInfo" hover-class="station-entry-pressed">
-        <text class="station-name">{{stationInfo.name || '未命名水站'}}</text>
-        <text class="station-address">{{stationInfo.address || '未填写地址'}}</text>
-        <text class="station-phone" wx:if="{{stationInfo.phone}}">联系电话：{{stationInfo.phone}}</text>
-        <text class="station-edit-hint">查看与修改水站资料 ›</text>
+        <view class="mine-station-title"><text class="station-name">{{stationInfo.name || '未命名水站'}}</text><text class="station-edit-hint">资料 ›</text></view>
+        <view class="mine-station-detail"><text class="station-address">{{stationInfo.address || '未填写地址'}}</text><text class="station-phone" wx:if="{{stationInfo.phone}}">{{stationInfo.phone}}</text></view>
       </view>
       <view class="station-info-empty" wx:else>
         <!-- [2026-09-20] 空态分两种：stationInfo 为空可能是"还没建站"，也可能是这次没查到。
              ⚠️ 本页没开 enablePullDownRefresh，所以只能说"切走再切回来"（见 onShow 会重新拉取）。 -->
         <text wx:if="{{stationInfoError}}">水站信息没加载出来（{{stationInfoError}}），不代表没建站；请重新读取后核对</text>
-        <text wx:else>暂未创建水站，请前往创建</text><button wx:if="{{stationInfoError}}" size="mini" bindtap="onRetryRoleData">重新读取水站资料</button>
+        <text wx:else>暂未创建水站，请前往创建</text><button wx:if="{{stationInfoError}}" bindtap="onRetryRoleData" class="af-action af-action--quiet"><view class="af-action__face">重新读取水站资料</view></button>
       </view>
     </view>
 
@@ -186,16 +179,16 @@
         <text class="section-title">员工</text>
         <view class="section-head-right">
           <text class="staff-summary">配送员 {{staffReadReady ? staffList.length : '待核实'}} · 待审批 {{applicationsReadReady ? bindApplications.length : '待核实'}}</text>
-          <text class="section-toggle" bindtap="onToggleStaff">{{staffExpanded ? '收起' : '展开'}}</text>
-          <text class="section-link" bindtap="onGoStaff">更多 ›</text>
+          <text bindtap="onToggleStaff" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">{{staffExpanded ? '收起' : '展开'}}</text></text>
+          <text bindtap="onGoStaff" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">更多 ›</text></text>
         </view>
       </view>
 
-      <view class="ui-state" wx:if="{{staffReadError || applicationsReadError}}"><text class="ui-state-copy">{{staffReadError}} {{applicationsReadError}}</text><button size="mini" bindtap="onRetryStaff">重新核对员工与申请</button></view>
+      <view class="ui-state" wx:if="{{staffReadError || applicationsReadError}}"><text class="ui-state-copy">{{staffReadError}} {{applicationsReadError}}</text><button bindtap="onRetryStaff" class="af-action af-action--quiet"><view class="af-action__face">重新核对员工与申请</view></button></view>
       <block wx:if="{{staffExpanded}}">
       <view class="mgmt-tabs">
-        <text class="mgmt-tab {{mgmtActiveTab === 0 ? 'active' : ''}}" bindtap="onMgmtTabSwitch" data-tab="0">配送员管理 <text class="tab-count" wx:if="{{staffList.length > 0}}">{{staffList.length}}</text></text>
-        <text class="mgmt-tab {{mgmtActiveTab === 1 ? 'active' : ''}}" bindtap="onMgmtTabSwitch" data-tab="1">绑定申请 <text class="tab-count tab-badge" wx:if="{{bindApplications.length > 0}}">{{bindApplications.length}}</text></text>
+        <text bindtap="onMgmtTabSwitch" data-tab="0" class="af-choice b2-choice {{mgmtActiveTab === 0 ? 'af-choice--selected' : ''}}"><text class="af-choice__face"><text class="af-choice__mark" wx:if="{{mgmtActiveTab === 0}}">✓</text>配送员管理 <text class="tab-count" wx:if="{{staffList.length > 0}}">{{staffList.length}}</text></text></text>
+        <text bindtap="onMgmtTabSwitch" data-tab="1" class="af-choice b2-choice {{mgmtActiveTab === 1 ? 'af-choice--selected' : ''}}"><text class="af-choice__face"><text class="af-choice__mark" wx:if="{{mgmtActiveTab === 1}}">✓</text>绑定申请 <text class="tab-count tab-badge" wx:if="{{bindApplications.length > 0}}">{{bindApplications.length}}</text></text></text>
       </view>
 
       <!-- 配送员列表 -->
@@ -217,7 +210,7 @@
             pages/station-mgmt/staff/index.wxml 里的同一处注释：解除站长会让水站变成没人管的孤儿）。
             这里留一行字而不是干脆不渲染，否则站长会以为是界面坏了。
           -->
-          <button class="staff-remove-btn" wx:if="{{s.role === 'DELIVERY'}}" disabled="{{s._loading || !staffReadReady || staffReadLoading}}" data-id="{{s.id || s.staffId}}" bindtap="onRemoveStaff">{{s._loading ? '处理中' : '解除'}}</button>
+          <button wx:if="{{s.role === 'DELIVERY'}}" disabled="{{s._loading || !staffReadReady || staffReadLoading}}" data-id="{{s.id || s.staffId}}" bindtap="onRemoveStaff" class="af-action af-action--danger-quiet">{{s._loading ? '处理中' : '解除'}}</button>
           <text class="staff-self-note" wx:else>站长 · 不可解除</text>
         </view>
       </view>
@@ -235,64 +228,59 @@
             <text class="staff-meta" wx:if="{{a.applyNote}}">备注：{{a.applyNote}}</text>
           </view>
           <view class="staff-action-col">
-            <button class="staff-btn staff-btn-green" disabled="{{a._loading || !applicationsReadReady || applicationsReadLoading}}" data-id="{{a.id || a.applyId}}" bindtap="onApproveBind">{{a._loading ? '' : '同意'}}</button>
-            <button class="staff-btn staff-btn-gray" disabled="{{a._loading || !applicationsReadReady || applicationsReadLoading}}" data-id="{{a.id || a.applyId}}" bindtap="onRejectBind">{{a._loading ? '处理中' : '拒绝'}}</button>
+            <button disabled="{{a._loading || !applicationsReadReady || applicationsReadLoading}}" data-id="{{a.id || a.applyId}}" bindtap="onApproveBind" class="af-action af-action--primary">{{a._loading ? '' : '同意'}}</button>
+            <button disabled="{{a._loading || !applicationsReadReady || applicationsReadLoading}}" data-id="{{a.id || a.applyId}}" bindtap="onRejectBind" class="af-action af-action--secondary">{{a._loading ? '处理中' : '拒绝'}}</button>
           </view>
         </view>
       </view>
       </block>
 
       <!-- 折叠态：给一句能行动的实话（有待审批时点名条数，别让站长以为没事） -->
-      <view class="staff-folded-hint" wx:else>
-        <text wx:if="{{bindApplications.length > 0}}">有 {{bindApplications.length}} 条绑定 / 解绑申请待审批，展开后可同意或拒绝</text>
-        <text wx:else>已收起，展开可管理配送员与审批绑定申请</text>
+      <view class="staff-folded-hint" wx:elif="{{bindApplications.length > 0}}">
+        <text>有 {{bindApplications.length}} 条绑定 / 解绑申请待审批，展开后可同意或拒绝</text>
       </view>
     </view>
   </block>
 
   <!-- 菜单列表 -->
   <view class="menu-list" wx:if="{{isLogin}}">
-    <view class="menu-item" bindtap="onAccountData">
+    <view bindtap="onAccountData" class="af-entry b2-menu-entry">
+      <icon name="user" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" />
       <text class="menu-text">个人资料申请</text>
-      <text class="menu-arrow">></text>
+      <text class="af-entry__arrow">></text>
     </view>
 
     <block wx:if="{{canAccessBusiness}}">
-      <view class="menu-item" bindtap="onMyEarnings">
-        <text class="menu-text">我的工资</text>
-        <text class="menu-arrow">></text>
-      </view>
-      <view class="menu-item" bindtap="onBarrelRecords">
-        <text class="menu-text">空桶记录</text>
-        <text class="menu-arrow">></text>
-      </view>
-      <view class="menu-item" bindtap="onHistory">
-        <text class="menu-text">配送历史</text>
-        <text class="menu-arrow">></text>
-      </view>
-      <view class="menu-item" bindtap="onTransfer">
+
+      
+
+      <view bindtap="onTransfer" class="af-entry b2-menu-entry">
+        <icon name="order" size="20px" color="#1264D6" />
         <text class="menu-text">转让记录</text>
-        <text class="menu-arrow">></text>
+        <text class="af-entry__arrow">></text>
       </view>
     </block>
-    <view class="menu-item" bindtap="onReport">
+    <view bindtap="onReport" class="af-entry b2-menu-entry">
+      <icon name="chat" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" />
       <text class="menu-text">意见反馈</text>
-      <text class="menu-arrow">></text>
+      <text class="af-entry__arrow">></text>
     </view>
-    <view class="menu-item" bindtap="onSettings">
+    <view bindtap="onSettings" class="af-entry b2-menu-entry">
+      <icon name="settings" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" />
       <text class="menu-text">设置</text>
-      <text class="menu-arrow">></text>
+      <text class="af-entry__arrow">></text>
     </view>
   </view>
 
   <!-- 退出登录 -->
-  <view class="logout-btn" wx:if="{{isLogin}}" bindtap="onLogout">
+  <view class="af-action af-action--quiet b2-logout" wx:if="{{isLogin}}" bindtap="onLogout">
     <text>退出登录</text>
   </view>
 
   <!-- 未登录提示 -->
   <view class="login-tip" wx:if="{{!isLogin}}">
     <text class="login-tip-text">请先登录以使用配送端功能</text>
-    <button class="btn-login" bindtap="onGoLogin">前往登录</button>
+    <button bindtap="onGoLogin" class="af-action af-action--primary af-action--block">前往登录</button>
   </view>
 </view>
+<business-dialog id="business-dialog" />

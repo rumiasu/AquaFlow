@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "昵称与手机号"
+  "navigationBarTitleText": "昵称与手机号",
+  "usingComponents": {
+    "icon": "/components/Icon/index"
+  }
 }

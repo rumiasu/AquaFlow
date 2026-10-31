@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered, approveBarrelReturn, changeBarrelReturnArrangement, getReturnCompanionOrders, confirmPayment, getBarrelRefundEligibility } = require('../../../api/station-mgmt')
 const businessRules = require('../../../api/business-rules')
 const { getPendingReturnRecord, syncPendingReminder } = require('../../../utils/pending-reminder')
@@ -118,6 +119,7 @@ Page({
     }
   },
 
+  onToggleReturnProgress() { this.setData({ returnProgressExpanded: !this.data.returnProgressExpanded }) },
   decorateRecord(item) {
     const d = item.returnDetail, over = Number(item.owedBuckets) || 0
     const isReturn = item.type === 2
@@ -315,7 +317,7 @@ Page({
   modal(action, options) {
     return new Promise(resolve => {
       if (!this.actionCurrent(action)) { resolve(null); return }
-      wx.showModal(Object.assign({ confirmColor: '#1264D6', cancelColor: '#637083' }, options, { success: result => resolve(this.actionCurrent(action) && result.confirm ? result : null), fail: () => resolve(null) }))
+      showBusinessModal(Object.assign({ confirmColor: '#1264D6', cancelColor: '#637083' }, options, { success: result => resolve(this.actionCurrent(action) && result.confirm ? result : null), fail: () => resolve(null) }))
     })
   },
   onPrimary() {

@@ -3,34 +3,50 @@ const { getPublicStations } = require('../../../api/station')
 const { stationStorage } = require('../../../utils/storage')
 const { captureSession, isCurrentSession } = require('../../../utils/token')
 const claim = require('../../../utils/asset-claim')
-const emptyForm = () => ({ depositBalance: '0.00', note: '', items: [] })
+const photo = require('../../../utils/claim-photo')
+const emptyForm = () => ({ depositBalance: '', note: '', items: [] })
 const copy = value => JSON.parse(JSON.stringify(value))
+const selectorItems = (catalog, rows) => catalog.map(p => ({ id: p.id, name: p.name, spec: p.spec, image: p.imageUrl, priceText: '价格待确认', disabled: rows.some(r => r.productId === p.id) }))
 Page({
-  data: { loading: false, ready: false, error: '', notice: '', stations: [], stationsError: '', stationId: null,
-    stationName: '请选择认领水站', catalog: [], catalogReady: false, productIndex: -1, records: [],
+  data: { showClaimGuide: false, claimGuideImageFailed: false, showCatalog: false, expandedRecord: null, loading: false, ready: false, error: '', notice: '', stations: [], stationsError: '', stationId: null,
+    stationName: '请选择认领水站', catalog: [], selectorCatalog: [], catalogReady: false, productIndex: -1, records: [],
     form: emptyForm(), pending: false, submitting: false, canCreate: false },
+  onToggleClaimGuide() { this.setData({ showClaimGuide: !this.data.showClaimGuide }) },
+  onClaimGuideImageError() { this.setData({ claimGuideImageFailed: true }) },
   onLoad(options) { this._initialStation = claim.id(options && options.stationId) },
   onShow() {
     if (this._unloaded) return
     const app = getApp(), session = captureSession(), customer = claim.id(session.customerId)
     const owner = app.globalData.isLogin && customer ? 'customer:' + customer : null
     this.setData({ needLogin: !owner })
-    this._hidden = false; this._epoch = (this._epoch || 0) + 1; this._flight = null; this._intent = null
+    this._hidden = false; this._epoch = (this._epoch || 0) + 1; this._intent = null
     if (!owner) {
       this._actor = null; this._intent = null
       this.setData({ ready: false, loading: false, records: [], form: emptyForm(), pending: false, submitting: false,
-        catalog: [], canCreate: false, error: '请先以客户身份登录后查看历史资产认领' }); return
+        catalog: [], selectorCatalog: [], canCreate: false, error: '请先以客户身份登录后查看历史资产认领' }); return
     }
     if (this._actor !== owner || !this._session || !isCurrentSession(this._session)) {
       const station = stationStorage.get()
       this._stationId = this._initialStation || claim.id(station && station.id)
-      this.setData({ form: emptyForm(), records: [], catalog: [], stations: [], notice: '', pending: false })
+      this._actor = owner
+      this.setData({ form: this.readDraft(this._stationId), records: [], catalog: [], selectorCatalog: [], stations: [], canCreate: false, notice: '', pending: false })
     }
     this._actor = owner; this._customer = customer; this._session = session
-    this.setData({ stationId: this._stationId, stationName: this._stationId ? '水站编号：' + this._stationId : '请选择认领水站', submitting: false })
+    this.setData({ stationId: this._stationId, stationName: this._stationId ? '水站编号：' + this._stationId : '请选择认领水站', submitting: false, photoUploading: !!this._photoFlight })
     return Promise.all([this.loadStations(), this.load()])
   },
   context(read) { return { session: this._session, actor: this._actor, station: this._stationId, epoch: this._epoch, read } },
+  draftKey(station) { return 'asset-claim-draft:' + this._actor + ':' + station },
+  readDraft(station) {
+    if (!station || !this._actor) return emptyForm()
+    try { const draft = wx.getStorageSync(this.draftKey(station)); return draft && Array.isArray(draft.items) ? draft : emptyForm() }
+    catch (_) { return emptyForm() }
+  },
+  saveDraft(form) {
+    if (!this._actor || !this._stationId) return true
+    try { wx.setStorageSync(this.draftKey(this._stationId), copy(form)); return true }
+    catch (_) { this.setData({ notice: '草稿未能保存，切换水站前请先提交或记下填写内容。' }); return false }
+  },
   current(c) { return !!c && !this._hidden && !this._unloaded && c.actor === this._actor && c.station === this._stationId
     && c.epoch === this._epoch && isCurrentSession(c.session) && (c.read == null || c.read === this._read) },
   onHide() { this._hidden = true; this._epoch = (this._epoch || 0) + 1 },
@@ -66,11 +82,11 @@ Page({
         const found = records.find(r => r.clientToken === this._intent.body.clientToken)
         if (found) {
           if (JSON.stringify(found.body) !== JSON.stringify(this._intent.body)) throw Object.assign(Error('原申请与查回清单不一致，请联系水站'), { localClaimError: true })
-          claim.clear(this._intent); this._intent = null; this.setData({ form: emptyForm() })
+          claim.clear(this._intent); this._intent = null; this.saveDraft(emptyForm()); this.setData({ form: emptyForm() })
         }
       }
       const pending = !!this._intent, active = records.some(r => r.status !== 'REJECTED')
-      this.setData({ ready: true, catalogReady: !catalogError, catalog: products, records, error: catalogError,
+      this.setData({ ready: true, catalogReady: !catalogError, catalog: products, selectorCatalog: selectorItems(products, this.data.form.items), records, error: catalogError,
         pending, submitting: false, canCreate: !catalogError && !pending && !active })
       if (pending) this.setData({ form: { ...this._intent.body, items: this._intent.body.items.map(r => ({ ...r,
         name: (products.find(p => p.id === r.productId) || {}).name || '历史商品',
@@ -83,27 +99,43 @@ Page({
   onRetry() { if (!this.data.loading && !this._flight) return this.load() },
   onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
   async onStation(e) {
-    if (this._flight || this.data.submitting || !this.current(this.context())) return
+    if (this._flight || this._photoFlight || this.data.submitting || !this.current(this.context())) return
     const index = Number(e.detail.value), station = this.data.stations[index]
     if (!Number.isInteger(index) || !station) return
+    if (!this.saveDraft(this.data.form)) return
     this._stationId = station.id; this._epoch++; this._intent = null
-    this.setData({ stationId: station.id, stationName: station.name, records: [], catalog: [], form: emptyForm(), pending: false,
-      notice: '', productIndex: -1, canCreate: false }); return this.load()
+    this.setData({ stationId: station.id, stationName: station.name, records: [], catalog: [], selectorCatalog: [], form: this.readDraft(station.id), pending: false,
+      notice: '', productIndex: -1, showCatalog: false, expandedRecord: null, canCreate: false }); return this.load()
   },
+  onToggleCatalog() { if (wx.hideKeyboard) wx.hideKeyboard({}); this.setData({ showCatalog: !this.data.showCatalog }) },
+  onToggleRecord(e) { const id = e.currentTarget.dataset.id; this.setData({ expandedRecord: this.data.expandedRecord === id ? null : id }) },
   onProduct(e) { const n = Number(e.detail.value); if (this.data.canCreate && Number.isInteger(n) && this.data.catalog[n]) this.setData({ productIndex: n }) },
-  onAddProduct() {
+  onImageError(e) {
+    const n = Number(e.currentTarget.dataset.index), catalog = this.data.catalog.slice()
+    if (Number.isInteger(n) && catalog[n]) { catalog[n] = { ...catalog[n], imageUrl: '' }; this.setData({ catalog }) }
+  },
+  onSelectCatalog(e) {
+    const id = Number(e && e.detail && e.detail.id), index = this.data.catalog.findIndex(p => p.id === id)
+    if (index >= 0) this.onAddProduct({ currentTarget: { dataset: { index } } })
+  },
+  onAddProduct(e) {
     if (!this.data.canCreate || this._flight || this.data.pending) return
-    const p = this.data.catalog[this.data.productIndex]
+    const index = e && e.currentTarget && e.currentTarget.dataset.index
+    const p = this.data.catalog[index == null ? this.data.productIndex : Number(index)]
     if (!p || this.data.form.items.some(r => r.productId === p.id) || this.data.form.items.length >= 100) {
       wx.showToast({ title: '请选择未添加的商品', icon: 'none' }); return
     }
-    this.setData({ form: { ...this.data.form, items: this.data.form.items.concat({ productId: p.id, name: p.name, category: p.category,
-      rights: '0', held: '0', tickets: '0', unitPrice: '' }) }, productIndex: -1 })
+    const form = { ...this.data.form, items: this.data.form.items.concat({ productId: p.id, name: p.name, spec: p.spec, category: p.category,
+      rights: '0', held: '0', tickets: '0', unitPrice: '' }) }
+    this.setData({ form, productIndex: -1, selectorCatalog: selectorItems(this.data.catalog, form.items) }); this.saveDraft(form)
   },
   onRemoveProduct(e) {
     if (!this.data.canCreate || this._flight || this.data.pending) return
     const n = Number(e.currentTarget.dataset.index)
-    if (Number.isInteger(n) && n >= 0 && n < this.data.form.items.length) this.setData({ form: { ...this.data.form, items: this.data.form.items.filter((r, i) => i !== n) } })
+    if (Number.isInteger(n) && n >= 0 && n < this.data.form.items.length) {
+      const form = { ...this.data.form, items: this.data.form.items.filter((r, i) => i !== n) }
+      this.setData({ form, selectorCatalog: selectorItems(this.data.catalog, form.items) }); this.saveDraft(form)
+    }
   },
   onField(e) {
     if (!this.data.canCreate || this.data.pending || this._flight) return
@@ -111,13 +143,54 @@ Page({
     if (index == null && ['note', 'depositBalance'].includes(field)) form[field] = e.detail.value
     else if (Number.isInteger(Number(index)) && form.items[Number(index)] && ['rights', 'held', 'tickets', 'unitPrice'].includes(field)) form.items[Number(index)][field] = e.detail.value
     else return
-    this.setData({ form })
+    this.setData({ form }); this.saveDraft(form)
+  },
+  onChoosePhoto() {
+    if (!this.data.canCreate || this._flight || this._photoFlight || this.data.pending) return
+    const c = this.context(), picking = {}; this._photoFlight = picking
+    if (wx.hideKeyboard) wx.hideKeyboard({})
+    try {
+      wx.chooseImage({ count: 1, sizeType: ['compressed'], sourceType: ['album', 'camera'],
+        success: result => {
+          if (!this.current(c) || !result.tempFilePaths || !result.tempFilePaths[0]) return
+          const form = { ...this.data.form, photoPath: result.tempFilePaths[0], photoConfirmed: false,
+            photoToken: 'claim-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) }
+          this.setData({ form, notice: '' }); const saved = this.saveDraft(form)
+          this._photoFlight = null; if (saved) this.onRetryPhoto()
+        },
+        fail: error => { if (this.current(c) && !/cancel/i.test(error && error.errMsg || '')) this.setData({ notice: '选择照片失败，请重试。' }) },
+        complete: () => { if (this._photoFlight === picking) this._photoFlight = null }
+      })
+    } catch (_) { this._photoFlight = null; this.setData({ notice: '选择照片失败，请重试。' }) }
+  },
+  async onRetryPhoto() {
+    if (!this.current(this.context()) || this._flight || this._photoFlight || this.data.pending || !this.data.form.photoPath || !this.data.form.photoToken) return
+    const c = this.context(), form = this.data.form, flight = {}; this._photoFlight = flight
+    if (!this.saveDraft(form)) { this._photoFlight = null; return }
+    this.setData({ photoUploading: true, notice: '' })
+    try {
+      let result = await photo.lookup(c.station, form.photoToken)
+      if (!this.current(c)) return
+      if (!result.exists) result = await photo.upload(form.photoPath, c.station, form.photoToken)
+      if (!this.current(c)) return
+      if (!result.exists) throw Error('照片未保存')
+      const next = { ...this.data.form, photoConfirmed: true }
+      this.setData({ form: next, notice: result.url ? '照片已添加。' : '照片已保存，预览暂不可用。' }); this.saveDraft(next)
+    } catch (_) { if (this.current(c)) this.setData({ notice: '照片未能确认，请重试或移除照片；填写内容已保留。' }) }
+    finally { if (this._photoFlight === flight) { this._photoFlight = null; if (!this._hidden && !this._unloaded && this._actor === c.actor && isCurrentSession(c.session)) this.setData({ photoUploading: false }) } }
+  },
+  onRemovePhoto() {
+    if (this._photoFlight || this._flight || this.data.pending || !this.data.canCreate) return
+    const form = { ...this.data.form, photoPath: '', photoToken: '', photoConfirmed: false }
+    if (!this.saveDraft(form)) return
+    this.setData({ form, notice: '' })
   },
   async onSubmit() {
-    if (!this.data.canCreate || this._flight || !this.current(this.context())) return
+    if (!this.data.canCreate || this._flight || this._photoFlight || !this.current(this.context())) return
+    if (this.data.form.photoPath && !this.data.form.photoConfirmed) { this.setData({ notice: '请先重试或移除照片。' }); return }
     try {
       const body = claim.body({ ...this.data.form, stationId: this._stationId, confirmed: true,
-        clientToken: 'claim-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) })
+        clientToken: this.data.form.photoToken || 'claim-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) })
       this._intent = claim.prepare(this._actor, 'station:' + this._stationId, 'SUBMIT', body)
       return this.send(this._intent)
     } catch (e) { this.setData({ error: claim.errorText(e, '原申请未能保存，请重试') }) }
@@ -134,6 +207,7 @@ Page({
       verified = true
       const records = [received].concat(this.data.records.filter(r => r.id !== received.id))
       this.setData({ records }); claim.clear(intent); this._intent = null
+      this.saveDraft(emptyForm())
       this.setData({ pending: false, form: emptyForm(), canCreate: this.data.catalogReady && !records.some(r => r.status !== 'REJECTED'),
         notice: received.status === 'PENDING' ? '申请已提交，待水站核对。通过后可在这里查看结果。' : '已查询到原申请结果，请查看记录。' })
     } catch (e) {

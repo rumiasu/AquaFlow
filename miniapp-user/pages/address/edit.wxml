@@ -1,19 +1,22 @@
 <view class="container">
-  <view class="page-intro"><text class="page-intro-title">{{isEdit ? '编辑收货地址' : '新增收货地址'}}</text><text class="page-intro-note">联系人、门牌与楼层信息请填写准确</text></view>
+  <view class="page-intro"><text class="page-intro-title">{{isEdit ? '编辑收货地址' : '新增收货地址'}}</text></view>
   <privacy-popup />
   <view class="state-card" wx:if="{{loading && !formReady}}"><text class="state-title">正在读取原地址</text><text class="state-note">读取完成后才能编辑，避免覆盖原有信息。</text></view>
   <view class="state-banner" wx:if="{{loading && loaded}}">正在更新原地址，当前输入会保留。</view>
   <view class="state-card state-error" wx:if="{{loadError}}">
     <text class="state-title">{{accessDenied ? '暂时无法访问此地址' : '原地址读取失败'}}</text><text class="state-note">{{loadError}}</text>
-    <view class="state-actions"><button class="state-button" bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}">重新读取</button><button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button></view>
+    <view class="state-actions"><button class="af-action af-action--quiet" bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}"><text class="af-action__face">重新读取</text></button><button wx:if="{{accessDenied}}" class="af-action af-action--secondary" bindtap="onLogin">去登录</button></view>
   </view>
   <view class="state-card {{saveSucceeded ? 'state-success' : ''}}" wx:if="{{saveMessage}}">
     <text class="state-note">{{saveMessage}}</text>
-    <button wx:if="{{saveSucceeded}}" class="state-button" bindtap="onBackToList">返回地址列表</button>
-    <button wx:if="{{accessDenied}}" class="state-button secondary" bindtap="onLogin">去登录</button>
+    <button wx:if="{{saveSucceeded}}" class="af-action af-action--secondary" bindtap="onBackToList">返回地址列表</button>
+    <button wx:if="{{accessDenied}}" class="af-action af-action--secondary" bindtap="onLogin">去登录</button>
   </view>
 
+  <view class="state-card" wx:if="{{draftMessage}}"><text class="state-note">{{draftMessage}}</text><button class="af-action af-action--quiet" bindtap="onRetryDraft"><text class="af-action__face">重试</text></button></view>
+  <view class="state-card" wx:if="{{draftState === 'saved' && !sessionChanged}}"><text class="state-note">有之前保存的地址输入。</text><view class="state-actions"><button class="af-action af-action--quiet" bindtap="onRestoreDraft" disabled="{{!formReady || loading || accessDenied || submitting}}"><text class="af-action__face">恢复原输入</text></button><button class="af-action af-action--quiet" bindtap="onDiscardSavedDraft"><text class="af-action__face">放弃草稿</text></button></view></view>
   <view class="addr-card" wx:if="{{formReady && !sessionChanged}}">
+    <text class="group-title">联系信息</text>
     <!-- 联系人 -->
     <view class="field-row">
       <text class="field-label">联系人</text>
@@ -26,11 +29,12 @@
       <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="field-input" placeholder="手机号码" type="number" value="{{formData.phone}}" bindinput="onInputChange" data-field="phone" />
     </view>
 
+    <text class="group-title">送水位置</text>
     <!-- 自动识别 -->
     <view class="field-row auto-row">
       <text class="field-label">定位</text>
-      <button class="auto-btn" bindtap="onAutoLocate" disabled="{{submitting || locating || saveSucceeded || accessDenied}}">
-        <icon name="location" size="32rpx" color="#FFFFFF" />
+      <button class="af-action af-action--secondary" bindtap="onAutoLocate" disabled="{{submitting || locating || saveSucceeded || accessDenied}}">
+        <icon name="location" size="32rpx" color="#1F5EA8" />
         <text>{{locating ? '正在打开地图' : '选择地图位置'}}</text>
       </button>
     </view>
@@ -57,15 +61,16 @@
       <text class="field-label">标签</text>
       <view class="label-options">
         <view
-          class="label-chip {{formData.label === item ? 'active' : ''}}"
+          class="label-chip af-choice {{formData.label === item ? 'active af-choice--selected' : ''}}"
           wx:for="{{labels}}"
           wx:key="*this"
           bindtap="onLabelSelect"
           data-label="{{item}}"
-        >{{item}}</view>
+        ><text class="af-choice__face">{{item}}</text></view>
       </view>
     </view>
 
+    <text class="group-title">楼层与电梯</text>
     <text class="field-help">楼层和电梯情况用于核算楼层费；不清楚时可选择「不确定」。</text>
 
     <!-- 楼层与电梯（2026-09-17 新增，v34）：楼层费的依据。
@@ -81,9 +86,9 @@
     <view class="field-row label-row">
       <text class="field-label">电梯</text>
       <view class="label-options">
-        <view class="label-chip {{formData.hasElevator === 1 ? 'active' : ''}}" bindtap="onElevatorSelect" data-value="1">有电梯</view>
-        <view class="label-chip {{formData.hasElevator === 0 ? 'active' : ''}}" bindtap="onElevatorSelect" data-value="0">无电梯</view>
-        <view class="label-chip {{formData.hasElevator === null ? 'active' : ''}}" bindtap="onElevatorSelect" data-value="">不确定</view>
+        <view class="label-chip af-choice {{formData.hasElevator === 1 ? 'active af-choice--selected' : ''}}" bindtap="onElevatorSelect" data-value="1"><text class="af-choice__face">有电梯</text></view>
+        <view class="label-chip af-choice {{formData.hasElevator === 0 ? 'active af-choice--selected' : ''}}" bindtap="onElevatorSelect" data-value="0"><text class="af-choice__face">无电梯</text></view>
+        <view class="label-chip af-choice {{formData.hasElevator === null ? 'active af-choice--selected' : ''}}" bindtap="onElevatorSelect" data-value=""><text class="af-choice__face">不确定</text></view>
       </view>
     </view>
 
@@ -93,7 +98,8 @@
         <view class="check-box {{formData.isDefault ? 'checked' : ''}}"></view>
         <text class="default-text">设为默认地址</text>
       </view>
-      <button class="save-btn" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting || saveSucceeded || loading || !!loadError || accessDenied}}">{{submitting ? '正在保存' : saveSucceeded ? '地址已保存' : saveUnknown ? '请先核对结果' : '保存地址'}}</button>
+      <button class="address-save af-action af-action--primary" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting || saveSucceeded || loading || !!loadError || accessDenied}}">{{submitting ? '正在保存' : saveSucceeded ? '地址已保存' : saveUnknown ? '请先核对结果' : '保存地址'}}</button>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

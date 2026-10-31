@@ -18,6 +18,7 @@ const navigation = require('../../utils/navigation')
 
 Page({
   data: {
+    v2SceneFailed: false,
     expandedGroups: {aftercare:false,assets:false,settings:false,reports:false},
     // [2026-10-06] 关键入口待办角标：应收账款 / 业务待办与退出 / 退桶审批 / 退款争议
     receivablesBadgeCount: null,
@@ -80,6 +81,8 @@ Page({
       if (current()) this.setData({ badgeError: '待办数量未核对，点击重试' })
     } finally { if (current()) this.setData({ badgeLoading: false }) }
   },
+
+  onV2SceneError() { this.setData({ v2SceneFailed: true }) },
 
   onToggleGroup(e) {
     const key=e.currentTarget.dataset.group

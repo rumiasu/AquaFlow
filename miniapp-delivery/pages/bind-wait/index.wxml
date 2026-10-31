@@ -1,18 +1,15 @@
-<view class="container">
-  <view class="empty-illustration">
-  </view>
+<view class="container b2-page b2-d05 af2-page lv2-page lv2-bind">
+  <view class="lv2-bind-scene" wx:if="{{statusReady && !refreshError}}"><image wx:if="{{!sceneImageFailed}}" src="/assets/ui/scene-station-delivery.webp" mode="aspectFit" binderror="onSceneImageError" /><view wx:else><icon name="building" size="40px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /></view></view>
   <!-- 文案必须区分模式：申请解绑（PENDING_UNBIND）时说成"绑定申请已提交"会让人以为自己点错了 -->
-  <view class="empty-title">{{!statusReady ? '申请状态待核实' : (mode === 'PENDING_UNBIND' ? '解绑申请已提交' : '绑定申请已提交')}}</view>
+  <view class="empty-title">{{!statusReady ? '暂未读到最新状态' : (mode === 'PENDING_UNBIND' ? '解绑申请已提交' : '绑定申请已提交')}}</view>
   <view class="empty-desc">
-    <text wx:if="{{!statusReady}}">申请信息尚未核实，请刷新后查看最新状态。</text>
-    <text wx:elif="{{mode === 'PENDING_UNBIND'}}">您已申请解除与当前水站的绑定，请等待站长确认。</text>
-    <text wx:else>您已申请绑定水站，请等待站长确认。</text>
+    <text wx:if="{{statusReady}}">等待站长确认</text>
     <text wx:if="{{applyStationName}}">{{mode === 'PENDING_UNBIND' ? '申请解绑：' : '申请绑定：'}}{{applyStationName}}</text>
   </view>
-  <view class="status-card">
+  <view class="status-card b2-current-state">
     <view class="status-row">
-      <text class="status-label">当前状态</text>
-      <text class="status-value status-pending">{{refreshLoading ? '正在核实' : (refreshError ? '待核实' : (statusReady ? '审核中' : '待核实'))}}</text>
+      <view class="lv2-wait-symbol"><icon name="building" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /></view><text class="status-label">当前状态</text>
+      <text class="status-value status-pending">{{refreshLoading ? '正在核实' : (refreshError ? '暂未读到最新状态' : (statusReady ? '审核中' : '暂未读到最新状态'))}}</text>
     </view>
     <view class="status-row" wx:if="{{applyTime}}">
       <text class="status-label">申请时间</text>
@@ -21,13 +18,12 @@
   </view>
   <view class="ui-state" wx:if="{{refreshError}}"><text class="ui-state-copy">{{refreshError}}</text></view>
   <view class="btn-wrap">
-    <button class="btn-outline" bindtap="onWithdraw" wx:if="{{mode !== 'PENDING_UNBIND'}}" disabled="{{!statusReady || refreshLoading || refreshError}}">撤回绑定申请</button>
-    <button class="btn-primary" bindtap="onRefresh" loading="{{refreshLoading}}" disabled="{{refreshLoading}}">刷新申请状态</button>
+    <button bindtap="onToggleMore" wx:if="{{mode !== 'PENDING_UNBIND'}}" class="af-action af-action--quiet"><view class="af-action__face">{{moreExpanded ? '收起操作' : '更多操作'}}</view></button>
+    <button bindtap="onWithdraw" wx:if="{{mode !== 'PENDING_UNBIND' && moreExpanded}}" disabled="{{!statusReady || refreshLoading || refreshError}}" class="af-action af-action--danger-quiet">撤回绑定申请</button>
+    <button bindtap="onRefresh" loading="{{refreshLoading}}" disabled="{{refreshLoading}}" class="af-action af-action--quiet"><view class="af-action__face">刷新申请状态</view></button>
   </view>
-  <view class="tip-row">
-    <text class="tip-text">提示：此时无法进入订单页，请耐心等待站长审核</text>
-  </view>
-  <view class="logout-row" bindtap="onLogout">
+  <view bindtap="onLogout" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">
     <text>退出登录</text>
-  </view>
+  </text></view>
 </view>
+<business-dialog id="business-dialog" />

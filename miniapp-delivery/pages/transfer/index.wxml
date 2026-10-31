@@ -1,18 +1,16 @@
-<view class="container">
+<view class="container b2-page b2-d42 af2-page lv2-page lv2-transfer">
   <view class="page-state" wx:if="{{loading}}"><text class="page-state-text">{{loaded ? '正在刷新...' : '加载中...'}}</text></view>
-  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button class="page-state-retry" bindtap="onRetry">重试</button></view>
+  <view class="page-state" wx:if="{{error}}"><text class="page-state-text page-state-error">{{error}}</text><button bindtap="onRetry" class="af-action af-action--quiet"><view class="af-action__face">重试</view></button></view>
   <!-- 说明头部 -->
-  <view class="info-header">
-    <text class="info-text">以下是您转让的订单记录，站长将重新分配给其他配送员</text>
-  </view>
+<view class="lv2-title-row"><view class="af2-icon-tile lv2-neutral-tile"><icon name="user" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text>转让记录</text></view>
 
   <!-- 订单列表 -->
   <view class="order-list">
     <view class="order-card" wx:for="{{orders}}" wx:key="id" bindtap="onOrderTap" data-id="{{item.id}}">
       <!-- 订单头部 -->
       <view class="card-header">
-        <text class="status-tag status-transfer">已转让</text>
-        <text class="order-date">{{item.updateTime}}</text>
+        <view class="lv2-transfer-direction"><icon name="user" size="20px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /><text>已转让</text><icon name="arrowRight" size="20px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text class="lv2-transfer-result" wx:if="{{item.statusText}}">{{item.statusText}}</text>
+        <text class="order-date">{{item.updateTime ? '更新时间 ' + item.updateTime : '更新时间待核实'}}</text>
       </view>
 
       <!-- 客户信息 -->
@@ -27,7 +25,7 @@
       <view class="product-list" wx:if="{{item.productItems.length}}">
         <view class="product-info" wx:for="{{item.productItems}}" wx:for-item="product" wx:for-index="productIndex" wx:key="id">
           <image wx:if="{{product.imageUrl}}" class="product-image" src="{{product.imageUrl}}" mode="aspectFit" binderror="onProductImageError" data-order-id="{{item.id}}" data-item-index="{{productIndex}}" data-src="{{product.imageUrl}}" />
-          <view wx:else class="product-image product-placeholder"><text>商品</text></view>
+          <view wx:else class="product-image product-placeholder"><icon name="products" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view>
           <view class="product-copy">
             <text class="product-name">{{product.name}}</text>
             <text class="product-spec" wx:if="{{product.spec}}">{{product.spec}}</text>
@@ -55,9 +53,9 @@
     <!-- 空状态 -->
     <view class="empty-state" wx:if="{{loaded && !loading && !error && orders.length === 0}}">
       <text class="empty-text">暂无转让记录</text>
-      <text class="empty-hint">转让的订单将显示在这里</text>
     </view>
   </view>
 
 
 </view>
+<business-dialog id="business-dialog" />

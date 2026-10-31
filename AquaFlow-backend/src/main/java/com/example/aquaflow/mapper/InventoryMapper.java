@@ -8,6 +8,12 @@ import java.util.List;
 @Mapper
 public interface InventoryMapper {
 
+    /** One-ticket tier compatibility only; never touches physical stock or other pricing. */
+    @Update("update inventory set ticket_price=#{price}, update_time=NOW() "
+            + "where station_id=#{stationId} and product_id=#{productId}")
+    int updateTicketPrice(@Param("stationId") Long stationId, @Param("productId") Long productId,
+                          @Param("price") java.math.BigDecimal price);
+
     @Insert("insert into inventory(station_id, product_id, quantity, enabled, ticket_enabled, ticket_price, priority_display, create_time, update_time) " +
             "values(#{stationId}, #{productId}, #{quantity}, #{enabled}, #{ticketEnabled}, #{ticketPrice}, #{priorityDisplay}, #{createTime}, #{updateTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
@@ -51,6 +57,9 @@ public interface InventoryMapper {
     @Select("select * from inventory where station_id = #{stationId} and product_id = #{productId} for update")
     Inventory getByStationAndProductForUpdate(@Param("stationId") Long stationId, @Param("productId") Long productId);
 
+    @Update("update inventory set cost_amount=#{amount} where station_id=#{stationId} and product_id=#{productId}")
+    int updateCostAmount(@Param("stationId") Long stationId, @Param("productId") Long productId, @Param("amount") java.math.BigDecimal amount);
+
     @Select("select * from inventory")
     List<Inventory> list();
 
@@ -73,13 +82,13 @@ public interface InventoryMapper {
      * duplicate 分支不得覆盖 quantity，避免旧快照撤销并发入库。
      */
     @Insert("insert into inventory(station_id, product_id, quantity, enabled, sale_price, deposit_price, " +
-            "ticket_enabled, ticket_price, priority_display, create_time, update_time) " +
+            "ticket_enabled, ticket_price, priority_display, pricing_confirmed, create_time, update_time) " +
             "values(#{stationId}, #{productId}, #{quantity}, #{enabled}, #{salePrice}, #{depositPrice}, " +
-            "#{ticketEnabled}, #{ticketPrice}, #{priorityDisplay}, NOW(), NOW()) " +
+            "#{ticketEnabled}, #{ticketPrice}, #{priorityDisplay}, coalesce(#{pricingConfirmed},0), NOW(), NOW()) " +
             "on duplicate key update enabled = #{enabled}, " +
             "sale_price = #{salePrice}, deposit_price = #{depositPrice}, " +
             "ticket_enabled = #{ticketEnabled}, ticket_price = #{ticketPrice}, " +
-            "priority_display = #{priorityDisplay}, update_time = NOW()")
+            "priority_display = #{priorityDisplay}, pricing_confirmed = if(#{pricingConfirmed}=1,1,pricing_confirmed), update_time = NOW()")
     void upsertSettings(Inventory inventory);
 
     /** 只更新本站该商品的图片引用；其他设置写入不会覆盖此列。 */

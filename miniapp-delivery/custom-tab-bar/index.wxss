@@ -13,8 +13,8 @@
   bottom: 0;
   z-index: 100;
   display: flex;
-  background: #ffffff;
-  border-top: 1rpx solid #eceef1;
+  background: var(--bg-white);
+  border-top: 1rpx solid var(--border-light);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -47,16 +47,17 @@
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  background: #ff3b30;
+  background: var(--error-color);
 }
 
 .tabbar-text {
   font-size: 24rpx;
   line-height: 28rpx;
   margin-top: 2rpx;
-  color: #637083;
+  color: var(--text-secondary);
 }
 
 .tabbar-item.on .tabbar-text {
-  color: #1264D6;
+  color: var(--primary-color);
+  font-weight: 600;
 }

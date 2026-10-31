@@ -7,10 +7,10 @@
     <view class="success-circle warn">
       <icon name="warn" size="56rpx" color="#FFFFFF" />
     </view>
-    <text class="success-title">没查到这张订单</text>
+    <text class="success-title">订单信息暂未读到</text>
     <text class="success-desc">{{loadErrorText}}</text>
-    <view class="pay-btn retry" bindtap="onReload">
-      <text class="pay-btn-text">重试查一次</text>
+    <view class="af-action af-action--quiet" bindtap="onReload">
+      <text class="af-action__face">重试查一次</text>
     </view>
   </view>
 
@@ -39,14 +39,13 @@
           连同后端订单状态一起显示出来，金额也在这一行 —— 原来 payHint 只在 ① 里被读，
           现金单反而看不到"送到再付"，只能靠前端自己拼一句。 -->
   <view class="pay-section">
-    <view class="pay-btn" wx:if="{{canRepay}}" bindtap="onPayNow">
-      <text class="pay-btn-text">{{paying ? '正在核对付款…' : repayLabel}} {{amountText}}</text>
+    <view class="af-action af-action--primary af-action--block" wx:if="{{canRepay}}" bindtap="onPayNow">
+      <text>{{paying ? '正在核对付款…' : repayLabel}}</text>
     </view>
-    <view class="pay-hint-row" wx:else>
-      <text class="pay-hint-text" wx:if="{{statusText || payHint}}">{{statusText}}{{statusText && payHint ? ' · ' : ''}}{{payHint}}</text>
-      <text class="pay-hint-amount" wx:if="{{amountText}}">{{amountText}}</text>
-    </view>
+
   </view>
+
+  <button class="af-action af-action--secondary af-action--block" bindtap="onViewCurrentOrder">查看本单详情</button>
 
   <!-- 常用订单保存区 -->
   <view class="template-section" wx:if="{{!isDefaultSet}}">
@@ -57,7 +56,6 @@
         </view>
         <view class="template-text">
           <text class="template-title">{{savingTemplate ? '正在保存…' : '存为常用订单'}}</text>
-          <text class="template-hint">保存商品、数量与地址，便于查看</text>
         </view>
       </view>
       <text class="template-arrow">›</text>
@@ -73,14 +71,13 @@
         </view>
         <view class="template-text">
           <text class="template-title saved">已存为常用订单</text>
-          <text class="template-hint">可在「我的」查看常用订水配置</text>
         </view>
       </view>
     </view>
   </view>
 
   </block>
-  <view class="load-error" wx:if="{{actionError}}"><text>{{actionError}}</text><button bindtap="onReload">重新查询原订单</button></view>
+  <view class="load-error" wx:if="{{actionError}}"><text>{{actionError}}</text><button class="af-action af-action--quiet" bindtap="onReload"><text class="af-action__face">重新查询原订单</text></button></view>
   <!-- 失败和加载时也保留离开与核对入口。 -->
   <view class="actions">
     <view class="action-row">
@@ -90,7 +87,6 @@
         </view>
         <view class="action-info">
           <text class="action-title">查看订单</text>
-          <text class="action-desc">追踪配送状态</text>
         </view>
       </view>
       <view class="action-card secondary" bindtap="onBackHome">
@@ -99,7 +95,6 @@
         </view>
         <view class="action-info">
           <text class="action-title">返回首页</text>
-          <text class="action-desc">继续下单</text>
         </view>
       </view>
     </view>
@@ -109,6 +104,7 @@
        没有任何时间来源（水站没配时效、系统也没有排班），写一个具体分钟数就是在替水站承诺。
        想知道进度就点上面的「查看订单」。 -->
   <view class="bottom-tip">
-    <text class="tip-text">配送时间以水站安排为准，进度可在「查看订单」里看到</text>
+    <text class="tip-text">配送时间以水站安排为准</text>
   </view>
 </view>
+<business-dialog id="business-dialog" />

@@ -1,6 +1,10 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { get, post } = require('../../../utils/request')
 const { API, BINDING_STATUS } = require('../../../config/api')
 const { STORAGE_KEYS } = require('../../../utils/storage-keys')
+
+function bindingSession() { const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}; return { app, generation: app._loginGeneration || 0, identity: JSON.stringify([!!g.isLogin, u.staffId, u.stationId, u.role, u.bindStatus]) } }
+function currentBindingSession(session) { const now = bindingSession(); return !!session && session.app === now.app && session.generation === now.generation && session.identity === now.identity }
 
 // 配送员自己的绑定/解绑申请历史（只读）。
 // 路径常量就近写在本页顶部，不进 config/api.js —— 那是**员工端全局路径表**，
@@ -26,6 +30,7 @@ Page({
     loading: false, loadError: '', historyError: '',
     stationList: [],
     applyingId: null, // 正在提交申请的水站ID，防重复点击
+    historyExpanded: false,
     history: [],      // 申请历史（只读，见 loadHistory）
     keyword: '',      // 名称搜索
     // ===== 就近找站（2026-09-26）=====
@@ -40,9 +45,15 @@ Page({
   // 不用 onLoad：进页面先向服务器确认真实状态 —— 可能已经在别处完成了绑定
   // （站长在后台直接把人加进本站 / 审批在另一台设备上点了通过），此时应当直接放行，
   // 而不是继续让用户"申请加入"。
+  onToggleHistory() { this.setData({ historyExpanded: !this.data.historyExpanded }) },
   onShow() {
-    this.refresh()
+    if (this._session && !currentBindingSession(this._session)) {
+      this.location = null; this._stationSeq = (this._stationSeq || 0) + 1; this._historySeq = (this._historySeq || 0) + 1; this._locationSeq = (this._locationSeq || 0) + 1
+      this.setData({ stationList: [], history: [], historyError: '', keyword: '', applyingId: null, located: false, hasLocation: false, locDenied: false, loaded: false })
+    }
+    this._session = bindingSession(); this.refresh()
   },
+  onUnload() { this._unloaded = true; this._stationSeq = (this._stationSeq || 0) + 1; this._historySeq = (this._historySeq || 0) + 1; this._locationSeq = (this._locationSeq || 0) + 1; if (this._kwTimer) clearTimeout(this._kwTimer) },
 
   /**
    * 先同步状态并尝试放行，确认确实还需要申请才加载水站列表。
@@ -65,15 +76,18 @@ Page({
    */
   onRequestLocation() {
     // 只自动定位一次：重复弹权限/重复请求没有意义（失败时页面有"重试定位"入口）
-    if (this.data.located) return
+    if (this.data.located || this._unloaded) return
+    const session = bindingSession(), seq = this._locationSeq = (this._locationSeq || 0) + 1
     wx.getLocation({
       type: 'gcj02',
       success: (res) => {
+        if (this._unloaded || seq !== this._locationSeq || !currentBindingSession(session)) return
         this.location = { lat: res.latitude, lng: res.longitude }
         this.setData({ located: true, locDenied: false })
         this.loadStations()
       },
       fail: (err) => {
+        if (this._unloaded || seq !== this._locationSeq || !currentBindingSession(session)) return
         // 不弹「去设置」的强制窗：他完全可以按名称搜到那家站，硬要权限只会卡住流程
         console.warn('[apply-bind] 定位不可用，退回名称搜索:', err && err.errMsg)
         this.setData({ locDenied: true, located: false })
@@ -98,7 +112,7 @@ Page({
   onRetryHistory() { return this.loadHistory() },
 
   async loadStations() {
-    const seq = this._stationSeq = (this._stationSeq || 0) + 1
+    const session = bindingSession(), seq = this._stationSeq = (this._stationSeq || 0) + 1
     this.setData({ loading: true, loadError: '' })
     try {
       const query = {}
@@ -108,7 +122,7 @@ Page({
         query.lng = this.location.lng
       }
       const res = await get(API.STATION_SEARCH, query)
-      if (seq !== this._stationSeq) return
+      if (this._unloaded || seq !== this._stationSeq || !currentBindingSession(session)) return
       if (!Array.isArray(res.data)) throw new Error('水站清单尚未读取')
       const list = res.data.map(s => ({
         ...s,
@@ -125,7 +139,7 @@ Page({
         loaded: true
       })
     } catch (err) {
-      if (seq !== this._stationSeq) return
+      if (this._unloaded || seq !== this._stationSeq || !currentBindingSession(session)) return
       this.setData({ loading: false, stationList: [], loaded: false, loadError: '水站列表尚未读取，请重新加载。定位不可用时仍可按名称搜索。' })
       wx.showToast({ title: err.message || '加载水站列表失败', icon: 'none' })
     }
@@ -184,7 +198,7 @@ Page({
    * 不给出口，用户就会一直卡在这里，这正是"注册卡死"的直接成因。
    */
   onLogout() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
       content: '退出后可用其他微信账号登录。',
       confirmText: '退出',
@@ -206,12 +220,15 @@ Page({
    * 前端不写 type/status → 中文映射；水站名后端只给 stationId，用本页已有的 stationList 反查补齐。
    */
   async loadHistory() {
+    const session = bindingSession(), seq = this._historySeq = (this._historySeq || 0) + 1
     this.setData({ historyError: '' })
     try {
       const res = await get(BIND_APPLICATIONS)
+      if (this._unloaded || seq !== this._historySeq || !currentBindingSession(session)) return
+      if (!res || !Array.isArray(res.data)) throw Error('申请历史尚未读取')
       const stationName = {}
       this.data.stationList.forEach(s => { stationName[s.id] = s.name })
-      const history = (res.data || []).map(row => ({
+      const history = res.data.map(row => ({
         ...row,
         stationLabel: stationName[row.stationId] || `水站 #${row.stationId}`,
         createTimeText: formatTime(row.createTime),
@@ -220,7 +237,7 @@ Page({
       this.setData({ history })
     } catch (err) {
       // 历史是附加信息：拉不到就不显示，不弹错误打断"申请绑定"这条主流程
-      this.setData({ historyError: '申请历史暂未读取，不影响搜索水站' })
+      if (!this._unloaded && seq === this._historySeq && currentBindingSession(session)) this.setData({ historyError: '申请历史暂未读取，不影响搜索水站' })
     }
   },
 
@@ -238,6 +255,7 @@ Page({
       return
     }
 
+    const session = bindingSession()
     this.setData({ applyingId: stationId })
     wx.showLoading({ title: '提交申请中...' })
     try {
@@ -249,6 +267,7 @@ Page({
         stationId: stationId
       })
 
+      if (this._unloaded || !currentBindingSession(session)) { wx.hideLoading(); return }
       // 成功后：本地更新 bindStatus=PENDING，并记住申请的水站信息
       const updated = {
         ...userInfo,
@@ -263,13 +282,15 @@ Page({
         ...updated
       })
 
+      const completedSession = bindingSession()
       wx.hideLoading()
       wx.showToast({ title: '申请已提交，等待站长审批', icon: 'success', duration: 2000 })
       setTimeout(() => {
-        wx.redirectTo({ url: '/pages/bind-wait/index' })
+        if (!this._unloaded && currentBindingSession(completedSession)) wx.redirectTo({ url: '/pages/bind-wait/index' })
       }, 1500)
     } catch (err) {
       wx.hideLoading()
+      if (this._unloaded || !currentBindingSession(session)) return
       this.setData({ applyingId: null })
       wx.showToast({ title: err.message || '申请提交失败', icon: 'none', duration: 2500 })
     }

@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { getProductDetail } = require('../../api/product')
 const { getOrderDetail } = require('../../api/order')
 const { getAddresses } = require('../../api/address')
@@ -10,13 +11,33 @@ const { submitEnterpriseApply, getMyEnterpriseApplies } = require('../../api/ent
 const { storage, stationStorage, payMethodStorage } = require('../../utils/storage')
 const { resolveStationId } = require('../../utils/station')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
-const { isDevelopEnv } = require('../../config/api')
+const { simulationAllowed } = require('../../utils/payment-channel')
 const { formatAddress } = require('../../utils/address')
 const { itemUnit } = require('../../utils/order-item-view')
 const orderIntent = require('../../utils/orderIntent')
 const { createOrderResultNavigator } = require('../../utils/order-result-navigation')
 const { errorText } = require('./visual')
 const app = getApp()
+
+// 快捷短语只编辑原备注；按完整分句匹配，避免把“不要放门口”当作已选。
+const QUICK_NOTES = ['放门口', '到前电话', '请勿按门铃']
+const NOTE_MAX_LENGTH = 140
+function quickNoteOptions(note) {
+  const clauses = String(note || '').split(/[；;\n]/).map(part => part.trim())
+  return QUICK_NOTES.map((label, id) => ({ id, label, selected: clauses.indexOf(label) >= 0 }))
+}
+function toggleQuickNote(note, phrase) {
+  const text = String(note || '')
+  const parts = text.split(/([；;\n])/)
+  if (parts.some((part, i) => i % 2 === 0 && part.trim() === phrase)) {
+    // 从后向前只删除该短语及相邻分隔符，其余自由文字/空格保持原样。
+    for (let i = parts.length - 1; i >= 0; i -= 2) {
+      if (parts[i].trim() === phrase) parts.splice(i > 0 ? i - 1 : 0, 2)
+    }
+    return parts.join('')
+  }
+  return text + (text && !/[；;\n]\s*$/.test(text) ? '；' : '') + phrase
+}
 
 // 只清理展示占位值，原始规格和报价/提交字段保持原样。
 function specTextOf(value) {
@@ -78,6 +99,7 @@ Page({
     loading: true,
     items: [],
     products: [],
+    removedProducts: [],
     productsError: '', productsLoading: false,
     address: null,
     addressText: '',
@@ -85,6 +107,7 @@ Page({
     quoteBlockSummary: '',
     quoteBlockDetail: '',
     note: '',
+    quickNotes: quickNoteOptions(''),
     barrelByType: [],
     barrelSummary: [],
     stationId: null,
@@ -117,6 +140,7 @@ Page({
     feeBreakdownReady: false,
     barrelPurchases: [], barrelPurchaseConfirmed: false,
     quoteError: '',
+    quoteNeedsStation: false,
     // [2026-09-26] 收款渠道能力（后端 quote 的 wechatPay 原样存下来）：建单成功后要不要对
     // **同一张订单**发起 createPayment，判据是这里的 enabled（= 服务端模拟渠道开着），
     // 前端不按 id===1 猜渠道、也不碰真实 wx.requestPayment。null = 还没报价，按"不可用"处理。
@@ -175,8 +199,8 @@ Page({
     inTransitReminderAck: false,   // 同一次进入页面只提示一次
     hasInTransitBarrels: false,
     // 企业身份提示（v50）：由服务端在报价里下发（金额达阈值且客户还不是企业身份时才有值），
-    // 前端不自算阈值、不自造文案。**不做独立入口** —— 只在拿到它的那一刻弹一次。
-    enterpriseHint: '',
+    // 2026-10-28：提示改为内联入口；仅顾客主动进入时沿用原申请流程，不打断报价。
+    enterpriseHint: '', enterpriseEntryError: '',
     // 数据没加载出来时的页面提示（空串 = 全部正常），见 _noteLoadError。
     loadError: '',
     // 收货地址**没加载出来**的原因（空串 = 拉到了）。与"确实没有地址"分开：
@@ -223,7 +247,7 @@ Page({
 
     if (!stationId || stationId <= 0) {
       this.setData({ loading: false })
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '请选择服务水站',
         content: '下单前要先选一家水站。水桶、水票和押金都算在这家水站名下，别家水站用不了。',
         confirmText: '去选站',
@@ -271,7 +295,7 @@ Page({
 
     const addressId = options.addressId ? parseInt(options.addressId) : null
     const specialNote = options.specialNote ? decodeURIComponent(options.specialNote) : ''
-    this.setData({ items, note: specialNote, _preferAddressId: addressId })
+    this.setData({ items, note: specialNote, quickNotes: quickNoteOptions(specialNote), _preferAddressId: addressId })
 
     this.loadItemsProducts()
     this.loadAddress(addressId)
@@ -305,6 +329,7 @@ Page({
   },
 
   onHide() {
+    this._enterpriseLife = (this._enterpriseLife || 0) + 1
     this._invalidateOrderNavigation()
     this._reorderNeedsReload = !!this._pendingReorder
     this._reorderSeq = (this._reorderSeq || 0) + 1
@@ -357,6 +382,9 @@ async loadItemsProducts() {
     this.setData({ productsLoading: true, productsError: '正在核实完整商品清单，请稍候。', quoteLoading: false })
     try {
     const products = []
+    const priorProducts = [...(this.data.products || []), ...(this.data.removedProducts || [])]
+    const priorOrder = new Map(priorProducts.filter(p => p && p.id != null && Number.isFinite(Number(p._checkoutOrder)))
+      .map(p => [String(p.id), Number(p._checkoutOrder)]))
 
     // 1. 必须有选中的服务水站
     let effectiveStationId = stationId
@@ -366,7 +394,7 @@ async loadItemsProducts() {
       // 无站点：提示去选择水站
       this.setData({ loading: false, productsError: '请先选择服务水站，再重新读取完整商品清单。' })
       const confirm = await new Promise(resolve => {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '请选择服务水站',
           content: '下单前要先选一家水站。水桶、水票和押金都算在这家水站名下，别家水站用不了。',
           confirmText: '去选站',
@@ -401,7 +429,9 @@ async loadItemsProducts() {
     // 说成"你没选商品"）。已读商品可展示，完整清单核实后才能报价和下单。
     let productFailCount = 0
     let productFailReason = ''
+    let itemOrder = 0
     for (const it of items) {
+      const checkoutOrder = itemOrder++
       try {
         // 必须带 stationId：本站自定义商品只有该站能读（后端按 owner_station_id 过滤）
         const res = await getProductDetail(it.productId, effectiveStationId)
@@ -412,6 +442,7 @@ async loadItemsProducts() {
           // 避免"有的地方改了、有的地方没改"又变成双口径（本仓计价双轨的历史事故）。
           const p = {
             ...d,
+            _checkoutOrder: priorOrder.has(String(d.id)) ? priorOrder.get(String(d.id)) : checkoutOrder,
             specText: specTextOf(d.spec),
             quantityUnit: itemUnit(d),
             price: d.effectivePrice != null ? d.effectivePrice : d.price,
@@ -558,7 +589,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       const orderStationId = order.deliveryStationId || order.stationId
 
       if (currentStationId && orderStationId && currentStationId !== orderStationId) {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '水站不一致',
           content: '本次将使用上次配送水站的商品和价格，水票与押金按该站核实。是否继续？',
           confirmText: '继续',
@@ -615,7 +646,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
     this.setData({
       items,
-      note: order.customerNote || '',
+      note: order.customerNote || '', quickNotes: quickNoteOptions(order.customerNote),
       stationId: order.deliveryStationId || order.stationId || this.data.stationId
     })
     this.loadAddress(order.addressId)
@@ -700,13 +731,15 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   onQtyChange(e) {
-    if (this.data.productsLoading || this.data.productsError) return
+    if (this.orderLineEditingLocked()) return
     const { index, type } = e.currentTarget.dataset
     const products = [...this.data.products]
     let qty = products[index].quantity || 1
     if (type === 'add') qty++
     else if (type === 'minus' && qty > 1) qty--
     products[index].quantity = qty
+    products[index].quantityDraft = String(qty)
+    products[index].quantityError = ''
     products[index].subtotal = (parseFloat(products[index].price) || 0) * qty
     products[index].subtotalText = products[index].subtotal.toFixed(2)
 
@@ -717,21 +750,90 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   onQtyInput(e) {
-    if (this.data.productsLoading || this.data.productsError) return
-    const { index } = e.currentTarget.dataset
-    const qty = Math.max(1, parseInt(e.detail.value) || 1)
-    const products = [...this.data.products]
+    if (this.orderLineEditingLocked()) return
+    const index = Number(e.currentTarget.dataset.index), products = [...this.data.products]
+    if (!products[index]) return
+    const value = String(e.detail.value), qty = Number(value)
+    const valid = /^[1-9]\d*$/.test(value) && Number.isSafeInteger(qty)
+    products[index] = { ...products[index], quantityDraft: value, quantityError: valid ? '' : '请填写大于0的整数' }
+    if (!valid) {
+      // 2026-10-28：保留空输入；原有效数量仅作草稿背景，未修正前不可报价或下单。
+      this.cancelScheduledQuote(); this.invalidateQuote()
+      this.setData({ products, quoteError: '请先核对商品数量', quoteLoading: false })
+      return
+    }
     products[index].quantity = qty
     products[index].subtotal = (parseFloat(products[index].price) || 0) * qty
     products[index].subtotalText = products[index].subtotal.toFixed(2)
     const items = products.map(p => ({ productId: p.id, quantity: p.quantity || 1 }))
-    this.setData({ products, items })
+    this.setData({ products, items }); this.syncBarrelSummary(); this.scheduleQuote()
+  },
+
+  orderLineEditingLocked() {
+    if (this._quoteHidden || this._quoteDestroyed) return true
+    if (this.data.productsLoading || this.data.productsError || this.data.submitting || this.data.submitState === 'creating'
+        || this.data.submitState === 'unknown' || this.data.pendingOrderId || this.data.orderNavigationBusy || this.data.orderNavigationError) return true
+    return !!(this._pendingOrderForCurrentCart && this._pendingOrderForCurrentCart())
+  },
+
+  applyCheckoutProducts(products, removedProducts) {
+    const items = products.map(p => ({ productId: p.id, quantity: p.quantity || 1 }))
+    this.cancelScheduledQuote()
+    this.setData({ products, items, removedProducts })
     this.syncBarrelSummary()
-    this.scheduleQuote()
+    if (products.length) {
+      this.scheduleQuote()
+      return
+    }
+    // Removing the final line clears the old quote instead of turning an empty cart into
+    // a failed quote. The explicit empty-cart gate still blocks all submit paths.
+    this.invalidateQuote({ emptyCart: true })
+  },
+
+  onRemoveProduct(e) {
+    if (this.orderLineEditingLocked()) return
+    const index = Number(e && e.currentTarget && e.currentTarget.dataset.index)
+    const products = (this.data.products || []).slice(), product = products[index]
+    if (!product) return
+    const removed = (this.data.removedProducts || []).slice()
+    const saved = { ...product, _checkoutOrder: Number.isFinite(Number(product._checkoutOrder)) ? Number(product._checkoutOrder) : index }
+    products.splice(index, 1)
+    removed.push(saved)
+    this.applyCheckoutProducts(products, removed)
+  },
+
+  onUndoRemovedProduct(e) {
+    if (this.orderLineEditingLocked()) return
+    const index = Number(e && e.currentTarget && e.currentTarget.dataset.index)
+    const removed = (this.data.removedProducts || []).slice(), product = removed[index]
+    if (!product) return
+    const products = (this.data.products || []).concat([{ ...product }])
+    products.sort((a, b) => Number(a._checkoutOrder) - Number(b._checkoutOrder))
+    removed.splice(index, 1)
+    this.applyCheckoutProducts(products, removed)
+  },
+
+  onContinueSelectingWater() {
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    if (pages.length > 1) wx.navigateBack()
+    else wx.switchTab({ url: '/pages/home/index' })
+  },
+
+  onQuickNoteTap(e) {
+    if (this._orderNavigationHidden || this._quoteDestroyed || this.data.submitting
+      || this.data.submitState === 'creating' || this.data.submitState === 'unknown' || this.data.pendingOrderId) return
+    const id = e.currentTarget.dataset.id
+    if (!/^[0-2]$/.test(String(id))) return
+    const note = toggleQuickNote(this.data.note, QUICK_NOTES[Number(id)])
+    if (note.length > NOTE_MAX_LENGTH && note.length > String(this.data.note || '').length) {
+      wx.showToast({ title: '备注已满，请先编辑', icon: 'none' })
+      return
+    }
+    this.onNoteInput({ detail: { value: note } })
   },
 
   onNoteInput(e) {
-    this.setData({ note: e.detail.value })
+    this.setData({ note: e.detail.value, quickNotes: quickNoteOptions(e.detail.value) })
   },
 
   onAddressTap() {
@@ -755,7 +857,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   // 2026-10-25：底栏只投影已有阻断原因；过滤技术原文，不参与报价或提交判断。
   _syncQuoteBlockNotice() {
-    const visible = this.data.blocked && !this.data.submitting && !this.data.pendingOrderId && this.data.submitState !== 'unknown'
+    const visible = this.data.blocked && !this.data.quoteError && !this.data.submitting && !this.data.pendingOrderId && this.data.submitState !== 'unknown'
     const reason = visible ? errorText({ message: this.data.blockReason }, '最新金额和支付方式尚未核实，请重试报价') : ''
     const chars = Array.from(reason)
     this.setData({
@@ -766,16 +868,17 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   onViewQuoteBlockReason() {
     if (!this.data.blocked || !this.data.quoteBlockDetail || this.data.submitting || this.data.pendingOrderId || this.data.submitState === 'unknown') return
-    wx.showModal({ title: '暂不可下单', content: this.data.quoteBlockDetail, showCancel: false,
+    showBusinessModal({ title: '暂不可下单', content: this.data.quoteBlockDetail, showCancel: false,
       confirmText: '知道了', confirmColor: '#1264D6' })
   },
 
-  invalidateQuote() {
+  invalidateQuote(options = {}) {
+    const emptyCart = options.emptyCart === true
     const seq = this._quoteRequestSeq = (this._quoteRequestSeq || 0) + 1
     this._quotedContext = null
     this._unifiedConfirmation = null
-    this.setData({ quoteLoading: true, quoteReady: false, quoteError: '', blocked: true, checkoutWarnings: [],
-      blockReason: '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false,
+    this.setData({ quoteLoading: !emptyCart, quoteReady: false, quoteError: '', quoteNeedsStation: false, blocked: !emptyCart, checkoutWarnings: [],
+      blockReason: emptyCart ? '' : '正在核实最新报价，请稍候', payMethods: [], wechatPay: null, missingRights: [], barrelPurchases: [], barrelPurchaseConfirmed: false,
       totalAmount: 0, totalWaterCost: 0, totalDeposit: 0, extraDepositBuckets: 0, extraDepositAmount: 0, deliveryFee: 0, floorFee: 0,
       totalWaterCostText: '—', totalAmountText: '—', payableAmountText: '—', payableAmountLabel: '本次需付',
       extraDepositAmountText: '', floorFeeText: '', deliveryFeeText: '', feeTotalText: '',
@@ -824,6 +927,11 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const current = () => !this._quoteDestroyed && !this._quoteHidden && seq === this._quoteRequestSeq
       && isCurrentSession(session) && contextKey === this._quoteContextKey()
 
+    if (products.some(product => product.quantityError)) {
+      this.setData({ quoteLoading: false, quoteError: '请先核对商品数量', blockReason: '请先核对商品数量' }, () => this._syncQuoteBlockNotice())
+      return false
+    }
+
     if (this.data.productsLoading || this.data.productsError) {
       this.setData({ quoteLoading: false, blockReason: '请先核实完整商品清单' }, () => this._syncQuoteBlockNotice())
       return false
@@ -853,7 +961,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       })
       if (!current()) return false
       if (!res || (res.code !== undefined && ![0, 200].includes(res.code)) || !res.data) {
-        throw new Error('报价结果未核实，请重试')
+        throw Object.assign(new Error(errorText(res, '报价结果未核实，请重试')), { businessRejected: !!res && res.code === 1 })
       }
       {
         const d = res.data
@@ -883,7 +991,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 当前页面仅能执行 PayMethod.java ALL 中的渠道；名称与可用性仍取服务端。
         const wechatPay = d.wechatPay || null
         // 2026-10-24：非开发版保留渠道禁用守卫，名称/说明只呈现顾客可用的下一步；开发版仍保留模拟标识。
-        const mockWechatBlocked = !!(wechatPay && wechatPay.simulated === true && !isDevelopEnv())
+        const mockWechatBlocked = !!(wechatPay && wechatPay.simulated === true
+          && !simulationAllowed(wechatPay))
         const payMethods = Array.isArray(d.methods) ? d.methods.map(method => method && method.id === 1 && mockWechatBlocked
           ? { ...method, enabled: false, name: '微信支付（暂不可用）', desc: '请选择其它可用方式或联系水站' }
           : method) : d.methods
@@ -1049,8 +1158,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // "已下单"态跟着这次报价重算：客户改了数量/地址/支付方式 ⇒ 指纹变了 ⇒ 提示行与按钮文案
         // 自动回到常态「立即下单」，**不需要**在每个改内容的入口手动清状态。
         this._syncPendingOrderState()
-        // 弹窗放在 setData 之后、不 await：提示而已，绝不能拖住报价渲染或下单按钮
-        this.maybePromptEnterprise(enterpriseHint)
+        // 企业提示已随报价展示；仅在顾客点击入口后询问。
         return true
       }
     } catch (e) {
@@ -1060,15 +1168,18 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 真机弱网下会提交一张金额陈旧的订单（钱的事，宁可挡住）。
       // 失败保持 quoteReady=false；点击与提交前等待两处都检查，只有重试成功才能重新提交。
       console.error('[OrderCreate] refreshQuote 失败:', e)
+      const reason = errorText(e, '暂时无法读取报价，请稍后重试').replace(/[。！？；，、\s]+$/, '')
+      const quoteNeedsStation = e && e.businessRejected === true && /^水站配送计费/.test(reason)
       this.setData({
         blocked: true,
         quoteReady: false,
         payMethods: [], wechatPay: null, ticketPay: null, ticketCoverText: '',
         ticketShortfallHint: '', ticketCanBuy: false, ticketAltMethod: null, missingRights: [],
         barrelPurchases: [], barrelPurchaseConfirmed: false,
-        quoteError: '没能核实最新金额和支付方式。' + errorText(e, '请稍后重试').replace(/[。！？；，、\s]+$/, '') + '。已暂停下单，请重试报价。',
-        blockReason: '最新金额和支付方式尚未核实，请重试报价',
-        checkoutWarnings: ['最新金额和支付方式尚未核实，请重试报价']
+        quoteNeedsStation,
+        quoteError: reason + '。',
+        blockReason: reason,
+        checkoutWarnings: []
       })
       wx.showToast({ title: '报价加载失败，已暂停下单', icon: 'none' })
       return false
@@ -1136,13 +1247,19 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       return
     }
 
+    if (!(this.data.products || []).length) {
+      wx.showToast({ title: '请先选水，再确认下单', icon: 'none' })
+      return
+    }
+
     if (this.data.quoteLoading) {
       wx.showToast({ title: '正在核实报价，请稍候', icon: 'none' }); return
     }
     if (this.data.quoteError || !this.data.quoteReady || !this._hasCurrentQuote()) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '报价尚未核实', content: this.data.quoteError || '请先核实最新金额和支付方式，再提交订单。',
-        confirmText: '重试报价', cancelText: '留在本页',
-        success: result => { if (result.confirm) this.onRetryQuote() } })
+      const needsStation = this.data.quoteNeedsStation
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: needsStation ? '水站待完善配送计费' : '费用尚未确认', content: this.data.quoteError || '请先确认本次费用和支付方式，再提交订单。',
+        confirmText: needsStation ? '联系水站' : '重新计算费用', cancelText: '留在本页',
+        success: result => { if (result.confirm) needsStation ? this.onCallStation() : this.onRetryQuote() } })
       return
     }
 
@@ -1151,7 +1268,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     // reason 由后端下发（与 createOrder 的拒绝判据同源），前端不自己判断该不该拦。
     if (this.data.blocked) {
       const missing = (this.data.missingRights || [])[0]
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '暂不可下单',
         content: this.data.blockReason || '当前订单暂不满足下单条件，请调整后重试',
         showCancel: !!missing,
@@ -1218,7 +1335,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         const canBuyTicket = tp.reason === 'INSUFFICIENT'
         const ticketHint = typeof tp.hint === 'string' ? tp.hint.trim() : ''
         // 2026-10-24：非缺票情形没有自动切换动作，按钮仅确认知悉，正文指向手动选择。
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: tp.title || '暂不能用票支付',
           content: canBuyTicket ? (ticketHint || '水票不足以覆盖本单，请改选支付方式或先补齐水票')
             : (ticketHint ? ticketHint.replace(/[。！？；，、\s]+$/, '') + '。' : '') + '请关闭提示后，在支付方式中手动选择其它可用方式。',
@@ -1284,7 +1401,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const text = lines.map(l => (l.productName || '商品编号 ' + l.productId) + '：新增用桶权益 ' + l.quantity
       + ' 份，单价 ¥' + Number(l.unitPrice).toFixed(2) + '，本次桶押金 ¥' + Number(l.amount).toFixed(2)).join('；')
     const confirmationKey = this._confirmationKey()
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '确认本次新增桶押金',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '确认本次新增桶押金',
       content: text + '。与本单水款一起付款，收齐款项后押金生效。' + (busy ? '已有容量正在办理其他订单，可等待释放，或明确再买一份。' : '也可返回，在水桶与押金页单独办理。'),
       confirmText: '一起付款', cancelText: busy ? '等待释放' : '返回修改',
       success: result => {
@@ -1348,7 +1465,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       pendingOrderPaid: pending ? pending.paid === true : false,
       // 旧缓存只有 paid=false 时无法区分未付/未核实，展示为待确认。
       pendingOrderPaymentState: pending ? (pending.paid === true ? 'paid' : pending.paymentState || 'unknown') : 'unknown'
-    })
+    }, () => this._measureOrderRecoveryBar())
   },
 
   /**
@@ -1404,8 +1521,10 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   /** 恢复卡与报价原因均按整栏实测高度留白；测量失败由页面样式保底，不影响业务。 */
   _measureOrderRecoveryBar() {
-    const notice = () => this.data.orderNavigationError || (this.data.blocked && !this.data.submitting
-      && !this.data.pendingOrderId && this.data.submitState !== 'unknown' && this.data.quoteBlockSummary) || ''
+    const notice = () => this.data.orderNavigationError
+      || (this.data.submitState === 'unknown' ? (this.data.unknownResultText || '原提交待核实') : '')
+      || (this.data.blocked && !this.data.submitting && !this.data.pendingOrderId
+        && this.data.submitState !== 'unknown' && this.data.quoteBlockSummary) || ''
     const key = notice()
     const seq = this._orderRecoveryLayoutSeq = (this._orderRecoveryLayoutSeq || 0) + 1
     if (!key) {
@@ -1566,15 +1685,15 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       if (!replay && requestRecord.phase === 'unknown' && isDefiniteFirstOrderRejection(error)) {
         orderIntent.settleRequest(requestRecord, 'prepared')
         if (current()) {
-          this.setData({ submitState: 'idle', unknownResultText: '' })
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '订单未创建', content: errorText(error, '本次下单未被接受') + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
+          this.setData({ submitState: 'idle', unknownResultText: '' }, () => this._measureOrderRecoveryBar())
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '订单未创建', content: errorText(error, '本次下单未被接受') + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
         }
         return
       }
       // 停业/地址校验可能在幂等查找之前拒绝重放；businessRejected 不能证明历史 unknown 原单不存在。
       if (!current()) return
       this._showOrderRecoveryBlocked('原提交结果尚未确认，保留原编号和内容，请重试核实或到我的订单查看。')
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '原提交还需核实', content: errorText(error, '本次结果尚未确认。') + '\n\n'
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '原提交还需核实', content: errorText(error, '本次结果尚未确认。') + '\n\n'
         + '原单可能已创建。重试只办理原提交，不会更换编号或内容。', confirmText: '重试', cancelText: '先查看',
         success: result => {
           if (result.confirm && current() && !this._quoteHidden && requestRecord.phase === 'unknown') this._createOrder(false)
@@ -1582,19 +1701,19 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     } finally {
       orderIntent.releaseRequest(requestRecord)
       if (current()) this.setData({ submitting: false,
-        submitState: requestRecord.phase === 'unknown' ? 'unknown' : 'idle' })
+        submitState: requestRecord.phase === 'unknown' ? 'unknown' : 'idle' }, () => this._measureOrderRecoveryBar())
     }
   },
 
   _showOrderRecoveryBlocked(message) {
-    this.setData({ submitting: false, submitState: 'unknown', unknownResultText: errorText({ message }, '原提交结果尚未确认，请核对原订单或恢复原请求。') })
+    this.setData({ submitting: false, submitState: 'unknown', unknownResultText: errorText({ message }, '原提交结果尚未确认，请核对原订单或恢复原请求。') }, () => this._measureOrderRecoveryBar())
   },
 
   _restoreOrderRequest() {
     try {
       const request = orderIntent.getRequest(captureSession(), this.data.lastSubmittedOrder)
       if (request && request.phase === 'unknown') this._showOrderRecoveryBlocked('原提交结果尚未确认，请重试核实原提交或到我的订单查看。')
-      else if (request && request.phase === 'known' && !request.busy) this.setData({ submitState: 'idle', unknownResultText: '' })
+      else if (request && request.phase === 'known' && !request.busy) this.setData({ submitState: 'idle', unknownResultText: '' }, () => this._measureOrderRecoveryBar())
     } catch (error) {
       this._showOrderRecoveryBlocked(error.message)
       const receipt = this.data.lastSubmittedOrder
@@ -1603,7 +1722,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         getOrderDetail(receipt.orderId).then(result => {
           if (!isCurrentSession(session) || this._quoteDestroyed) return
           if (orderIntent.reconcileKnownOrder(result && result.data, session)) {
-            this.setData({ submitState: 'idle', unknownResultText: '' })
+            this.setData({ submitState: 'idle', unknownResultText: '' }, () => this._measureOrderRecoveryBar())
           }
         }).catch(() => { /* 查询失败或未命中不能证明原单不存在，保留原 key-only 保护。 */ })
       }
@@ -1703,7 +1822,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
             : unknown ? '订单已经建好了（订单号 ' + orderId + '），暂时查不到是否已付款。请点「查原单」刷新核实；若继续支付，仍办理这张原订单。'
             : errorText(outcome.error, '支付暂未完成，请核对原订单')
               + '。订单已经建好了（订单号 ' + orderId + '），但这一笔支付没有完成。'
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title,
             content: body,
             showCancel: outcome.state !== 'paid',
@@ -1801,7 +1920,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   /**
    * 展示下单响应里的 warnings（非阻断）。
    * wx.showModal 是**回调式** API（本仓没有 promisify），所以这里包一层 Promise
-   * 以便在跳转前把提示显示完 —— 直接 await wx.showModal(...) 会恒得 undefined。
+   * 以便在跳转前把提示显示完 —— 直接 await showBusinessModal(...) 会恒得 undefined。
    *
    * ⚠️ [2026-09-26 修] 入参是**已经解包的业务 data**（`_createOrder` 里的 `data`），
    *   不是整个响应体。原实现的形参叫 `orderRes` 且读 `orderRes.data.warnings`，
@@ -1813,7 +1932,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const warnings = Array.isArray(rawWarnings) ? Array.from(new Set(rawWarnings)) : []
     if (!Array.isArray(warnings) || !warnings.length) return Promise.resolve()
     return new Promise((resolve) => {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '下单成功，请注意',
         content: warnings.join('\n'),
         showCancel: false,
@@ -1902,45 +2021,35 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     return this._finishConfirmedOrder(proof)
   },
 
-  // ===== 企业身份申请（v50）=====
-  //
-  // 产品口径：「订水时检测到大额订单，会弹出确认是否是企业，可申请企业身份」——
-  // **客户侧没有独立入口**，这一步就是全部入口。
-  //
-  // 三个设计取舍（改之前先读）：
-  //   ① 每次进入页面**只弹一次**（this.enterprisePrompted 是挂在页面实例上的，不是 data）：
-  //      报价在改数量/改支付方式时都会重算，若不加这个闸门，用户每点一下加号就被弹一次。
-  //   ② 弹窗前先查一次"我在本站有没有待审的申请"：已经申请过的人不再骚扰
-  //      （重复提交后端虽然幂等，但天天弹同一个窗很烦）。查询失败**不阻断** ——
-  //      宁可多弹一次，也不能因为一次网络抖动就把"能申请"这件事静默丢掉。
-  //   ③ 全程不阻断下单：无论用户点"暂不"、还是提交失败，都不影响本次下单流程。
-  maybePromptEnterprise(hint) {
-    if (!hint || this.enterprisePrompted) return
-    // 先置位再弹：showModal 是异步回调，这里若不先置位，同一轮里的第二次报价会再弹一个
-    this.enterprisePrompted = true
-    this.checkPendingEnterpriseApply().then((hasPending) => {
-      if (hasPending) return
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-        title: '企业订水',
-        content: hint,
-        confirmText: '申请企业',
-        cancelText: '暂不',
-        success: (r) => {
-          if (r.confirm) this.askEnterpriseName()
-        }
-      })
-    })
+  // 2026-10-28：报价曾自动弹出低频申请。改为主动入口，站别/身份变化后不接迟到确认。
+  maybePromptEnterprise(hint) { if (hint) return this.onEnterpriseEntry() },
+  async onEnterpriseEntry() {
+    if (!this.data.enterpriseHint || this._enterprisePromptFlight) return
+    const session = captureSession(), stationId = this.data.stationId, life = this._enterpriseLife || 0
+    const current = () => !this._quoteHidden && !this._quoteDestroyed && life === (this._enterpriseLife || 0)
+      && isCurrentSession(session) && stationId === this.data.stationId
+    this._enterprisePromptFlight = true
+    try {
+      const hasPending = await this.checkPendingEnterpriseApply()
+      if (!current()) return
+      if (hasPending === null) { this.setData({ enterpriseEntryError: '申请记录暂未读取，请重试；本次订水不受影响。' }); return }
+      this.setData({ enterpriseEntryError: '' })
+      if (hasPending) { wx.showToast({ title: '本站已有待审核申请', icon: 'none' }); return }
+      await new Promise(resolve => showBusinessModal({ title: '企业订水', content: this.data.enterpriseHint, confirmText: '申请企业', cancelText: '暂不',
+        success: r => { if (r.confirm && current()) this.askEnterpriseName() }, complete: resolve, fail: resolve }))
+    } finally { this._enterprisePromptFlight = false }
   },
 
-  /** 本站是否已有待审申请（拿不到就说"没有"，即允许弹窗）。 */
+  /** 未核实申请记录返回null，不能冒充没有待审申请。 */
   async checkPendingEnterpriseApply() {
     try {
       const res = await getMyEnterpriseApplies(this.data.stationId)
-      const list = (res && res.data) || []
+      if (!res || res.code != null && ![0, 200].includes(res.code) || !Array.isArray(res.data)) throw new Error('申请记录暂未核实')
+      const list = res.data
       return list.some((a) => a.status === 'PENDING')
     } catch (e) {
-      console.warn('[OrderCreate] 查询企业身份申请失败（按未申请处理）:', e.message)
-      return false
+      console.warn('[OrderCreate] 查询企业身份申请失败:', e.message)
+      return null
     }
   },
 
@@ -1950,12 +2059,15 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
    * 联系人/电话/税号都可留空：站长审核时看得到是谁在下单（订单里有收货人）。
    */
   askEnterpriseName() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    const session = captureSession(), stationId = this.data.stationId, life = this._enterpriseLife || 0
+    const current = () => !this._quoteHidden && !this._quoteDestroyed && life === (this._enterpriseLife || 0)
+      && isCurrentSession(session) && stationId === this.data.stationId
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '企业名称',
       editable: true,
       placeholderText: '请填写营业执照上的企业全称',
       success: (r) => {
-        if (!r.confirm) return
+        if (!r.confirm || !current()) return
         const companyName = (r.content || '').trim()
         if (!companyName) {
           wx.showToast({ title: '企业名称不能为空', icon: 'none' })
@@ -1975,7 +2087,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         // 电话可用就用收货人电话兜底：站长要打电话核实时不至于拿到一条没有任何联系方式的申请
         contactPhone: address.phone || undefined
       })
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '申请已提交',
         content: '水站站长审核通过后，你会成为企业客户。本次下单不受影响，可以继续。',
         showCancel: false,

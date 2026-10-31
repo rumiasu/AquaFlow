@@ -1,3 +1,4 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 // 2026-10-06：真实入口重入 + 原生回调竞态。微信请求不可取消，旧回调不得释放新尝试。
 const assert = require('assert')
 const fs = require('fs')

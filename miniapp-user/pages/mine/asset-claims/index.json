@@ -1,3 +1,8 @@
 {
-  "navigationBarTitleText": "历史资产认领"
+  "navigationBarTitleText": "历史资产认领",
+  "usingComponents": {
+    "integer-stepper": "/components/IntegerStepper/index",
+    "product-selector": "/components/ProductSelector/index",
+    "icon": "/components/Icon/index"
+  }
 }

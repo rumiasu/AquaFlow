@@ -39,10 +39,39 @@ class ManagerFeedbackRepairTest {
     @Test void invalidStatusCannotBypassExistingRemoveCommand() {
         var c=catalog(1);var dto=new ManagerProductDTO.Update();dto.setStatus(0);assertThrows(BusinessException.class,()->c.service.updateMyProduct(11L,17L,dto));verify(c.products,never()).updateOwned(any(),anyLong());
     }
+    @Test void nonBarrelCanSaveAndEnableBeforeDeliveryFeePreparation() {
+        var c=catalog(1);
+        var dto=new com.example.aquaflow.dto.StationCatalogSettingDTO();dto.setEnabled(1);
+        c.service.saveStationSetting(11L,17L,dto,false);
+        verify(c.inventory).saveStationSetting(argThat(i->Integer.valueOf(1).equals(i.getEnabled()) && Integer.valueOf(1).equals(i.getPricingConfirmed())));
+    }
+    @Test void sharedProductSelectionDoesNotConfirmPricingButExplicitSaveDoes() {
+        var c=catalog(1);var vo=new ProductWithInventoryVO();vo.setId(17L);vo.setCategory(2);vo.setStatus(1);vo.setPrice(new BigDecimal("12"));
+        when(c.products.getByIdWithInventory(17L,11L)).thenReturn(vo);
+        var dto=new com.example.aquaflow.dto.StationCatalogSettingDTO();
+        c.service.saveStationSetting(11L,17L,dto,true);
+        verify(c.inventory).saveStationSetting(argThat(i->i.getPricingConfirmed()==null));
+        reset(c.inventory);
+        c.service.saveStationSetting(11L,17L,dto,false);
+        verify(c.inventory).saveStationSetting(argThat(i->Integer.valueOf(1).equals(i.getPricingConfirmed())));
+    }
+    @Test void rejectedSettingsNeverConfirmPricing() {
+        var c=catalog(1);var dto=new com.example.aquaflow.dto.StationCatalogSettingDTO();dto.setDepositPrice(BigDecimal.ONE);
+        assertThrows(BusinessException.class,()->c.service.saveStationSetting(11L,17L,dto,false));
+        verifyNoInteractions(c.inventory);
+    }
+    @Test void invalidStationMoneyNeverWritesOrConfirms() {
+        for(String amount:new String[]{"-1","1.234","100000000"}) {
+            var c=catalog(1);var dto=new com.example.aquaflow.dto.StationCatalogSettingDTO();dto.setSalePrice(new BigDecimal(amount));
+            assertThrows(BusinessException.class,()->c.service.saveStationSetting(11L,17L,dto,false));
+            verifyNoInteractions(c.inventory);
+        }
+    }
     private record Guide(StationSetupGuideService service,Station station,Inventory inventory,StaffPieceRateMapper rates) {}
     private Guide guide() {
         var service=new StationSetupGuideService();var stations=mock(StationMapper.class);var inventories=mock(InventoryMapper.class);var staff=mock(StaffMapper.class);var rates=mock(StaffPieceRateMapper.class);var fees=mock(StationDeliveryConfigMapper.class);
-        ReflectionTestUtils.setField(service,"stationMapper",stations);ReflectionTestUtils.setField(service,"inventoryMapper",inventories);ReflectionTestUtils.setField(service,"staffMapper",staff);ReflectionTestUtils.setField(service,"staffPieceRateMapper",rates);ReflectionTestUtils.setField(service,"stationDeliveryConfigMapper",fees);ReflectionTestUtils.setField(service,"productMapper",mock(ProductMapper.class));ReflectionTestUtils.setField(service,"ticketPackageMapper",mock(TicketPackageMapper.class));ReflectionTestUtils.setField(service,"stationTicketDiscountMapper",mock(StationTicketDiscountMapper.class));
+        ReflectionTestUtils.setField(service,"stationMapper",stations);ReflectionTestUtils.setField(service,"inventoryMapper",inventories);ReflectionTestUtils.setField(service,"staffMapper",staff);ReflectionTestUtils.setField(service,"staffPieceRateMapper",rates);ReflectionTestUtils.setField(service,"stationDeliveryConfigMapper",fees);ReflectionTestUtils.setField(service,"deliveryConfigGuideService",mock(com.example.aquaflow.service.impl.DeliveryConfigGuideService.class));ReflectionTestUtils.setField(service,"productMapper",mock(ProductMapper.class));ReflectionTestUtils.setField(service,"ticketPackageMapper",mock(TicketPackageMapper.class));ReflectionTestUtils.setField(service,"stationTicketDiscountMapper",mock(StationTicketDiscountMapper.class));
+        ReflectionTestUtils.setField(service,"ticketTierService",mock(com.example.aquaflow.service.impl.TicketTierService.class));
         var s=new Station();s.setId(11L);s.setPhone("synthetic");s.setAddress("synthetic address");s.setLat(BigDecimal.ONE);s.setLng(BigDecimal.ONE);when(stations.getById(11L)).thenReturn(s);
         var i=new Inventory();i.setProductId(17L);i.setStatus(1);i.setEnabled(1);i.setTicketEnabled(0);when(inventories.listByStationId(11L)).thenReturn(List.of(i));when(fees.getByStationId(11L)).thenReturn(new StationDeliveryConfig());when(staff.listByStationIdAndRole(11L,"DELIVERY")).thenReturn(List.of(new Staff()));
         var rate=new StaffPieceRate();rate.setPerBucketAmount(new BigDecimal("2"));when(rates.getByStationAndProduct(11L,0L)).thenReturn(rate);return new Guide(service,s,i,rates);
@@ -50,6 +79,6 @@ class ManagerFeedbackRepairTest {
     @SuppressWarnings("unchecked") private Map<String,Object> item(Guide g,String key) {return ((List<Map<String,Object>>)g.service.guide(11L).get("items")).stream().filter(i->key.equals(i.get("key"))).findFirst().orElseThrow();}
     @Test void completedLocationHasACompletedExplanation() {var g=guide();var i=item(g,"stationPosition");assertEquals(true,i.get("done"));assertTrue(i.get("why").toString().contains("均已保存"));assertFalse(i.get("why").toString().contains("没地址"));}
     @Test void eachIncompleteLocationExplainsOnlyTheMissingPart() {var g=guide();g.station.setLat(null);assertTrue(item(g,"stationPosition").get("why").toString().contains("有地址但没坐标"));g.station.setLat(BigDecimal.ONE);g.station.setAddress(null);assertTrue(item(g,"stationPosition").get("why").toString().contains("有坐标但没地址"));g.station.setLat(null);assertTrue(item(g,"stationPosition").get("why").toString().contains("地址和坐标都还没有"));}
-    @Test void configuredPayrollNeverClaimsNoRateAndMissingPayrollRemainsPending() {var g=guide();var i=item(g,"staffPayroll");assertEquals(true,i.get("done"));assertTrue(i.get("why").toString().contains("已配置"));when(g.rates.getByStationAndProduct(11L,0L)).thenReturn(null);i=item(g,"staffPayroll");assertEquals(false,i.get("done"));assertTrue(i.get("why").toString().contains("没配计件单价"));}
+    @Test void configuredPayrollNeverClaimsNoRateAndMissingPayrollRemainsPending() {var g=guide();var i=item(g,"staffPayroll");assertEquals(true,i.get("done"));assertTrue(i.get("why").toString().contains("已配置"));when(g.rates.getByStationAndProduct(11L,0L)).thenReturn(null);i=item(g,"staffPayroll");assertEquals(false,i.get("done"));assertTrue(i.get("why").toString().contains("尚未配置默认计件单价"));}
     @Test void retiredInventoryDoesNotCountAsSellableForSetup() {var g=guide();g.inventory.setStatus(0);assertEquals(false,item(g,"catalogOnShelf").get("done"));}
 }

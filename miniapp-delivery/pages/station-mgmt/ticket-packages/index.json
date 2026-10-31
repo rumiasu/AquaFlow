@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "水票档位",
-  "usingComponents": {}
+  "usingComponents": {
+    "integer-stepper": "../../../components/IntegerStepper/index"
+  }
 }

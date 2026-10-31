@@ -3,5 +3,6 @@ const ROOT = '/api/manager/asset-claims'
 module.exports = {
   pending: () => get(ROOT),
   detail: id => get(ROOT + '/' + id),
+  photo: id => get(ROOT + '/' + id + '/photo'),
   review: (id, body) => post(ROOT + '/' + id + '/review', body)
 }

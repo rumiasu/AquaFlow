@@ -3,6 +3,7 @@
 const assert = require('assert'), fs = require('fs'), path = require('path')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
 const { parseWxml, renderElements } = require('./wxml-tree')
+const findNode = (node, predicate) => predicate(node) ? node : (node.children || []).map(child => findNode(child, predicate)).find(Boolean)
 const sourceRoot = process.env.QWEN_BASELINE_ROOT || ROOT
 const done = armWatchdog(30000), tests = [], test = (name, run) => tests.push({ name, run })
 const tick = () => new Promise(resolve => setImmediate(resolve))
@@ -159,8 +160,15 @@ test('unverifiable refusal stays conservative and provides a usable exit', async
     throw Object.assign(Error('timeout'), { requestMayHaveOccurred: true })
   }))
   await t.page.onVerifyOrderWrite(); assert.equal(t.page.data.writeUnknown, true)
-  const text = render(t, 'miniapp-delivery/pages/order/detail.wxml').filter(value => value.tag === 'button').map(value => value.text)
-  assert.ok(text.includes('核实当前订单')); assert.ok(text.includes('返回任务列表'))
+  const visible = render(t, 'miniapp-delivery/pages/order/detail.wxml')
+  const source = fs.readFileSync(path.join(sourceRoot, 'miniapp-delivery/pages/order/detail.wxml'), 'utf8')
+  const root = parseWxml(source)
+  for (const [handler, label] of [['onVerifyOrderWrite', '核实当前订单'], ['onReturnToTasks', '返回任务列表']]) {
+    assert.ok(visible.some(value => value.tag === 'button' && value.attrs.bindtap === handler))
+    const button = findNode(root, node => node.tag === 'button' && node.attrs.bindtap === handler && findNode(node, child => child.tag === '#text' && child.value.trim() === label))
+    assert(button)
+    assert(renderElements({ children: [button] }, t.page.data, { includeText: true }).some(value => value.text === label))
+  }
   t.page.onReturnToTasks(); assert.equal(t.wx.__calls.nav.at(-1).url, '/pages/home/index')
 })
 test('cash collecting detail keeps navigation alongside collection', async () => {

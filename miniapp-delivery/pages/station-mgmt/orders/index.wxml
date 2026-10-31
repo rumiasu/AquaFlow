@@ -9,38 +9,38 @@ var percent = function (part, total) {
 module.exports = { percent: percent }
 </wxs>
 <view class="container">
-  <view class="work-head"><text class="work-title">订单</text><text class="work-desc">按状态找单；跨站履约单独列示。</text></view>
-  <view class="history-controls">
-    <include src="../../../utils/station-history-customer.wxml" />
-    <view class="history-date-row"><picker mode="date" value="{{startDate}}" bindchange="onHistoryDateChange" data-field="startDate"><view>{{startDate || '开始日期'}}</view></picker><text>至</text><picker mode="date" value="{{endDate}}" bindchange="onHistoryDateChange" data-field="endDate"><view>{{endDate || '结束日期'}}</view></picker><text bindtap="onClearHistoryDates">清除日期</text></view>
-    <view class="history-scope">结束日包含当天；本站归属订单已加载 {{list.length}} 张。跨站履约另列，不随此处筛选。</view>
-    <view class="history-error" wx:if="{{listError}}" bindtap="loadData">{{listError}} · 点击重试</view>
-  </view>
-
+  <view class="work-head"><text class="work-title">订单</text></view>
   <view class="tab-bar">
-    <view class="tab-item {{currentTab === item.id ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="id" data-id="{{item.id}}" bindtap="onTabChange" hover-class="entry-pressed">
-      <text>{{item.name}}</text>
-      <text class="tab-badge" wx:if="{{currentTab === item.id && list.length > 0}}">{{list.length}}</text>
-    </view>
+    <view class="af-choice b3-on-tab-change {{currentTab === item.id ? 'af-choice--selected' : ''}}" wx:for="{{tabs}}" wx:key="id" data-id="{{item.id}}" bindtap="onTabChange" hover-class="entry-pressed"><view class="af-choice__face"><text>{{item.name}}</text><text class="tab-badge" wx:if="{{currentTab === item.id && list.length > 0}}">{{list.length}}</text></view></view>
   </view>
+  <button class="af-action af-action--quiet b3-on-toggle-filters" bindtap="onToggleFilters" hover-class="af-action--pressed"><view class="af-action__face">客户与日期筛选{{customerName ? ' · ' + customerName : ''}}{{startDate ? ' · 从 ' + startDate : ''}}{{endDate ? ' 至 ' + endDate : ''}} · {{filtersExpanded ? '收起' : '展开'}}</view></button>
+  <view class="history-controls" wx:if="{{filtersExpanded}}">
+    <include src="../../../utils/station-history-customer.wxml" />
+    <view class="history-date-row"><picker mode="date" value="{{startDate}}" bindchange="onHistoryDateChange" data-field="startDate"><view>{{startDate || '开始日期'}}</view></picker><text>至</text><picker mode="date" value="{{endDate}}" bindchange="onHistoryDateChange" data-field="endDate"><view>{{endDate || '结束日期'}}</view></picker><view bindtap="onClearHistoryDates" class="af-action af-action--quiet b3-on-clear-history-dates"><view class="af-action__face">清除日期</view></view></view>
+    <view class="history-scope">结束日包含当天；本站归属订单已加载 {{list.length}} 张。跨站履约另列，不随此处筛选。</view>
+  </view>
+  <view class="history-error" wx:if="{{listError}}" bindtap="loadData">{{listError}} · 点击重试</view>
 
   <view class="order-list" wx:if="{{!loading}}">
+    <view class="cross-card" wx:if="{{crossState === 'loading'}}">跨站履约记录读取中…</view>
+    <view class="cross-card" wx:elif="{{crossState === 'error'}}">跨站履约记录未读取，无法确认是否有订单。<button size="mini" bindtap="onRetryCrossStation" class="af-action af-action--quiet b3-on-retry-cross-station" hover-class="af-action--pressed"><view class="af-action__face">重新读取</view></button></view>
+    <view class="cross-card" wx:elif="{{crossState === 'ready' && crossStation.count === 0}}">暂无跨站履约订单（不受本站筛选影响）</view>
     <!--
       跨站履约单**归并成一行**（2026-09-18 产品裁定）：本站接下的别站单不逐个铺在列表里，
       先给一行「跨站履约 N 单 · 合计 ¥X」，点开才看逐单明细。
       ⚠️ 明细里没有客户姓名/电话（后端刻意不下发：那是归属站的客户画像），只有订单自身信息
       —— 收件人、地址、金额，够送货即可。
     -->
-    <view class="cross-card" wx:if="{{crossStation && crossStation.count > 0}}" bindtap="onToggleCrossStation">
+    <view class="cross-card b3-disclosure" wx:if="{{crossStation && crossStation.count > 0}}" bindtap="onToggleCrossStation">
       <view class="cross-head">
         <text class="cross-title">跨站履约 {{crossStation.count}} 单</text>
-        <text class="cross-amount">合计 ¥{{crossStation.amountTotal}}</text>
+        <text class="cross-amount">{{crossStation.amountTotal !== null && crossStation.amountTotal !== undefined ? '合计 ¥' + crossStation.amountTotal : '合计金额待核实'}}</text>
         <text class="cross-toggle">{{crossExpanded ? '收起' : '展开'}}</text>
       </view>
       <view class="cross-sub">
-        <text>待配送 {{crossStation.pending}}</text>
-        <text>配送中 {{crossStation.delivering}}</text>
-        <text>已完成 {{crossStation.completed}}</text>
+        <text>待配送 {{crossStation.pending !== null && crossStation.pending !== undefined ? crossStation.pending : '待核实'}}</text>
+        <text>配送中 {{crossStation.delivering !== null && crossStation.delivering !== undefined ? crossStation.delivering : '待核实'}}</text>
+        <text>已完成 {{crossStation.completed !== null && crossStation.completed !== undefined ? crossStation.completed : '待核实'}}</text>
         <text>独立履约汇总，不计入本站当前筛选页数</text>
       </view>
       <view class="cross-row" wx:if="{{crossExpanded}}" wx:for="{{crossStation.orders}}" wx:key="id">
@@ -50,7 +50,7 @@ module.exports = { percent: percent }
         </view>
         <view class="cross-row-body">
           <text class="customer-name">{{item.receiverName || '收货人待补充'}}</text>
-          <text class="order-amount">¥{{item.totalAmount}}</text>
+          <text class="order-amount">{{item.totalAmount !== null && item.totalAmount !== undefined ? '¥' + item.totalAmount : '金额待核实'}}</text>
         </view>
         <view class="cross-row-addr" wx:if="{{item.addressSnapshot || item.addressDetail}}">
           <text>{{item.addressSnapshot || item.addressDetail}}</text>
@@ -60,7 +60,7 @@ module.exports = { percent: percent }
 
     <!-- 卡片上的状态文案取后端下发的 item.statusText（Orders.getStatusText → OrderStatus.textOf），
          前端不写状态码→中文映射；statusCls 只负责配色 -->
-    <view class="order-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap" hover-class="entry-pressed">
+    <view class="order-card af-entry b3-record-entry" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap" hover-class="entry-pressed">
       <view class="card-header">
         <text class="status-tag status-{{item.statusCls}}">{{item.statusText}}</text>
         <text class="order-id">#{{item.id}}</text>
@@ -79,8 +79,9 @@ module.exports = { percent: percent }
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
     </view>
-    <view class="empty" wx:if="{{!loading && !listError && list.length === 0 && (!crossStation || crossStation.count === 0)}}"><text>暂无订单</text></view>
+    <view class="empty" wx:if="{{!loading && !listError && list.length === 0}}"><text>当前筛选下暂无本站订单</text></view>
   </view>
   <view class="history-more" wx:if="{{hasMore}}" bindtap="onLoadMore">{{loadingMore ? '加载中…' : '加载更多历史订单'}}</view>
   <view class="loading" wx:if="{{loading}}">加载中...</view>
 </view>
+<business-dialog id="business-dialog" />

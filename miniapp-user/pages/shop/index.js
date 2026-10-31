@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { getStationProducts } = require('../../api/product')
 const { getPublicStations, getStationStatus } = require('../../api/station')
 const { getBaseUrl, API } = require('../../config/api')
@@ -16,6 +17,7 @@ Page({
   data: {
     loading: true, isLogin: false, allProducts: [], visibleProducts: [], keywords: '',
     stationListLoading: false,
+    rememberSwitchNotice: false,
     stationStatusHint: '',
     currentStationId: null,
     currentStation: null,
@@ -39,6 +41,8 @@ Page({
   onShow() {
     this._shopHidden = false
     const app = getApp()
+    const session = captureSession(), scope = session.epoch + ":" + session.customerId + ":" + stationStorage.getId()
+    if (this._shopQuantityScope !== scope) { this._shopQuantityScope = scope; this._shopQuantityDrafts = {} }
     this.setData({ isLogin: app.globalData.isLogin, showStationPicker: false })
     this.updateCartCount()
     return this.loadData()
@@ -81,6 +85,7 @@ Page({
     const stationId = app.getCurrentStationId()
     const cartCount = stationId ? app.getCartCount(stationId) : 0
     this.setData({ cartCount })
+    if (this.data.allProducts.length) this.updateVisibleProducts()
   },
   onPullDownRefresh() {
     this.loadData().then(() => wx.stopPullDownRefresh())
@@ -130,13 +135,13 @@ Page({
           } else {
             const msg = viewError(productsRes, '返回异常，请稍后重试')
             console.warn('[Shop] 商品列表返回非成功响应:', msg)
-            this.setData({ loadError: '商品没加载出来（' + msg + '），下面可能是空的，请下拉刷新' })
+            this.setData({ loadError: '商品没加载出来（' + msg + '），当前商品尚未更新，请重新加载' })
             wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
           }
         } catch (e) {
           if (!this._isShopContextCurrent(context)) return
           console.error('[Shop] 加载商品失败:', e)
-          this.setData({ loadError: '商品没加载出来（' + viewError(e, '网络异常') + '），下面可能是空的，请下拉刷新' })
+          this.setData({ loadError: '商品没加载出来（' + viewError(e, '网络异常') + '），当前商品尚未更新，请重新加载' })
           wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
         }
       }
@@ -213,6 +218,8 @@ Page({
     this._shopListSeq = (this._shopListSeq || 0) + 1
     this.setData({ showStationPicker: false, stationListLoading: false })
   },
+  onSwitchRememberChange(e) { this.setData({ rememberSwitchNotice: e.detail.value.includes('remember') }) },
+
   async onSelectStation(e) {
     const context = this._captureShopContext(stationStorage.getId())
     const sequence = this._shopSelectSeq = (this._shopSelectSeq || 0) + 1
@@ -233,7 +240,7 @@ Page({
     const noticeDisabled = stationStorage.getSwitchNoticeDisabled()
     if (!noticeDisabled && this.data.currentStationId && this.data.currentStationId !== id) {
       const confirm = await new Promise(resolve => {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '切换水站提醒',
           content: '不同水站的水票、桶及押金等资产不互通，请确认后再切换。',
           confirmText: '继续',
@@ -246,23 +253,12 @@ Page({
         return
       }
       // 记住用户选择
-      const dontShow = await new Promise(resolve => {
-        wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-          title: '提示',
-          content: '下次不再提示？',
-          confirmText: '不再提示',
-          cancelText: '继续提示',
-          success: (r) => resolve(r.confirm)
-        })
-      })
-      if (!current()) return
-      if (dontShow) {
-        stationStorage.setSwitchNoticeDisabled(true)
-      }
+        if (this.data.rememberSwitchNotice) stationStorage.setSwitchNoticeDisabled(true)
     }
 
     const app = getApp()
     if (!current()) return
+    this._shopQuantityDrafts = {}
     stationStorage.set(station)
     this._shopLoadSeq = (this._shopLoadSeq || 0) + 1
     const productContext = this._captureShopContext(id)
@@ -292,7 +288,7 @@ Page({
       } else {
         const msg = viewError(productsRes, '返回异常，请稍后重试')
         console.warn('[Shop] 切站后商品返回非成功响应:', msg)
-        this.setData({ loadError: '商品没加载出来（' + msg + '），下面可能是空的，请下拉刷新' })
+        this.setData({ loadError: '商品没加载出来（' + msg + '），当前商品尚未更新，请重新加载' })
         wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
       }
       this.setData({ allProducts })
@@ -301,7 +297,7 @@ Page({
     } catch (e) {
       if (!this._isShopContextCurrent(productContext)) return
       console.error('[Shop] 切站后加载商品失败:', e)
-      this.setData({ loadError: '商品没加载出来（' + viewError(e, '网络异常') + '），下面可能是空的，请下拉刷新' })
+      this.setData({ loadError: '商品没加载出来（' + viewError(e, '网络异常') + '），当前商品尚未更新，请重新加载' })
       wx.showToast({ title: '商品没加载出来，请下拉刷新', icon: 'none' })
     } finally {
       if (this._isShopContextCurrent(productContext)) this.setData({ loading: false })
@@ -309,7 +305,12 @@ Page({
   },
   updateVisibleProducts() {
     const term = this.data.keywords.trim()
-    this.setData({ visibleProducts: this.data.allProducts.filter(p => p && (!term || [p.name, p.brand, p.spec].some(v => typeof v === 'string' && v.includes(term)))) })
+    const app = getApp(), cart = this.data.currentStationId && app.getCart ? app.getCart(this.data.currentStationId) : {}
+    const drafts = this._shopQuantityDrafts || {}
+    this.setData({ visibleProducts: this.data.allProducts.filter(p => p && (!term || [p.name, p.brand, p.spec].some(v => typeof v === 'string' && v.includes(term))))
+      .map(p => ({ ...p, selectedQuantity: Number(cart[p.id]) || 0,
+        quantityDraft: drafts[p.id] ? drafts[p.id].value : String(Number(cart[p.id]) || 0),
+        quantityError: drafts[p.id] && drafts[p.id].error || '' })) })
   },
   onRetryProducts() { return this.loadData() },
   onSearch(e) { this.setData({ keywords: e.detail.value }); this.updateVisibleProducts() },
@@ -318,6 +319,24 @@ Page({
     const { id, url } = e.currentTarget.dataset
     this.setData({ allProducts: this.data.allProducts.map(p => String(p.id) === String(id) && p.imageUrl === url ? { ...p, imageUrl: '' } : p) })
     this.updateVisibleProducts()
+  },
+  onProductQuantityInput(e) {
+    const id = e.currentTarget.dataset.id
+    if (!this._canUseShopContext(true, id)) return
+    const value = String(e.detail.value), valid = /^\d+$/.test(value) && Number.isSafeInteger(Number(value))
+    this._shopQuantityDrafts = this._shopQuantityDrafts || {}
+    this._shopQuantityDrafts[id] = { value, error: valid ? '' : '请填写 0 或正整数' }
+    if (valid) getApp().setCartQty(this.data.currentStationId, id, Number(value))
+    this.updateCartCount()
+  },
+  onProductQuantityStep(e) {
+    const id = e.currentTarget.dataset.id
+    if (!this._canUseShopContext(true, id)) return
+    const cart = getApp().getCart(this.data.currentStationId)
+    if (this._shopQuantityDrafts) delete this._shopQuantityDrafts[id]
+    const quantity = Math.max(0, (Number(cart[id]) || 0) + (e.currentTarget.dataset.type === 'add' ? 1 : -1))
+    getApp().setCartQty(this.data.currentStationId, id, quantity)
+    this.updateCartCount()
   },
   onAddToCart(e) {
     if (!this.data.isLogin) {
@@ -351,6 +370,7 @@ Page({
     wx.navigateTo({ url: `/pages/order/create?productId=${id}&stationId=${stationId}` })
   },
   onGoCheckout() {
+    if (Object.values(this._shopQuantityDrafts || {}).some(row => row.error)) { wx.showToast({ title: '请先核对商品数量', icon: 'none' }); return }
     const stationId = this.data.currentStationId
     if (!stationId) {
       wx.showToast({ title: '请先选择水站', icon: 'none' })

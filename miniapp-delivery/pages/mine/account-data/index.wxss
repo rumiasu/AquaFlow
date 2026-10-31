@@ -9,7 +9,7 @@
 }
 .title { display: block; font-size: 32rpx; font-weight: 600; margin-bottom: 16rpx; color: var(--text-primary); }
 .body { display: block; font-size: 28rpx; line-height: 1.7; margin-bottom: 16rpx; color: var(--text-regular); word-break: break-all; }
-.error { display: block; font-size: 26rpx; color: var(--warning-color); margin-bottom: 16rpx; }
+.error { display: block; font-size: 26rpx; color: var(--af-text-secondary); margin-bottom: 16rpx; }
 textarea { width: 100%; height: 220rpx; margin-bottom: 24rpx; font-size: 26rpx;
   padding: 20rpx;
   box-sizing: border-box;
@@ -24,5 +24,38 @@ textarea { width: 100%; height: 220rpx; margin-bottom: 24rpx; font-size: 26rpx;
 }
 
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
-button { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: var(--primary-color); color: #fff; }
+button:not(.af-action):not(.af-choice) { height: auto; min-height: 44px; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: var(--primary-color); color: #fff; }
 picker .body { min-height: 96rpx; display: flex; align-items: center; border-bottom: 1rpx solid var(--border-color); }
+
+button:not(.af-action):not(.af-choice).secondary, button:not(.af-action):not(.af-choice).details-toggle { background: var(--bg-white); color: var(--primary-color); border: 1rpx solid var(--border-color); }
+
+.view-tabs { display:flex; gap:12rpx; margin-bottom:20rpx; }
+button:not(.af-action):not(.af-choice).view-tab { flex:1; background:#fff; color:var(--text-regular); border:1rpx solid var(--border-color); }
+button:not(.af-action):not(.af-choice).view-tab.active { color:var(--primary-color); background:var(--primary-bg); border-color:var(--primary-color); }
+
+/* 2026-10-28 B2: local layout only; B0 owns action/choice faces and tokens. */
+ .b2-page { --primary-color: var(--af-primary); --primary-bg: var(--af-soft); --text-primary: var(--af-ink); --text-regular: var(--af-text-secondary); --text-secondary: var(--af-text-secondary); --bg-gray: var(--af-soft); --success-color: var(--af-positive); --error-color: var(--af-danger); --error-bg: var(--af-danger-soft); --bg-color: var(--af-canvas); --bg-card: var(--af-surface); --border-color: var(--af-border); }
+ .view-tabs { display: flex; gap: 8px; } .view-tabs .af-choice { flex: 1; } .view-tabs .af-choice__face { width: 100%; } .card > .af-action { margin-top: 12px; } .record { border-left: 2px solid var(--af-border); padding-left: 12px; }
+
+/* 2026-10-29 visual-L: page-local composition; shared controls and palette stay V0-owned. */
+.lv2-page { --bg-color:var(--af2-page); --bg-card:var(--af2-surface); --border-color:var(--af2-line); --text-primary:var(--af2-ink); --text-regular:var(--af2-muted); background:var(--af2-page); color:var(--af2-ink); box-sizing:border-box; font-size:15px; line-height:24px; }
+.lv2-page .ui-state { box-sizing:border-box; margin:12px 0; padding:16px; border-radius:14px; border:1px solid var(--af2-line); }
+.lv2-title-row { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.lv2-title-row > text { flex:1; min-width:0; font-size:22px; line-height:30px; font-weight:600; }
+.lv2-page .af2-icon-tile { background:var(--af2-surface-order); }
+.lv2-page .lv2-neutral-tile { background:var(--af2-surface-neutral); }
+.lv2-page .lv2-physical-tile { background:var(--af2-surface-physical); }
+.lv2-page .lv2-money-tile { background:var(--af2-surface-money); }
+
+.lv2-account { padding:16px; }
+.lv2-account .view-tabs { margin:0 0 16px; }
+.lv2-account .card { margin:0 0 16px; padding:16px; border:0; border-radius:16px; background:var(--af2-surface); }
+.lv2-account .title { font-size:17px; line-height:26px; margin-bottom:12px; font-weight:600; }
+.lv2-account .body { font-size:14px; line-height:22px; color:var(--af2-muted); overflow-wrap:anywhere; }
+.lv2-account .lv2-title-row { margin-bottom:12px; }
+.lv2-account picker > .body { min-height:48px; display:flex; align-items:center; padding:10px 12px; background:var(--af2-surface-neutral); border-radius:10px; color:var(--af2-ink); margin:12px 0; box-sizing:border-box; }
+.lv2-account textarea { min-height:140px; padding:12px; border:1px solid var(--af2-line); border-radius:12px; font-size:15px; line-height:24px; box-sizing:border-box; width:100%; }
+.lv2-request-impact { display:flex; gap:10px; align-items:center; padding:12px; border-radius:12px; margin:12px 0; background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); font-size:13px; line-height:20px; }
+.lv2-account .record { border-left:0; border-bottom:1px solid var(--af2-line); padding:12px 0; }
+.lv2-account .lv2-request-result { border-top:4px solid var(--af2-surface-current); }
+.lv2-request-status { display:block; font-size:22px; line-height:30px; font-weight:600; color:var(--af2-ink-current); margin-bottom:12px; }

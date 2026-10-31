@@ -88,7 +88,7 @@ function render(nodes, data) {
   }
   return output
 }
-function css(source,width){return source.replace(/@import[^;]+;/g,'').replace(/\bpage\s*\{/g,'.wechat-page {').replace(/([\d.]+)rpx/g,(_,n)=>(Number(n)*width/750).toFixed(3)+'px').replace(/env\(safe-area-inset-bottom\)/g,'24px')}
+function css(source,width){return source.replace(/@import[^;]+;/g,'').replace(/(^|[}\s])page\s*\{/g,'$1.wechat-page {').replace(/([\d.]+)rpx/g,(_,n)=>(Number(n)*width/750).toFixed(3)+'px').replace(/env\(safe-area-inset-bottom\)/g,'24px')}
 ;(async()=>{
   fs.mkdirSync(OUT,{recursive:true})
   const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']})

@@ -1,3 +1,4 @@
+@import "../../styles/actions.wxss";
 .privacy-mask {
   position: fixed;
   top: 0;
@@ -76,3 +77,13 @@
 .privacy-dialog { max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 96px); }
 .privacy-content { overflow-wrap: anywhere; }
 .privacy-btn { min-height: 48px; }
+
+/* B0: one primary authorization and a compact neutral exit. */
+.privacy-btns{display:flex;gap:8px;align-items:stretch}.privacy-btns button.reject{flex:0 0 80px;width:80px;min-width:80px;background:var(--af-soft);color:var(--af-ink)}.privacy-btns button.agree{flex:1;min-width:44px;background:var(--af-primary);color:var(--af-on-primary)}
+
+/* Visual 28: readable consent with the same authorization and refusal paths. */
+.privacy-mask{padding-left:20px;padding-right:20px}
+.privacy-dialog{width:100%;max-width:360px;padding:20px}
+.privacy-title{font-size:18px;line-height:26px;margin-bottom:12px;color:var(--af-ink)}
+.privacy-content{font-size:15px;line-height:24px;margin-bottom:20px;color:var(--af-text-secondary)}
+.privacy-link{display:inline-block;min-height:44px;line-height:44px;color:var(--af-primary)}

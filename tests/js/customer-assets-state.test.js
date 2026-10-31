@@ -1,3 +1,5 @@
+
+function assetNotice(page) { const {parseWxml,renderElements}=require('./wxml-tree'); const source=require('fs').readFileSync(require('path').join(__dirname,'../../miniapp-user/pages/mine/index.wxml'),'utf8'); return renderElements(parseWxml(source),{...page.data,userInfo:page.data.userInfo||{}},{includeText:true}).map(n=>n.text||'').join(' ') }
 /**
  * 顾客端「我的 · 押金水票与桶」的加载态与文案（2026-09-27 走查 C05 / C06 / C07）。
  *
@@ -130,7 +132,7 @@ console.log('顾客「我的 · 押金水票与桶」加载态与文案（真实
     assert.strictEqual(page.data.barrelText, '0')
     assert.ok(page.data.staleAssetsText.includes('上次读取'))
     assert.strictEqual(page.data.unloadedCount, 2)
-    assert.ok(wx.__calls.toast.some(x => x.title.includes('不是 0')))
+    assert.ok(assetNotice(page).includes('暂未加载'))
     require(path.join(ROOT, 'miniapp-user/utils/token')).beginSession()
   })
 
@@ -152,8 +154,8 @@ console.log('顾客「我的 · 押金水票与桶」加载态与文案（真实
     assert.strictEqual(page.data.ticketText, '5', '成功的那几项照常显示')
     assert.strictEqual(page.data.unloadedCount, 2, '押金与我的桶来自同一接口，一起缺席')
     // 出声：toast 必须说清"不是 0"，而不是原文那句"显示的可能是 0"
-    const toast = wx.__calls.toast.map(t => t.title || '').join(' | ')
-    assert.ok(toast.indexOf('不是 0') > -1, '失败提示必须点明"不是 0"：' + toast)
+    const toast = assetNotice(page)
+    assert.ok(toast.includes('暂未加载'), '失败应有常驻的未加载说明：' + toast)
     assert.ok(toast.indexOf('可能是 0') === -1, '原文案会让人把未加载读成 0：' + toast)
   })
 

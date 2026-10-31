@@ -1,188 +1,50 @@
-/* 站长端「站间结算」台账（v67）。与 receivable / owed-barrels 页保持同一观感：
-   一张卡 = 一笔，金额在右上，口径与状态用浅色小标签，动作按钮在底部。 */
+/* Financial page presentation consumes visual-v2-V0-3. Business controls stay in actions.wxss. */
+page { background:var(--af2-page); color:var(--af2-ink); }
+.finance-page { box-sizing:border-box; padding:16px 16px calc(24px + env(safe-area-inset-bottom)); font-size:14px; line-height:1.5; }
+.card { box-sizing:border-box; padding:16px; margin:0 0 16px; background:var(--af2-surface); border:1px solid var(--af2-line); border-radius:16px; }
+.card-title,.section-title { font-size:18px; line-height:26px; font-weight:600; color:var(--af2-ink); overflow-wrap:anywhere; }
+.card-title-row,.finance-section-head { display:flex; align-items:center; gap:8px; min-width:0; }
+.card-title-row { flex-wrap:wrap; }
+.card-count { margin-left:auto; font-size:13px; color:var(--af2-muted); }
+.card-sub,.row-sub,.hint,.slip-sub { display:block; font-size:14px; line-height:22px; color:var(--af2-muted); overflow-wrap:anywhere; }
+.card-sub { margin-top:8px; }
+.field { margin-top:16px; min-width:0; }
+.label { display:block; font-size:14px; line-height:20px; color:var(--af2-muted); margin-bottom:8px; }
+.input,.picker,.dialog-input { box-sizing:border-box; width:100%; min-height:48px; padding:12px; border:1px solid var(--af2-line); border-radius:9px; background:var(--af2-surface); color:var(--af2-ink); font-size:16px; line-height:22px; overflow-wrap:anywhere; }
+.input,.dialog-input { height:48px; }
+.picker { display:flex; align-items:center; }
+.picker-empty { color:var(--af2-muted); }
+.field-2col { display:flex; gap:12px; margin-top:16px; }.field.col { flex:1; margin-top:0; }
+.row { display:flex; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid var(--af2-line); }
+.row:last-child { border-bottom:0; }.row-main { flex:1; min-width:0; }
+.row-between { display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px 12px; }
+.row-title { color:var(--af2-ink); font-size:16px; line-height:24px; overflow-wrap:anywhere; }
+.row-amount { margin-left:auto; font-size:18px; line-height:26px; font-weight:600; color:var(--af2-ink); text-align:right; overflow-wrap:anywhere; }
+.empty { padding:24px 12px; color:var(--af2-muted); font-size:14px; line-height:22px; overflow-wrap:anywhere; }
+.finance-empty { display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; padding:32px 16px; }
+.load-error,.ui-state { padding:16px; margin:12px 0; border-radius:12px; background:var(--af2-surface-danger); color:var(--af2-ink); line-height:22px; overflow-wrap:anywhere; }
+.ui-state-title { display:block; font-size:16px; font-weight:600; }.ui-state-copy { display:block; margin:6px 0; }
+.load-error .af-action,.ui-state .af-action { margin-top:8px; }
+.mask { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(25,42,63,.38); z-index:90; }
+.dialog { position:fixed; left:0; right:0; bottom:0; top:auto; z-index:100; box-sizing:border-box; max-height:88vh; padding:20px 20px calc(20px + env(safe-area-inset-bottom)); border-radius:20px 20px 0 0; background:var(--af2-surface); overflow-y:auto; }
+.dialog-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.dialog-title { flex:1; min-width:0; font-size:18px; line-height:26px; font-weight:600; overflow-wrap:anywhere; }
+.dialog-close { flex:none; font-size:24px; margin-left:auto; }
+.kv { display:flex; align-items:flex-start; gap:12px; padding:10px 0; font-size:14px; line-height:22px; }
+.kv-k { flex:0 0 7em; color:var(--af2-muted); }.kv-v { flex:1; min-width:0; text-align:right; color:var(--af2-ink); overflow-wrap:anywhere; }
+.pill,.tag { display:inline-block; font-size:13px; line-height:20px; padding:3px 8px; border-radius:6px; background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); }
+.pill-on,.pill-paid { background:var(--af2-surface-success); color:var(--af2-ink-success); }
+.pill-confirmed { background:var(--af2-surface-current); color:var(--af2-ink-current); }
+.pill-off,.pill-draft { background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); }
+.form-submit { margin-top:20px; }.form-cancel { margin-top:8px; }
+@media (max-width:350px) { .field-2col { flex-direction:column; }.row-amount { max-width:100%; } }
 
-.page {
-  padding: 20rpx 24rpx calc(60rpx + env(safe-area-inset-bottom));
-  background: var(--bg-gray);
-  min-height: 100vh;
-  box-sizing: border-box;
-}
-
-/* ===== 三个汇总数 ===== */
-.sum-grid {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 16rpx;
-}
-
-.sum-card {
-  flex: 1;
-  background: #ffffff;
-  border-radius: 14rpx;
-  padding: 22rpx 12rpx;
-  margin-right: 12rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.sum-card:last-child {
-  margin-right: 0;
-}
-
-.sum-value {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.sum-value.receive {
-  color: var(--success-color);
-}
-
-.sum-value.pay {
-  color: #BD3328;
-}
-
-.sum-label {
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  color: var(--text-secondary);
-}
-
-.scope-note {
-  font-size: 24rpx;
-  line-height: 1.6;
-  color: var(--text-secondary);
-  padding: 0 6rpx 16rpx;
-}
-
-/* ===== 分区 ===== */
-.section {
-  margin-bottom: 24rpx;
-}
-
-.section-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-  padding: 6rpx 6rpx 12rpx;
-}
-
-.hint {
-  font-size: 24rpx;
-  line-height: 1.6;
-  color: var(--text-secondary);
-  padding: 8rpx 6rpx 12rpx;
-}
-
-/* ===== 卡片 ===== */
-.card {
-  background: #ffffff;
-  border-radius: 14rpx;
-  padding: 22rpx 24rpx;
-  margin-bottom: 14rpx;
-}
-
-.row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.row-main {
-  font-size: 28rpx;
-  color: var(--text-primary);
-}
-
-.row-amount {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.row-sub {
-  display: flex;
-  flex-wrap: wrap;
-  margin-top: 10rpx;
-}
-
-.tag {
-  font-size: 24rpx;
-  color: var(--text-regular);
-  background: var(--bg-gray);
-  border-radius: 8rpx;
-  padding: 4rpx 12rpx;
-  margin: 0 10rpx 8rpx 0;
-}
-
-.sub-text {
-  font-size: 23rpx;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16rpx;
-}
-
-.btn-outline-small {
-  font-size: 14px;
-  line-height: 2.2;
-  padding: 0 24rpx;
-  margin-left: 12rpx;
-  border: 1rpx solid var(--border-color);
-  border-radius: 10rpx;
-  background: #ffffff;
-  color: var(--text-primary);
-}
-
-.btn-outline-small::after {
-  border: none;
-}
-
-.btn-ok-small {
-  font-size: 14px;
-  line-height: 2.2;
-  padding: 0 24rpx;
-  margin-left: 12rpx;
-  border-radius: 10rpx;
-  background: var(--primary-color);
-  color: #ffffff;
-}
-
-.btn-ok-small::after {
-  border: none;
-}
-
-
-/* 新责任面板沿原台账层次；长按钮换行，输入框不使用原生默认宽度。 */
-.actions { flex-wrap: wrap; gap: 12rpx; }
-.actions button { max-width: 100%; min-height: 76rpx; margin: 0; white-space: normal; word-break: break-all; line-height: 1.6; }
-.aftercare-section { padding-top: 12rpx; }
-.aftercare-section text { display: block; margin: 10rpx 0; font-size: 26rpx; line-height: 1.7; word-break: break-all; }
-.aftercare-section .section-title { line-height: 1.6; word-break: break-all; }
-.aftercare-section .card { border: 1rpx solid var(--border-color); }
-.aftercare-section input, .aftercare-section textarea { display: block; box-sizing: border-box; width: 100%; margin: 18rpx 0; padding: 18rpx 20rpx; background: var(--bg-card); border: 1rpx solid var(--border-color); border-radius: 12rpx; color: var(--text-primary); font-size: 28rpx; line-height: 1.6; }
-.aftercare-section input { height: 88rpx; }
-.aftercare-section textarea { height: 200rpx; }
-.aftercare-section button { min-height: 44px; margin: 16rpx 0; padding: 16rpx 20rpx; font-size: 14px; line-height: 1.6; white-space: normal; word-break: break-all; border-radius: 12rpx; color: var(--primary-color); background: var(--bg-card); border: 1rpx solid var(--border-color); }
-.aftercare-section button[disabled] { color: var(--text-secondary); background: var(--bg-gray); }
-.aftercare-section .actions button { margin: 0; }
-.aftercare-section .aftercare-error { padding: 16rpx; border-radius: 12rpx; color: var(--error-color); background: var(--error-bg); }
-
-/* 本页按账事实与办理动作排版；不改变金额、状态或办理资格。 */
-
-.page { background: var(--bg-color); }
-.sum-grid { flex-wrap: wrap; gap: 2rpx; padding: 20rpx; background: #fff; border-radius: 12rpx; }
-.sum-card { border-radius: 0; min-width: 0; padding: 18rpx 4rpx; margin-right: 0; align-items: flex-start; word-break: break-all; }
-.sum-label,.scope-note,.sub-text { font-size: 25rpx; color: var(--text-regular); line-height: 1.6; }
-.card { border-radius: 10rpx; }.row { align-items: flex-start; gap: 14rpx; flex-wrap: wrap; }.row-main { min-width: 0; word-break: break-all; }.row-amount { margin-left: auto; font-size: 36rpx; word-break: break-all; }
-.reversal-section { padding: 22rpx; background: var(--bg-gray); border-left: 6rpx solid var(--warning-color); border-radius: 8rpx; }
-.actions { justify-content: flex-start; }.actions button { flex: 1 1 240rpx; }
-.page button,.aftercare-section button { box-sizing: border-box; min-height: 44px; height: auto; max-width: 100%; padding: 20rpx; border-radius: 8rpx; font-size: 27rpx; line-height: 1.6; white-space: normal; word-break: break-all; }
-.aftercare-section .card { padding: 24rpx 0; border: 0; border-top: 1rpx solid var(--border-color); border-radius: 0; background: transparent; }
-.aftercare-section { background: #fff; padding: 24rpx; border-radius: 12rpx; }
-.aftercare-section input,.aftercare-section textarea { background: var(--bg-color); border-radius: 8rpx; }
+.ledger-views { display:flex; gap:2px; padding:4px; margin-bottom:16px; border-radius:10px; background:var(--af2-surface-neutral); }.ledger-views .af-choice { flex:1; min-width:0; }
+.sum-grid { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:8px; }.sum-heading { flex-basis:100%; }.sum-card { box-sizing:border-box; flex:1 1 calc(50% - 6px); display:flex; flex-direction:column; gap:8px; min-width:0; padding:16px; border-radius:14px; background:var(--af2-surface-money); }.sum-card:last-child { flex-basis:100%; flex-direction:row; align-items:baseline; justify-content:space-between; background:var(--af2-surface-neutral); }.sum-value { order:2; color:var(--af2-ink-money); font-size:26px; line-height:34px; font-weight:600; overflow-wrap:anywhere; }.sum-label { order:1; font-size:14px; color:var(--af2-ink-money); }.sum-card:last-child .sum-value { font-size:22px; color:var(--af2-ink-neutral); }.sum-card:last-child .sum-label { color:var(--af2-ink-neutral); }
+.scope-note { display:flex; align-items:center; justify-content:flex-end; min-height:44px; font-size:13px; color:var(--af2-muted); margin-bottom:8px; }
+.section { margin-bottom:20px; }.section-title { margin-bottom:12px; }.hint { display:block; margin:8px 0 12px; }.actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px; }.actions .af-action { max-width:100%; }.row { border:0; padding:0 0 8px; }.row-amount { font-size:22px; line-height:30px; }.tag { margin:4px 6px 4px 0; }.sub-text { color:var(--af2-muted); font-size:14px; }
+.reversal-section { padding:16px; border-radius:16px; background:var(--af2-surface-danger); }.reversal-section .section-title { color:var(--af2-ink-danger); }.reversal-section .card { margin-bottom:8px; }
+.aftercare-section { padding:16px; border-radius:16px; background:var(--af2-surface); border:1px solid var(--af2-line); }.aftercare-section > text,.aftercare-section .card > text { display:block; margin:8px 0; line-height:22px; overflow-wrap:anywhere; }.aftercare-section input,.aftercare-section textarea { display:block; box-sizing:border-box; width:100%; padding:12px; margin:12px 0; border:1px solid var(--af2-line); border-radius:9px; background:var(--af2-surface); color:var(--af2-ink); font-size:16px; line-height:22px; }.aftercare-section input { height:48px; }.aftercare-section textarea { min-height:104px; }.aftercare-section .card { margin:16px 0 0; border:0; border-top:1px solid var(--af2-line); border-radius:0; padding:16px 0 0; }
+.aftercare-section .aftercare-status { display:inline-block; padding:4px 8px; border-radius:6px; background:var(--af2-surface-money); color:var(--af2-ink-money); }.aftercare-section .aftercare-error { padding:12px; background:var(--af2-surface-danger); color:var(--af2-ink-danger); border-radius:10px; }
+.aftercare-history { margin:12px 0 0 6px; border-left:2px solid var(--af2-line); padding:0 0 8px 14px; font-size:14px; line-height:22px; }.aftercare-history text { display:block; }.history-meta { color:var(--af2-muted); font-size:13px; }.aftercare-form .finance-section-head { margin-bottom:12px; }.aftercare-form .af-action--block { margin-top:16px; }
+@media(max-width:350px) { .sum-value { font-size:24px; }.sum-card { padding:12px; } }

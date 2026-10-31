@@ -4,36 +4,36 @@
   文案「申请绑定 / 申请解绑」用 js 里算好的 typeText，**不在 wxml 里做 type→中文映射**。
 -->
 <view class="container">
-  <view class="work-head"><text class="work-title">员工与申请</text><text class="work-desc">管理在职人员，核对绑定与解绑申请。</text></view>
+  <view class="work-head"><text class="work-title">员工与申请</text></view>
+  <view class="work-read-error" wx:if="{{payrollFollowupLoading}}"><text>员工已保存，正在核对薪资结构…</text></view>
+  <view class="work-read-error" wx:elif="{{payrollFollowupError}}"><text>{{payrollFollowupError}}</text><button bindtap="onRetryPayrollFollowup" class="af-action af-action--quiet b3-on-retry-payroll-followup" hover-class="af-action--pressed"><view class="af-action__face">重新核对薪资</view></button></view>
+  <view class="work-read-error" wx:elif="{{payrollFollowup}}"><text>{{payrollFollowup.levelText}}：{{payrollFollowup.label}}。{{payrollFollowup.why}}</text><button bindtap="onConfigurePayroll" class="af-entry b3-on-configure-payroll" hover-class="af-action--pressed"><view class="af-entry__body">配置薪资结构</view><text class="af-entry__arrow" aria-hidden="true">›</text></button></view>
 
   <view class="tabs">
-    <view class="tab {{activeTab === 'staff' ? 'tab-on' : ''}}" bindtap="onTabSwitch" data-tab="staff">
-      员工<text class="tab-count" wx:if="{{listReady && !listLoading && !listError && list.length > 0}}">{{list.length}}</text>
-    </view>
-    <view class="tab {{activeTab === 'apply' ? 'tab-on' : ''}}" bindtap="onTabSwitch" data-tab="apply">
-      绑定申请<text class="tab-count tab-badge" wx:if="{{applicationsReady && !applicationsLoading && !applicationsError && applications.length > 0}}">{{applications.length}}</text>
-    </view>
+    <view class="af-choice b3-on-tab-switch {{activeTab === 'staff' ? 'af-choice--selected' : ''}}" bindtap="onTabSwitch" data-tab="staff"><view class="af-choice__face">员工<text class="tab-count" wx:if="{{listReady && !listLoading && !listError && list.length > 0}}">{{list.length}}</text></view></view>
+    <view class="af-choice b3-on-tab-switch {{activeTab === 'apply' ? 'af-choice--selected' : ''}}" bindtap="onTabSwitch" data-tab="apply"><view class="af-choice__face">绑定申请<text class="tab-count tab-badge" wx:if="{{applicationsReady && !applicationsLoading && !applicationsError && applications.length > 0}}">{{applications.length}}</text></view></view>
   </view>
 
   <!-- ============ 员工 ============ -->
   <block wx:if="{{activeTab === 'staff'}}">
     <view class="toolbar">
-      <button class="btn-add" bindtap="onShowAdd">＋ 新增配送员</button>
+      <button class="af-entry b3-on-show-add" bindtap="onShowAdd" hover-class="af-action--pressed"><view class="af-entry__body">＋ 新增配送员</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
+      <button class="af-entry b3-on-payroll-settings" bindtap="onPayrollSettings" hover-class="af-action--pressed"><view class="af-entry__body">薪资结构</view><text class="af-entry__arrow" aria-hidden="true">›</text></button>
     </view>
 
     <view class="search-bar">
       <input class="search-input" placeholder="搜索姓名/手机号" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
-      <view class="search-btn" bindtap="onSearch"><text>搜索</text></view>
+      <view class="af-action af-action--quiet b3-on-search" bindtap="onSearch"><view class="af-action__face"><text>搜索</text></view></view>
     </view>
 
     <view class="filter-chips">
-      <view class="chip {{filterStatus === 'all' ? 'active' : ''}}" data-status="all" bindtap="onFilterStatus"><text>全部</text></view>
-      <view class="chip {{filterStatus === '1' ? 'active' : ''}}" data-status="1" bindtap="onFilterStatus"><text>在职</text></view>
-      <view class="chip {{filterStatus === '0' ? 'active' : ''}}" data-status="0" bindtap="onFilterStatus"><text>离职</text></view>
+      <view class="af-choice b3-on-filter-status {{filterStatus === 'all' ? 'af-choice--selected' : ''}}" data-status="all" bindtap="onFilterStatus"><view class="af-choice__face"><text>全部</text></view></view>
+      <view class="af-choice b3-on-filter-status {{filterStatus === '1' ? 'af-choice--selected' : ''}}" data-status="1" bindtap="onFilterStatus"><view class="af-choice__face"><text>在职</text></view></view>
+      <view class="af-choice b3-on-filter-status {{filterStatus === '0' ? 'af-choice--selected' : ''}}" data-status="0" bindtap="onFilterStatus"><view class="af-choice__face"><text>离职</text></view></view>
     </view>
 
-    <view class="work-read-error" wx:if="{{listReady && !applicationsReady}}"><text>{{applicationsLoading ? '正在核对绑定与解绑申请，申请标记暂不可用' : '绑定与解绑申请尚未核实，不能据此判断没有待审申请'}}</text><button bindtap="onTabSwitch" data-tab="apply">查看申请核对状态</button></view>
-    <view class="work-read-error" wx:if="{{listError}}"><text>{{listError}}</text><button bindtap="loadData">重新加载员工</button></view>
+    <view class="work-read-error" wx:if="{{listReady && !applicationsReady}}"><text>{{applicationsLoading ? '正在核对绑定与解绑申请，申请标记暂不可用' : '绑定与解绑申请尚未核实，不能据此判断没有待审申请'}}</text><button bindtap="onTabSwitch" data-tab="apply" class="af-choice b3-on-tab-switch" hover-class="af-action--pressed"><view class="af-choice__face">查看申请核对状态</view></button></view>
+    <view class="work-read-error" wx:if="{{listError}}"><text>{{listError}}</text><button bindtap="loadData" class="af-action af-action--quiet b3-load-data" hover-class="af-action--pressed"><view class="af-action__face">重新加载员工</view></button></view>
     <view class="loading" wx:if="{{listLoading}}">员工加载中…</view>
     <view class="staff-card" wx:if="{{!listLoading && !listError}}" wx:for="{{list}}" wx:key="id">
       <view class="avatar" style="background:{{item.avatarColor}}">{{item.avatarText}}</view>
@@ -45,11 +45,11 @@
           <text class="badge unbind" wx:if="{{item._unbindPending}}">解绑申请中</text>
         </view>
         <!-- 手机号脱敏展示；要打电话点一下（脱敏是展示口径，拨号用真实值由后端下发） -->
-        <text class="staff-phone" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}">{{item.phoneMasked}} · 拨打</text>
+        <view class="af-action af-action--quiet b3-on-call" wx:if="{{item.phone}}" bindtap="onCall" data-phone="{{item.phone}}"><view class="af-action__face">{{item.phoneMasked}} · 拨打</view></view>
         <text class="staff-phone muted" wx:else>未填写电话</text>
       </view>
       <view class="card-actions">
-        <button class="btn-profile" data-id="{{item.id}}" bindtap="onViewProfile">详情</button>
+        <button class="af-action af-action--quiet b3-on-view-profile" data-id="{{item.id}}" bindtap="onViewProfile" hover-class="af-action--pressed"><view class="af-action__face">详情</view></button>
         <!--
           「解除」只给配送员。⚠️ 站长**不能**被解除（2026-09-19 补的服务端护栏）：
           解除站长 = 把水站变成没人管的孤儿（staff.station_id 置 NULL 后，
@@ -58,7 +58,7 @@
           所以这里不给按钮 —— 但**留一行字**，否则站长会以为是界面出错了。
           水站交接属于「转让」功能，全仓还没有，等做了之后挪到「水站设置」里，别放员工列表。
         -->
-        <button class="btn-detach" wx:if="{{item.status === 1 && item.role === 'DELIVERY'}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onDetach">解除绑定</button>
+        <button class="af-action af-action--danger-quiet b3-on-detach" wx:if="{{item.status === 1 && item.role === 'DELIVERY'}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onDetach" hover-class="af-action--pressed">解除绑定</button>
         <text class="self-note" wx:elif="{{item.status === 1}}">站长 · 不可解除</text>
       </view>
     </view>
@@ -71,15 +71,9 @@
 
   <!-- ============ 绑定申请（绑定 type=1 / 解绑 type=2 同一张列表） ============ -->
   <block wx:else>
-    <view class="hint">
-      <!-- [2026-09-24] 原文后半句是"两者后端走不同端点，页面已按类型分流" —— 那是开发注释
-           泄漏到界面上了。站长只需要知道"在这儿点什么"；分流逻辑看 index.js 文件头。 -->
-      <text>配送员提交的绑定与解绑申请都在这里，点「同意」或「拒绝」处理就行。</text>
-    </view>
-
-    <view class="work-read-error" wx:if="{{applicationsError}}"><text>{{applicationsError}}</text><button bindtap="loadApplications">重新核对申请</button></view>
+    <view class="work-read-error" wx:if="{{applicationsError}}"><text>{{applicationsError}}</text><button bindtap="loadApplications" class="af-action af-action--quiet b3-load-applications" hover-class="af-action--pressed"><view class="af-action__face">重新核对申请</view></button></view>
     <view class="loading" wx:if="{{applicationsLoading}}">申请加载中…</view>
-    <view class="work-read-error" wx:if="{{!applicationsReady && !applicationsLoading && !applicationsError}}"><text>待审申请尚未核实</text><button bindtap="loadApplications">核对申请</button></view>
+    <view class="work-read-error" wx:if="{{!applicationsReady && !applicationsLoading && !applicationsError}}"><text>待审申请尚未核实</text><button bindtap="loadApplications" class="af-action af-action--quiet b3-load-applications" hover-class="af-action--pressed"><view class="af-action__face">核对申请</view></button></view>
     <view class="staff-card" wx:if="{{!applicationsLoading && !applicationsError}}" wx:for="{{applications}}" wx:key="id" wx:for-item="a">
       <view class="avatar avatar-blue">{{a._firstChar}}</view>
       <view class="staff-body">
@@ -91,8 +85,8 @@
         <text class="staff-note" wx:if="{{a.applyNote}}">备注：{{a.applyNote}}</text>
       </view>
       <view class="card-actions">
-        <button class="btn-approve" disabled="{{a._loading}}" data-id="{{a.id}}" bindtap="onApproveApply">{{a._loading ? '处理中' : '同意'}}</button>
-        <button class="btn-reject" disabled="{{a._loading}}" data-id="{{a.id}}" bindtap="onRejectApply">拒绝</button>
+        <button class="af-action af-action--primary b3-on-approve-apply" disabled="{{a._loading}}" data-id="{{a.id}}" bindtap="onApproveApply" hover-class="af-action--pressed">{{a._loading ? '处理中' : '同意'}}</button>
+        <button class="af-action af-action--secondary b3-on-reject-apply" disabled="{{a._loading}}" data-id="{{a.id}}" bindtap="onRejectApply" hover-class="af-action--pressed">拒绝</button>
       </view>
     </view>
 
@@ -105,11 +99,14 @@
   <view class="modal-overlay" wx:if="{{showModal}}" bindtap="onCloseModal">
     <view class="modal-content" catchtap="stopPropagation">
       <text class="modal-title">新增配送员</text>
+      <text class="form-label">姓名</text>
       <input class="modal-input" placeholder="姓名" value="{{formName}}" bindinput="onNameInput" />
+      <text class="form-label">电话</text>
       <input class="modal-input" placeholder="电话" type="number" value="{{formPhone}}" bindinput="onPhoneInput" />
       <text class="modal-hint">新增后将自动归属到当前水站</text>
-      <button class="btn-submit" bindtap="onSubmitAdd">确认添加</button>
-      <button class="btn-cancel" bindtap="onCloseModal">取消</button>
+      <view class="staff-modal-actions"><button class="af-action af-action--primary af-action--block b3-on-submit-add" bindtap="onSubmitAdd" disabled="{{adding}}" hover-class="af-action--pressed">{{adding ? '添加中…' : '确认添加'}}</button>
+      <button class="af-action af-action--cancel b3-on-close-modal" bindtap="onCloseModal" disabled="{{adding}}" hover-class="af-action--pressed">取消</button></view>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

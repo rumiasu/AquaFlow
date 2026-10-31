@@ -29,7 +29,7 @@ function fixture(handler = async body => quoted(body.items[0].quantity)) {
     'api/notification': { getUnreadNotifications: async () => ({ data: [] }) }
   } })
   app.setCartQty(1, 10, 1)
-  page.setData({ isLogin: true, state: 'ready', loading: false, currentStationId: 1, currentStation: { id: 1, name: 'S1' },
+  page.setData({ isLogin: true, state: 'ready', loading: false, catalogState: 'ready', currentStationId: 1, currentStation: { id: 1, name: 'S1' },
     products, cart: app.getCart(1), address: { id: 12, detail: 'synthetic address' } })
   const press = type => page.onCartQtyChange({ currentTarget: { dataset: { id: 10, type } } })
   return { page, app, wx, calls, press }
@@ -148,7 +148,7 @@ test('retail estimate16 is labelled separately and checkout receives quantities 
   assert.strictEqual(t.page.data.total.grandText, '16')
   const markup = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/home/index.wxml'), 'utf8')
   assert.strictEqual((markup.match(/>零售预估</g) || []).length, 2)
-  assert(markup.includes('支付金额以结算页报价为准'))
+  assert(markup.includes('结算页核价'))
   t.page.onSubmit()
   const params = new URLSearchParams(t.wx.__calls.nav.at(-1).url.split('?')[1])
   assert.deepStrictEqual(JSON.parse(params.get('items')), [{ productId: 10, quantity: 1 }])

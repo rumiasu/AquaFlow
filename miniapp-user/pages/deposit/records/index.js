@@ -14,7 +14,7 @@
 // 与 Orders.getStatusText / PaymentRecord.getMethodText 同一路数）。**前端绝不自建 type→中文 映射表**：
 // 历史上两端各写一套，后端调口径前端不跟随（PayMethod 的 2=水票/2=现金 写反曾导致新客下单 100% 失败，见 AGENTS.md §6）。
 // 该 getter 是 2026-09-18 随本页一起补的；**后端必须重启后才下发生效**（部署时前后端一起上）。
-// 拿不到 typeText 时本页只是不显示类型名，**不会**退化成自己编的中文。
+// 拿不到 typeText 时本页明确提示类型未提供，**不会**退化成自己编的中文。
 //
 // 路径常量按本仓惯例写在页面顶部：本批不允许改 config/api.js 与 api/*.js，故直接走 utils/request。
 // 资产查看站由 asset-view-station 统一管理，与桶详情、我的资产共用只读查看范围。
@@ -27,6 +27,25 @@ const { formatMoney, formatTime } = require('../../../utils/format')
 const { isCurrentSession } = require('../../../utils/token')
 
 const DEPOSIT_RECORDS = '/api/deposit-records'
+
+// 时间缺失或无法解析时不显示 NaN；有效时间仍使用项目原格式。
+function recordTime(value) {
+  if (value == null || (typeof value !== 'string' && typeof value !== 'number')
+    || (typeof value === 'string' && !value.trim()) || !Number.isFinite(new Date(value).getTime())) return '日期未提供'
+  return formatTime(value) || '日期未提供'
+}
+
+// 只为相邻同日记录添加标题；保留服务端顺序、金额和原时间文案。
+function dateHeaders(records) {
+  let previous = null
+  return records.map(record => {
+    const match = /^(\d{4}-\d{2}-\d{2})\s/.exec(record.timeText || '')
+    const dateLabel = match ? match[1] : '日期未提供'
+    const showDateHeader = dateLabel !== previous
+    previous = dateLabel
+    return { ...record, dateLabel, showDateHeader }
+  })
+}
 
 Page({
   data: {
@@ -78,7 +97,7 @@ Page({
         || !Number.isFinite(Number(r.amount)))) throw new Error('押金流水暂未加载，请重试')
       const list = res.data
       this._recordsScope = context
-      this.setData({ records: list.map(r => this.decorate(r)), loaded: true })
+      this.setData({ records: dateHeaders(list.map(r => this.decorate(r))), loaded: true })
     } catch (err) {
       if (assetViewStation.current(this, context)) {
         const denied = /无权|权限|登录/.test(err && err.message || '')
@@ -102,9 +121,10 @@ Page({
       // 没有任何算术、更没有取绝对值。
       amountText: (num > 0 ? '+' : '') + formatMoney(amount),
       amountState: num > 0 ? 'in' : (num < 0 ? 'out' : 'flat'),
-      // 后端下发的派生文案；拿不到就留空，不 fallback 成自己编的中文
-      typeText: record.typeText || '',
-      timeText: formatTime(record.createTime),
+      // 类型只取原文或明确缺失；方向按原带符号金额呈现，不自建类型映射。
+      typeText: record.typeText || '类型未提供',
+      directionText: num > 0 ? '增加' : num < 0 ? '扣减' : '金额未变化',
+      timeText: recordTime(record.createTime),
       note: record.note || '',
       orderText: record.relatedOrderId ? ('订单 #' + record.relatedOrderId) : ''
     }

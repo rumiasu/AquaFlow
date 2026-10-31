@@ -64,7 +64,7 @@
 }
 
 .record-status {
-  display: inline-block;
+  display: inline-flex;
   padding: 6rpx 14rpx;
   border-radius: 999rpx;
   background: var(--bg-gray);
@@ -154,3 +154,21 @@
 .record-main, .record-right { min-width: 0; overflow-wrap: anywhere; }
 
 .local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }
+
+.order-link { margin:0; padding:8px 0; min-height:44px; background:transparent; color:var(--primary-color); font-size:14px; line-height:1.5; text-align:left; white-space:normal; }
+.order-link::after { border:0; }
+.record-direction { display:block; font-size:14px; line-height:1.6; color:var(--text-regular); }
+.record-right { min-width:0; max-width:55%; overflow-wrap:anywhere; }
+.record-amount { font-size:18px; line-height:1.5; }
+
+.error-card .af-action { margin:8px 8px 0 0; }
+.record-main .af-action { margin:0; }
+
+/* Visual v2: page hierarchy and reading rhythm. */
+.record-list { margin:12px 16px; border-radius:14px; overflow:hidden; background:var(--af2-surface); }
+.record-item { gap:12px; border-radius:0; }
+.record-main { min-width:0; }
+.record-right { text-align:right; }
+.record-amount { color:var(--af2-ink-money); overflow-wrap:anywhere; }
+
+.record-date { padding:10px 16px; background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); font-size:13px; line-height:1.5; font-weight:600; }

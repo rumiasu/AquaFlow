@@ -333,5 +333,20 @@
 }
 .result-loading { width: 100%; padding: 36rpx 0; }
 .load-error { width: 100%; margin-bottom: 24rpx; box-sizing: border-box; }
-.load-error button { min-height: 44px; font-size: 14px; line-height: 1.6; padding: 20rpx; }
+.load-error .af-action { margin-top:8px; }
 .template-hint, .action-desc, .tip-text { font-size: 26rpx; line-height: 1.65; }
+
+.current-order-primary { min-height:48px; margin:20rpx 24rpx; border-radius:12rpx; color:#fff; background:var(--primary-color); font-size:16px; line-height:1.5; padding:12px; }
+.template-card { box-shadow:none; padding:20rpx; border:1rpx solid var(--border-light); min-height:44px; }
+.template-title { font-size:16px; }
+.template-hint,.success-desc { font-size:14px; line-height:1.7; }
+.action-card,.pay-btn { min-height:48px; height:auto; }
+.action-row { flex-wrap:wrap; }
+.action-card { flex:1 1 240rpx; }
+
+.page > .af-action--block { margin-bottom:12px; }
+
+/* Visual v2: page hierarchy and semantic surfaces. */
+.template-card,.action-card { border-radius:14px; }
+.action-card { min-height:56px; }
+.template-card { background:var(--af2-surface-neutral); }

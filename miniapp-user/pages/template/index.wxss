@@ -377,3 +377,41 @@
 .modal-footer { flex-shrink: 0; }
 
 .local-empty { padding: 40rpx 24rpx; margin: 20rpx 0; color: var(--text-regular); background: #fff; border-radius: 12rpx; font-size: 28rpx; line-height: 1.7; text-align: center; overflow-wrap: anywhere; }
+
+.template-right { min-height: 44px; min-width: 44px; display: flex; align-items: center; gap: 12rpx; }
+.toggle-label { font-size: 26rpx; color: var(--text-regular); }
+
+.draft-bar { margin: 24rpx; padding: 20rpx; background: #fff; border-radius: var(--radius-md); display: flex; flex-wrap: wrap; align-items: center; gap: 12rpx; color: var(--text-primary); }
+.draft-bar .af-action { margin:0; }
+
+.product-toggle { min-height: 44px; display: flex; align-items: center; color: var(--primary-color); font-size: 28rpx; }
+.product-selector-scroll { height: 280px; }
+.item-row { flex-wrap: wrap; }
+.item-select { min-width: 0; flex: 1 0 100%; }
+
+.form-draft { margin: 16rpx 0; padding: 20rpx; background: var(--bg-gray); line-height: 1.6; }
+.form-draft .af-action { margin:6px 8px 0 0; }
+
+.template-add { position:fixed; left:12px; right:12px; bottom:calc(20px + env(safe-area-inset-bottom)); }
+.modal-footer { gap:8px; }
+.modal-footer .af-action--cancel { width:80px; }
+
+.form-option.active { border-color:var(--af-primary); background:var(--af-soft); color:var(--af-primary); }
+
+/* Visual v2: page hierarchy and reading rhythm. */
+.template-item { border-radius:14px; }
+.template-main { gap:12px; }
+.template-info,.template-item-row .item-name { min-width:0; overflow-wrap:anywhere; }
+.template-actions { gap:8px; }
+.modal-header { min-height:52px; }
+.form-input,.modal-close,.product-toggle { min-height:44px; box-sizing:border-box; }
+.form-option.active { background:var(--af2-surface-order); border-color:var(--af2-ink-order); }
+
+.empty-template-art { display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:3/1; max-height:120px; margin:0 auto 12px; border-radius:12px; overflow:hidden; background:var(--af2-surface-order); }
+.empty-template-art image { width:100%; height:100%; }
+
+.template-item-row { display:flex; align-items:center; gap:8px; }
+.template-item-row .item-name { flex:1; }
+
+/* 编辑弹层标题与操作稳定，内容区独立滚动。 */
+.modal-header { flex-shrink:0; }

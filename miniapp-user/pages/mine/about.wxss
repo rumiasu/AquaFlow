@@ -85,3 +85,12 @@
 .logo { width: 112rpx; height: 112rpx; margin: 0 auto 20rpx; }
 .logo-section { padding: 24rpx 0; }
 .copyright text { color: var(--text-regular); }
+
+/* Visual v2: page hierarchy and reading rhythm. */
+.about-section { margin:16px; border-radius:14px; }
+.logo-section { padding:24px 16px; }
+.info-item { min-height:52px; }
+.app-version { color:var(--af2-muted); }
+
+/* 英文名单独成行，避免与版本号连在一起。 */
+.brand-english { display: block; margin-bottom: 8rpx; font-size: 26rpx; color: var(--text-secondary); }

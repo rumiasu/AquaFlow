@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "个人资料申请",
-  "enablePullDownRefresh": false
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "icon": "/components/Icon/index"
+  }
 }

@@ -1,4 +1,5 @@
 <view class="empty">
-  <image class="empty-img" src="/assets/image/empty-state.jpg" mode="aspectFit" />
+  <text class="empty-title" wx:if="{{title}}">{{title}}</text>
   <text class="empty-text">{{text}}</text>
+  <slot></slot>
 </view>

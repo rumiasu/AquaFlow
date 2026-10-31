@@ -209,8 +209,8 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
     const wxml = renderedWxml('miniapp-delivery/pages/station-mgmt/payments/index.wxml')
     assert.strictEqual(wxml.indexOf('钱已收到'), -1,
       '「钱已收到」把"待收款"说成了到账；本列表按 payment_record.status = 1 过滤，那不是到账证明')
-    assert.ok(wxml.indexOf('还没核实到账') > -1 || wxml.indexOf('确实收到') > -1,
-      '要按事实写：请核实实际到账后再确认')
+    assert.ok(wxml.includes('待确认不代表已到账') && wxml.includes('核对收款方及款项后登记'),
+      '待确认不是到账证明，须核实实际到账后再登记')
   })
 
   await test('M01 前端不自带 1/2/3 映射表：statusText 有值用后端的，缺值兜底仍说"待核实"', async () => {
@@ -385,7 +385,8 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
 
     const recWxml = renderedWxml('miniapp-delivery/pages/station-mgmt/receivables/index.wxml')
     assert.ok(recWxml.indexOf('登记已收款') > -1, '收钱动作要写成站长看得懂的动作')
-    assert.ok(recWxml.indexOf('登记就是核销') > -1, '解释里保留「核销」的含义（报告口径）')
+    const recJs = readFile('miniapp-delivery/pages/station-mgmt/receivables/index.js')
+    assert.ok(recJs.includes('记为已收款并销掉这些应收账，不会代客户付款'), '确认时说明登记仅销应收账，不代客户付款')
   })
 
   /* ============================ D01 钱卡 ============================ */
@@ -599,8 +600,10 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
     assert.strictEqual(dPage.data.isManager, false)
     const wxml = renderedWxml('miniapp-delivery/pages/settings/index.wxml')
     assert.ok(wxml.indexOf('{{isManager}}') > -1, '通知设置整块必须按角色分叉')
-    assert.ok(wxml.indexOf('配送端没有「首页」页签') > -1,
-      '配送员那一支要如实说明这条提醒对他不起作用（原来只说"首页标签亮红点"，而他没有首页）')
+    const { parseWxml, renderElements } = require('./wxml-tree')
+    const tree = parseWxml(wxml)
+    assert(renderElements(tree, mPage.data).some(e => e.attrs.bindchange === 'onToggleReminder'))
+    assert(!renderElements(tree, dPage.data).some(e => e.attrs.bindchange === 'onToggleReminder'), '配送员不能看到无作用的提醒开关')
   })
 
   console.log('')

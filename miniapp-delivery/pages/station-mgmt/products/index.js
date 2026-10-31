@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 const { initialModuleData, refreshModuleTasks } = require('../../../utils/setup-progress')
 const { WATER_PRODUCT_TEMPLATES, TEMPLATE_IMAGE, IMAGE_NOTICE, templatesWithImages, matchingCatalogProducts, templateBusinessError } = require('../../../utils/water-product-templates')
 const {
@@ -44,6 +45,67 @@ const exactNumber = value => {
   if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return null
   const number = Number(text)
   return Number.isFinite(number) ? number : null
+}
+const stockQuantity = value => {
+  const quantity = exactNumber(value)
+  return Number.isSafeInteger(quantity) && quantity >= 0 ? quantity : null
+}
+// Existing tier rows are durable records: only the explicit deleted flag may delete one.
+const untouchedPackageDraft = row => row && row.defaultDraft && !row.touched && blankNumber(row.price)
+const initialPackageDraft = () => ({ key: 'initial-package', id: null, qty: '10', price: '', defaultDraft: true, touched: false, deleted: false })
+const packageFields = row => ({ qty: exactNumber(row.qty), price: exactNumber(row.price),
+  title: row.title == null ? null : row.title, sort: row.sort == null ? 0 : row.sort,
+  status: row.onShelf === false ? 0 : 1 })
+const packageChanged = row => !untouchedPackageDraft(row) && (row.deleted || !row.original
+  || JSON.stringify(packageFields(row)) !== JSON.stringify(row.original))
+function packageRow(saved) {
+  const row = { key: 'p' + saved.id, id: saved.id, qty: saved.qty,
+    price: saved.price == null ? '' : String(saved.price), title: saved.title, sort: saved.sort,
+    onShelf: saved.status === 1, deleted: false }
+  row.original = packageFields(row)
+  return row
+}
+const packageListKey = rows => JSON.stringify(rows.filter(row => row.id).map(row =>
+  [String(row.id), row.original || packageFields(row)]).sort((a, b) => a[0].localeCompare(b[0])))
+/** Rebase only explicitly edited fields; a child page's newer title/sort must survive a parent price edit. */
+function rebasePackageDrafts(drafts, fresh) {
+  const rows = fresh.map(row => ({ ...row }))
+  for (const draft of drafts) {
+    if (!packageChanged(draft)) continue
+    const index = rows.findIndex(row => draft.id ? String(row.id) === String(draft.id) : Number(row.qty) === Number(draft.qty))
+    if (draft.deleted && index < 0) continue
+    const latest = rows[index]
+    const next = latest ? { ...latest, deleted: !!draft.deleted } : { ...draft, id: null, key: 'draft-' + draft.key }
+    if (!latest) delete next.original
+    const fields = packageFields(draft)
+    for (const field of ['qty', 'price', 'status', 'title', 'sort']) {
+      const explicit = draft.original ? fields[field] !== draft.original[field]
+        : field === 'qty' || field === 'price' || field === 'status' && typeof draft.onShelf === 'boolean'
+          || (field === 'title' || field === 'sort') && Object.prototype.hasOwnProperty.call(draft, field)
+      if (explicit) next[field === 'status' ? 'onShelf' : field] = field === 'status' ? fields[field] === 1 : draft[field]
+    }
+    if (index < 0) rows.push(next)
+    else rows[index] = next
+  }
+  return rows.length ? rows : [initialPackageDraft()]
+}
+const retailCompatibilityPrice = (rows, previous) => {
+  const one = rows.find(row => exactNumber(row.qty) === 1)
+  return one ? (one.deleted || one.onShelf === false ? '0' : one.price) : previous
+}
+// An untouched new blank row is harmless; a partly filled or invalid row blocks the whole save.
+function ticketPackageValidationError(rows, startIndex = 0) {
+  for (let index = Math.max(0, startIndex); index < rows.length; index++) {
+    const row = rows[index] || {}
+    if (row.deleted || untouchedPackageDraft(row)) continue
+    const qtyText = String(row.qty == null ? '' : row.qty).trim()
+    const priceText = String(row.price == null ? '' : row.price).trim()
+    if (!row.id && !qtyText && !priceText) continue
+    const qty = exactNumber(qtyText), price = exactNumber(priceText)
+    if (qty === null || !Number.isSafeInteger(qty) || qty <= 0) return `水票档位第 ${index + 1} 档张数无效，请填写正整数`
+    if (price === null || price <= 0) return `水票档位第 ${index + 1} 档总价无效，请填写大于 0 的金额；如要移除，请点删除`
+  }
+  return ''
 }
 function productSession() {
   const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
@@ -102,9 +164,9 @@ Page({
     productEditorSection: 'details', productScrollTarget: '',
     setting: {},
     pkgRows: [],         // 水票档位（快捷定义）：{id,qty,price,onShelf,deleted}
-    pkgLoading: false, pkgError: '', pkgReady: false, pkgProductId: null,
+    pkgLoading: false, pkgError: '', pkgReady: false, pkgProductId: null, pkgValidationError: '',
     stockMode: 'in',     // in=入库(在现有基础上加) | check=盘点(把库存设成输入值)
-    stockInput: '',
+    stockInput: '', stockCostInput: '',
     stockAfterText: '', stockOperationBusy: false, stockConfirmPending: false,
     inventoryDraftAvailable: false, inventoryDraftName: '',
     warningsInline: [],
@@ -143,20 +205,61 @@ Page({
     showWaterTemplates: false,
     templateImage: TEMPLATE_IMAGE,
     imageNotice: IMAGE_NOTICE, brokenImages: {},
-    editTemplateId: ''
+    editTemplateId: '',
+    productSetupRequiredTasks: [],
+    productSetupOptionalTask: null,
+    productSetupRequiredPending: null,
+    productSetupGuideExpanded: true,
+    productSetupDoneExpanded: false
   },
 
-  refreshModuleSetup() { return refreshModuleTasks(this, '/pages/station-mgmt/products/index') },
+  refreshModuleSetup() {
+    return refreshModuleTasks(this, '/pages/station-mgmt/products/index').then(guide => {
+      if (!guide || !this.data.moduleSetupReady) return guide
+      const tasks = this.data.moduleSetupTasks || []
+      const required = tasks.filter(item => item.key !== 'ticketPackage' && item.level === 'P0')
+      const pending = required.filter(item => !item.done).length
+      this.setData({
+        productSetupRequiredTasks: required,
+        productSetupOptionalTask: tasks.find(item => item.key === 'ticketPackage') || null,
+        productSetupRequiredPending: pending,
+        productSetupGuideExpanded: pending > 0 || (!required.length && !!tasks.find(item => item.key === 'ticketPackage')),
+        productSetupDoneExpanded: false
+      })
+      return guide
+    })
+  },
+  onToggleProductSetupGuide() {
+    if (!this.data.moduleSetupReady || this.data.moduleSetupError) return
+    this.setData({ productSetupGuideExpanded: !this.data.productSetupGuideExpanded })
+  },
+  onToggleProductSetupDone() {
+    this.setData({ productSetupDoneExpanded: !this.data.productSetupDoneExpanded })
+  },
   onModuleSetupTask(e) {
     const key = e.currentTarget.dataset.key
-    if (!(this.data.moduleSetupTasks || []).some(it => it.key === key)) return
-    if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: '#setup-products', duration: 180 })
+    const task = (this.data.moduleSetupTasks || []).find(it => it.key === key)
+    if (!task) return
+    const scrollToProducts = () => {
+      if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({ selector: '#setup-products', duration: 180 })
+    }
+    if (key === 'ticketPackage' && !task.done) {
+      this.setData({ tab: 'selected', quick: 'ticket', keyword: '', category: 0 }, () => {
+        this.applyFilter()
+        scrollToProducts()
+      })
+      return
+    }
+    scrollToProducts()
   },
 
   onShow() {
     this._productHidden = false
     const visibleSession = productSession()
     if (this._productPageSession && !sameProductSession(this._productPageSession)) {
+      this._ticketPackageVisit = null
+      this._pkgBaselineRows = []
+      this._pkgBaselineProductId = null
       this._catalogReadSeq = (this._catalogReadSeq || 0) + 1
       this._recordsSeq = (this._recordsSeq || 0) + 1
       this._submissionsSeq = (this._submissionsSeq || 0) + 1
@@ -165,8 +268,9 @@ Page({
       this._productEditEpoch = (this._productEditEpoch || 0) + 1
       this._closedProductEditor = null
       this._closedInventoryDraft = null
+      this._inventoryDrafts = new Map()
       this.setData({ list: [], viewList: [], reportableProducts: [], warningsInline: [], showRecords:false, records:[], showSubmissions:false, submissions:[], loadError: '', loading: true, showSetting: false, showEdit: false, showInventory: false, setting: {}, editForm: {}, pkgRows: [],
-        pkgReady: false, productSaveError: '', inboundRecovery: null, inboundError: '', inboundBusy: false, stockOperationBusy: false, stockConfirmPending: false, inventoryDraftAvailable: false, inventoryDraftName: '', stockInput: '', stockMode: 'in', productEditorResume: false })
+        pkgReady: false, productSaveError: '', inboundRecovery: null, inboundError: '', inboundBusy: false, stockOperationBusy: false, stockConfirmPending: false, inventoryDraftAvailable: false, inventoryDraftName: '', stockInput: '', stockCostInput: '', stockMode: 'in', productEditorResume: false })
     }
     this._productPageSession = visibleSession
     this.captureProductEditorWindow()
@@ -186,9 +290,16 @@ Page({
     try { this.syncProductCreationRecovery() } catch (_) { /* 风险常显，仍允许只读目录核对。 */ }
     this.loadData()
     this.loadWaterTemplateImages()
+    // 2026-10-26：子页已改票价时，旧编辑器曾重写整份旧档位；只核对档位，不重载商品草稿。
+    if ((this.data.showEdit || this.data.productEditorResume) && this.data.pkgProductId
+      && (String(this._ticketPackageVisit || '') === String(this.data.pkgProductId) || this.data.pkgLoading)) {
+      this._ticketPackageVisit = null
+      this.loadPkgRows(this.data.pkgProductId, { reconcile: true })
+    }
   },
 
   onUnload() {
+    if (this._pkgReturnCancel) this._pkgReturnCancel()
     this._productDestroyed = true
     this._catalogReadSeq = (this._catalogReadSeq || 0) + 1
     if (this._productResizeHandler && typeof wx.offWindowResize === 'function') wx.offWindowResize(this._productResizeHandler)
@@ -198,6 +309,7 @@ Page({
 
   onHide() {
     this._productHidden = true
+    if (this._pkgReturnCancel) this._pkgReturnCancel()
     if (this._inboundFlight && this._inboundFlight.cancelConfirmation) this._inboundFlight.cancelConfirmation()
   },
 
@@ -408,11 +520,12 @@ Page({
         categoryLabel: i.categoryText || '',
         refPriceText: this.money(i.price),
         refDepositText: this.money(i.deposit),
+        hasRefDeposit: Number(i.deposit) > 0,
         effectivePriceText: this.money(i.effectivePrice),
         effectiveDepositText: this.money(i.effectiveDeposit),
-        stockText: i.selected ? String(i.quantity || 0) : '—',
+        stockText: i.selected ? (stockQuantity(i.quantity) === null ? '待核实' : String(stockQuantity(i.quantity))) : '—',
         priceDiffText: this.priceDiffText(i),
-        lowStock: i.status !== 0 && i.status !== 2 && i.selected && i.enabled === 1 && (i.quantity || 0) < 20,
+        lowStock: i.status !== 0 && i.status !== 2 && i.selected && i.enabled === 1 && stockQuantity(i.quantity) !== null && stockQuantity(i.quantity) < 20,
         submission: submissionsByProduct[i.id] || null
       }))
       this.setData({ list, reportableProducts: list.filter(i => Number(i.ownerStationId) === Number((getApp().globalData.userInfo || {}).stationId) && i.status !== 0 && i.status !== 2) }, () => this.applyFilter())
@@ -526,7 +639,14 @@ Page({
       wx.showToast({ title: '只能操作本站商品库存', icon: 'none' }); return
     }
     if (!item.selected && !item.ownerStationId) return
-    const owner = productSession(), previous = this._closedInventoryDraft
+    // 2026-10-26: repeated delivery of the same tap must not clear an active quantity draft.
+    if (this.data.showInventory && Number(this.data.setting.id) === Number(item.id)
+      && sameProductSession(this._productSettingOwner)) return
+    // 2026-10-28：旧面板只清数量，曾把 A 的成本带入 B；完整草稿按身份和商品隔离。
+    if (this.data.showInventory) this.closeInventory()
+    const owner = productSession()
+    const drafts = this._inventoryDrafts || (this._inventoryDrafts = new Map())
+    const previous = drafts.get(owner.key + ':' + Number(item.id)) || this._closedInventoryDraft
     const resume = previous && sameProductSession(previous.session) && Number(previous.item.id) === Number(item.id)
       ? previous : null
     this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
@@ -539,13 +659,15 @@ Page({
       showEdit: false, showSetting: false, showInventory: true, productEditorResume: false,
       productInactive: item.status === 0 || item.status === 2,
       setting: { id: item.id, name: item.displayName || item.name, category: item.category || 1,
-        quantity: item.quantity == null ? null : item.quantity, ownerStationId: item.ownerStationId,
+        quantity: stockQuantity(item.quantity), ownerStationId: item.ownerStationId,
+        pricingConfirmed: item.pricingConfirmed === 1, effectivePriceText: item.effectivePriceText, effectiveDepositText: item.effectiveDepositText,
         salePrice: item.salePrice == null ? '' : String(item.salePrice),
         depositPrice: item.depositPrice == null ? '' : String(item.depositPrice),
         enabled: item.enabled === 1, priorityDisplay: item.priorityDisplay === 1,
         ticketEnabled: item.ticketEnabled === 1, ticketPrice: item.ticketPrice == null ? '' : String(item.ticketPrice),
-        refPriceText: item.refPriceText, refDepositText: item.refDepositText },
+        refPriceText: item.refPriceText, refDepositText: item.refDepositText, hasRefDeposit: Number(item.deposit) > 0 },
       stockMode: resume ? resume.stockMode : 'in', stockInput: resume ? resume.stockInput : '',
+      stockCostInput: resume ? resume.stockCostInput : '',
       stockAfterText: '', stockConfirmPending: false, inboundError: '', inboundRecovery: null,
       inventoryDraftAvailable: false, inventoryDraftName: '', productScrollTarget: ''
     }, () => this.refreshStockPreview())
@@ -557,11 +679,16 @@ Page({
   closeInventory() {
     if (!this.data.showInventory) return
     const item = (this.data.list || []).find(row => Number(row.id) === Number(this.data.setting.id))
-    const hasDraft = String(this.data.stockInput || '').trim() !== '' || this.data.stockMode !== 'in'
+    const hasDraft = String(this.data.stockInput || '').trim() !== '' || String(this.data.stockCostInput == null ? '' : this.data.stockCostInput).trim() !== '' || this.data.stockMode !== 'in'
     if (hasDraft && item) {
       this._closedInventoryDraft = { session: this._productSettingOwner || productSession(), item: productCopy(item),
-        stockMode: this.data.stockMode, stockInput: this.data.stockInput }
-    } else this._closedInventoryDraft = null
+        stockMode: this.data.stockMode, stockInput: this.data.stockInput, stockCostInput: this.data.stockCostInput }
+      const drafts = this._inventoryDrafts || (this._inventoryDrafts = new Map())
+      drafts.set(this._closedInventoryDraft.session.key + ':' + Number(item.id), this._closedInventoryDraft)
+    } else {
+      this._closedInventoryDraft = null
+      if (item && this._inventoryDrafts) this._inventoryDrafts.delete(productSession().key + ':' + Number(item.id))
+    }
     this._productSettingClosed = true
     if (!this.productWriteLocked()) this._productSettingEpoch = (this._productSettingEpoch || 0) + 1
     this._productKeyboardHeight = 0
@@ -574,6 +701,21 @@ Page({
 
   onProductInventoryBeforeLeave() { this.closeInventory() },
 
+  // One native host routes Back/overlay to its currently visible task, including native
+  // Back during a write (which retains the original operation proof in the close handler).
+  onProductPanelBeforeLeave() {
+    if (this.data.showRecords) this.closeRecords()
+    else if (this.data.showInventory) this.onProductInventoryBeforeLeave()
+    else this.onProductEditorBeforeLeave()
+  },
+
+  closeProductPanel() {
+    if (this.productWriteLocked()) return
+    if (this.data.showRecords) this.closeRecords()
+    else if (this.data.showInventory) this.closeInventory()
+    else this.closeEdit()
+  },
+
   onResumeInventoryDraft() {
     const draft = this._closedInventoryDraft
     if (!draft || !sameProductSession(draft.session)) { this.onDiscardInventoryDraft(); return }
@@ -581,8 +723,10 @@ Page({
   },
 
   onDiscardInventoryDraft() {
+    const draft = this._closedInventoryDraft
+    if (draft && this._inventoryDrafts) this._inventoryDrafts.delete(draft.session.key + ':' + Number(draft.item.id))
     this._closedInventoryDraft = null
-    this.setData({ inventoryDraftAvailable: false, inventoryDraftName: '', stockInput: '', stockMode: 'in', stockAfterText: '' })
+    this.setData({ inventoryDraftAvailable: false, inventoryDraftName: '', stockInput: '', stockCostInput: '', stockMode: 'in', stockAfterText: '' })
   },
 
   closeSetting() {
@@ -605,7 +749,7 @@ Page({
     if (this.productWriteLocked()) return
     const item=e.currentTarget.dataset.item, owner=productSession()
     if (!item || ![0,2].includes(item.status) || Number(item.ownerStationId)!==Number((getApp().globalData.userInfo||{}).stationId)) return
-    wx.showModal({title:'恢复本站商品',content:'恢复后仍为未上架；库存和历史记录保留。请核对商品资料后再决定上架。',confirmText:'恢复',confirmColor:'#1264D6',success:async r=>{
+    showBusinessModal({title:'恢复本站商品',content:'恢复后仍为未上架；库存和历史记录保留。请核对商品资料后再决定上架。',confirmText:'恢复',confirmColor:'#1264D6',success:async r=>{
       if (!r.confirm || !sameProductSession(owner) || this.productWriteLocked()) return
       const flight=this._productSaveFlight={};this.setData({saving:true})
       try { await updateMyProduct(item.id,{status:1,enabled:0})
@@ -631,16 +775,15 @@ Page({
   },
   onDismissPriceWarnings() { this.setData({warningsInline:[]}) },
 
-  onProductMore(e) {
+  onRequestRemoveProduct(e) {
     if (this.productWriteLocked()) return
-    const item = e.currentTarget.dataset.item, session = productSession()
+    const item = e.currentTarget.dataset.item
     const stationId = (getApp().globalData.userInfo || {}).stationId
     if (!item || !item.selected || item.ownerStationId && [0,2].includes(item.status) || item.ownerStationId && Number(item.ownerStationId) !== Number(stationId)) return
-    wx.showActionSheet({ itemList: ['移除商品'], itemColor: '#BD3328', success: result => {
-      if (result.tapIndex !== 0 || !sameProductSession(session) || this.productWriteLocked()) return
-      if (item.ownerStationId) this.onDeactivate(e)
-      else this.onRemoveProduct(e)
-    } })
+    // 2026-10-26: the old one-item "more" menu only added a tap. Keep the original
+    // source-specific confirmation, session checks and inventory rules unchanged.
+    if (item.ownerStationId) this.onDeactivate(e)
+    else this.onRemoveProduct(e)
   },
 
   onSettingShelfChange(e) {
@@ -663,45 +806,75 @@ Page({
    * ⚠️ 金额一律发服务端算：unitPrice 由后端用 price/qty 推导，前端不传、也不显示自己算的均价
    *    （档位均价是水票批次的快照值，前端算会与快照不一致）。
    */
-  async loadPkgRows(productId) {
+  async loadPkgRows(productId, { reconcile = false } = {}) {
     if (!productId) return
+    const owner = productSession(), epoch = this._productEditEpoch || 0
     const seq = this._pkgSeq = (this._pkgSeq || 0) + 1
+    const current = () => seq === this._pkgSeq && sameProductSession(owner) && !this._productHidden && !this._productDestroyed
+      && epoch === (this._productEditEpoch || 0) && String(this.data.pkgProductId) === String(productId)
     this.setData({ pkgLoading: true, pkgReady: false, pkgError: '', pkgProductId: productId })
     try {
       const res = await get(PKG_MANAGE + '?productId=' + productId)
-      if (seq !== this._pkgSeq) return
+      if (!current()) return
       if (!Array.isArray(res.data)) throw new Error('档位数据未读取')
-      const rows = res.data.map(p => ({
-        key: 'p' + p.id,
-        id: p.id,
-        qty: p.qty,
-        price: p.price === null || p.price === undefined ? '' : String(p.price),
-        onShelf: p.status === 1,
-        deleted: false
-      }))
-      this.setData({ pkgRows: rows, pkgReady: true })
+      const fresh = res.data.map(packageRow)
+      let rows = fresh
+      if (reconcile) {
+        const drafts = productCopy(this.data.pkgRows || [])
+        const changed = drafts.some(packageChanged)
+        const remoteChanged = String(this._pkgBaselineProductId) !== String(productId)
+          || packageListKey(this._pkgBaselineRows || []) !== packageListKey(fresh)
+        if (changed && remoteChanged) {
+          this.setData({ pkgError: '档位已有新版本，请选择如何处理本页档位修改；商品资料草稿保持不变。' })
+          const useFresh = await new Promise(resolve => {
+            let settled = false
+            const finish = value => { if (settled) return; settled = true; if (this._pkgReturnCancel === cancel) this._pkgReturnCancel = null; resolve(value) }
+            const cancel = () => finish(null)
+            this._pkgReturnCancel = cancel
+            try { showBusinessModal({ title: '核对水票档位',
+              content: '其他页面已更新档位，本页也有未保存的档位修改。使用新档会替换本页档位草稿；保留修改将在下次保存时提交这些修改。两种选择都保留商品资料草稿。',
+              confirmText: '使用新档', cancelText: '保留修改', confirmColor: '#1264D6', cancelColor: '#637083',
+              success: answer => finish(!!answer.confirm), fail: cancel }) } catch (_) { cancel() }
+          })
+          if (!current() || useFresh === null) return
+          rows = useFresh ? fresh : rebasePackageDrafts(drafts, fresh)
+        } else if (changed) rows = rebasePackageDrafts(drafts, fresh)
+      }
+      this._pkgBaselineRows = productCopy(fresh)
+      this._pkgBaselineProductId = String(productId)
+      // 2026-10-26: expose existing retail configuration as a one-ticket tier. This is
+      // only a draft until the user saves; no read performs a migration or deletion.
+      const retail = this.data.editForm.ticketPrice
+      if (!reconcile && exactNumber(retail) > 0 && !rows.some(row => Number(row.qty) === 1)) rows.unshift({ key: 'legacy-retail', id: null, qty: '1', price: String(retail), legacyRetail: true, deleted: false })
+      this.setData({ pkgRows: rows.length ? rows : [initialPackageDraft()], pkgReady: true, pkgError: '' })
     } catch (err) {
       // 2026-10-22：原配置未核实时不能把空表当作原价目表；保留草稿，先重读再修改档位。
-      if (seq !== this._pkgSeq) return
+      if (!current()) return
       console.warn('[ticket-packages] load failed:', err && err.message)
       this.setData({ pkgError: '水票档位尚未读取，请先重读原配置，草稿保持不变' })
     } finally {
-      if (seq === this._pkgSeq) this.setData({ pkgLoading: false })
+      if (current()) this.setData({ pkgLoading: false })
     }
   },
 
-  onRetryPkgRows() { return this.loadPkgRows(this.data.pkgProductId) },
+  onRetryPkgRows() { if (!this.data.pkgLoading) return this.loadPkgRows(this.data.pkgProductId, { reconcile: true }) },
 
   onPkgPriceInput(e) {
     if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const idx = e.currentTarget.dataset.index
-    this.setData({ ['pkgRows[' + idx + '].price']: e.detail.value })
+    this.setData({ ['pkgRows[' + idx + '].price']: e.detail.value, ['pkgRows[' + idx + '].touched']: true, pkgValidationError: '' })
   },
 
   onPkgQtyInput(e) {
     if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
     const idx = e.currentTarget.dataset.index
-    this.setData({ ['pkgRows[' + idx + '].qty']: e.detail.value })
+    this.setData({ ['pkgRows[' + idx + '].qty']: e.detail.value, ['pkgRows[' + idx + '].touched']: true, pkgValidationError: '' })
+  },
+
+  onPkgShelfChange(e) {
+    if (this.productWriteLocked() || this.data.showEdit && this.data.productCreationPending) return
+    const idx = e.currentTarget.dataset.index
+    this.setData({ ['pkgRows[' + idx + '].onShelf']: e.detail.value, ['pkgRows[' + idx + '].touched']: true })
   },
 
   /** 加一档：默认按常见档位递推（10 / 20 / 100），已存在的就不重复加 */
@@ -711,7 +884,7 @@ Page({
     const used = rows.filter(r => !r.deleted).map(r => String(r.qty))
     const preset = [10, 20, 100].find(q => !used.includes(String(q))) || ''
     rows.push({ key: 'n' + Date.now() + rows.length, id: null, qty: preset, price: '', deleted: false })
-    this.setData({ pkgRows: rows })
+    this.setData({ pkgRows: rows, pkgValidationError: '' })
   },
 
   /** 已存在的档位只标记删除（保存时才真删，再点一次可撤销）；没保存过的新行直接移除。 */
@@ -721,36 +894,48 @@ Page({
     const rows = this.data.pkgRows.slice()
     const row = rows[idx]
     if (!row) return
+    if (row.legacyRetail) this.setData({ 'editForm.ticketPrice': '0', 'setting.ticketPrice': '0' })
     if (row.id) {
       row.deleted = !row.deleted
     } else {
       rows.splice(idx, 1)
     }
-    this.setData({ pkgRows: rows })
+    this.setData({ pkgRows: rows, pkgValidationError: '' })
   },
 
   onOpenTicketPackages() {
     // 2026-10-06：从商品设置进入曾丢失当前商品，必须沿用这一份设置上下文。
     const id = this.data.setting && this.data.setting.id
-    wx.navigateTo({ url: '/pages/station-mgmt/ticket-packages/index' + (id ? '?productId=' + encodeURIComponent(id) : '') })
+    if (this.productWriteLocked() || this._ticketPackageVisit) return
+    this._ticketPackageVisit = id ? String(id) : null
+    wx.navigateTo({ url: '/pages/station-mgmt/ticket-packages/index' + (id ? '?productId=' + encodeURIComponent(id) : ''),
+      fail: () => { this._ticketPackageVisit = null } })
   },
 
-  /** 把档位行落库：有价的新增/改价走 upsert；被清空价格或被标记删除的走 DELETE。 */
+  /** 把档位行落库：合法行走 upsert；仅明确标记删除的已有档位走 DELETE。 */
   async savePkgRows(productId, snapshot, current = () => true, progress, startIndex = 0) {
     const rows = productCopy(snapshot || this.data.pkgRows || [])
+    const validationError = ticketPackageValidationError(rows, startIndex)
+    if (validationError) throw new Error(validationError)
     for (let index = startIndex; index < rows.length; index++) {
       if (!current()) throw saveScopeError()
       const r = rows[index]
-      const price = parseFloat(r.price)
-      const qty = parseInt(r.qty, 10)
-      if (r.id && (r.deleted || !r.price || isNaN(price) || price <= 0)) {
+      if (untouchedPackageDraft(r)) { if (progress) progress(index + 1); continue }
+      if (r.id && r.deleted) {
         await del(PKG + '/' + r.id)
         if (!current()) throw saveScopeError()
         if (progress) progress(index + 1)
         continue
       }
-      if (!r.deleted && qty && qty > 0 && !isNaN(price) && price > 0) {
-        await post(PKG, { productId, qty, price })
+      // 2026-10-26：未修改的持久档位曾被重写，覆盖子页新票价并清空名称/排序。
+      if (r.id && !packageChanged(r)) { if (progress) progress(index + 1); continue }
+      if (!r.deleted && (r.id || String(r.qty == null ? '' : r.qty).trim() || String(r.price == null ? '' : r.price).trim())) {
+        const body = { productId, qty: exactNumber(r.qty), price: exactNumber(r.price) }
+        if (r.id) body.id = r.id
+        if (typeof r.onShelf === 'boolean') body.status = r.onShelf ? 1 : 0
+        if (r.original || Object.prototype.hasOwnProperty.call(r, 'title')) body.title = r.title == null ? null : r.title
+        if (r.original || Object.prototype.hasOwnProperty.call(r, 'sort')) body.sort = r.sort == null ? 0 : r.sort
+        await post(PKG, body)
         if (!current()) throw saveScopeError()
       }
       if (progress) progress(index + 1)
@@ -814,16 +999,17 @@ Page({
       this.setData({ stockAfterText: '继续原入库 ' + intent.quantity + ' 件；不会使用当前输入' })
       return
     }
-    const qty = parseInt(this.data.stockInput, 10)
-    const current = Number(this.data.setting.quantity || 0)
-    if (isNaN(qty) || qty < 0) {
+    const qty = exactNumber(this.data.stockInput)
+    const current = stockQuantity(this.data.setting.quantity)
+    if (current === null || qty === null || !Number.isSafeInteger(qty) || qty < 0) {
       this.setData({ stockAfterText: '' })
       return
     }
     const after = this.data.stockMode === 'in' ? current + qty : qty
+    if (!Number.isSafeInteger(after)) { this.setData({ stockAfterText: '' }); return }
     const delta = after - current
-    const label = this.data.stockMode === 'in' ? '入库后 ' : this.data.stockMode === 'loss' ? '短缺登记后 ' : '核对后 '
-    this.setData({ stockAfterText: label + after + ' 件（' + (delta < 0 ? '少 ' + (-delta) : delta > 0 ? '多 ' + delta : '无变化') + (delta === 0 ? '' : ' 件') + '）' })
+    const label = this.data.stockMode === 'in' ? '入库后 ' : this.data.stockMode === 'loss' ? '报损登记后 ' : '盘点校正后 '
+    this.setData({ stockAfterNumber: after, stockDeltaText: (delta > 0 ? '+' : '') + delta + ' 件', stockAfterText: label + after + ' 件（' + (delta < 0 ? '少 ' + (-delta) : delta > 0 ? '多 ' + delta : '无变化') + (delta === 0 ? '' : ' 件') + '）' })
   },
 
   /** 一个按钮走两种模式：入库直接提交，盘点先确认再提交 */
@@ -836,6 +1022,9 @@ Page({
     if (stockMode === 'in') {
       try { if (inboundIntent.read(this.inboundActor(), setting.id)) return this.doInbound() }
       catch (error) { this.setData({ inboundError: error.message }); return }
+    }
+    if (stockQuantity(setting.quantity) === null) {
+      wx.showToast({ title: '库存尚未读取，请重新核实', icon: 'none' }); return
     }
     const qty = exactNumber(stockInput)
     if (qty === null || !Number.isSafeInteger(qty) || qty < 0 || (stockMode === 'in' && qty <= 0)) {
@@ -850,11 +1039,13 @@ Page({
       const proof = this.inventoryOperationProof()
       this._stockConfirmPending = true
       this.setData({ stockConfirmPending: true })
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '登记短缺', cancelText: '暂不登记', title: '登记商品短缺', editable: true, placeholderText: '短缺原因及凭据（必填）',
-        content: '实际库存由 ' + setting.quantity + ' 件改为 ' + qty + ' 件。低于已预留数量时，较晚的订单会转为缺货待补，请与客户协商延期或取消。',
+      // 2026-10-26：原按钮6字超过原生弹窗限制；缩短按钮，影响说明保留在标题和正文。
+      showBusinessModal({ confirmColor: '#A83B32', cancelColor: '#637083',  confirmText: '确认报损', cancelText: '返回修改', title: '确认登记短缺 / 报损', editable: true, placeholderText: '短缺原因及依据（必填）',
+        content: '实物数量将从 ' + setting.quantity + ' 件调整为 ' + qty + ' 件。系统会按订单需要顺序减少订单预留并提示受影响订单；请在业务待办中跟进补货、协商延期或取消退款。确认后会保留短缺原因、库存流水和审计记录。',
         success: res => {
           this.clearStockConfirmation()
           if (!res.confirm || !this.inventoryOperationCurrent(proof)) return
+          if (!String(res.content || '').trim()) { wx.showToast({ title: '请填写短缺原因及依据', icon: 'none' }); return }
           return this.doRecordStockLoss(qty, res.content, proof)
         }, fail: () => this.clearStockConfirmation() })
       return
@@ -863,10 +1054,10 @@ Page({
     const proof = this.inventoryOperationProof()
     this._stockConfirmPending = true
     this.setData({ stockConfirmPending: true })
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-      title: '确认实际库存',
-      content: '「' + setting.name + '」库存由 ' + (setting.quantity || 0) + ' 件改为 ' + after + ' 件，并记录数量差额。',
-      confirmText: '确认数量',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      title: '确认盘点校正',
+      content: '「' + setting.name + '」实物总数将从 ' + (setting.quantity || 0) + ' 件校正为 ' + after + ' 件，并记录数量差额；低于订单预留量时服务端会拒绝校正。',
+      confirmText: '确认校正',
       success: (res) => {
         this.clearStockConfirmation()
         if (res.confirm && this.inventoryOperationCurrent(proof)) this.doStockCheck(after, proof)
@@ -881,11 +1072,12 @@ Page({
     try {
       const result = await businessRules.recordLoss(setting.id, { targetQuantity, expectedQuantity: setting.quantity, note })
       if (!this.inventoryOperationCurrent(proof, false)) return
-      this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': targetQuantity })
+      this.setData({ stockInput: '', stockCostInput: '', stockAfterText: '', 'setting.quantity': targetQuantity })
+      if (this._inventoryDrafts) this._inventoryDrafts.delete(productSession().key + ':' + Number(setting.id))
       this._closedInventoryDraft = null
       this.setData({ inventoryDraftAvailable: false, inventoryDraftName: '' })
       this.loadData()
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083', confirmText: '知道了', title: '商品短缺已登记',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083', confirmText: '知道了', title: '商品短缺已登记',
         content: '受影响订单 ' + ((result && result.data && result.data.affectedOrders) || []).length + ' 条；请到业务待办查看缺货订单。', showCancel: false })
     } catch (err) {
       if (this.inventoryOperationCurrent(proof, false)) wx.showToast({ title: err.message || '登记未成功', icon: 'none' })
@@ -898,6 +1090,8 @@ Page({
   },
 
   /** 入库：在现有库存上加（写 INBOUND 流水） */
+  onStockCostInput(e) { if (!this.productWriteLocked() && !this.data.inboundRecovery) this.setData({ stockCostInput: e.detail.value }) },
+
   inboundActor() {
     const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
     if (!g.isLogin || !productIdOf(u.staffId) || !productIdOf(u.stationId) || !app.canAccessStationBusiness()
@@ -911,7 +1105,7 @@ Page({
       const id = this.data.setting && this.data.setting.id
       const intent = id ? inboundIntent.read(this.inboundActor(), id) : null
       this.setData({ inboundRecovery: intent ? { productId: intent.items[0].productId,
-        quantity: intent.items[0].quantity, clientRequestId: intent.clientRequestId } : null,
+        quantity: intent.items[0].quantity, costText: intent.items[0].costAmount == null ? '未记录成本' : '总成本 ¥' + intent.items[0].costAmount, clientRequestId: intent.clientRequestId } : null,
         ...(intent && this.data.showInventory ? { stockMode: 'in' } : {}) }, () => this.refreshStockPreview())
       return intent
     } catch (error) { this.setData({ inboundRecovery: null, inboundError: error.message }); throw error }
@@ -930,13 +1124,13 @@ Page({
     try {
       if (!current()) return
       const actor = this.inboundActor(), original = inboundIntent.read(actor, s.id)
-      intent = original || inboundIntent.prepare(actor, [{ productId: Number(s.id), quantity: qty }])
+      intent = original || inboundIntent.prepare(actor, [{ productId: Number(s.id), quantity: qty, ...(String(this.data.stockCostInput == null ? '' : this.data.stockCostInput).trim() === '' ? {} : { costAmount: String(this.data.stockCostInput).trim() }) }])
       this.syncInboundRecovery()
       if (original) {
         const confirmed = await new Promise(resolve => {
           flight.cancelConfirmation = () => resolve(false)
-          wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '继续原入库', confirmText: '继续入库', cancelText: '暂不继续',
-            content: '商品 #' + intent.items[0].productId + '，原入库数量 ' + intent.items[0].quantity + ' 件。\n继续会沿用原编号核实或执行这笔入库，不会使用当前新输入数量，也不会重复增加已完成的原入库。',
+          showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '继续原入库', confirmText: '继续入库', cancelText: '暂不继续',
+            content: '商品 #' + intent.items[0].productId + '，原入库数量 ' + intent.items[0].quantity + ' 件，' + (intent.items[0].costAmount == null ? '未记录成本' : '总成本 ¥' + intent.items[0].costAmount) + '。\n继续会沿用原编号核实或执行这笔入库，不会使用当前新输入数量，也不会重复增加已完成的原入库。',
             success: result => resolve(!!result.confirm), fail: () => resolve(false) })
         })
         delete flight.cancelConfirmation
@@ -949,8 +1143,10 @@ Page({
       if (!inboundIntent.acceptsReceipt(intent, result)) throw Object.assign(Error('入库结果暂未查到，请继续原入库，勿重复登记'), { malformedResponse: true })
       applied = true
       inboundIntent.clear(intent)
+      if (this._inventoryDrafts) this._inventoryDrafts.delete(productSession().key + ':' + Number(s.id))
+      this._closedInventoryDraft = null
       this.syncInboundRecovery()
-      this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': null })
+      this.setData({ stockInput: '', stockCostInput: '', stockAfterText: '', 'setting.quantity': null })
       await this.loadData()
       if (!current()) return
       const item = !this.data.loadError && this.data.list.find(row => Number(row.id) === Number(s.id))
@@ -982,7 +1178,8 @@ Page({
       await setCatalogStock(s.id, target, '商品页核对库存')
       if (!this.inventoryOperationCurrent(proof, false)) return
       wx.showToast({ title: '库存已核对', icon: 'success' })
-      this.setData({ stockInput: '', stockAfterText: '', 'setting.quantity': target })
+      this.setData({ stockInput: '', stockCostInput: '', stockAfterText: '', 'setting.quantity': target })
+      if (this._inventoryDrafts) this._inventoryDrafts.delete(productSession().key + ':' + Number(s.id))
       this._closedInventoryDraft = null
       this.setData({ inventoryDraftAvailable: false, inventoryDraftName: '' })
       this.loadData()
@@ -1016,6 +1213,12 @@ Page({
     const s = productCopy(this.data.setting || {})
     if (!s.id || this.productWriteLocked() || this._productSettingClosed) return
     if (s.ticketEnabled && (this.data.pkgLoading || this.data.pkgError)) { wx.showToast({ title: '请先读取原水票档位', icon: 'none' }); return }
+    const rows = productCopy(this.data.pkgRows || [])
+    if (s.ticketEnabled) s.ticketPrice = retailCompatibilityPrice(rows, s.ticketPrice)
+    if (s.ticketEnabled) {
+      const packageError = ticketPackageValidationError(rows)
+      if (packageError) { this.setData({ pkgValidationError: packageError }); wx.showToast({ title: packageError, icon: 'none' }); return }
+    }
     const payload = {
       enabled: s.enabled ? 1 : 0,
       ticketEnabled: s.ticketEnabled ? 1 : 0,
@@ -1039,7 +1242,7 @@ Page({
     if (!blankNumber(s.ticketPrice)) payload.ticketPrice = exactNumber(s.ticketPrice)
 
     // 2026-10-25：原保存曾在await后读取新商品档位；保存目标、表单与档位须在首个请求前冻结。
-    const rows = productCopy(this.data.pkgRows || []), proof = this.productSaveProof('setting', s.id)
+    const proof = this.productSaveProof('setting', s.id)
     if (!this.productSaveCurrent(proof)) { wx.showToast({ title: '身份或商品已变化，请重新进入', icon: 'none' }); return }
     const flight = this._productSaveFlight = {}
     this.setData({ saving: true, productSaveError: '' })
@@ -1077,7 +1280,7 @@ Page({
     const item = e && e.currentTarget ? e.currentTarget.dataset.item : this.data.setting
     const session = productSession()
     if (!item || !item.id || item.ownerStationId) return
-    wx.showModal({ cancelColor: '#637083', title: '移除商品',
+    showBusinessModal({ cancelColor: '#637083', title: '移除商品',
       content: '移除后顾客在本站看不到该商品；库存必须先核对为 0。确认移除？',
       confirmText: '移除', confirmColor: '#BD3328', success: res => {
         if (!res.confirm || !sameProductSession(session) || this.productWriteLocked()) return
@@ -1111,6 +1314,12 @@ Page({
         productText: r.productName || ('商品 #' + (r.productId || '')),
         refText: r.refId ? '单据 #' + r.refId : ''
       }))
+      // The current API has no historical result-stock snapshot. Never infer it from
+      // this limited, filtered list or label the current stock as a historical result.
+      for (const record of records) {
+        record.direction = Number(record.delta) > 0 ? 'increase' : Number(record.delta) < 0 ? 'decrease' : 'neutral'
+        record.resultText = Number.isSafeInteger(record.afterQuantity) ? '结果库存 ' + record.afterQuantity + ' 件' : '结果库存未记录'
+      }
       this.setData({ records, recordsReady: true })
     } catch (err) {
       if (seq !== this._recordsSeq) return
@@ -1125,11 +1334,11 @@ Page({
   onFilterRecordsByCurrent() {
     const s = this.data.setting
     if (!s || !s.id) return
-    // The native editor layer must close before the ordinary records modal can be shown.
-    // leaveProductEditor retains the same unsaved form; it is not a product save.
+    // 2026-10-26: keep the native host open throughout this handoff. Closing the old
+    // panel first emitted beforeleave later and immediately closed the new records view.
+    this.setData({ recordsProductId: s.id, recordsFilterName: s.name, recordsLimit: 50, showRecords: true })
     if (this.data.showEdit) this.leaveProductEditor()
     if (this.data.showInventory) this.closeInventory()
-    this.setData({ recordsProductId: s.id, recordsFilterName: s.name, recordsLimit: 50, showRecords: true })
     this.loadRecords()
   },
 
@@ -1249,7 +1458,7 @@ Page({
       editTemplateId: '',
       editCategoryIndex: 0,
       productImagePreviewUrl: '',
-      pkgRows: [], pkgReady: true, pkgLoading: false, pkgError: '', pkgProductId: null, // 新商品没有旧档位，可以直接填写草稿
+      pkgRows: [initialPackageDraft()], pkgReady: true, pkgLoading: false, pkgError: '', pkgProductId: null, pkgValidationError: '', // 新商品没有旧档位，可以直接填写草稿
       editForm: {
         name: '', brand: '', spec: '', category: 1,
         price: '', deposit: '', quantity: '', imageObjectName: '', imageUrl: '',
@@ -1265,6 +1474,7 @@ Page({
 
   openEdit(e, platform = false) {
     if (this.productWriteLocked() || this.data.productImageBusy || this.data.uploading) return
+    if (this.data.showInventory) this.closeInventory()
     this._productEditorClosed = false
     this._closedProductEditor = null
     this.rememberProductImageDraft()
@@ -1290,9 +1500,10 @@ Page({
       stationImageOverridden: !!item.stationImageObjectName,
       platformImageObjectName: item.platformImageObjectName || '', platformImageUrl: item.platformImageUrl || '',
       editOriginalImageObjectName: item.imageObjectName || '', restorePlatformImage: false,
-      productEditorSection: 'details', productScrollTarget: '',
+      productEditorSection: platform ? 'pricing' : 'details',
+      productScrollTarget: platform ? 'product-section-pricing' : '',
       productEditorResume: false,
-      productSaveError: '',
+      productSaveError: '', pkgValidationError: '',
       productImagePreviewUrl: '',
       isAdd: false,
       editId: item.id, pkgRows: [], pkgReady: false, pkgError: '', pkgProductId: item.id,
@@ -1300,12 +1511,13 @@ Page({
       editCategoryIndex: idx >= 0 ? idx : 0,
       setting: { id: item.id, name: item.displayName || item.name, category: item.category || 1,
         quantity: item.quantity == null ? null : item.quantity, ownerStationId: item.ownerStationId,
+        pricingConfirmed: item.pricingConfirmed === 1, effectivePriceText: item.effectivePriceText, effectiveDepositText: item.effectiveDepositText,
         salePrice: item.salePrice == null ? '' : String(item.salePrice),
         depositPrice: item.depositPrice == null ? '' : String(item.depositPrice),
         enabled: item.enabled === 1, priorityDisplay: item.priorityDisplay === 1,
         ticketEnabled: item.ticketEnabled === 1, ticketPrice: item.ticketPrice == null ? '' : String(item.ticketPrice),
-        refPriceText: item.refPriceText, refDepositText: item.refDepositText },
-      stockMode: 'in', stockInput: '', stockAfterText: '', inboundError: '',
+        refPriceText: item.refPriceText, refDepositText: item.refDepositText, hasRefDeposit: Number(item.deposit) > 0 },
+      stockMode: 'in', stockInput: '', stockCostInput: '', stockAfterText: '', inboundError: '',
       editForm: {
         name: item.name || '',
         brand: item.brand || '',
@@ -1438,7 +1650,7 @@ Page({
     const drafts = this._productEditorDrafts || (this._productEditorDrafts = new Map())
     const snapshot = {}
     for (const field of ['productInactive','stationImageEditable','stationImageOverridden','platformImageObjectName','platformImageUrl','editOriginalImageObjectName','restorePlatformImage','productEditorSection','productScrollTarget','showSetting','isAdd','editId','editForm','editTemplateId','editCategoryIndex','pkgRows','pkgReady','pkgError','pkgProductId','productImagePreviewUrl',
-      'setting','stockMode','stockInput','stockAfterText','inboundError']) snapshot[field] = this.data[field]
+      'setting','stockMode','stockInput','stockCostInput','stockAfterText','inboundError']) snapshot[field] = this.data[field]
     snapshot._imageChoice = this._productImageChoiceSeq || 0
     snapshot._imageFailed = !!(this._productImageFailure && this._productImageFailure.draftId === this._uploadDraftId)
     snapshot._imageDiagnostic = snapshot._imageFailed ? this._productImageFailure.diagnostic : null
@@ -1544,7 +1756,8 @@ Page({
     }
     const deposit = blankNumber(editForm.deposit) ? 0 : exactNumber(editForm.deposit)
     const quantity = blankNumber(editForm.quantity) ? null : exactNumber(editForm.quantity)
-    const ticketPrice = blankNumber(editForm.ticketPrice) ? null : exactNumber(editForm.ticketPrice)
+    const compatibilityPrice = editForm.ticketEnabled ? retailCompatibilityPrice(this.data.pkgRows || [], editForm.ticketPrice) : editForm.ticketPrice
+    const ticketPrice = blankNumber(compatibilityPrice) ? null : exactNumber(compatibilityPrice)
     if (deposit === null || (editForm.ticketEnabled && !blankNumber(editForm.ticketPrice) && ticketPrice === null)) {
       wx.showToast({ title: '请输入完整的数字金额', icon: 'none' })
       return
@@ -1552,6 +1765,12 @@ Page({
     if (!blankNumber(editForm.quantity) && (quantity === null || !Number.isSafeInteger(quantity) || quantity < 0)) {
       wx.showToast({ title: '库存须填写非负整数', icon: 'none' })
       return
+    }
+    const rows = productCopy(this.data.pkgRows || [])
+    if (editForm.ticketEnabled) editForm.ticketPrice = retailCompatibilityPrice(rows, editForm.ticketPrice)
+    if (editForm.ticketEnabled) {
+      const packageError = ticketPackageValidationError(rows)
+      if (packageError) { this.setData({ pkgValidationError: packageError }); wx.showToast({ title: packageError, icon: 'none' }); return }
     }
     const payload = {
       name: editForm.name.trim(),
@@ -1580,7 +1799,7 @@ Page({
       payload.depositPrice = 0
     }
 
-    const rows = productCopy(this.data.pkgRows || []), proof = this.productSaveProof('edit', isAdd ? 'new' : editId)
+    const proof = this.productSaveProof('edit', isAdd ? 'new' : editId)
     if (!this.productSaveCurrent(proof)) { wx.showToast({ title: '身份或商品已变化，请重新进入', icon: 'none' }); return }
     const flight = this._productSaveFlight = {}
     let creation = null, createDispatched = false
@@ -1643,7 +1862,7 @@ Page({
     if (this.productWriteLocked()) return
     const item = e.currentTarget.dataset.item, session = productSession()
     if (!item || Number(item.ownerStationId) !== Number((getApp().globalData.userInfo || {}).stationId)) return
-    wx.showModal({ cancelColor: '#637083',
+    showBusinessModal({ cancelColor: '#637083',
       title: '移除商品',
       content: '移除后本站顾客看不到它，历史订单仍保留。确认移除？',
       confirmText: '移除',
@@ -1665,7 +1884,7 @@ Page({
   onSubmitToPlatform(e) {
     const item = e.currentTarget.dataset.item, owner=productSession()
     if (!item || this.productWriteLocked() || [0,2].includes(item.status) || Number(item.ownerStationId)!==Number((getApp().globalData.userInfo||{}).stationId)) return
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '上报给开发者',
       editable: true,
       placeholderText: '补充说明（规格/品牌/进货渠道等，可留空）',
@@ -1856,7 +2075,7 @@ Page({
       return m ? parseFloat(m[1]) : 0
     })
     if (times.some(t => t >= 10)) {
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '价格请再核对一次',
         content: warnings.join('\n'),
         showCancel: false,

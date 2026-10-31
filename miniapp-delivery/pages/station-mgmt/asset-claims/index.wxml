@@ -1,30 +1,36 @@
 <view class="claim-page">
   <view class="work-head"><text class="work-title">核对历史资产</text><text class="work-desc">客户、商品和历史实收押金分别核对。</text></view>
-  <view class="claim-banner">本站 #{{stationId}} · 只核对客户主动提交的历史清单。通过即建立关系并记入期初账，不产生本次新收款；不要求客户再次确认。</view>
+  <view class="claim-muted">本站 #{{stationId}} · 客户提交的待核对清单</view>
   <view class="claim-error" wx:if="{{error}}">{{error}}</view>
   <view class="claim-notice" wx:if="{{notice}}">{{notice}}</view>
-  <button class="claim-secondary" loading="{{loading}}" disabled="{{loading || submitting}}" bindtap="onRetry">刷新待核对清单</button>
+  <button class="af-action af-action--quiet b3-on-retry" loading="{{loading}}" disabled="{{loading || submitting}}" bindtap="onRetry" hover-class="af-action--pressed"><view class="af-action__face">刷新待核对清单</view></button>
   <view class="claim-muted" wx:if="{{loading}}">正在核实本站认领信息…</view>
   <view class="claim-card" wx:if="{{pending}}">
     <text class="claim-title">原处理结果待核实 · 申请 #{{originalId}}</text>
     <text class="claim-row">已保存的决定：{{originalDecision}}</text>
     <text class="claim-material" wx:if="{{reviewNote}}">原说明：{{reviewNote}}</text>
-    <button class="claim-secondary" bindtap="onRecover" disabled="{{submitting || loading}}">查询原申请</button>
-    <button class="claim-primary" wx:if="{{originalVerified}}" bindtap="onRetryReview" loading="{{submitting}}" disabled="{{submitting || loading || !catalogReady}}">重试原处理</button>
+    <button class="af-action af-action--quiet b3-on-recover" bindtap="onRecover" disabled="{{submitting || loading}}" hover-class="af-action--pressed"><view class="af-action__face">查询原申请</view></button>
+    <button class="af-action af-action--secondary b3-on-retry-review" wx:if="{{originalVerified}}" bindtap="onRetryReview" loading="{{submitting}}" disabled="{{submitting || loading || !catalogReady || (originalDecision === '核对通过' && (!photoReady || photoError))}}" hover-class="af-action--pressed">重试原处理</button>
   </view>
+  <view wx:if="{{!selected}}">
   <view class="claim-muted" wx:if="{{ready && !records.length}}">暂无待核对申请。</view>
-  <view class="claim-card claim-select" wx:for="{{records}}" wx:key="id" data-id="{{item.id}}" bindtap="onSelect">
+  <view class="claim-card claim-select af-entry b3-record-entry" wx:for="{{records}}" wx:key="id" data-id="{{item.id}}" bindtap="onSelect">
     <view class="claim-heading"><text class="claim-title">申请 #{{item.id}} · 客户 #{{item.customerId}}</text><text class="claim-status">{{item.statusText}}</text></view>
     <text class="claim-amount">历史实收押金余额：¥{{item.depositText}}</text>
     <text class="claim-material">客户说明：{{item.note}}</text>
-    <text class="claim-muted">点击展开逐商品清单</text>
+    <text class="claim-muted">{{item.items.length}} 种商品</text>
+  </view>
   </view>
   <view class="claim-card" wx:if="{{selected}}">
-    <view class="claim-heading"><text class="claim-title">原清单 #{{selected.id}}</text><text class="claim-status">{{selected.statusText}}</text></view>
+    <button class="af-action af-action--quiet b3-on-close-selection" wx:if="{{!pending}}" bindtap="onCloseSelection" hover-class="af-action--pressed"><view class="af-action__face">返回待核对清单</view></button>
+    <view class="b3-claim-state"><text class="b3-state-caption">当前核对状态</text><text class="b3-state-title">{{selected.statusText}}</text></view>
+    <view class="claim-banner">通过即建立关系并记入期初账，不产生本次新收款；不要求客户再次确认。</view>
+    <view class="claim-heading"><text class="claim-title">原清单 #{{selected.id}}</text></view>
     <text class="claim-row">本站 #{{selected.stationId}} · 客户 #{{selected.customerId}}</text>
     <text class="claim-row">提交时间：{{selected.createTime}}</text>
     <text class="claim-amount">历史实收押金余额：¥{{selected.depositText}}</text>
     <text class="claim-muted">以上余额独立核对，不能用桶容量乘单价代替。</text>
+    <view class="s-claim-section-head"><text class="b3-section-heading">按商品核对权益与持桶</text><help-tip title="核对清单" text="原清单不可改写；客户可更正后重新申请。" /></view>
     <view class="claim-line" wx:for="{{selected.items}}" wx:key="productId">
       <text class="claim-title">{{item.name}} {{item.spec}} · 商品 #{{item.productId}}</text>
       <text class="claim-row">已付桶容量：{{item.rights}} 份 · 实际持桶：{{item.held}} 只</text>
@@ -32,14 +38,21 @@
       <text class="claim-row">桶容量单价（元/份）：{{item.unitPriceText}}</text>
     </view>
     <text class="claim-material">客户说明：{{selected.note}}</text>
+    <text class="claim-row">押金条照片</text>
+    <text class="claim-muted" wx:if="{{photoLoading}}">正在核实照片…</text>
+    <text class="claim-muted" wx:if="{{photoReady && !photoExists}}">未附照片</text>
+    <image wx:if="{{photoUrl}}" class="claim-photo" src="{{photoUrl}}" mode="aspectFit" bindtap="onPreviewPhoto" binderror="onPhotoError" />
+    <view wx:if="{{photoError}}"><text class="claim-error">{{photoError}}</text><button class="af-action af-action--quiet b3-on-retry-photo" bindtap="onRetryPhoto" hover-class="af-action--pressed"><view class="af-action__face">重试照片</view></button></view>
     <text class="claim-material" wx:if="{{selected.reviewNote}}">核对反馈：{{selected.reviewNote}}</text>
     <block wx:if="{{selected.status === 'PENDING' && !pending}}">
-      <text class="claim-muted">原清单不可改写。有差异请拒绝并说明，客户可更正后重新申请；已生效差异沿原资产调整办理。</text>
+      <text class="claim-muted">有差异请拒绝并说明；已生效差异按资产调整办理。</text>
+      <text class="claim-muted">未提交的核对说明仅在本页保留。</text>
       <textarea class="claim-input claim-textarea" value="{{reviewNote}}" maxlength="500" bindinput="onNote" placeholder="核对说明；拒绝时必填，最多500字" disabled="{{submitting}}" />
       <view class="claim-actions">
-        <button class="claim-secondary" bindtap="onReject" disabled="{{!ready || !catalogReady || submitting || loading}}">拒绝并反馈</button>
-        <button class="claim-primary" bindtap="onApprove" loading="{{submitting}}" disabled="{{!ready || !catalogReady || submitting || loading}}">核对通过</button>
+        <button class="af-action af-action--secondary b3-on-reject" bindtap="onReject" disabled="{{!ready || !catalogReady || submitting || loading}}" hover-class="af-action--pressed">拒绝并反馈</button>
+        <button class="af-action af-action--primary b3-on-approve af-action--grow" bindtap="onApprove" loading="{{submitting}}" disabled="{{!ready || !catalogReady || !photoReady || photoError || submitting || loading}}" hover-class="af-action--pressed">核对通过</button>
       </view>
     </block>
   </view>
 </view>
+<business-dialog id="business-dialog" />

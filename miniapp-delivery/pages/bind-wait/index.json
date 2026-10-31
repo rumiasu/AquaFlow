@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "等待审核",
-  "navigationStyle": "default"
+  "navigationStyle": "default",
+  "usingComponents": {
+    "icon": "/components/Icon/index"
+  }
 }

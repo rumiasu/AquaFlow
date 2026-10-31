@@ -1,7 +1,13 @@
 // 认证相关接口（后端: LoginController）
 const { post } = require('../utils/request')
 const { API } = require('../config/api')
-const { isDevelopEnv } = require('../config/api')
+const { isDevelopEnv, isTestLoginClientEnv } = require('../config/api')
+
+// 临时账号只提交凭据，不发送角色、用户编号或站点授权。
+const testLogin = (account, password) => {
+  if (!isTestLoginClientEnv()) throw new Error('当前版本不支持测试账号登录')
+  return post(API.TEST_LOGIN, { account, password })
+}
 
 const devLogin = (role = 'DELIVERY') => {
   if (!isDevelopEnv()) throw new Error('开发登录仅在 develop 环境可用')
@@ -35,4 +41,4 @@ const updateProfile = (data) => {
   return post(API.UPDATE_PROFILE, data)
 }
 
-module.exports = { devLogin, login, wxLogin, wxLoginStaff, logout, getMe, updateProfile }
+module.exports = { testLogin, devLogin, login, wxLogin, wxLoginStaff, logout, getMe, updateProfile }

@@ -1,3 +1,4 @@
+const restoreHttpFixture = require('./https-transport-fixture').installHttpsTransportFixture(); process.once('exit', restoreHttpFixture)
 'use strict'
 // F-55: invoke production Page methods and real request wrappers with controlled wx/API callbacks.
 const assert = require('assert')

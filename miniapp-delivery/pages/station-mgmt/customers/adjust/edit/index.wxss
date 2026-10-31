@@ -140,7 +140,7 @@
 /* 2026-10-06：搜索与结果整行可点，小屏允许身份信息换行。 */
 .customer-search-row { display:flex; align-items:center; gap:16rpx; }
 .customer-search-row input { flex:1; min-width:0; }
-.customer-search-row button { flex-shrink:0; margin:0; }
+.customer-search-row button:not(.af-action):not(.af-choice):not(.af-entry) { flex-shrink:0; margin:0; }
 .customer-option { display:flex; flex-direction:column; padding:24rpx 0; border-bottom:1rpx solid var(--primary-bg); overflow-wrap:anywhere; }
 .customer-selected { padding:24rpx 0 12rpx; font-weight:600; overflow-wrap:anywhere; }
 .customer-selector .field-hint { display:block; font-size:24rpx; line-height:1.6; color:var(--text-secondary); }
@@ -160,3 +160,28 @@
 .btn-half { min-height: 44px; display:flex; align-items:center; justify-content:center; border-radius:10rpx; font-size: 14px; box-sizing:border-box; }
 .footer { gap:16rpx; }
 .footer-tip { padding-bottom:28rpx; }
+
+.evidence-del { width:44px; height:44px; line-height:44px; top:-8px; right:-8px; z-index:1; }
+.field-hint button:not(.af-action):not(.af-choice):not(.af-entry) { min-height:44px; height:auto; line-height:1.5; }
+
+.product-toggle { min-height:44px; height:auto; line-height:1.5; white-space:normal; padding:20rpx; background:#fff; color:var(--primary-color); border:1rpx solid var(--border-color); }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Visual v2: page-specific information and action grouping. */
+ .card { border-radius:14px; box-shadow:none; } .card-title { padding-bottom:12px; border-bottom:1px solid var(--af-border); } .preview-head,.preview-row { display:flex; align-items:center; gap:8px; } .preview-head { background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); border-radius:8px; } .preview-row .after { color:var(--af2-strong); font-weight:600; } .evidence-row { gap:8px; }

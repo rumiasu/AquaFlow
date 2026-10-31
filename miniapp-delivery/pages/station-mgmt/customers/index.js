@@ -1,3 +1,4 @@
+const { showBusinessModal } = require('../../../utils/business-dialog')
 // 站长客户查询
 const { getCustomers, getOfflinePaymentSummary, updateOfflinePayment,
         getEnterpriseApplies, reviewEnterpriseApply,
@@ -23,9 +24,10 @@ function decorate(item) {
   item.avatarColor = AVATAR_COLORS[h % AVATAR_COLORS.length]
   const phone = item.phone || ''
   item.phoneMasked = phone.length === 11 ? phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : (phone || '未填写')
-  item.totalOrders = item.totalOrders || 0
-  item.totalConsumptionText = Number(item.totalConsumption || 0).toFixed(2)
-  item.depositBalanceText = Number(item.depositBalance || 0).toFixed(2)
+  const knownNumber = v => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v))
+  item.totalOrders = knownNumber(item.totalOrders) ? item.totalOrders : '待核实'
+  item.totalConsumptionText = knownNumber(item.totalConsumption) ? Number(item.totalConsumption).toFixed(2) : '待核实'
+  item.depositBalanceText = knownNumber(item.depositBalance) ? Number(item.depositBalance).toFixed(2) : '待核实'
   item.customerLevel = item.customerLevel || '普通客户'
   item.customerLevelColor = item.customerLevelColor || '#909399'
   item.activityStatus = item.activityStatus || 'new'
@@ -71,6 +73,11 @@ Page({
       app.routeByRole(true)
       return
     }
+    if (this._codContext && !this.codContextCurrent(this._codContext)) this._closeCod()
+    if (this._entCfgFormSession && !this.entCfgFormBelongsTo(searchSession())) {
+      this._entCfgFormEdited = false
+      this.setData({ entVisible: false, entCfgForm: { barrels: '', amount: '' } })
+    }
     navigation.show(this)
     this.loadStationScope()
     return this.loadData()
@@ -81,13 +88,13 @@ Page({
     this._stationScopeSequence = (this._stationScopeSequence || 0) + 1
     this._stationScopeContext = null
     this._customersHidden = true
-    this.onCodClose()
+    if (this._codContext && !this._codContext.ready) this._closeCod()
     this._searchSequence = (this._searchSequence || 0) + 1
     this._pullSequence = (this._pullSequence || 0) + 1
     this._enterpriseSequence = (this._enterpriseSequence || 0) + 1
     this._enterpriseConfigSequence = (this._enterpriseConfigSequence || 0) + 1
   },
-  onUnload() { this.onHide(); navigation.dispose(this) },
+  onUnload() { this.onHide(); this._closeCod(); navigation.dispose(this) },
 
   // 名称只作当前操作范围提示；授权仍由原登录守卫与服务端判定，不读缓存站名。
   stationScopeCurrent(context) {
@@ -288,6 +295,7 @@ Page({
       const row = this.data.list.find(item => String(item.id) === String(id))
       const phoneText = row ? (row.phone ? row.phoneMasked || '电话已填写' : '未填写电话') : '电话未核实'
       context.ready = true
+      context.savedEnabled = Number(d.offlinePaymentEnabled) === 1
       this.setData({
         codModal: {
           visible: true,
@@ -295,9 +303,9 @@ Page({
           customerName: (row && row.name) || name || '姓名未填写',
           customerPhoneText: phoneText,
           usableText,
-          orderCount: d.orderCount || 0,
-          overdueCount: d.overdueCount || 0,
-          overdueAmount: d.overdueAmount != null ? d.overdueAmount : '0.00',
+          orderCount: d.orderCount == null ? '待核实' : d.orderCount,
+          overdueCount: d.overdueCount == null ? '待核实' : d.overdueCount,
+          overdueAmount: d.overdueAmount == null ? '待核实' : d.overdueAmount,
           blockReason: reason
         },
         codForm: { enabled: Number(d.offlinePaymentEnabled) === 1 }
@@ -308,6 +316,16 @@ Page({
   },
 
   onCodClose() {
+    const context = this._codContext
+    if (context && context.saving) { this._closeCod(); return }
+    if (context && context.ready && this.data.codForm.enabled !== context.savedEnabled) {
+      showBusinessModal({ title: '放弃修改？', content: '货到付款设置尚未保存。', confirmText: '放弃', cancelText: '继续编辑',
+        success: r => { if (r.confirm && this.codContextCurrent(context, true)) this._closeCod() } })
+      return
+    }
+    this._closeCod()
+  },
+  _closeCod() {
     this._codSequence = (this._codSequence || 0) + 1
     this._codContext = null
     this.setData({ 'codModal.visible': false })
@@ -345,7 +363,7 @@ Page({
         return
       }
       wx.showToast({ title: '已保存', icon: 'success' })
-      this.onCodClose()
+      this._closeCod()
       this.loadData()
     } catch (err) {
       if (this.codContextCurrent(context, true)) wx.showToast({ title: err.message || '保存失败', icon: 'none' })
@@ -509,7 +527,7 @@ Page({
     this.currentStationScopeLabel()
     const view = (e.currentTarget.dataset.view === 'settings') ? 'settings' : 'review'
     this.setData({ entVisible: true, entView: view })
-    if (view === 'settings') this.openEntCfgForm()
+    if (view === 'settings' && (!this._entCfgFormEdited || !this.entCfgFormBelongsTo(searchSession()))) this.openEntCfgForm()
   },
 
   /** 弹窗内两个视图互切（审核 ⇄ 阈值）。 */
@@ -517,10 +535,17 @@ Page({
     this.currentStationScopeLabel()
     const view = e.currentTarget.dataset.view === 'settings' ? 'settings' : 'review'
     this.setData({ entView: view })
-    if (view === 'settings') this.openEntCfgForm()
+    if (view === 'settings' && (!this._entCfgFormEdited || !this.entCfgFormBelongsTo(searchSession()))) this.openEntCfgForm()
   },
 
   onEntClose() {
+    if (this.data.entCfgSaving) return
+    if (this._entCfgFormEdited && this.entCfgFormBelongsTo(searchSession())) {
+      const owner = this._entCfgFormSession
+      showBusinessModal({ title: '放弃修改？', content: '提示阈值尚未保存。', confirmText: '放弃', cancelText: '继续编辑',
+        success: r => { if (r.confirm && owner === this._entCfgFormSession && this.entCfgFormBelongsTo(searchSession())) { this._entCfgFormEdited = false; this.setData({ entVisible: false }) } } })
+      return
+    }
     this.setData({ entVisible: false })
   },
 
@@ -539,7 +564,7 @@ Page({
     const application = this.data.entApplies.find(item => String(item.id) === String(id))
     const company = (application && application.companyName) || name || '企业名称未填写'
     const contact = (application && application.contactPerson) || '联系人未填写'
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认为企业客户',
       content: `${stationLabel}\n申请企业：${company}\n${contact}\n通过后转为企业客户，企业资料同步建档。`,
       confirmText: '通过',
@@ -550,29 +575,21 @@ Page({
     })
   },
 
-  /** [2026-10-14] editable 的 content 会预填输入并回传；站别/对象说明须先只读确认，理由另用空输入，避免提示被当作理由留痕。 */
+  /** 说明与输入分离，避免对象和后果被当成驳回理由。 */
   onEntReject(e) {
     const { id, name } = e.currentTarget.dataset
     const stationLabel = this.currentStationScopeLabel()
-    wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',
+    const session = searchSession()
+    showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083',
       title: '驳回申请',
-      content: `${stationLabel}\n申请企业：${name || '企业名称未填写'}\n驳回理由会随申请留存（可不填）。`,
-      editable: false,
-      confirmText: '继续',
+      description: `${stationLabel}\n申请企业：${name || '企业名称未填写'}\n驳回理由会随申请留存（可不填）。`,
+      initialValue: '', editable: true, placeholderText: '请输入驳回理由（可不填）',
+      confirmText: '驳回',
       cancelText: '取消',
-      success: (confirmation) => {
-        if (!confirmation.confirm) return
-        wx.showModal({ confirmColor: '#BD3328', cancelColor: '#637083',
-          title: '驳回理由',
-          content: '',
-          editable: true,
-          placeholderText: '请输入驳回理由（可不填）',
-          confirmText: '驳回',
-          cancelText: '取消',
-          success: (r) => {
-            if (r.confirm) this.doReview(id, false, (r.content || '').trim())
-          }
-        })
+      success: r => {
+        const now = searchSession()
+        if (r.confirm && !this._customersHidden && session.app === now.app && session.generation === now.generation && session.identity === now.identity
+          && this.data.entApplies.some(item => String(item.id) === String(id))) this.doReview(id, false, (r.content || '').trim())
       }
     })
   },

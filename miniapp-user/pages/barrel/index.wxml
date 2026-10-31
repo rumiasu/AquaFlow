@@ -1,6 +1,6 @@
 <page-meta page-style="{{showReturnModal ? 'overflow: hidden;' : ''}}"></page-meta>
-<view class="container">
-  <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
+<view class="container barrel-assets-page">
+  <asset-station-view compact="{{true}}" id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
   <loading wx:if="{{loading}}"></loading>
 
   <block wx:else>
@@ -10,23 +10,24 @@
          与"确实没有桶"长得一模一样（loadError 为空串时不渲染）。 -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}<view wx:if="{{!needLogin}}" bindtap="onRetryAssets">重新加载 ›</view></view>
     <view class="load-error" wx:if="{{returnRecoveryError}}">{{returnRecoveryError}}<view bindtap="onRetryAssets">重新读取原凭据 ›</view></view>
-    <view class="load-error" wx:if="{{pendingReturn}}">本站有一笔原退还申请结果待核实，核实前请勿另发申请。<button bindtap="onShowReturnModal" disabled="{{submitting}}">核对原申请</button></view>
-    <button class="rights-purchase-btn" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
-    <button class="empty-asset-action" wx:if="{{!needLogin && !viewStationId}}" bindtap="onChooseAssetStation">选择资产水站</button>
+    <view class="load-error" wx:if="{{pendingReturn}}">本站有一笔原退还申请结果待核实，核实前请勿另发申请。<button class="af-action af-action--secondary" bindtap="onShowReturnModal" disabled="{{submitting}}">核对原申请</button></view>
+    <view class="ui-draft-notice" wx:if="{{uiDraftAvailable || uiDraftError}}"><text>{{uiDraftError || '有一份未提交的退还填写'}}</text><button class="af-action af-action--quiet" wx:if="{{uiDraftAvailable}}" bindtap="onRestoreUiDraft" disabled="{{submitting || pendingReturn || returnRecoveryError}}"><text class="af-action__face">恢复暂存填写</text></button><button class="af-action af-action--quiet" wx:else bindtap="readUiDraft"><text class="af-action__face">重试读取暂存</text></button></view>
+    <button class="af-action af-action--secondary" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
+    <button class="af-action af-action--secondary" wx:if="{{!needLogin && !viewStationId}}" bindtap="onChooseAssetStation">选择资产水站</button>
 
     <!-- 当前水站：桶权益与押金按「客户 × 水站」隔离。不写清楚，客户换个站会以为桶/押金丢了。
          文案与样式照抄 pages/deposit/records（同一条提示条，保持一致）。 -->
     <view class="stats-card" wx:if="{{summary}}">
-      <view class="stat-col">
+      <view class="stat-col stat-physical">
         <text class="stat-label">{{summary.independentRights ? '用桶权益' : '桶账汇总'}}</text>
         <view class="stat-value-row">
           <text class="stat-number">{{summary.independentRights ? (summary.rightBuckets == null ? '—' : summary.rightBuckets) : (summary.heldBuckets == null ? '—' : summary.heldBuckets)}}</text>
-          <text class="stat-unit">个</text>
+          <text class="stat-unit">{{summary.independentRights ? '份' : '个'}}</text>
         </view>
         <text class="stat-link" wx:if="{{summary.independentRights && summary.availableRights != null}}">当前可用 {{summary.availableRights}} 份</text>
       </view>
       <view class="stat-divider"></view>
-      <view class="stat-col" bindtap="onDepositRecords">
+      <view class="stat-col stat-money" bindtap="onDepositRecords">
         <!--
           「押金余额」不是「押金」也不是「可退押金」（docs/design/29 §7）：
           这个数是 customer_deposit_account.balance，回答"现在账上还有多少"，
@@ -41,18 +42,18 @@
         <text class="stat-link">押金流水 ›</text>
       </view>
       <view class="stat-divider"></view>
-      <view class="stat-col">
+      <view class="stat-col {{summary.owedBuckets > 0 ? 'stat-owed' : 'stat-neutral'}}">
         <text class="stat-label">欠桶</text>
         <view class="stat-value-row">
-          <text class="stat-number owed">{{summary.owedBuckets == null ? '—' : summary.owedBuckets}}</text>
+          <text class="stat-number {{summary.owedBuckets > 0 ? 'owed' : ''}}">{{summary.owedBuckets == null ? '—' : summary.owedBuckets}}</text>
           <text class="stat-unit">个</text>
         </view>
       </view>
     </view>
 
-    <!-- 独立办理入口另起一行，避免窄屏挤占三列统计；显隐和办理事件保持同一入口。 -->
     <view class="rights-actions" wx:if="{{summary.independentRights}}">
-      <button class="rights-purchase-btn" bindtap="onPurchaseRights">交桶押金（不含水）</button>
+      <button class="af-action af-action--primary rights-purchase" bindtap="onPurchaseRights"><icon name="wallet" size="22px" color="#FFFFFF" /><text>交桶押金</text></button>
+      <text class="rights-purchase-note">不含水费</text>
     </view>
 
     <view class="owed-tip" wx:if="{{summary.owedBuckets > 0}}">
@@ -61,7 +62,7 @@
 
     <!-- 2026-10-24：暂存与未领都可能形成账面余额，不能一概说成已经多还的实物。 -->
     <view class="storage-tip" wx:if="{{summary.storageBuckets > 0 && !summary.independentRights}}">
-      <text>暂存或待领取 {{summary.storageBuckets}} 个：这是账面记录，实际交接情况请向资产水站核实。</text>
+      <text>暂存或待领取记录：{{summary.storageBuckets}} 个，实际交接请向资产水站确认。</text>
     </view>
 
     <view class="section">
@@ -74,53 +75,58 @@
              数量与"押金 ¥X/桶"一律没动。
         -->
         <text class="section-title">我的水桶</text>
-        <view class="return-btn-small" bindtap="onShowReturnModal" wx:if="{{maxReturnQty > 0 && !refreshing && !summaryFailed && !holdingsFailed}}">
+        <view class="af-action af-action--quiet barrel-return-entry" bindtap="onShowReturnModal" wx:if="{{maxReturnQty > 0 && !refreshing && !summaryFailed && !holdingsFailed}}">
           <!-- [2026-10-10] 未领权益也可退出；申请标题不把所有权益说成已领取实物。 -->
-          <text>{{summary.independentRights ? '申请退还权益' : '申请退桶'}}</text>
+          <text class="af-action__face">{{summary.independentRights ? '退还权益' : '申请退桶'}} ›</text>
         </view>
       </view>
 
       <view class="bucket-list" wx:if="{{customerBarrelAsset.length > 0}}">
         <view class="bucket-item asset-bucket-item" wx:for="{{customerBarrelAsset}}" wx:key="productId">
           <view class="bucket-info">
-            <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#1677FF" /></view>
+            <image class="asset-product-photo" wx:if="{{item.assetImageUrl && !item.assetImageFailed}}" src="{{item.assetImageUrl}}" mode="aspectFit" binderror="onAssetPhotoError" data-id="{{item.productId}}" data-src="{{item.assetImageUrl}}" />
+            <view class="asset-product-photo asset-photo-placeholder" wx:else><icon name="barrel" size="40px" color="#387A78" /></view>
             <view class="bucket-detail">
-              <text class="bucket-id">{{item.productName}} {{item.productSpec}}</text>
-              <text class="bucket-time" wx:if="{{!item.independentRights}}">账面汇总 {{item.heldTotalQty}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含遗留配送中 {{item.inTransitQty}}）</text> / 欠桶 {{item.owedQty}}</text>
+              <text class="bucket-id">{{item.productName || '商品名称待确认'}}</text><text class="bucket-spec">{{item.displaySpec}}</text>
+              <text class="bucket-time" wx:if="{{!item.independentRights}}">水桶记录 {{item.heldTotalQty}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含此前配送中 {{item.inTransitQty}} 桶）</text> · 欠桶 {{item.owedQty}} 桶</text>
               <text class="bucket-time" wx:if="{{item.independentRights}}">有效权益 {{item.assetQty}} 份 · 当前可用 {{item.availableRights}} 份</text>
-              <text class="bucket-time" wx:if="{{item.storageQty != null && item.storageQty > 0}}">暂存或待领取 {{item.storageQty}} 个（账面记录，非实物盘点）</text>
+              <text class="bucket-time" wx:if="{{item.storageQty != null && item.storageQty > 0}}">暂存或待领取 {{item.storageQty}} 个（实际交接请向水站确认）</text>
+              <text class="asset-deposit-standard">{{item.deposit == null ? '每桶押金待确认' : '每桶押金标准 ¥' + item.deposit}}</text>
               <view class="bucket-detail-toggle" data-id="{{item.productId}}" bindtap="onToggleBarrelDetail" hover-class="bucket-detail-pressed">{{expandedProductId === item.productId ? '收起明细' : '查看桶账明细'}} ›</view>
               <view class="bucket-account-detail" wx:if="{{expandedProductId === item.productId}}">
-                <text>账面桶数 {{item.occupiedQty}} 个 · 欠桶 {{item.owedQty}} 个</text>
-                <text>账面数量根据权益及借还记录汇总，并非实物盘点。</text>
+                <text>水桶记录 {{item.occupiedQty}} 个 · 欠桶 {{item.owedQty}} 个</text>
+                <text>以上数量根据押金与借还记录汇总，实际交接请向水站确认。</text>
                 <text wx:if="{{item.independentRights}}">当前可用权益已扣除订单及退还等占用。</text>
               </view>
             </view>
           </view>
-          <view class="bucket-status">
-            <text>{{item.deposit == null ? '当前押金未加载' : '当前押金 ¥' + item.deposit + '/桶'}}</text>
-          </view>
+
         </view>
       </view>
 
       <!-- 空态：原文「暂无长期桶资产」同样是建模语言；改成顾客视角的一句话 -->
       <view class="local-empty" wx:elif="{{holdingsFailed}}"><text>商品桶账暂未加载，请重新加载</text></view>
       <view class="local-empty" wx:else>
+        <view class="empty-barrel-icon"><icon name="barrel" size="38px" color="#1264D6" /></view>
         <text>该站暂无桶账记录</text>
         <block wx:if="{{!needLogin && viewStationId && !summaryFailed && !refreshing && !loadError}}">
-          <text class="empty-next-note">订水使用当前下单水站{{orderStationName ? '（' + orderStationName + '）' : '，请在订水页确认'}}；查看资产水站不会更改下单水站。</text>
-          <button class="empty-asset-action" bindtap="onGoOrderHome">去订水</button>
-          <button class="empty-asset-action secondary" bindtap="onChooseAssetStation">查看其他资产水站</button>
+          <text class="empty-next-note">订水使用当前下单水站{{orderStationName ? '（' + orderStationName + '）' : '，请在订水页确认'}}；查看资产不会更改下单水站。</text>
+          <view class="empty-actions">
+            <button wx:if="{{hasOtherAssetStation}}" class="af-action af-action--primary" bindtap="onChooseAssetStation">切换资产水站</button>
+            <button class="af-action af-action--secondary" bindtap="onGoOrderHome">去订水</button>
+          </view>
         </block>
       </view>
     </view>
 
     <view class="section">
       <view class="section-header">
-        <text class="section-title">水桶记录</text>
+        <text class="section-title">办理与历史记录</text>
+        <button class="af-action af-action--quiet" bindtap="onToggleRecords"><text class="af-action__face">{{showAllRecords ? '收起历史' : '查看全部'}}</text></button>
       </view>
+      <text class="local-empty" wx:if="{{!showAllRecords && !processingRecordsCount && !recordsFailed}}">当前没有待办理记录，可查看全部历史。</text>
       <view class="bucket-list" wx:if="{{records.length > 0}}">
-        <view class="bucket-item barrel-record" wx:for="{{records}}" wx:key="id">
+        <view class="bucket-item barrel-record" wx:for="{{records}}" wx:key="id" wx:if="{{showAllRecords || item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED' || item.returnDetail.status === 'RECEIVED' || item.refundProgress.remaining > 0 || item.refundProgress.verified === false || (item.type === 2 && !item.returnDetail && item.status !== 3 && item.status !== 4)}}">
           <view class="record-header">
             <view class="bucket-info">
               <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#1677FF" /></view>
@@ -128,7 +134,7 @@
                 <!-- ⚠️ BarrelRecord 没有 barrelNo 字段，原写法 item.barrelNo || ('桶号 #' + item.id)
                      永远走兜底分支，把流水主键当成"桶号"报给客户（假桶号）。
                      类型/数量/备注后端都已下发（typeText/quantity/note），照实展示即可。 -->
-                <text class="bucket-id">{{item.typeText}}<text wx:if="{{item.quantity > 0}}"> · {{item.quantity}} 桶</text></text>
+                <text class="bucket-id">{{item.typeText || '类型未提供'}}<text wx:if="{{item.quantity > 0}}"> · {{item.quantity}} 桶</text></text>
                 <text class="bucket-time" wx:if="{{item.type === 2}}">{{item.returnIdentityText}}</text>
                 <text class="bucket-time" wx:if="{{item.type === 2 && item.returnProductName}}">商品：{{item.returnProductName}}</text>
                 <text class="bucket-time" wx:if="{{item.note}}">{{item.note}}</text>
@@ -149,18 +155,19 @@
             <text class="record-summary" wx:if="{{item.returnDetail.companionOrderId}}">关联送水单 #{{item.returnDetail.companionOrderId}}</text>
             <text class="record-summary" wx:if="{{item.returnDetail.arrangementRequiresConfirmation && !item.returnDetail.customerConfirmationCurrent}}">水站提出了新的收桶安排，请核对后决定是否同意；也可更改或撤回申请。</text>
             <view class="record-actions">
-              <button class="record-action record-action-primary" wx:if="{{item.returnDetail.status === 'APPROVED' && item.returnDetail.customerConfirmationRequired !== false && !item.returnDetail.customerConfirmationCurrent}}" data-id="{{item.id}}" bindtap="onReturnConfirm">确认费用或新安排</button>
-              <button class="record-action record-action-secondary" disabled="{{refreshing || recordsFailed}}" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnArrangement">更改收桶安排</button>
-              <button class="record-action record-action-secondary" disabled="{{refreshing || recordsFailed}}" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnWithdraw">撤回申请</button>
+              <!-- 2026-10-27：旧记录刷新时处理器会拒绝确认，按钮也必须同步禁用。 -->
+              <button class="af-action af-action--primary" wx:if="{{item.returnDetail.status === 'APPROVED' && item.returnDetail.customerConfirmationRequired !== false && !item.returnDetail.customerConfirmationCurrent}}" disabled="{{refreshing || recordsFailed}}" data-id="{{item.id}}" bindtap="onReturnConfirm">确认费用或新安排</button>
+              <button class="af-action af-action--secondary" disabled="{{refreshing || recordsFailed}}" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnArrangement">更改收桶安排</button>
+              <button class="af-action af-action--danger-quiet" disabled="{{refreshing || recordsFailed}}" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnWithdraw">撤回申请</button>
             </view>
           </view>
           <text class="record-summary refund-fact" wx:if="{{item.statusText && item.refundPaidTime}}">水站登记退款交付时间：{{item.refundPaidTime}}。如实际未收到，请联系退款水站核实。</text>
           <text class="record-summary" wx:if="{{item.statusText && item.handleNote}}">处理说明：{{item.handleNote}}</text>
-          <button wx:if="{{item.statusText}}" size="mini" bindtap="onRefundFeedback" data-id="{{item.id}}">异议或补充说明</button>
+          <button class="af-action af-action--quiet" wx:if="{{item.statusText}}" bindtap="onRefundFeedback" data-id="{{item.id}}"><text class="af-action__face">异议或补充说明</text></button>
         </view>
       </view>
       <view class="local-empty" wx:elif="{{recordsFailed}}"><text>水桶记录暂未加载，请重新加载</text></view>
-      <view class="local-empty" wx:else><text>该站暂无水桶记录</text></view>
+      <view class="local-empty" wx:elif="{{showAllRecords || processingRecordsCount}}"><text>该站暂无水桶记录</text></view>
     </view>
 
     <view class="info-card">
@@ -173,19 +180,7 @@
       </view>
     </view>
 
-    <view class="eco-card">
-      <view class="eco-content">
-        <!-- --success-color 对应值：Icon 写入独立 SVG，按 design/36 调色板豁免，不能直接传 CSS 变量。 -->
-    <view class="eco-icon"><icon name="droplet" size="40rpx" color="#16834A" /></view>
-        <view class="eco-text">
-          <text class="eco-title">爱护水桶</text>
-          <text class="eco-desc">水桶是可循环使用的资源，请妥善保管，避免暴晒和污染</text>
-        </view>
-      </view>
-      <view class="eco-btn" bindtap="onEcoRuleTap">
-        <text>了解回收规则</text>
-      </view>
-    </view>
+    <view class="barrel-rules-link" bindtap="onEcoRuleTap" aria-role="button">退还规则 ›</view>
   </block>
 
   <view class="modal-mask" wx:if="{{showReturnModal}}" bindtap="onCloseReturnModal"></view>
@@ -205,34 +200,18 @@
         <text wx:else>当前可退数量尚未核实，请重新加载。</text>
       </view>
 
-      <view class="form-row" wx:if="{{customerBarrelAsset.length > 0}}">
+      <view class="form-row" wx:if="{{returnProductOptions.length > 0}}">
         <text class="form-label">商品</text>
-        <view class="water-type-list">
-          <view class="water-type-item {{returnForm.productId === item.productId ? 'active' : ''}}"
-                wx:for="{{customerBarrelAsset}}" wx:key="productId"
-                data-id="{{item.productId}}" bindtap="onSelectProduct">
-            <text>{{item.productName}}{{item.productSpec ? ' ' + item.productSpec : ''}}</text>
-            <!-- 历史交回显示 occupied（权益汇总+over），不把配送中数量当已交桶。
-                 新申请显示 availableRights 份权益：已付未领容量也可退出，不能等同物理回桶数量。 -->
-            <text class="water-type-qty">可退 {{summary.independentRights ? item.availableRights : (item.occupiedQty || 0)}} {{summary.independentRights ? '份权益' : '桶'}}</text>
-          </view>
-        </view>
+        <product-selector items="{{returnProductOptions}}" selected-id="{{returnForm.productId}}" disabled="{{submitting || pendingReturn || returnRecoveryError}}" bind:change="onReturnProductSelect" />
       </view>
 
       <view class="form-row">
         <text class="form-label">{{summary.independentRights ? '退还权益数量' : '退桶数量'}}</text>
-        <view class="quantity-control">
-          <view class="qty-btn {{returnForm.quantity <= 1 ? 'disabled' : ''}}" bindtap="onReturnQtyChange" data-type="minus">
-            <text>-</text>
-          </view>
-          <input class="qty-input" type="number" value="{{returnForm.quantity}}" bindinput="onReturnQtyInput" disabled="{{submitting || pendingReturn}}"></input>
-          <view class="qty-btn {{returnForm.quantity >= maxReturnQty ? 'disabled' : ''}}" bindtap="onReturnQtyChange" data-type="add">
-            <text>+</text>
-          </view>
-        </view>
+        <integer-stepper value="{{returnForm.quantity}}" min="{{1}}" max="{{maxReturnQty}}" label="退还数量" disabled="{{submitting || pendingReturn || returnRecoveryError}}" bind:change="onReturnQtyInput" />
       </view>
 
       <!-- 退款金额由后端按押金条批次 FIFO 核销算出，顾客不能自己填 -->
+      <text class="quantity-error" wx:if="{{returnQuantityError}}">{{returnQuantityError}}</text>
       <view class="form-row">
         <text class="form-label">预计退回</text>
         <view class="preview-row" bindtap="refreshPreview">
@@ -259,8 +238,8 @@
       </view>
 
       <view class="preview-lots" wx:if="{{preview && preview.lots.length > 0}}">
-        <text class="preview-lots-title">预计金额明细</text>
-        <view class="preview-lot" wx:for="{{preview.lots}}" wx:key="lotId">
+        <button class="af-action af-action--quiet" bindtap="onTogglePreviewLots"><text class="af-action__face">{{showPreviewLots ? '收起金额明细' : '查看预计金额明细'}}</text></button>
+        <view class="preview-lot" wx:for="{{preview.lots}}" wx:key="lotId" wx:if="{{showPreviewLots}}">
           <text>{{item.qty}} 个 × ¥{{item.unitPrice}}</text>
         </view>
       </view>
@@ -280,16 +259,18 @@
       <view class="form-row" wx:if="{{summary.independentRights}}" bindtap="onPickupMode"><text>交接方式：{{returnForm.pickupModeText || '到店办理'}} ›</text></view>
       <!-- [2026-10-09] 原提示把免费原安排也说成必须确认，与已有办理闸门相矛盾；
            只同步提示，确认条件见 docs/design/35，保留原样式和事件。 -->
-      <view class="preview-hint" wx:if="{{summary.independentRights}}"><text>先申请批准；免费原安排无需再次确认，收费或水站新安排须先确认。未领桶的权益也可申请退还；仅退还当前未被订单占用的权益。需交回的实物桶仍按批准安排交回，交回数量及费用以原安排为准。</text></view>
+      <button class="af-action af-action--quiet" wx:if="{{summary.independentRights}}" bindtap="onToggleReturnRules"><text class="af-action__face">{{showReturnRules ? '收起办理规则' : '查看办理规则'}}</text></button>
+      <view class="preview-hint" wx:if="{{summary.independentRights && showReturnRules}}"><text>先申请批准；免费原安排无需再次确认，收费或水站新安排须先确认。未领桶的权益也可申请退还；仅退还当前未被订单占用的权益。需交回的实物桶仍按批准安排交回，交回数量及费用以原安排为准。</text></view>
     </view>
 
     <view class="modal-footer">
-      <view class="modal-btn cancel" bindtap="onCloseReturnModal">
+      <view class="af-action af-action--cancel af-action--form" bindtap="onCloseReturnModal">
         <text>取消</text>
       </view>
-      <view class="modal-btn confirm {{submitting || (!pendingReturn && (loading || refreshing || summaryFailed || holdingsFailed || previewing || !previewReady)) ? 'disabled' : ''}}" bindtap="onSubmitReturn">
+      <view class="af-action af-action--primary af-action--form af-action--grow {{submitting || (!pendingReturn && (loading || refreshing || summaryFailed || holdingsFailed || previewing || !previewReady)) ? 'is-disabled' : ''}}" bindtap="onSubmitReturn">
         <text>{{submitting ? '提交中...' : (pendingReturn ? '原样重试' : '提交申请')}}</text>
       </view>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

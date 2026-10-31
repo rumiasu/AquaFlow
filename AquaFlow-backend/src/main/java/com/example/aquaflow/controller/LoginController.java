@@ -95,6 +95,12 @@ public class LoginController {
         return Result.success(authTokenService.login(params));
     }
 
+    /** 顾客/员工测试入口；服务端开关、库与固定账号映射独立校验，客户端不能选择授权角色。 */
+    @PostMapping("/test-login")
+    public Result<Map<String,Object>> testLogin(@RequestBody @Valid AuthRequestDTO.TestLogin params) {
+        return Result.success(authTokenService.testLogin(params));
+    }
+
     // ==================== Token 刷新 ====================
 
     @PostMapping("/refresh")

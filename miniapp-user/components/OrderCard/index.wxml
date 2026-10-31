@@ -40,9 +40,9 @@
       <text class="amount-unknown" wx:else>金额待核实</text>
     </view>
     <view class="footer-actions">
-      <button wx:if="{{canRepay}}" class="btn-pay" catchtap="onPayNow">{{repayLabel}}</button>
-      <button wx:if="{{canCancel}}" class="btn-cancel" catchtap="onCancel">{{cancelLabel}}</button>
-      <button wx:if="{{order.status === 5}}" class="btn-reorder" catchtap="onReorder">再次购买</button>
+      <button wx:if="{{canRepay}}" class="af-action af-action--primary" catchtap="onPayNow">{{repayLabel}}</button>
+      <button wx:if="{{canCancel}}" class="af-action af-action--danger-quiet" catchtap="onCancel">{{cancelLabel}}</button>
+      <button wx:if="{{order.status === 5}}" class="af-action af-action--secondary" catchtap="onReorder">再次购买</button>
     </view>
   </view>
 </view>

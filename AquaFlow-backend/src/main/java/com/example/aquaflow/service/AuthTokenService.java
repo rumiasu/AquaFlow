@@ -48,6 +48,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AuthTokenService {
 
     @Autowired
+    private TemporaryTestLogin temporaryTestLogin;
+
+    @Autowired
     private WeChatLoginService weChatLoginService;
 
     @Autowired
@@ -557,6 +560,32 @@ public class AuthTokenService {
         throw new BusinessException("用户名或密码错误");
     }
 
+    /** 只给已配置的无微信测试身份签发会话；业务授权仍走现有真实接口。 */
+    public Map<String,Object> testLogin(AuthRequestDTO.TestLogin params) {
+        String lockKey = "test-login:" + params.getAccount();
+        if (tooManyAttempts(lockKey)) throw new BusinessException("尝试次数过多，请 15 分钟后再试");
+        TemporaryTestLogin.Identity identity;
+        try { identity = temporaryTestLogin.login(params.getAccount(), params.getPassword()); }
+        catch (BusinessException rejected) { recordFailure(lockKey); throw rejected; }
+        clearFailures(lockKey);
+        TemporaryTestLogin.Account account = identity.account();
+        String binding = temporaryTestLogin.binding(account);
+        String access = jwtUtil.withTestAuthentication(jwtUtil.generateAccessToken(account.userId(),account.userType(),
+                identity.role(),identity.stationId()),account.name(),binding);
+        String refresh = jwtUtil.withTestAuthentication(jwtUtil.generateRefreshToken(account.userId(),account.userType()),account.name(),binding);
+        saveRefreshToken(account.userId(),account.userType(),refresh);
+        Map<String,Object> result = new HashMap<>();
+        result.put("accessToken",access); result.put("refreshToken",refresh);
+        result.put("nickname",identity.nickname()); result.put("phone",identity.phone());
+        result.put("userType",account.userType()); result.put("role",identity.role());
+        if ("customer".equals(account.userType())) result.put("customerId",account.userId());
+        else {
+            result.put("staffId",account.userId()); result.put("staffRole",identity.staffRole());
+            result.put("stationId",identity.stationId()); result.put("bindingStatus","BOUND");
+        }
+        return result;
+    }
+
     // ==================== Token 刷新 ====================
 
     /** 轮换需经 Spring 事务代理：旧凭据锁、精确删除和新凭据插入必须一起提交/回滚。 */
@@ -573,6 +602,12 @@ public class AuthTokenService {
         String tokenType = claims.get("tokenType", String.class);
         if (!"refresh".equals(tokenType)) {
             throw new BusinessException("无效的refreshToken");
+        }
+
+        TemporaryTestLogin.Account testAccount = null;
+        if (TemporaryTestLogin.marked(claims)) {
+            if (temporaryTestLogin == null) throw new BusinessException("测试登录已失效，请重新登录");
+            testAccount = temporaryTestLogin.requireSession(claims);
         }
 
         Long userId = claims.get("userId", Number.class).longValue();
@@ -609,12 +644,14 @@ public class AuthTokenService {
         }
 
         String newAccessToken = jwtUtil.generateAccessToken(userId, userType, role, stationId);
+        if (testAccount != null) newAccessToken = jwtUtil.withTestAuthentication(newAccessToken,testAccount.name(),temporaryTestLogin.binding(testAccount));
 
         // [2026-10-05 F-78] 原非事务的先删后插会丢旧凭据；撤销也能在间隙结束后被晚到插入复活。
         // 旧凭据 FOR UPDATE 锁一直持有至替换提交，撤销须等待并删除已提交替换；撤销先完成则刷新拒绝。
         // 同一旧凭据的并发重放须在锁后重读，不保证两次都成功；已返回的新凭据不能被失败请求全清。
         // 仍禁止调用登录用的 saveRefreshToken/deleteByUser，否则会撤销其它会话。
         String newRefreshToken = jwtUtil.generateRefreshToken(userId, userType);
+        if (testAccount != null) newRefreshToken = jwtUtil.withTestAuthentication(newRefreshToken,testAccount.name(),temporaryTestLogin.binding(testAccount));
         // 删除旧token记录（同值的重复行一并清掉，见 UserTokenMapper.findByRefreshToken 的说明）
         userTokenMapper.deleteByRefreshToken(refreshToken);
         // [2026-10-02 F-78] 原误调登录用的 saveRefreshToken 会全清，删掉并发请求已返回的新 token。

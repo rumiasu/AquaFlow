@@ -50,7 +50,6 @@ public class ManagerTodoController {
 
     private static final String SCOPE_NOTE =
             "逾期应收 = 已过应付日期且仍未收款的挂账（点进去是应收账款台账）；"
-                    + "未填成本 = 上架商品里还没填进货成本的数量（不填就算不出毛利）；"
                     + "待确认结算单 = 已生成但还没确认的配送员工资单；"
                     + "待处理桶异常 = 配送员已录入、等站长处置的回桶差异。";
 

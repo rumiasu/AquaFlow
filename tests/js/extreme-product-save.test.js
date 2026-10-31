@@ -12,11 +12,12 @@ const row = (qty = 5, price = '50') => ({ qty: String(qty), price, deleted: fals
 const item = (id = 17) => ({ id, selected: true, name: 'Synthetic ' + id, displayName: 'Synthetic ' + id,
   category: 1, price: 12, deposit: 50, quantity: 10, enabled: 1, ticketEnabled: 1, ticketPrice: 12 })
 
-function fixture(shared) {
+function fixture(shared, options = {}) {
   const wx = shared ? shared.wx : createWx(), app = shared ? shared.app : createApp({ globalData: {
     isLogin: true, userInfo: { staffId: 1, stationId: 11, role: 'STATION_MANAGER' } } })
   const state = { stock: 10 }, calls = [], packages = [], receipts = new Map()
   const api = {
+    getSetupGuide: async () => state.setupGuide,
     updateCatalogSetting: async (id, body) => { calls.push(['setting', id, copy(body)]); return state.setting ? state.setting(id, body) : { code: 0 } },
     updateMyProduct: async (id, body) => { calls.push(['edit', id, copy(body)]); return state.edit ? state.edit(id, body) : { code: 0 } },
     createMyProduct: async body => { calls.push(['create', copy(body)]); return state.create ? state.create(body) : { code: 0, data: 91 } },
@@ -28,6 +29,12 @@ function fixture(shared) {
     }
   }
   let draft = 0
+  if (options.freshSetupHelpers) {
+    for (const helper of ['miniapp-delivery/utils/setup-progress.js', 'miniapp-delivery/utils/setup-reminder.js']) {
+      const helperPath = require.resolve(path.join(repo, helper))
+      delete require.cache[helperPath]
+    }
+  }
   const page = loadPage(pagePath, { wx, app, stubs: {
     'config/api': { API: {}, getTransportConfig: () => ({ mode: 'https', baseUrl: 'https://synthetic.invalid' }) },
     'api/station-mgmt': api,

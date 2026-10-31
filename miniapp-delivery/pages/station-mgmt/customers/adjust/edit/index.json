@@ -1,3 +1,7 @@
 {
-  "navigationBarTitleText": "新建资产调整"
+  "navigationBarTitleText": "新建资产调整",
+  "usingComponents": {
+    "integer-stepper": "/components/IntegerStepper/index",
+    "product-selector": "/components/ProductSelector/index"
+  }
 }

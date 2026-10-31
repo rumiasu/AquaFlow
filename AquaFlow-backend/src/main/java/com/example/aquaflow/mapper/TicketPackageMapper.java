@@ -27,6 +27,9 @@ public interface TicketPackageMapper {
     @Select("select * from ticket_package where id = #{id}")
     TicketPackage getById(@Param("id") Long id);
 
+    @Select("select * from ticket_package where id = #{id} for update")
+    TicketPackage getByIdForUpdate(@Param("id") Long id);
+
     @Select("select * from ticket_package where station_id = #{stationId} and product_id = #{productId} and qty = #{qty}")
     TicketPackage getByStationProductQty(@Param("stationId") Long stationId,
                                          @Param("productId") Long productId,
@@ -46,6 +49,11 @@ public interface TicketPackageMapper {
             + "on duplicate key update price=values(price), unit_price=values(unit_price), title=values(title), "
             + "status=values(status), sort=values(sort), update_time=NOW()")
     int upsert(TicketPackage pkg);
+
+    /** Keep an edited tier's identity; the station predicate prevents cross-station writes. */
+    @Update("update ticket_package set qty=#{qty}, price=#{price}, unit_price=#{unitPrice}, title=#{title}, "
+            + "status=#{status}, sort=#{sort}, update_time=NOW() where id=#{id} and station_id=#{stationId}")
+    int update(TicketPackage pkg);
 
     /** 删除档位；带 station_id 条件，返回受影响行数（调用方必须检查：0 = 不是本站的档位） */
     @Delete("delete from ticket_package where id = #{id} and station_id = #{stationId}")

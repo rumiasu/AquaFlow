@@ -1,7 +1,11 @@
+const { createDraftGuard } = require('../../utils/draft-guard')
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarrelReturn, previewBarrelReturn, confirmBarrelReturn, changeBarrelReturnArrangement, withdrawBarrelReturn } = require('../../api/barrel')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { getOrders } = require('../../api/order')
+const { getProductDetail } = require('../../api/product')
 const assetViewStation = require('../../utils/asset-view-station')
+const { listAssetStations } = require('../../api/asset-stations')
 const returnIntent = require('./return-intent')
 // 「当前服务水站」的**统一解析入口**（本地 → 回落 /api/orders/my-station）。
 // 本页原先直接用 stationStorage.getId()，少了回落那一级：下过单但没在首页选过站的顾客
@@ -42,9 +46,19 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
     ? text : fallback
 }
 
+// 展示字段不回写商品资料；历史占位规格只向顾客显示“待确认”。
+function barrelDisplaySpec(value) {
+  const text = typeof value === 'string' ? value.trim() : ''
+  return !text || /^(null|undefined|未知|未填写|未设置|待确认|规格待确认)$/i.test(text)
+    || /按实物|以实物标签/.test(text) ? '规格待确认' : text
+}
+function barrelPhoto(value) {
+  return typeof value === 'string' && (/^https:\/\/[^\s]+$/.test(value) || /^\/assets\/product\/[^.][^\s]*\.(png|jpe?g|webp)$/i.test(value)) ? value : ''
+}
+
 Page({
   data: {
-    loading: true,
+    loading: true, uiDraftAvailable: false, uiDraftError: '',
     needLogin: false,
     refreshing: false,
     summaryStale: false, holdingsStale: false, recordsStale: false, returnError: '',
@@ -61,8 +75,9 @@ Page({
     holdingsFailed: false,
     recordsFailed: false,
     expandedProductId: null,
+    processingRecordsCount: 0, showAllRecords: false, showReturnRules: false, showPreviewLots: false, returnQuantityError: '',
     records: [],
-    customerBarrelAsset: [],
+    customerBarrelAsset: [], returnProductOptions: [], hasOtherAssetStation: false,
     // 当前水站名（页面顶部提示条用）：桶权益与押金按站隔离，必须让客户看见这是哪个站的账
     stationName: '',
     // 桶数据部分加载失败时的提示（空串 = 全部正常）。见 loadData 里的说明。
@@ -88,12 +103,14 @@ Page({
 
   onShow() {
     assetViewStation.activate(this)
+    this.readUiDraft()
     this._arrangementHidden = false
     this._arrangementLife = (this._arrangementLife || 0) + 1
     return this.loadData()
   },
 
   onHide() {
+    this.persistUiDraft()
     assetViewStation.suspend(this)
     this._arrangementHidden = true
     this._arrangementLife = (this._arrangementLife || 0) + 1
@@ -115,12 +132,13 @@ Page({
     this.setData({ preview: null, previewReady: false, previewing: false, previewHint: '桶与押金正在重新核实，请稍后重新试算。' })
     this.syncReturnRecovery(context)
     const stationId = context.stationId
+    this.checkOtherAssetStation(context)
     const needLogin = !context.session.loggedIn || !context.session.customerId
     this.setData({ needLogin })
-    if (needLogin) { this.setData({ loading: false, refreshing: false, summary: null, records: [], customerBarrelAsset: [],
+    if (needLogin) { this.setData({ loading: false, refreshing: false, summary: null, records: [], customerBarrelAsset: [], returnProductOptions: [],
       summaryFailed: true, holdingsFailed: true, recordsFailed: true, maxReturnQty: 0, loadError: '请先登录后查看本人水桶与押金。' }); return }
     const keep = this._lastAssetScope && this._lastAssetScope.stationId === stationId && isCurrentSession(this._lastAssetScope.session)
-    this.setData({ loading: !keep, refreshing: !!keep, ...(keep ? {} : { summary: null, records: [], customerBarrelAsset: [] }),
+    this.setData({ loading: !keep, refreshing: !!keep, ...(keep ? {} : { summary: null, records: [], customerBarrelAsset: [], returnProductOptions: [] }),
       summaryStale: false, holdingsStale: false, recordsStale: false,
       summaryFailed: false, holdingsFailed: false, recordsFailed: false, loadError: '', maxReturnQty: 0 })
     if (!stationId) { this.setData({ loading: false, refreshing: false, summaryFailed: true, holdingsFailed: true, recordsFailed: true,
@@ -143,7 +161,7 @@ Page({
       ])
       if (!assetViewStation.current(this, context)) return
       if (denied) {
-        this.setData({ summary: null, records: [], customerBarrelAsset: [], summaryFailed: true, holdingsFailed: true, recordsFailed: true,
+        this.setData({ summary: null, records: [], customerBarrelAsset: [], returnProductOptions: [], summaryFailed: true, holdingsFailed: true, recordsFailed: true,
           loadError: '当前账号无法查看本站桶与押金，请核对登录账号和所选水站。' }); return
       }
       const rawSummary = summaryRes && summaryRes.data
@@ -176,7 +194,10 @@ Page({
         this.setData({ summary })
       }
       if (recordsOK) {
-        this.setData({ records: recordsRes.data.map(record => presentReturnRecord(record, holdingsOK ? holdingsRes.data : [], stationId)) })
+        this.setData({ records: recordsRes.data.map(record => presentReturnRecord(record, holdingsOK ? holdingsRes.data : [], stationId)),
+          processingRecordsCount: recordsRes.data.filter(record => record && (record.returnDetail && ['APPLIED', 'APPROVED', 'RECEIVED'].includes(record.returnDetail.status)
+            || record.refundProgress && (Number(record.refundProgress.remaining) > 0 || record.refundProgress.verified === false)
+            || record.type === 2 && !record.returnDetail && ![3, 4].includes(record.status))).length })
       }
 
       let holdings = []
@@ -193,7 +214,9 @@ Page({
           map[pid] = {
             productId: pid,
             productName: h.productName || h.waterTypeName || '',
-            productSpec: h.productSpec || h.waterTypeSpec || '',
+            productSpec: h.productSpec || h.waterTypeSpec || '', imageUrl: h.imageUrl || '',
+            displaySpec: barrelDisplaySpec(h.productSpec || h.waterTypeSpec),
+            assetImageUrl: barrelPhoto(h.imageUrl), assetImageFailed: false,
             independentRights: h.independentRights === true,
             assetQty: 0,
             heldTotalQty: 0,
@@ -218,7 +241,12 @@ Page({
       })
       Object.keys(map).forEach(k => customerBarrelAsset.push(map[k]))
 
-      if (holdingsOK) this.setData({ customerBarrelAsset, pendingReturnProductText: this.returnProductText(this.data.pendingReturn, customerBarrelAsset) })
+      if (holdingsOK) this.setData({ customerBarrelAsset, returnProductOptions: customerBarrelAsset.filter(item => (item.independentRights ? item.availableRights : item.occupiedQty) > 0).map(item => ({
+        id: item.productId, name: item.productName || '商品名称待确认',
+        spec: item.productSpec || '',
+        priceText: '可退 ' + (item.independentRights ? item.availableRights + ' 份权益' : item.occupiedQty + ' 桶') + ' · '
+          + (item.deposit == null ? '当前押金未加载' : '当前押金 ¥' + item.deposit + '/桶'), image: item.imageUrl || '' })), pendingReturnProductText: this.returnProductText(this.data.pendingReturn, customerBarrelAsset) })
+      if (holdingsOK) this._loadAssetPhotos(customerBarrelAsset, context)
       this._lastAssetScope = context
 
       // 历史物理交回上限 = occupied（权益汇总 + over），不是含配送中的 held；新申请下方另用 availableRights。
@@ -238,7 +266,42 @@ Page({
     }
   },
 
+  // 现有桶账接口不下发图片；按同一商品ID和资产站读取已有商品详情/COS地址。
+  // 图片是独立展示读取，失败只降级，不影响桶账、试算或退还资格。
+  async _loadAssetPhotos(items, context) {
+    if (typeof getProductDetail !== 'function') return
+    await Promise.all(items.filter(item => !item.assetImageUrl).map(async item => {
+      try {
+        const res = await getProductDetail(item.productId, context.stationId)
+        if (!assetViewStation.current(this, context) || !res || res.code !== 0 || !res.data
+          || String(res.data.id) !== String(item.productId)) return
+        const url = barrelPhoto(res.data.imageUrl)
+        if (!url) return
+        this.setData({ customerBarrelAsset: this.data.customerBarrelAsset.map(row =>
+          String(row.productId) === String(item.productId) ? { ...row, assetImageUrl: url, assetImageFailed: false } : row) })
+      } catch (_) { /* Original asset facts remain usable; render the common barrel placeholder. */ }
+    }))
+  },
+  onAssetPhotoError(e) {
+    if (this._assetHidden) return
+    const { id, src } = e.currentTarget.dataset
+    this.setData({ customerBarrelAsset: this.data.customerBarrelAsset.map(row =>
+      String(row.productId) === String(id) && row.assetImageUrl === src ? { ...row, assetImageFailed: true } : row) })
+  },
+
   onRetryAssets() { return this.loadData() },
+  async checkOtherAssetStation(context) {
+    // 2026-10-30：未查到站点时不能把失败当作有其他站，避免给出不可用的切换入口。
+    this.setData({ hasOtherAssetStation: false })
+    if (!context.stationId || !context.session.loggedIn || !context.session.customerId) return
+    try {
+      const res = await listAssetStations(0, 20), data = res && res.data
+      if (!assetViewStation.current(this, context)) return
+      if (!res || res.code !== 0 || !data || !Array.isArray(data.stations) || typeof data.hasMore !== 'boolean') return
+      const other = data.stations.some(s => s && Number.isSafeInteger(s.id) && s.id > 0 && s.id !== context.stationId)
+      this.setData({ hasOtherAssetStation: other || (data.hasMore && data.stations.some(s => s && s.id === context.stationId)) })
+    } catch (error) { /* 站点未核实，仍可通过顶部入口主动查看。 */ }
+  },
   onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
   onChooseAssetStation() {
     if (this._assetHidden || this.data.needLogin || this.data.submitting || this.data.recoveringPurchase) return
@@ -257,6 +320,7 @@ Page({
   },
   onAssetStationChange(e) {
     if (!assetViewStation.select(this, e.detail)) return
+    this.readUiDraft()
     this.setData({ showReturnModal: false, preview: null, previewReady: false, previewHint: '', previewing: false, expandedProductId: null })
     return this.loadData()
   },
@@ -294,7 +358,64 @@ Page({
       : '商品编号：' + saved.body.productId
   },
 
+  uiDraftGuard() {
+    if (!this._uiDraftGuard) this._uiDraftGuard = createDraftGuard(() => {
+      const session = captureSession()
+      return { app: 'miniapp-user', actor: session.loggedIn ? session.customerId : null,
+        station: this.data.viewStationId, route: 'pages/barrel/index', entity: 'new', generation: session.epoch }
+    })
+    return this._uiDraftGuard
+  },
+  readUiDraft() {
+    const guard = this.uiDraftGuard(), token = guard.begin(), result = guard.read(token)
+    this.setData({ uiDraftAvailable: result.state === 'saved', uiDraftError: result.state === 'unknown' ? '暂存填写尚未读取，请重试；原记录仍保留。' : '' })
+    return result
+  },
+  persistUiDraft() {
+    if (this._uiDraftRestoringApply || !this._uiDraftEdited || !this._uiDraftFormToken || this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError) return
+    const result = this.uiDraftGuard().save(this._uiDraftFormToken, { form: { ...this.data.returnForm } })
+    if (result.state === 'stale') return
+    this.setData({ uiDraftAvailable: result.state === 'saved', uiDraftError: result.state === 'unknown' ? '草稿尚未确认保存，请保留本页输入后重试。' : '' })
+  },
+  clearUiDraft() {
+    if (!this._uiDraftFormToken) return
+    const result = this.uiDraftGuard().clear(this._uiDraftFormToken)
+    if (result.state === 'stale') return
+    this._uiDraftEdited = false
+    this.setData({ uiDraftAvailable: false, uiDraftError: result.state === 'unknown' ? '暂存填写尚未确认清理，办理结果不受影响。' : '' })
+  },
+  onRestoreUiDraft() {
+    if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError || this._uiDraftRestoring) return
+    const guard = this.uiDraftGuard(), token = guard.begin(), result = guard.read(token)
+    if (result.state !== 'saved') return this.readUiDraft()
+    const inputBefore = JSON.stringify({ form: { ...this.data.returnForm } })
+    this._uiDraftRestoring = true
+    showBusinessModal({ title: '恢复暂存填写', content: '恢复会替换本页尚未提交的输入。仍需按当前商品与金额核实后正式提交。', confirmText: '恢复填写', cancelText: '取消',
+      success: async response => {
+        if (!response.confirm || this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError || inputBefore !== JSON.stringify({ form: { ...this.data.returnForm } })) return
+        const latest = guard.read(token)
+        if (latest.state !== 'saved') return
+        this._uiDraftFormToken = token
+        this._uiDraftRestoringApply = true
+        try {
+        const form = latest.draft && latest.draft.form
+        if (!form || !this.data.customerBarrelAsset.some(p => String(p.productId) === String(form.productId))) {
+          this.setData({ uiDraftError: '原商品尚未读取或已不可办理，请重新加载后核实；暂存仍保留。' }); return
+        }
+        this.setData({ returnForm: { ...form }, showReturnModal: true, returnError: '', preview: null, previewReady: false })
+        this._uiDraftEdited = true
+        this.onReturnQtyInput({ detail: { value: form.quantity } })
+        } finally { this._uiDraftRestoringApply = false; this._uiDraftRestoring = false }
+      }, complete: () => { if (!this._uiDraftRestoringApply) this._uiDraftRestoring = false } })
+  },
+
+  onToggleRecords() { this.setData({ showAllRecords: !this.data.showAllRecords }) },
+  onToggleReturnRules() { this.setData({ showReturnRules: !this.data.showReturnRules }) },
+  onTogglePreviewLots() { this.setData({ showPreviewLots: !this.data.showPreviewLots }) },
+
   onShowReturnModal() {
+    this._uiDraftFormToken = this.uiDraftGuard().begin()
+    this._uiDraftEdited = false
     const pending = this.syncReturnRecovery(assetViewStation.beginRead(this, 'returnRecovery'))
     if (this.data.returnRecoveryError) return
     if (pending) {
@@ -311,14 +432,16 @@ Page({
       wx.showToast({ title: '暂无可退水桶', icon: 'none' })
       return
     }
-    // 2026-10-07：现选中规则用 availableRights，不是物理 H。
-    // 新路径已付未领容量也可申请退出；历史物理交回仍受 occupied 上限和后端校验约束。
-    // 本轮仅校正旧注释，不调整选中、数量或提交行为。
-    const first = (this.data.customerBarrelAsset || [])
-      .find(i => (i.availableRights || 0) > 0) || (this.data.customerBarrelAsset || [])[0]
+    if (this._returnDraft && this._returnDraft.scope === this._returnRecoveryScope && isCurrentSession(this._returnDraft.session)) {
+      this.setData({ showReturnModal: true, returnForm: { ...this._returnDraft.form }, returnError: '', preview: null, previewReady: false })
+      this.refreshPreview()
+      return
+    }
+    // 2026-10-30：默认商品与可选列表使用同一真实资产范围，避免落在不可办理商品。
+    const first = (this.data.returnProductOptions || [])[0]
     this.setData({
       showReturnModal: true, returnError: '',
-      'returnForm.productId': first ? first.productId : null,
+      'returnForm.productId': first ? first.id : null,
       'returnForm.quantity': 1,
       'returnForm.note': '',
       'returnForm.pickupMode': 'STORE',
@@ -328,15 +451,27 @@ Page({
       preview: null,
       previewHint: ''
     })
+    this._returnInitial = JSON.stringify(this.data.returnForm)
     if (first) this.refreshPreview()
   },
 
   onCloseReturnModal() {
-    if (this.data.submitting) return
-    // 连提示一起清掉：下次打开时不该看到上一次留下的原因
-    this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
-    this._previewIntent = null
-    this.setData({ showReturnModal: false, preview: null, previewHint: '', previewing: false, previewReady: false })
+    if (this.data.submitting || this._closeReturnPrompt) return
+    const context = assetViewStation.beginRead(this, 'closeReturn')
+    const close = () => {
+      if (!assetViewStation.current(this, context)) return
+      this.persistUiDraft()
+      // 2026-10-28：关闭曾直接丢弃填写；草稿仅留在本页同账号同水站，不覆盖原申请凭据。
+      if (!this.data.pendingReturn) this._returnDraft = { scope: this._returnRecoveryScope, session: captureSession(), form: { ...this.data.returnForm } }
+      this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
+      this._previewIntent = null
+      this.setData({ showReturnModal: false, preview: null, previewHint: '', previewing: false, previewReady: false })
+    }
+    if (this.data.pendingReturn || JSON.stringify(this.data.returnForm) === this._returnInitial) return close()
+    this._closeReturnPrompt = true
+    showBusinessModal({ title: '暂存这次填写？', content: '商品、数量和备注会保留在本页，再次打开可继续。尚未提交退还申请。',
+      confirmText: '暂存关闭', cancelText: '继续填写',
+      success: res => { if (res.confirm) close() }, complete: () => { this._closeReturnPrompt = false } })
   },
 
   /**
@@ -365,7 +500,7 @@ Page({
       this.setData({ previewHint: '请先重新加载桶与押金，再核实试算金额。' }); return
     }
     const { productId, quantity } = this.data.returnForm
-    if (!productId || !quantity || quantity <= 0) {
+    if (!productId || !Number.isSafeInteger(quantity) || quantity <= 0) {
       this.setData({ preview: null, previewHint: '' })
       return
     }
@@ -401,34 +536,49 @@ Page({
   onReturnQtyChange(e) {
     if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError) return
     const { type } = e.currentTarget.dataset
-    let qty = this.data.returnForm.quantity
+    let qty = Number(this.data.returnForm.quantity) || 1
     if (type === 'add' && qty < this.data.maxReturnQty) {
       qty++
     } else if (type === 'minus' && qty > 1) {
       qty--
     }
-    this.setData({ 'returnForm.quantity': qty })
+    this.setData({ 'returnForm.quantity': qty, returnQuantityError: '' })
     this.refreshPreview()
   },
 
   onReturnQtyInput(e) {
     if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError) return
-    const qty = parseInt(e.detail.value) || 1
-    this.setData({
-      'returnForm.quantity': Math.min(this.data.maxReturnQty, Math.max(1, qty))
-    })
+    this._uiDraftEdited = true
+    const value = e.detail.value
+    const quantity = /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value)) ? Number(value) : value
+    const valid = Number.isSafeInteger(quantity) && quantity > 0 && quantity <= this.data.maxReturnQty
+    // 2026-10-28：按键时夹成1会阻碍清空重输；保留原输入，非法值不试算、不提交。
+    this.setData({ 'returnForm.quantity': quantity, returnQuantityError: valid ? '' : '请填写 1 至 ' + this.data.maxReturnQty + ' 的整数' })
+    this.persistUiDraft()
+    if (!valid) {
+      this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
+      this._previewIntent = null
+      this.setData({ preview: null, previewReady: false, previewing: false, previewHint: '' })
+      return
+    }
     this.refreshPreview()
   },
 
   onReturnNoteInput(e) {
     if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError) return
+    this._uiDraftEdited = true
     this.setData({ 'returnForm.note': e.detail.value })
+    this.persistUiDraft()
   },
+
+  onReturnProductSelect(e) { return this.onSelectProduct({ currentTarget: { dataset: { id: e.detail.id } } }) },
 
   onSelectProduct(e) {
     if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError) return
     const { id } = e.currentTarget.dataset
+    this._uiDraftEdited = true
     this.setData({ 'returnForm.productId': parseInt(id) || null })
+    this.persistUiDraft()
     this.refreshPreview()
   },
 
@@ -478,6 +628,9 @@ Page({
         throw response || new Error('申请结果尚未确认，请核对本站水桶记录或重试原内容')
       }
       returnIntent.clear(saved)
+      this.clearUiDraft()
+      this._returnDraft = null
+      this._returnInitial = null
       this.setData({ pendingReturn: null, showReturnModal: false, returnError: '' })
       wx.showToast({ title: '退桶申请已提交', icon: 'success' })
       this.loadData()
@@ -497,7 +650,7 @@ Page({
   },
 
   onEcoRuleTap() {
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '水桶回收规则',
       // 退桶扣减押金后的钱**不留站内余额**（原「待拍板」项已于 2026-09-27 拍板收口，勿再挂）：
       // 产品口径「不现场给钱的不要退」= 核销与"钱交到顾客手上"是同一次操作 —— 优先原路退回，
@@ -522,15 +675,25 @@ Page({
   },
   async onReturnConfirm(e) {
     if (this.data.refreshing || this.data.recordsFailed) return
-    const record = this.data.records.find(r => r.id === Number(e.currentTarget.dataset.id))
+    // 2026-10-27：记录编号可能以字符串返回；严格比较数字会让可见确认按钮静默失效。
+    const record = this.data.records.find(r => String(r.id) === String(e.currentTarget.dataset.id))
     if (!record || !record.returnDetail) return
     const detail = record.returnDetail
     if (this._returnConfirmFlight || detail.status !== 'APPROVED' || detail.customerConfirmationRequired === false || detail.customerConfirmationCurrent) return
     const session=captureSession(), version=detail.arrangementVersion, life=this._arrangementLife || 0
-    if (!Number.isInteger(version) || version < 1) return
+    if (!Number.isInteger(version) || version < 1) { wx.showToast({ title: '收桶安排未核实，请重新加载', icon: 'none' }); return }
+    if (accountNumber(record.depositRefund) === null || accountNumber(record.depositRefund) < 0
+      || accountNumber(detail.pickupFee) === null || accountNumber(detail.pickupFee) < 0 || accountQuantity(detail.requiredBarrels) === null) {
+      wx.showToast({ title: '费用或交桶数量尚未核实，请重新加载', icon: 'none' }); return
+    }
     const current = () => !this._arrangementHidden && life === (this._arrangementLife || 0) && isCurrentSession(session)
     this._returnConfirmFlight = true
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '确认取桶费与安排', content: '退押金 ¥' + record.depositRefund + '；需交回 ' + detail.requiredBarrels + ' 个桶；' + detail.pickupModeText + '；另付取桶费 ¥' + detail.pickupFee + '。交接后由水站按原渠道实际退款；如未收到，可提出异议。',
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083', title: '确认取桶费与安排',
+      content: '请核对费用和新安排。确认安排不代表已经收到退款；实际未收到时可提出异议。',
+      details: [{ label: '应退押金', value: '¥' + record.depositRefund },
+        { label: '需交回', value: detail.requiredBarrels + ' 个桶' },
+        { label: '取桶费', value: '¥' + detail.pickupFee },
+        { label: '交接方式', value: detail.pickupModeText || '待核实' }],
       success: async (res) => {
         if (!res.confirm || !current()) { this._returnConfirmFlight = false; return }
         try { await confirmBarrelReturn(record.id, version); if (current()) await this.loadData() }
@@ -562,7 +725,7 @@ Page({
         if (!selected || !current()) return
         companionOrderId=selected.id
       }
-      const reason=await this.arrangementDialog({ title: '改为' + ({ STORE:'到店退桶', PICKUP:'单独上门', COMBINED:'随所选订单收桶' })[mode], editable:true, placeholderText:'填写变更原因；水站将重新批准安排', confirmText:'提交更改', content:'' })
+      const reason=await this.arrangementDialog({ title: '改为' + ({ STORE:'到店退桶', PICKUP:'单独上门', COMBINED:'随所选订单收桶' })[mode], editable:true, description:'水站将重新批准安排', initialValue:'', placeholderText:'填写200字以内变更原因', confirmText:'提交更改' })
       if (!reason || !current()) return
       const text=(reason.content || '').trim()
       if (!text || text.length > 200) { wx.showToast({ title:'请填写200字以内变更原因', icon:'none' }); return }
@@ -572,10 +735,16 @@ Page({
     } catch (err) { if (current()) { wx.showToast({ title:viewError(err, '更改未完成，请核对原申请'), icon:'none' }); await this.loadData() } }
     finally { this._arrangementFlight=false }
   },
-  arrangementDialog(options,sheet=false) {
-    return new Promise(resolve => wx[sheet?'showActionSheet':'showModal']({ ...(sheet ? options : { confirmColor: '#1264D6', cancelColor: '#637083', ...options }),
-      success:res => resolve(sheet || res.confirm ? res : null), fail:() => resolve(null) }))
+  arrangementDialog(options, sheet = false) {
+    return new Promise(resolve => {
+      let settled = false
+      const finish = value => { if (!settled) { settled = true; resolve(value) } }
+      const args = { ...options, success: res => finish(sheet || res.confirm ? res : null), fail: () => finish(null) }
+      if (sheet) wx.showActionSheet(args)
+      else showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083', ...args })
+    })
   },
+
   onReturnWithdraw(e) {
     if (this.data.refreshing || this.data.recordsFailed || this._withdrawFlight) return
     const record = this.data.records.find(r => String(r.id) === String(e.currentTarget.dataset.id))
@@ -583,7 +752,7 @@ Page({
     const context = assetViewStation.beginRead(this, 'withdrawDialog')
     this._withdrawFlight = true
     const release = () => { this._withdrawFlight = false }
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '撤回退桶申请', content: '尚未交接的申请可撤回，已锁定权益恢复使用。', fail: release, success: async (res) => {
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '撤回退桶申请', content: '尚未交接的申请可撤回，已锁定权益恢复使用。', fail: release, success: async (res) => {
       if (!res.confirm || !assetViewStation.current(this, context)) { release(); return }
       try { await withdrawBarrelReturn(record.id); if (assetViewStation.current(this, context)) await this.loadData() }
       catch (err) { if (assetViewStation.current(this, context)) wx.showToast({ title: viewError(err, '撤回失败'), icon: 'none' }) }
@@ -616,7 +785,10 @@ Page({
       const modes = ['STORE', 'PICKUP', 'COMBINED'], texts = ['到店办理', '单独上门收桶', '随送水订单收桶']
       if (!modes[result.tapIndex]) return
       if (result.tapIndex !== 2) {
-        this.setData({ 'returnForm.pickupMode': modes[result.tapIndex], 'returnForm.pickupModeText': texts[result.tapIndex], 'returnForm.companionOrderId': null }); return
+        this._uiDraftEdited = true
+        this.setData({ 'returnForm.pickupMode': modes[result.tapIndex], 'returnForm.pickupModeText': texts[result.tapIndex], 'returnForm.companionOrderId': null })
+        this.persistUiDraft()
+        return
       }
       const stationId = context.stationId || await resolveStationId()
       if (!stationId || !current()) return
@@ -628,7 +800,9 @@ Page({
       if (!rows.length) { wx.showToast({ title: '暂无进行中的送水订单，请选到店或单独上门', icon: 'none' }); return }
       const picked = await this.pickCompanionOrder(rows, current)
       if (!picked || !current()) return
+      this._uiDraftEdited = true
       this.setData({ 'returnForm.pickupMode': 'COMBINED', 'returnForm.pickupModeText': '随送水订单收桶', 'returnForm.companionOrderId': picked.id })
+      this.persistUiDraft()
     } catch (error) { if (current()) wx.showToast({ title: viewError(error, '送水订单暂未加载，请重试'), icon: 'none' }) }
     finally { this._pickupFlight = false }
   },

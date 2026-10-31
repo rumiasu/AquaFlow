@@ -1,10 +1,11 @@
+const { showBusinessModal } = require('../../utils/business-dialog')
 const { getStationProducts } = require('../../api/product')
 const { quoteBarrelRight, purchaseBarrelRight, getBarrelRightPurchases, withdrawBarrelRightPurchase } = require('../../api/barrel')
 const { resolveStationId } = require('../../utils/station')
 const { stationStorage } = require('../../utils/storage')
 const { getAssetStation } = require('../../api/asset-stations')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
-const { isDevelopEnv } = require('../../config/api')
+const { simulationAllowed } = require('../../utils/payment-channel')
 const intents = require('../../utils/independent-purchase-intent')
 
 // 只清理错误的展示文字；原对象的 code、resultUnknown、businessRejected 均不改动。
@@ -15,15 +16,21 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
     ? text : fallback
 }
 
+// 仅去掉当前已知报价文案中与现金方式重复的一句；其他水站提示原样保留。
+function quoteNotice(quote, method) {
+  const notice = quote && typeof quote.notice === 'string' ? quote.notice : ''
+  return method === 2 ? notice.replace('；收到押金后生效。', '。') : notice
+}
+
 Page({
-  data: { stationId: null, stationName: '', products: [], index: 0, quantity: 1,
-    quote: null, purchases: [], paymentMethod: 2, busy: false, error: '',
+  data: { stationId: null, stationName: '', products: [], productOptions: [], index: 0, quantity: 1, quantityError: '', showRecoveryDetails: false, showHistory: false,
+    quote: null, quoteNotice: '', purchases: [], paymentMethod: 2, busy: false, error: '',
     productsLoading: false, productsLoaded: false, productsError: '',
     quoteLoading: false, quoteError: '', purchasesLoading: false,
     purchasesLoaded: false, purchasesError: '', withdrawingId: null,
     recoveryEntries: [], recoveryError: '', recoveryHint: '', recoveryBusy: false,
     originalActive: false, safetyBlocked: false, canAnother: false, fromOrder: false,
-    onlinePayEnabled: false, onlinePayLabel: '', onlinePayHint: '' },
+    onlinePayEnabled: false, onlinePayLabel: '', onlinePayHint: '', showProductPicker: false, productSearch: '', filteredProductOptions: [], selectedImageFailed: false, hasPendingPurchase: false },
   syncRecovery() {
     let session
     try { session = captureSession() }
@@ -33,7 +40,7 @@ Page({
     }
     this.setData({ needLogin: !session.loggedIn || !session.customerId })
     if (!session.loggedIn || !session.customerId) {
-      this.setData({ recoveryEntries: [], purchases: [], purchasesLoaded: false, quote: null, originalActive: false, safetyBlocked: true, canAnother: false })
+      this.setData({ recoveryEntries: [], purchases: [], purchasesLoaded: false, hasPendingPurchase: false, quote: null, originalActive: false, safetyBlocked: true, canAnother: false })
       return { error: new Error('请先登录后办理本人桶押金'), session }
     }
     if (this._viewEpoch !== session.epoch) {
@@ -41,7 +48,7 @@ Page({
       for (const field of ['_submitSeq', '_recoverySeq', '_anotherSeq', '_quoteSeq', '_purchasesSeq', '_productsSeq']) this[field] = (this[field] || 0) + 1
       this.setData({ busy: false, recoveryBusy: false, quote: null, quoteLoading: false,
         onlinePayEnabled: false, onlinePayLabel: '', onlinePayHint: '', recoveryEntries: [], recoveryError: '', recoveryHint: '',
-        productsLoading: false, purchases: [], purchasesLoading: false, purchasesLoaded: false, purchasesError: '' })
+        productsLoading: false, purchases: [], purchasesLoading: false, purchasesLoaded: false, hasPendingPurchase: false, purchasesError: '' })
     }
     try {
       const state = intents.load(getCustomerId()), registry = state.registry
@@ -77,7 +84,8 @@ Page({
       const station = stationStorage.get()
       this.setData({ stationId, stationName: station && Number(station.id) === stationId ? station.name || '' : '水站 #' + stationId })
       getAssetStation(stationId).then(res => {
-        if (isCurrentSession(session) && this.data.stationId === stationId && res && res.code === 0 && res.data)
+        if (isCurrentSession(session) && this.data.stationId === stationId && res && res.code === 0 && res.data
+          && Number(res.data.id) === stationId && typeof res.data.name === 'string' && res.data.name.trim())
           this.setData({ stationName: res.data.name })
       }).catch(() => { /* 历史站名未取得时显示站号，原款记录仍可独立读取。 */ })
       // [2026-10-02 F-55] 原来历史绑在商品/报价成功后，商品下架或报价失败便查不到原款。
@@ -100,7 +108,12 @@ Page({
       const selected = this.data.products[this.data.index]
       const productId = selected ? selected.id : this.initialProductId
       const index = Math.max(0, products.findIndex(p => p.id === productId))
-      this.setData({ products, index, productsLoaded: true })
+      this.setData({ products, index, productsLoaded: true, productOptions: products.map(p => {
+        const raw = p.effectiveDeposit != null ? p.effectiveDeposit : p.deposit
+        const known = ['number', 'string'].includes(typeof raw) && String(raw).trim() !== '' && Number.isFinite(Number(raw)) && Number(raw) >= 0
+        return { id: p.id, name: p.name, spec: p.spec || '', image: p.imageUrl || '', priceText: known ? '桶押金参考 ¥' + raw : '桶押金待确认' }
+      }) })
+      this.filterProducts('')
     } catch (err) {
       if (isCurrentSession(session) && seq === this._productsSeq) this.setData({ productsError: viewError(err, '商品加载失败，请重试') })
     } finally { if (isCurrentSession(session) && seq === this._productsSeq) this.setData({ productsLoading: false }) }
@@ -114,20 +127,21 @@ Page({
     const product = this.data.products[this.data.index]
     const seq = this._quoteSeq = (this._quoteSeq || 0) + 1
     this.setData({ quote: null, quoteError: '', quoteLoading: false, onlinePayEnabled: false, onlinePayLabel: '', onlinePayHint: '' })
-    if (!product || !this.data.productsLoaded || this.data.productsError || this.data.productsLoading) return
+    if (!product || !this.data.productsLoaded || this.data.productsError || this.data.productsLoading || this.data.quantityError) return
     this.setData({ quoteLoading: true })
     try {
       const res = await quoteBarrelRight(this.data.stationId, product.id, this.data.quantity)
       if (!isCurrentSession(session) || seq !== this._quoteSeq) return
       if (!res || res.code !== undefined && res.code !== 0 || !res.data
         || !['number', 'string'].includes(typeof res.data.amount) || !String(res.data.amount).trim()
-        || !Number.isFinite(Number(res.data.amount)) || Number(res.data.amount) < 0) throw new Error('金额暂时不可用，请重试')
+        || !Number.isFinite(Number(res.data.amount)) || Number(res.data.amount) < 0
+        || (res.data.stationId != null && Number(res.data.stationId) !== this.data.stationId)) throw new Error('金额暂时不可用，请重试')
       const channel = res.data.wechatPay
       const labelled = !!channel && channel.method === 1 && typeof channel.enabled === 'boolean'
         && typeof channel.simulated === 'boolean' && typeof channel.label === 'string' && !!channel.label.trim()
         && typeof res.data.onlineAvailable === 'boolean' && res.data.onlineAvailable === channel.enabled
-      const mockChannelAllowed = !channel || channel.simulated !== true || isDevelopEnv()
-      this.setData({ quote: res.data, stationName: res.data.stationName,
+      const mockChannelAllowed = simulationAllowed(channel)
+      this.setData({ quote: res.data, quoteNotice: quoteNotice(res.data, this.data.paymentMethod), stationName: typeof res.data.stationName === 'string' && res.data.stationName.trim() ? res.data.stationName : this.data.stationName,
         onlinePayEnabled: res.data.onlineAvailable === true && labelled && channel.enabled === true && mockChannelAllowed,
         onlinePayLabel: labelled && mockChannelAllowed ? channel.label : '',
         onlinePayHint: !labelled ? '线上付款方式尚未核实，可重试确认金额或向水站交现金。'
@@ -143,7 +157,7 @@ Page({
     const seq = this._purchasesSeq = (this._purchasesSeq || 0) + 1
     if (customerId !== this._purchasesCustomerId) {
       this._purchasesCustomerId = customerId
-      this.setData({ purchases: [], purchasesLoaded: false })
+      this.setData({ purchases: [], purchasesLoaded: false, hasPendingPurchase: false })
     }
     this.setData({ purchasesLoading: true, purchasesError: '' })
     try {
@@ -156,12 +170,12 @@ Page({
       if (seq !== this._purchasesSeq) return
       if (customerId !== getCustomerId()) throw new Error('登录身份已变化，请重新加载购买记录')
       if (!records || records.code !== undefined && records.code !== 0 || !Array.isArray(records.data)) throw new Error('购买记录暂未加载，请重试')
-      this.setData({ purchases: records.data, purchasesLoaded: true })
+      this.setData({ purchases: records.data, purchasesLoaded: true, hasPendingPurchase: records.data.some(item => item && item.status === 'PENDING') })
     } catch (err) {
       if (isCurrentSession(session) && seq === this._purchasesSeq) {
         const changed = customerId !== getCustomerId()
         this.setData({ purchasesError: changed ? '登录身份已变化，请重新加载购买记录' : (viewError(err, '购买记录加载失败，请重试')),
-          ...(changed ? { purchases: [], purchasesLoaded: false } : {}) })
+          ...(changed ? { purchases: [], purchasesLoaded: false, hasPendingPurchase: false } : {}) })
       }
     } finally { if (isCurrentSession(session) && seq === this._purchasesSeq) this.setData({ purchasesLoading: false }) }
   },
@@ -172,15 +186,40 @@ Page({
     }
     return true
   },
+  filterProducts(query) {
+    const needle = String(query || '').trim().toLowerCase()
+    this.setData({ productSearch: query || '', filteredProductOptions: this.data.productOptions.filter(p =>
+      [p.name, p.spec].some(value => String(value || '').toLowerCase().includes(needle))) })
+  },
+  onOpenProductPicker() { if (!this.mayEdit()) return; this.filterProducts(''); this.setData({ showProductPicker: true }) },
+  onCloseProductPicker() { this.setData({ showProductPicker: false }) },
+  stopProductPickerTap() {},
+  onProductSearch(e) { this.filterProducts(e.detail.value) },
+  onSelectedImageError() { this.setData({ selectedImageFailed: true }) },
+  onProductSelect(e) {
+    const index = this.data.products.findIndex(p => String(p.id) === String(e.detail.id))
+    if (index >= 0) { this.setData({ showProductPicker: false, selectedImageFailed: false }); return this.onProduct({ detail: { value: index } }) }
+  },
   onProduct(e) { if (!this.mayEdit()) return; this.setData({ index: Number(e.detail.value) }); return this.refreshQuote() },
-  onQuantity(e) { if (!this.mayEdit()) return; this.setData({ quantity: Math.max(1, Math.min(1000, parseInt(e.detail.value) || 1)) }); return this.refreshQuote() },
+  onQuantity(e) {
+    if (!this.mayEdit()) return
+    const value = e.detail.value
+    const quantity = /^[1-9]\d*$/.test(String(value)) ? Number(value) : value
+    const valid = Number.isSafeInteger(quantity) && quantity > 0 && quantity <= 1000
+    // 2026-10-28：允许清空重输；输入无效立即作废报价，不能沿用上一次金额购买。
+    this.setData({ quantity, quantityError: valid ? '' : '请填写 1 至 1000 的整数' })
+    return this.refreshQuote()
+  },
+  onQuantityStep(e) { this.onQuantity({ detail: { value: Math.max(1, Math.min(1000, (Number(this.data.quantity) || 1) + (e.currentTarget.dataset.type === 'add' ? 1 : -1))) } }) },
+  onToggleRecoveryDetails() { this.setData({ showRecoveryDetails: !this.data.showRecoveryDetails }) },
+  onToggleHistory() { this.setData({ showHistory: !this.data.showHistory }) },
   onMethod(e) {
     if (!this.mayEdit()) return
     const method = Number(e.currentTarget.dataset.method)
     if (method === 1 && (!this.data.onlinePayEnabled || this.data.quoteLoading)) {
       wx.showToast({ title: '线上付款方式尚未确认或不可用', icon: 'none' }); return
     }
-    if (method === 1 || method === 2) this.setData({ paymentMethod: method })
+    if (method === 1 || method === 2) this.setData({ paymentMethod: method, quoteNotice: quoteNotice(this.data.quote, method) })
   },
   onWithdraw(e) {
     if (this.data.busy || this.data.withdrawingId || this._withdrawPromptOpen || this.data.purchasesLoading || this.data.purchasesError) return
@@ -192,7 +231,7 @@ Page({
       return
     }
     this._withdrawPromptOpen = true
-    wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '撤回未付款的押金购买', content: '已交钱但尚未确认的，请先联系水站核实收款；已确认押金须走退还申请。', success: async r => {
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '撤回未付款的押金购买', content: '已交钱但尚未确认的，请先联系水站核实收款；已确认押金须走退还申请。', success: async r => {
       this._withdrawPromptOpen = false
       if (!r.confirm) return
       const current = this.data.purchases.find(p => String(p.id) === String(id))
@@ -288,10 +327,11 @@ Page({
             ? (recovering ? '原押金已确认' : '本次桶押金已确认') + '，当前可用权益以资产页为准。若仍有待领取容量，水桶随下一次送水送达，本次新领的桶无需回空桶。押金与水款分别办理，本次仅办理桶押金，订水需另行提交。'
             : '请向该水站交付押金并索取收据。水站确认实际收款后，才可以使用这份权益买票和下单。'
       const returnToOrder = record.status === 'PAID' && res.data.status === 2 && this.canReturnToOrder(body.stationId)
-      wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: recovering || res.data.status === 3 || record.status === 'CANCELLED'
           ? '原桶押金购买已查回' : (record.status === 'PAID' ? '桶押金已确认' : '桶押金待确认'),
-        content, showCancel: returnToOrder, confirmText: returnToOrder ? '继续订水' : '确定',
+        content: (res.data.simulated === true ? (res.data.simulationResultText || res.data.methodText || '模拟付款（未扣款）') + '。' : '') + content,
+        showCancel: returnToOrder, confirmText: returnToOrder ? '继续订水' : '确定',
         ...(returnToOrder ? { cancelText: '留在此页', success: result => {
           if (result.confirm && isCurrentSession(session) && this.canReturnToOrder(body.stationId)) this.onBack()
         } } : {})
@@ -346,7 +386,7 @@ Page({
     const context = this.syncRecovery(), entry = this.originalFor(context)
     if (!entry || !this.data.canAnother || this.data.busy || this.data.recoveryBusy) return
     const seq = this._anotherSeq = (this._anotherSeq || 0) + 1
-    const confirm = await new Promise(resolve => wx.showModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '另买一笔桶押金',
+    const confirm = await new Promise(resolve => showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '另买一笔桶押金',
       content: '原购买仍会保留，新购买将另行登记。已交款但尚未确认的，请先联系原水站核实。',
       confirmText: '另买', cancelText: '返回', success: result => resolve(result.confirm), fail: () => resolve(false) }))
     if (!confirm || !isCurrentSession(context.session) || seq !== this._anotherSeq || this.data.busy || this.data.recoveryBusy) return

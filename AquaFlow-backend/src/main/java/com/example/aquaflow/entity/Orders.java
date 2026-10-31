@@ -236,8 +236,12 @@ public class Orders {
     @com.fasterxml.jackson.annotation.JsonIgnore
     private transient Boolean selfPayAllowed;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private transient Boolean selfPaySimulated;
+
     /** 支付入口按钮文案：支付被取消过显示为「重新支付」，否则「去支付」 */
     public String getRepayLabel() {
+        if (Boolean.TRUE.equals(selfPaySimulated)) return "模拟支付（不扣款）";
         return "CANCELLED".equals(getPayState()) ? "重新支付" : "去支付";
     }
 

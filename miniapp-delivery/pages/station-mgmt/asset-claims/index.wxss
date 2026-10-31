@@ -20,8 +20,8 @@
 .claim-primary { background: #1264D6; color: #fff; }
 .claim-secondary { background: var(--bg-gray); color: #1264D6; }
 .claim-actions { display: flex; }
-.claim-actions button { flex: 1; }
-.claim-actions button:first-child { margin-right: 18rpx; }
+.claim-actions button:not(.af-action):not(.af-choice):not(.af-entry) { flex: 1; }
+.claim-actions button:not(.af-action):not(.af-choice):not(.af-entry):first-child { margin-right: 18rpx; }
 
 /* 长商品名/状态各自保留可读宽度；窄屏自动换行，不挤压金额与操作。 */
 .claim-heading { flex-wrap: wrap; gap: 8rpx 16rpx; }
@@ -47,4 +47,48 @@
 .claim-input { background:var(--bg-color); border:1rpx solid var(--border-color); border-radius:10rpx; }
 .claim-primary,.claim-secondary { min-height: 48px; height:auto; line-height:1.5; box-sizing:border-box; border-radius:10rpx; padding:20rpx; font-size: 16px; }
 .claim-actions { flex-wrap:wrap; gap:16rpx; }
-.claim-actions button { min-width:240rpx; }
+.claim-actions button:not(.af-action):not(.af-choice):not(.af-entry) { min-width:240rpx; }
+.claim-photo { display:block; width:220rpx; height:220rpx; margin-top:12rpx; background:var(--bg-gray); border-radius:10rpx; }
+
+.claim-back { min-height:44px; height:auto; line-height:1.5; background:#fff; color:var(--primary-color); border:1rpx solid var(--border-color); margin-bottom:20rpx; }
+
+/* B3: shared B0 families own control appearance; this page owns only arrangement. */
+page { --primary-color:var(--af-primary); --primary-bg:var(--af-soft); --warning-color:var(--af-strong); --warning-bg:var(--af-soft); --text-primary:var(--af-ink); --text-regular:var(--af-text-secondary); --border-color:var(--af-border); }
+.b3-record-entry { display:block; min-height:52px; }
+.b3-disclosure { min-height:52px; box-sizing:border-box; }
+.b3-quantity { min-height:48px; min-width:48px; background:var(--af-soft); font-size:20px; }
+.b3-on-search,.b3-on-record-search,.b3-on-refusal-search { flex:none; }
+.b3-on-remove-evidence { min-width:44px; min-height:44px; }
+
+/* Form actions stretch only where their own task requires it. */
+.footer .af-action--cancel,.modal-footer .af-action--cancel { flex:0 0 80px; min-height:48px; }
+.footer .af-action--primary,.modal-footer .af-action--primary { flex:1; min-width:44px; }
+.b3-on-save,.b3-on-submit,.b3-on-submit-refund-note,.b3-on-close-dispute,.b3-on-save-status { display:flex; width:100%; }
+.b3-on-pick-mode .af-choice__face,.b3-on-pick-status .af-choice__face { flex-direction:column; align-items:flex-start; gap:4px; }
+.b3-choice-unavailable .af-choice__face { color:var(--af-disabled-text); background:var(--af-disabled-bg); }
+button.af-entry { margin:0; border:0; border-radius:0; line-height:22px; font-size:14px; }
+button.af-entry::after { border:0; }
+
+/* Page-specific role grouping. */
+
+.b3-claim-state { margin:12px 0 20px; padding-left:12px; border-left:4px solid var(--af-primary); }
+.b3-state-caption { display:block; color:var(--af-text-secondary); font-size:13px; line-height:20px; }
+.b3-state-title { display:block; color:var(--af-strong); font-size:23px; line-height:30px; font-weight:600; }
+.b3-section-heading { display:block; margin:20px 0 8px; color:var(--af-ink); font-size:16px; font-weight:600; }
+.claim-actions { display:flex; align-items:stretch; gap:8px; }
+.claim-actions .af-action--primary { flex:1; }
+.claim-actions .af-action--secondary { flex:none; }
+.b3-on-close-selection,.b3-on-retry,.b3-on-recover { margin:8px 0; }
+
+/* Queue remains compact; status and actual assets carry their own meaning. */
+.b3-claim-state { border:0; border-radius:14px; padding:14px 16px; background:var(--af2-surface-current); }
+.b3-state-caption,.b3-state-title { color:var(--af2-ink-current); }
+.claim-amount { display:block; padding:12px; border-radius:12px; background:var(--af2-surface-money); color:var(--af2-ink-money); }
+.claim-line { padding:12px; margin:8px 0; border-radius:12px; background:var(--af2-surface-physical); }
+.claim-line .claim-title,.claim-line .claim-row { color:var(--af2-ink-physical); }
+.claim-select { border-radius:0; box-shadow:none; border:0; border-bottom:1px solid var(--af-border); }
+
+
+.claim-select .claim-amount { padding:0; background:transparent; color:var(--af2-ink-money); }
+
+.s-claim-section-head { display:flex; align-items:center; gap:8px; } .s-claim-section-head .b3-section-heading { flex:1; }

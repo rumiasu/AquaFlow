@@ -240,7 +240,7 @@ test('company: unacknowledged save preserves input and permits direct retry or c
   assert.equal(f.p.data.form.companyName, 'Unsaved 用户输入')
   await f.p.onSave(); assert.equal(writes, 2)
   assert(!visible('company', f.p.data).includes('已核对，继续编辑'))
-  f.p.onCancelEdit(); assert.equal(f.p.data.editing, false); assert.equal(f.calls.modal.length, 0)
+  f.p.onCancelEdit(); assert.equal(f.p.data.editing, true); assert.equal(f.calls.modal.length, 1); f.calls.modal[0].success({ confirm: false }); assert.equal(f.p.data.form.companyName, 'Unsaved 用户输入'); f.p.onCancelEdit(); f.calls.modal[1].success({ confirm: true }); assert.equal(f.p.data.editing, false)
 })
 test('company: successful null read clears stale info; missing save result remains retryable', async () => {
   let current = company

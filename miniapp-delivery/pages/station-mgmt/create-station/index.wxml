@@ -1,12 +1,13 @@
-<view class="container">
+<view class="container b2-page b2-d06 af2-page lv2-page lv2-create">
   <!-- 隐私授权弹窗：本页用 wx.chooseLocation 选水站坐标，必须渲染（原因见 components/PrivacyPopup/index.js 文件头） -->
   <privacy-popup />
   <view class="form-card">
     <view class="form-header">
-      <text class="form-title">创建我的水站</text>
-      <text class="form-subtitle">名称、联系电话、位置三项必填</text>
+      <view class="lv2-create-head"><view class="af2-icon-tile"><icon name="building" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /></view><text class="form-title">创建水站</text></view>
+      <text class="form-subtitle">未提交内容离页不保存</text>
     </view>
 
+    <text class="lv2-form-group-title">基本资料</text>
     <view class="form-group">
       <text class="form-label">水站名称 <text class="required">*</text></text>
       <input class="form-input" placeholder="给您的水站起个名字" value="{{stationName}}" bindinput="onStationNameInput" maxlength="30" />
@@ -19,33 +20,35 @@
       <input class="form-input" type="number" placeholder="客户联系你用的号码" value="{{phone}}" bindinput="onPhoneInput" maxlength="20" />
     </view>
 
-    <view class="form-group location-group {{locationText ? 'location-filled' : ''}}" bindtap="onChooseLocation">
-      <text class="form-label">定位水站位置 <text class="required">*</text></text>
+    <view bindtap="onChooseLocation" class="form-group location-group {{locationText ? 'location-filled' : ''}} af-entry">
+      <view class="lv2-location-label"><icon name="location" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /><text class="form-label">水站位置 <text class="required">*</text></text></view>
       <view class="location-value {{locationText ? '' : 'placeholder'}}">
         <view class="location-text-wrap">
           <text class="location-text">{{locationText || '点击选择地图位置'}}</text>
           <!-- 省市区由定位结果自动解析回填，不需要站长再手选（见 index.js onChooseLocation） -->
           <text class="location-sub" wx:if="{{regionText}}">省市区：{{regionText}}</text>
           <!-- 标了必填就要真的校验：没坐标 = 算不出距离 = 你设的配送范围整段失效 -->
-          <text class="location-sub warn" wx:else>必须选点：没有坐标，配送范围与距离都无法判断</text>
+          <text class="location-sub warn" wx:else>请选择地图位置，以核对配送范围与距离</text>
         </view>
       </view>
     </view>
 
+    <text class="location-error" wx:if="{{locationError}}">{{locationError}}</text>
     <view class="form-group">
-      <text class="form-label">水站简介</text>
-      <textarea class="form-textarea" placeholder="简介、营业时间、配送范围等（可选）" value="{{description}}" bindinput="onDescInput" maxlength="200"></textarea>
+      <view bindtap="onToggleDescription" class="description-toggle af-entry"><text class="form-label">水站简介（选填） · {{descriptionExpanded ? '收起' : '填写'}}</text></view>
+      <textarea wx:if="{{descriptionExpanded}}" class="form-textarea" placeholder="简介、营业时间、配送范围等（可选）" value="{{description}}" bindinput="onDescInput" maxlength="200"></textarea>
     </view>
   </view>
 
-  <view class="footer">
-    <button class="btn-submit" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">创建水站</button>
+  <view class="secondary-actions">
     <!-- 选择身份只是登记意向，生效前允许改选；生效后后端会拒绝（按钮会给出提示） -->
-    <view class="footer-action" bindtap="onBackToRoleSelect">
+    <view bindtap="onBackToRoleSelect" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">
       <text>返回，重新选择身份</text>
-    </view>
-    <view class="footer-action" bindtap="onLogout">
+    </text></view>
+    <view bindtap="onLogout" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">
       <text>退出登录</text>
-    </view>
+    </text></view>
   </view>
+  <view class="footer"><button bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}" class="af-action af-action--primary af-action--block">创建水站</button></view>
 </view>
+<business-dialog id="business-dialog" />

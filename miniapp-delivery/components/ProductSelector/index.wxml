@@ -1,0 +1,8 @@
+<view class="product-options">
+  <button wx:for="{{viewItems}}" wx:key="index" class="product-option af-choice {{item.selected ? 'product-selected af-choice--selected' : ''}}" disabled="{{item.disabled}}" data-index="{{index}}" bindtap="onSelect" aria-label="{{item.ariaLabel}}" aria-pressed="{{item.selected}}">
+    <image wx:if="{{item.image}}" class="product-picture" src="{{item.image}}" mode="aspectFit" data-index="{{index}}" binderror="onImageError" />
+    <view wx:else class="product-picture product-placeholder" aria-hidden="true">水</view>
+    <view class="product-copy"><text class="product-name">{{item.name}}</text><text wx:if="{{item.spec}}" class="product-spec">{{item.spec}}</text><text class="product-price">{{item.priceText}}</text></view>
+    <text class="product-choice">{{item.selected ? '✓ 已选' : '选择'}}</text>
+  </button>
+</view>

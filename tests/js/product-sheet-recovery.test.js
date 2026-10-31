@@ -17,7 +17,7 @@ const tree = () => parseWxml(source('wxml'))
 
 test('editor and inventory sheets keep native scrollers free of touch blockers and footers outside bodies', () => {
   const root = tree(), sheets = nodes(root, n => hasClass(n, 'product-edit-modal'))
-  assert.equal(root.children.find(n => n.tag === 'page-meta').attrs['page-style'], "{{showEdit || showSetting || showInventory ? 'overflow: hidden;' : ''}}")
+  assert.equal(root.children.find(n => n.tag === 'page-meta').attrs['page-style'], "{{showEdit || showSetting || showInventory || showRecords ? 'overflow: hidden;' : ''}}")
   assert.equal(sheets.length, 2)
   for (const { node, ancestors } of sheets) {
     assert(![...ancestors, node].some(n => n.attrs && 'catchtouchmove' in n.attrs))
@@ -57,7 +57,7 @@ test('empty image state shows one upload action and no contradictory change-imag
   const f = pageFixture('product'); f.p.openAdd()
   const view = renderElements(tree(), { ...f.p.data, loading: false, showEdit: true }, { includeText: true })
   const buttons = view.filter(n => n.tag === 'button' && n.attrs.bindtap === 'uploadImage')
-  assert.equal(buttons.length, 1); assert(buttons[0].text.includes('上传商品图片'))
+  assert.equal(buttons.length, 1); assert(view.some(n => n.attrs.class === 'af-action__face' && n.text.includes('上传商品图片')))
   assert(!view.some(n => /点击换图/.test(n.text || '')))
 })
 test('five photo states expose upload actions without human verification', () => {
@@ -65,7 +65,7 @@ test('five photo states expose upload actions without human verification', () =>
   for (const state of ['empty', 'ready', 'selecting', 'uploading', 'failed']) {
     const busy = state === 'selecting' || state === 'uploading'
     const view = renderElements(tree(), { ...f.p.data, loading: false, productImageState: state, productImageBusy: busy, productImageCaseId: 'synthetic-case', productImageHint: '合成状态提示' }, { includeText: true })
-    const actions = view.filter(n => n.tag === 'button' && n.className.split(' ').includes('product-image-action'))
+    const actions = view.filter(n => n.tag === 'button' && ['uploadImage', 'openPresetPicker', 'onRetryProductImage', 'onRestorePlatformImage'].includes(n.attrs.bindtap))
     assert.equal(actions.length, busy ? 0 : 2, state)
     assert(view.some(n => n.className.split(' ').includes('product-image-status') && n.text === '合成状态提示'))
     assert(!view.some(n => n.tag === 'button' && n.attrs.bindtap === 'onUploadRecover'))
@@ -83,7 +83,11 @@ for (const resized of [false, true]) test('short-screen keyboard footer geometry
   height = 568; f.p.onProductKeyboardHeightChange({ detail: { height: 0 } })
   assert(f.p.data.productEditSheetStyle.includes('height:512px'))
   const inputs = nodes(tree(), n => n.tag === 'input' && n.attrs['bindkeyboardheightchange'])
-  assert(inputs.length > 10); assert(inputs.every(({ node }) => node.attrs['adjust-position'] === '{{false}}' && node.attrs.bindblur === 'onProductKeyboardBlur'))
+  // Assert the active controls, not the old count that included a separate retail-price input.
+    for (const handler of ['onEditFieldInput', 'onPkgQtyInput', 'onPkgPriceInput', 'onStockInput']) {
+      assert(inputs.some(n => n.node.attrs.bindinput === handler), 'missing editable control: ' + handler)
+    }
+    assert(!inputs.some(n => n.node.attrs['data-field'] === 'ticketPrice')); assert(inputs.every(({ node }) => node.attrs['adjust-position'] === '{{false}}' && node.attrs.bindblur === 'onProductKeyboardBlur'))
 })
 test('keyboard blur restores sheet height when native height-zero callback is missing', async () => {
   const f = pageFixture('product'); f.wx.getWindowInfo = () => ({ windowHeight: 568 }); f.p.openAdd()

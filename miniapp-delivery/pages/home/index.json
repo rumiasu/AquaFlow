@@ -3,5 +3,7 @@
   "navigationBarTitleText": "配送",
   "enablePullDownRefresh": true,
   "backgroundColor": "#F5F6F7",
-  "usingComponents": {}
+  "usingComponents": {
+    "icon": "../../components/Icon/index"
+  }
 }

@@ -33,7 +33,7 @@
   box-shadow: none;
   padding: var(--spacing-lg);
   margin-bottom: var(--spacing-md);
-  border-left: 6rpx solid var(--warning-color);
+  border-left: 6rpx solid var(--af-text-secondary);
   border: 1rpx solid var(--border-color);
 }
 
@@ -55,7 +55,7 @@
 
 .status-transfer {
   background: rgba(255, 149, 0, 0.1);
-  color: var(--warning-color);
+  color: var(--af-text-secondary);
 }
 
 .order-date {
@@ -218,3 +218,40 @@
 /* 户外阅读与窄屏操作：保持业务字段、动作与风险提示完整。 */
 .page-state-retry { height: auto; min-height: 96rpx; box-sizing: border-box; padding: 20rpx 24rpx; line-height: 1.45; white-space: normal; word-break: break-all; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; }
 .order-date, .note-text { overflow-wrap: anywhere; }
+
+/* 2026-10-28 B2: local layout only; B0 owns action/choice faces and tokens. */
+ .b2-page { --primary-color: var(--af-primary); --primary-bg: var(--af-soft); --text-primary: var(--af-ink); --text-regular: var(--af-text-secondary); --text-secondary: var(--af-text-secondary); --bg-gray: var(--af-soft); --success-color: var(--af-positive); --error-color: var(--af-danger); --error-bg: var(--af-danger-soft); --bg-color: var(--af-canvas); --bg-card: var(--af-surface); --border-color: var(--af-border); }
+ .order-card { box-shadow: none; border-radius: 10px; border-color: var(--af-border); } .order-card::after { color: var(--af-text-secondary); }
+
+/* 2026-10-29 visual-L: page-local composition; shared controls and palette stay V0-owned. */
+.lv2-page { --bg-color:var(--af2-page); --bg-card:var(--af2-surface); --border-color:var(--af2-line); --text-primary:var(--af2-ink); --text-regular:var(--af2-muted); background:var(--af2-page); color:var(--af2-ink); box-sizing:border-box; font-size:15px; line-height:24px; }
+.lv2-page .ui-state { box-sizing:border-box; margin:12px 0; padding:16px; border-radius:14px; border:1px solid var(--af2-line); }
+.lv2-title-row { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.lv2-title-row > text { flex:1; min-width:0; font-size:22px; line-height:30px; font-weight:600; }
+.lv2-page .af2-icon-tile { background:var(--af2-surface-order); }
+.lv2-page .lv2-neutral-tile { background:var(--af2-surface-neutral); }
+.lv2-page .lv2-physical-tile { background:var(--af2-surface-physical); }
+.lv2-page .lv2-money-tile { background:var(--af2-surface-money); }
+
+.lv2-history, .lv2-transfer { padding:20px 16px; }
+.lv2-history .stats-header { margin:0 0 16px; padding:16px; background:var(--af2-surface-neutral); border:0; border-radius:16px; box-shadow:none; }
+.lv2-history-heading { display:flex; align-items:center; gap:10px; }
+.lv2-history .stats-title { font-size:20px; line-height:28px; color:var(--af2-ink); }
+.lv2-history .stats-count { font-size:13px; line-height:22px; color:var(--af2-muted); }
+.lv2-history .order-list, .lv2-transfer .order-list { padding:0 16px; background:var(--af2-surface); border-radius:16px; }
+.lv2-history .order-card, .lv2-transfer .order-card { margin:0; padding:16px 0; border:0; border-bottom:1px solid var(--af2-line); border-radius:0; box-shadow:none; }
+.lv2-history .product-info, .lv2-transfer .product-info { align-items:center; gap:10px; padding:10px 0; flex-wrap:nowrap; }
+.lv2-history .product-image, .lv2-transfer .product-image { flex:none; width:48px; height:48px; border-radius:10px; background:var(--af2-surface-neutral); }
+.lv2-history .product-placeholder, .lv2-transfer .product-placeholder { display:flex; align-items:center; justify-content:center; }
+.lv2-history .product-copy, .lv2-transfer .product-copy { flex:1; min-width:0; }
+.lv2-history .product-name, .lv2-transfer .product-name { font-size:14px; line-height:22px; }
+.lv2-history .product-spec, .lv2-transfer .product-spec { font-size:12px; line-height:19px; }
+.lv2-history .product-qty, .lv2-transfer .product-qty { flex:none; max-width:32%; font-size:15px; line-height:22px; white-space:normal; }
+.lv2-history .order-date, .lv2-transfer .order-date { font-size:12px; line-height:20px; }
+.lv2-history .empty-state, .lv2-transfer .empty-state { display:flex; flex-direction:column; align-items:center; gap:12px; padding:32px 0; background:transparent; }
+.lv2-history .empty-text, .lv2-transfer .empty-text { font-size:16px; line-height:24px; }
+
+.lv2-transfer-direction { display:flex; gap:8px; align-items:center; color:var(--af2-ink-neutral); font-size:14px; }
+.lv2-transfer-result { margin-left:auto; font-size:13px; line-height:20px; padding:3px 8px; border-radius:6px; background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); }
+.lv2-transfer .card-header { flex-wrap:wrap; gap:8px; }
+.lv2-transfer .transfer-note { padding:12px; background:var(--af2-surface-neutral); border-radius:10px; font-size:13px; line-height:21px; }

@@ -1,5 +1,5 @@
 <view class="container">
-  <view class="settings-section-nav"><button wx:for="{{settingsSections}}" wx:key="target" data-target="{{item.target}}" bindtap="onSettingsSection">{{item.label}}</button></view>
+  <view class="settings-section-nav"><button wx:for="{{settingsSections}}" wx:key="target" data-target="{{item.target}}" bindtap="onSettingsSection" class="af-choice b3-on-settings-section" hover-class="af-action--pressed"><view class="af-choice__face">{{item.label}}</view></button></view>
 
   <!--
     [2026-09-19] 「水站坐标」那一块已**搬到 pages/station-mgmt/station-info/**：
@@ -7,7 +7,8 @@
     本页只管：营业状态 + 留言 + 公告。
   -->
 
-  <view class="ui-state" wx:if="{{statusError}}"><text class="ui-state-copy">{{statusError}}</text><button size="mini" bindtap="onRetryStatus">重新读取营业状态</button></view>
+  <view class="ui-state" wx:if="{{statusError}}"><text class="ui-state-copy">{{statusError}}</text><button size="mini" bindtap="onRetryStatus" class="af-action af-action--quiet b3-on-retry-status" hover-class="af-action--pressed"><view class="af-action__face">重新读取营业状态</view></button></view>
+  <view class="ui-state" wx:if="{{exitGuardError}}"><text class="ui-state-copy">{{exitGuardError}}</text></view>
   <!-- ============ 营业状态（软状态：不阻断下单，只提示顾客）============ -->
   <view class="card" id="status-operation">
     <view class="card-header">
@@ -23,15 +24,13 @@
 
     <view class="options">
       <view
-        class="option {{picked === item.value ? 'active' : ''}}"
+        class="af-choice b3-on-pick-status {{picked === item.value ? 'af-choice--selected' : ''}}"
         wx:for="{{statusOptions}}"
         wx:key="value"
         bindtap="onPickStatus"
         data-value="{{item.value}}"
-      >
-        <text class="option-name">{{item.name}}</text>
-        <text class="option-desc">{{item.desc}}</text>
-      </view>
+      ><view class="af-choice__face"><text class="option-name">{{item.name}}</text>
+        <text class="option-desc">{{item.desc}}</text></view></view>
     </view>
 
     <view class="field">
@@ -42,11 +41,12 @@
         maxlength="100"
         value="{{noteInput}}"
         bindinput="onNoteInput"
+        disabled="{{loading || !statusLoaded || saving}}"
       ></textarea>
       <text class="counter">{{noteInput.length}}/100</text>
     </view>
 
-    <!-- 「顾客那边会怎样」：**点哪个状态显示哪句**（2026-09-24 产品要求）。
+    <!-- 「顾客端显示效果」：**点哪个状态显示哪句**（2026-09-24 产品要求）。
          ⚠️ 原来这里是两条固定预览（`current.customerHint` 与前端自己拼的
             `statusOptions[picked-1].name + '（仍可下单…）'`）——产品反馈"有些重复了"，而且
             拼出来的"仍可下单"对**待上线**是假话（待上线的站对顾客不可见、下不了单）。
@@ -56,7 +56,7 @@
       <text class="preview-text">{{effectText}}</text>
     </view>
 
-    <button class="btn-primary" bindtap="onSaveStatus" loading="{{saving}}" disabled="{{saving || loading || !statusLoaded}}">保存营业状态</button>
+    <button class="af-action af-action--primary b3-on-save-status af-action--block" bindtap="onSaveStatus" loading="{{saving}}" disabled="{{saving || loading || !statusLoaded}}" hover-class="af-action--pressed">保存营业状态</button>
   </view>
 
   <!-- ============ 公告 ============ -->
@@ -67,10 +67,10 @@
         <!-- [2026-09-24] 纯说明（"发布 vs 草稿谁看得见"），藏进「?」 -->
         <help-tip title="本站公告" text="已发布的公告，顾客在小程序「公告」里能看到；草稿只有你自己可见。" />
       </view>
-      <text class="link" bindtap="openAddNotice">＋ 发公告</text>
+      <view class="af-entry b3-open-add-notice" bindtap="openAddNotice"><view class="af-entry__body">＋ 发公告</view><text class="af-entry__arrow" aria-hidden="true">›</text></view>
     </view>
 
-    <view class="ui-state" wx:if="{{noticesError}}"><text class="ui-state-copy">{{noticesError}}</text><button size="mini" bindtap="onRetryNotices">重新读取公告</button></view>
+    <view class="ui-state" wx:if="{{noticesError}}"><text class="ui-state-copy">{{noticesError}}</text><button size="mini" bindtap="onRetryNotices" class="af-action af-action--quiet b3-on-retry-notices" hover-class="af-action--pressed"><view class="af-action__face">重新读取公告</view></button></view>
     <view class="notice" wx:for="{{notices}}" wx:key="id">
       <view class="notice-head">
         <text class="notice-title">{{item.title}}</text>
@@ -80,9 +80,9 @@
       <view class="notice-foot">
         <text class="notice-time">{{item.timeText}}</text>
         <view class="notice-actions">
-          <text class="btn-link" bindtap="openEditNotice" data-item="{{item}}">编辑</text>
-          <text class="btn-link" bindtap="onToggleNoticeStatus" data-item="{{item}}">{{item.status === 1 ? '下架' : '发布'}}</text>
-          <text class="btn-link danger" bindtap="onDeleteNotice" data-item="{{item}}">删除</text>
+          <view class="af-action af-action--quiet b3-open-edit-notice" bindtap="openEditNotice" data-item="{{item}}"><view class="af-action__face">编辑</view></view>
+          <view class="af-action af-action--quiet b3-on-toggle-notice-status" bindtap="onToggleNoticeStatus" data-item="{{item}}"><view class="af-action__face">{{item.status === 1 ? '下架' : '发布'}}</view></view>
+          <view class="af-action af-action--danger-quiet b3-on-delete-notice" bindtap="onDeleteNotice" data-item="{{item}}">删除</view>
         </view>
       </view>
     </view>
@@ -91,8 +91,7 @@
   </view>
 
   <!-- ============ 公告编辑 ============ -->
-  <!-- 弹窗只有"存为草稿 / 发布"两个按钮（见下）；**点遮罩关掉 = 什么都不保存**（原样返回），
-       这是"我填错了、不想留痕"的出口 —— 别把它接到某个保存动作上。 -->
+  <!-- 关闭已修改的公告时先确认，避免误触遮罩丢失草稿。 -->
   <view class="modal-mask" wx:if="{{showEdit}}" catchtouchmove="preventMove" bindtap="closeEditNotice">
     <view class="modal" catchtap="stopPropagation">
       <view class="modal-header">{{isAdd ? '新建公告' : '编辑公告'}}</view>
@@ -117,9 +116,10 @@
       <text class="card-sub" wx:if="{{saveHint}}">{{saveHint}}</text>
 
       <view class="modal-footer">
-        <button class="btn-cancel" bindtap="onSaveDraft" disabled="{{saving}}">存为草稿</button>
-        <button class="btn-primary flex1" bindtap="onSaveNotice" loading="{{saving}}" disabled="{{saving}}">发布</button>
+        <button class="af-action af-action--secondary b3-on-save-draft" bindtap="onSaveDraft" disabled="{{saving}}" hover-class="af-action--pressed">存为草稿</button>
+        <button class="af-action af-action--primary b3-on-save-notice af-action--grow" bindtap="onSaveNotice" loading="{{saving}}" disabled="{{saving}}" hover-class="af-action--pressed">发布</button>
       </view>
     </view>
   </view>
 </view>
+<business-dialog id="business-dialog" />

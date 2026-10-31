@@ -180,7 +180,11 @@ test('两款水独立办第一款后，第二款随单押金仍须明确确认',
   t.wx.__modalAutoConfirm = false
   assert.equal(order.data.blocked, false); assert.equal(order.data.payableAmountText, '160.00')
   assert.deepStrictEqual(order.data.missingRights, [{ productId: 6, quantity: 2 }])
-  await order.onSubmit(); assert.equal(t.wx.__calls.modal.at(-1).title, '确认本次新增押金')
+  await order.onSubmit()
+  const modal = t.wx.__calls.modal.at(-1)
+  assert.match(modal.title, /^确认.*新增.*押金$/); assert.equal(modal.confirmText, '一起付款')
+  assert(modal.content.includes('商品编号 6') && modal.content.includes('2 份') && modal.content.includes('100.00'))
+  assert(!modal.content.includes('商品编号 5'), '已独立办理的第一款不能再次收取押金')
   assert.equal(orders, 0); assert.equal(order.data.products[1].quantity, 2)
   assert.equal(order.data.address.id, 12); assert.equal(order.data.note, '放门口')
 })

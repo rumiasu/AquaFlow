@@ -71,17 +71,21 @@
   <!-- 某客户的待收明细 + 核销 -->
   <block wx:else>
     <view class="card">
-      <view class="row-between">
-        <text class="row-title">{{customer.customerName}}</text>
-        <text class="row-amount">¥{{customer.outstandingAmount}}</text>
-      </view>
-      <view class="row-sub">
-        账期：{{customer.dueDays ? customer.dueDays + ' 天（月结）' : '未设账期（即时结清）'}}
+      <view class="receivable-customer-toggle" bindtap="onBack" aria-role="button" aria-label="收起客户明细">
+        <view class="receivable-customer-body">
+          <view class="row-between">
+            <text class="row-title">{{customer.customerName}}</text>
+            <text class="row-amount">¥{{customer.outstandingAmount}}</text>
+          </view>
+          <view class="row-sub">
+            账期：{{customer.dueDays ? customer.dueDays + ' 天（月结）' : '未设账期（即时结清）'}}
+          </view>
+        </view>
+        <text class="receivable-customer-arrow" aria-hidden="true">⌃</text>
       </view>
       <view class="btn-row">
         <view class="af-action af-action--quiet" bindtap="onEditTerms"><text class="af-action__face">设置账期</text></view>
         <view class="af-action af-action--quiet" bindtap="onShowTermsHelp"><text class="af-action__face">账期说明</text></view>
-        <view class="af-action af-action--quiet" bindtap="onBack"><text class="af-action__face">返回列表</text></view>
       </view>
     </view>
 

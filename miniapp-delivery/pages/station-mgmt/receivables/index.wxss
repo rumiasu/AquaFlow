@@ -51,3 +51,5 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 .dialog .btn-row { flex-wrap:nowrap; margin-top:16px; }.dialog .af-action--cancel { flex:0 0 80px; }.recalc-note { margin-top:20px; border-top:1px solid var(--af2-line); padding-top:16px; font-size:14px; color:var(--af2-muted); }
 
 .settlement-total > view { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px; min-width:0; max-width:100%; }.settlement-label { font-size:13px; }
+
+.receivable-customer-toggle { display:flex; align-items:center; gap:12px; min-height:44px; }

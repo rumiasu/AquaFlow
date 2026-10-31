@@ -212,6 +212,9 @@ const updateStation = (id, payload) => {
  * 保存本站坐标。传 null 表示清除（清除后范围校验跳过，不会拒单）。
  * stationId 由后端从登录态取，前端不传。
  */
+// 地址及位置仅通过同一个服务端事务保存，不回退旧的分离写入。
+const updateStationProfile = (id, payload) => put(API.STATION_UPDATE(id) + '/profile', payload)
+
 const updateStationCoordinates = (lat, lng) => {
   return put(API.STATION_MY_COORDINATES, { lat: lat === undefined ? null : lat, lng: lng === undefined ? null : lng })
 }
@@ -479,6 +482,7 @@ module.exports = {
   updateStationStatus,
   getMyStation,
   updateStation,
+  updateStationProfile,
   updateStationCoordinates,
   getNotices,
   createNotice,

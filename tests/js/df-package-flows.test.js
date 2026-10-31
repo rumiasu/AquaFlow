@@ -84,16 +84,17 @@ function station(shared) {
   const t = mount('station-mgmt/station-info', {
     'config/api': { getTransportConfig: () => ({ mode: 'https', baseUrl: 'https://synthetic.invalid' }) },
     'api/station-mgmt': { getMyStation: async () => ({ code: 0, data: { id: 3, name: '原站名', phone: '123', address: '', status: 1, lat: null, lng: null } }),
-      updateStation: async (id, body) => { writes.push(['info', id, body]); return { code: 0 } }, updateStationCoordinates: async (lat, lng) => { writes.push(['coordinates', lat, lng]); return { code: 0 } } }
+      updateStationProfile: async (id, body) => { writes.push(['profile', id, body]); return { code: 0, data: { id, name: body.name || '原站名', phone: body.phone || '123', address: body.address, lat: body.coordinateMode === 'SET' ? body.lat : null, lng: body.coordinateMode === 'SET' ? body.lng : null } } } }
   }, wx, app)
   t.p.refreshModuleSetup = () => {}; return { ...t, writes, pick: () => pick }
 }
-test('D24 map saves only coordinates and leaves edited name/phone/address as draft', async () => {
+test('D24 map stages position and one profile save persists address and details together', async () => {
   const t = station(); await t.p.onShow(); t.p.onNameInput({ detail: { value: '未保存的新站名' } }); t.p.onPhoneInput({ detail: { value: '999' } })
   t.p.onPickCoordinates(); await t.pick().success({ latitude: 20, longitude: 110, name: '选点', address: '地址' })
-  assert.deepEqual(t.writes, [['coordinates', 20, 110]]); assert.equal(t.p.data.form.name, '未保存的新站名'); assert.equal(t.p.data.form.phone, '999')
-  assert.equal(t.p.data.form.address, '选点地址'); assert(t.p.data.infoDirty)
-  await t.p.onSave(); assert.equal(t.writes.filter(w => w[0] === 'info').length, 1)
+  assert.equal(t.writes.length, 0); assert.equal(t.p.data.form.name, '未保存的新站名'); assert.equal(t.p.data.form.phone, '999')
+  assert.equal(t.p.data.form.address, '地址 选点'); assert(t.p.data.infoDirty)
+  await t.p.onSave(); assert.equal(t.writes.length, 1); assert.equal(t.writes[0][0], 'profile')
+  assert.equal(t.writes[0][2].coordinateMode, 'SET'); assert.equal(t.writes[0][2].lat, 20); assert.equal(t.writes[0][2].lng, 110)
 })
 test('D24 old drafts require explicit restoration and survive page destruction', async () => {
   const t = station(); await t.p.onShow(); t.p.onNameInput({ detail: { value: '保留的站名' } }); t.p.onUnload()

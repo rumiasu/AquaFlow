@@ -47,6 +47,11 @@ public interface StationMapper {
             "status=#{status}, update_time=NOW() WHERE id=#{id}")
     void update(Station station);
 
+    /** 2026-10-31：地址和坐标由锁内合并后单次写入，避免两次请求只成功一半。 */
+    @Update("UPDATE station SET name=#{name}, phone=#{phone}, address=#{address}, status=#{status}, "
+            + "lat=#{lat}, lng=#{lng}, update_time=NOW() WHERE id=#{id}")
+    int updateProfileWithLocation(Station station);
+
     /**
      * 只更新**站点坐标**（站长在地图上选点），2026-09-17 新增（v34）。
      *

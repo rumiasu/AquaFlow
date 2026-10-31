@@ -19,11 +19,11 @@
   <view class="address-list" wx:if="{{!accessDenied}}">
     <view class="address-item {{from === 'home' || from === 'order' ? 'selectable' : ''}}" wx:for="{{addresses}}" wx:key="id" bindtap="onSelectAddress" data-item="{{item}}">
       <view class="address-info">
-        <view class="address-header"><text class="address-name">{{item.name}}</text><text class="address-phone">{{item.phone}}</text><text class="default-tag" wx:if="{{item.isDefault}}">默认地址</text><button class="address-edit af-action af-action--quiet" wx:if="{{from !== 'home' && from !== 'order'}}" catchtap="onEditAddress" data-id="{{item.id}}" disabled="{{mutationPending || actionUnknown}}"><text class="af-action__face">编辑</text></button></view>
+        <view class="address-header"><text class="address-name">{{item.name}}</text><text class="address-phone">{{item.phone}}</text><text class="default-tag" wx:if="{{item.isDefault}}">默认地址</text><button class="address-edit af-action af-action--quiet" catchtap="onEditAddress" data-id="{{item.id}}" disabled="{{mutationPending || actionUnknown || loading || !!loadError}}"><text class="af-action__face">编辑</text></button></view>
         <view class="address-detail"><text>{{item.addressText || item.detail || '详细地址待核实'}}</text></view>
         <text class="address-label" wx:if="{{item.label}}">{{item.label}}</text>
       </view>
-      <view class="address-actions" wx:if="{{from !== 'home' && from !== 'order'}}">
+      <view class="address-actions">
         <button class="af-action af-action--quiet" catchtap="onMoreAddress" data-id="{{item.id}}" disabled="{{mutationPending || actionUnknown || loading || !!loadError}}"><text class="af-action__face">更多</text></button>
       </view>
       <text class="select-hint" wx:if="{{from === 'home' || from === 'order'}}">{{loading || loadError ? '更新后可选择' : '›'}}</text>

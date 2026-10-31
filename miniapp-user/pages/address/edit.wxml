@@ -1,5 +1,4 @@
 <view class="container">
-  <view class="page-intro"><text class="page-intro-title">{{isEdit ? '编辑收货地址' : '新增收货地址'}}</text></view>
   <privacy-popup />
   <view class="state-card" wx:if="{{loading && !formReady}}"><text class="state-title">正在读取原地址</text><text class="state-note">读取完成后才能编辑，避免覆盖原有信息。</text></view>
   <view class="state-banner" wx:if="{{loading && loaded}}">正在更新原地址，当前输入会保留。</view>
@@ -52,8 +51,13 @@
 
     <!-- 详细地址 -->
     <view class="field-row">
-      <text class="field-label">详细地址</text>
-      <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="field-input" placeholder="小区/大厦/楼栋/单元/门牌号" value="{{formData.detail}}" bindinput="onInputChange" data-field="detail" />
+      <text class="field-label">{{isEdit ? '当前地址' : '主要地点'}}</text>
+      <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="field-input" placeholder="小区、街道或大厦" value="{{formData.detail}}" bindinput="onInputChange" data-field="detail" />
+    </view>
+    <text class="field-help" wx:if="{{isEdit}}">原地址包含的门牌无法自动拆分；补充内容可在下方填写，修改当前地址会清除原地图位置。</text>
+    <view class="field-row">
+      <text class="field-label">补充门牌</text>
+      <input disabled="{{submitting || saveSucceeded || accessDenied}}" class="field-input" placeholder="楼栋、单元、门牌（选填）" value="{{formData.supplement}}" bindinput="onInputChange" data-field="supplement" />
     </view>
 
     <!-- 标签 -->

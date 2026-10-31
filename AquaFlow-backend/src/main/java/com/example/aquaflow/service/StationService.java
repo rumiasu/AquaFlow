@@ -1,6 +1,7 @@
 package com.example.aquaflow.service;
 
 import com.example.aquaflow.entity.Station;
+import com.example.aquaflow.dto.StationUpdateDTO;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -15,6 +16,9 @@ public interface StationService {
     void save(Station station);
 
     void update(Station station);
+
+    /** 同一事务保存本站资料、地址与地图点；未提供的资料字段保留原值。 */
+    Station updateProfile(Long stationId, StationUpdateDTO request);
 
     void delete(Long id);
 

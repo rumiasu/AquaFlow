@@ -668,7 +668,9 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       if (!current()) return
       if (!res || (res.code !== undefined && ![0, 200].includes(res.code)) || !Array.isArray(res.data)) throw new Error('收货地址未核实')
       const list = res.data
-      const addr = list.find(a => a.id === preferId) || list.find(a => a.isDefault) || list[0] || null
+      const hasPreferred = preferId !== null && preferId !== undefined && preferId !== ''
+      const addr = hasPreferred ? list.find(a => String(a.id) === String(preferId)) || null
+        : list.find(a => a.isDefault) || list[0] || null
       // 2026-10-11：地址后到曾只 setData，留下无地址报价；地址响应也须防旧请求覆盖新选择。
       this.invalidateQuote()
       this.setData({ address: addr, addressText: addr ? formatAddress(addr) : '', addressLoadError: '', addressLoading: false })
@@ -837,6 +839,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   onAddressTap() {
+    // 地址选择页现在也允许编辑和删除；返回时重新读取，避免沿用已变化的收货地址。
+    this._addressNeedsReload = true
     wx.navigateTo({ url: '/pages/address/list?from=order' })
   },
 

@@ -41,6 +41,7 @@ Page({
       city: '',
       district: '',
       detail: '',
+      supplement: '',
       label: '',
       isDefault: false,
       lat: null,
@@ -52,6 +53,7 @@ Page({
   },
 
   onLoad(options = {}) {
+    if (typeof wx.setNavigationBarTitle === 'function') wx.setNavigationBarTitle({ title: options.id ? '编辑地址' : '新增地址' })
     this._savedForm = JSON.stringify(this.data.formData)
     if (options.id) {
       this.setData({
@@ -189,6 +191,7 @@ Page({
             city: res.data.city || '',
             district: res.data.district || '',
             detail: res.data.detail || '',
+            supplement: '',
             label: res.data.label || '',
             isDefault: !!res.data.isDefault,
             lat: res.data.lat == null ? null : res.data.lat,
@@ -216,7 +219,16 @@ Page({
   onInputChange(e) {
     if (!this.markInput()) return
     const { field } = e.currentTarget.dataset
-    this.setData({ [`formData.${field}`]: e.detail.value }, () => this.updateLeaveWarning())
+    const value = e.detail.value
+    const mainAddressChanged = ['province', 'city', 'district', 'detail'].includes(field) && value !== this.data.formData[field]
+    const patch = { [`formData.${field}`]: value }
+    if (mainAddressChanged) {
+      this._invalidateLocation()
+      Object.assign(patch, { 'formData.lat': null, 'formData.lng': null, locating: false,
+        locationMessage: this.data.formData.lat != null || this.data.formData.lng != null
+          ? '主要地址已修改，原地图位置已清除；可重新选择地图位置。' : '可选择地图位置，也可继续手动填写。' })
+    }
+    this.setData(patch, () => this.updateLeaveWarning())
   },
 
   onLabelSelect(e) {
@@ -302,7 +314,8 @@ Page({
       success: (res) => {
         if (!this._isCurrentLocation(operation) || operation.phase !== 'map') return
         operation.phase = 'finished'
-        if (res.address) {
+        if (res.address && typeof res.latitude === 'number' && Number.isFinite(res.latitude) && Math.abs(res.latitude) <= 90
+          && typeof res.longitude === 'number' && Number.isFinite(res.longitude) && Math.abs(res.longitude) <= 180) {
           this._inputRevision = (this._inputRevision || 0) + 1
           this._hasUserInput = true
           const fullAddr = res.address + (res.name || '')
@@ -316,6 +329,8 @@ Page({
             'formData.lat': res.latitude,
             'formData.lng': res.longitude
           }, () => this.updateLeaveWarning())
+        } else {
+          this.setData({ locationMessage: '位置资料不完整，已填内容保留，请重新选择或手动填写。' })
         }
       },
       fail: (err) => {
@@ -349,7 +364,10 @@ Page({
       }
     }
 
-    const validation = validateForm(formData, {
+    const { supplement, ...savedForm } = formData
+    const extra = String(supplement || '').trim()
+    const detail = extra ? String(formData.detail || '') + ' ' + extra : formData.detail
+    const validation = validateForm({ ...formData, detail }, {
       name: rules.name,
       phone: rules.phone,
       detail: rules.address
@@ -367,7 +385,7 @@ Page({
     this.setData({ submitting: true, locating: false, locationMessage, saveMessage: '正在保存地址…' })
     const customerId = getCustomerId()
     const submitData = {
-      ...formData,
+      ...savedForm, detail,
       // 楼层：输入框给的是字符串，留空要转成 null（后端列是可空 int，
       // 传 '' 会被 Jackson 当成非法数字直接 400）
       floor: (formData.floor === '' || formData.floor === null || formData.floor === undefined)

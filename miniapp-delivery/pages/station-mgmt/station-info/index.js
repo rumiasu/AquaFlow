@@ -3,22 +3,8 @@ const { getTransportConfig } = require('../../../config/api')
 const { showBusinessModal } = require('../../../utils/business-dialog')
 const { jumpToSettingSection } = require('../../../utils/settings-sections')
 const { initialModuleData, refreshModuleTasks } = require('../../../utils/setup-progress')
-// 站长端「水站资料」：站名 / 电话 / 地址 / 坐标。
-//
-// [2026-09-19 新建] 在此之前这几个字段是**死的**：宫格 F 分区那格「水站资料」点了只是
-// 跳到「我的」tab（纯只读的展示卡），而**后端端点早就存在**
-// （`PUT /api/stations/{id}`，带 `getByIdAndCreator` 归属校验）—— 小程序从来没过接线。
-// 于是站长建完站以后，站名/电话/地址再也改不了，而客户在下单页要靠它们认水站。
-//
-// 坐标是**从 station-status 页搬过来的**（那边一并删掉）：坐标属于"水站资料"，
-// 放在"营业状态与公告"页里语义不对；两处各写一份 = 迟早分叉（本仓"计价双轨"的同形风险）。
-//
-// ⚠️ 两条不能忘的约束（详见 api/station-mgmt.js 的 updateStation javadoc）：
-//   1. `PUT /api/stations/{id}` 是**整行覆盖**，payload 必须把 name/phone/address/status 四项给全；
-//      所以本页先读一次 getMyStation()，改哪项覆盖哪项，其余原值带回。
-//   2. `status`（1 营业 / 2 停业）是**硬状态**，停业会真拒单 —— 本页**不提供修改入口**，
-//      只原样带回。别顺手把它做成开关。
-const { getMyStation, updateStation, updateStationCoordinates } = require('../../../api/station-mgmt')
+// 水站资料与地址坐标通过 profile 一次保存；旧版服务无此接口时保留输入并提示。
+const { getMyStation, updateStationProfile } = require('../../../api/station-mgmt')
 function stationSession() {
   const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
   return { app, generation: app._loginGeneration || 0, stationId: Number(u.stationId),
@@ -41,7 +27,7 @@ Page({
     saving: false,
     // lat 为 null = 还没选点，此时配送范围校验会跳过（不是拒单）
     coord: { lat: null, lng: null },
-    coordSaving: false, infoDirty: false, infoDraftNotice: '', infoDraftAvailable: false, infoDraftStatus: ''
+    coordSaving: false, coordinateMode: 'KEEP', addressSupplement: '', saveMessage: '', infoDirty: false, infoDraftNotice: '', infoDraftAvailable: false, infoDraftStatus: ''
   },
 
   refreshModuleSetup() { return refreshModuleTasks(this, '/pages/station-mgmt/station-info/index') },
@@ -104,7 +90,7 @@ Page({
       const d = res.data
       if (!d || !d.id) throw new Error('水站资料尚未读取')
       this.setData({
-        infoDirty: false, infoDraftNotice: '', origin: d,
+        infoDirty: false, infoDraftNotice: '', coordinateMode: 'KEEP', addressSupplement: '', saveMessage: '', origin: d,
         form: {
           name: d.name || '',
           phone: d.phone || '',
@@ -143,13 +129,19 @@ Page({
     this._infoDraftToken = token
     const form = result.draft && result.draft.form
     const valid = result.state === 'saved' && form && ['name', 'phone', 'address'].every(k => typeof form[k] === 'string')
-    this._savedInfoDraft = valid ? form : null
+    this._savedInfoDraft = valid ? result.draft : null
     this.setData({ infoDraftAvailable: !!valid, infoDraftStatus: result.state === 'unknown' || result.state === 'saved' && !valid ? '草稿尚未确认，请保留当前输入后核对。' : '' })
   },
   onRestoreInfoDraft() {
     if (!this.data.infoDraftAvailable || !this._savedInfoDraft || this.data.saving || this.data.coordSaving) return
     if (this.infoDraftGuard().read(this._infoDraftToken).state !== 'saved') return
-    this.setData({ form: { ...this._savedInfoDraft }, infoDraftAvailable: false })
+    const draft = this._savedInfoDraft, form = draft.form
+    const restoredMode = ['KEEP', 'SET', 'CLEAR'].includes(draft.coordinateMode) ? draft.coordinateMode :
+      (String(form.address || '') !== String((this.data.origin || {}).address || '') ? 'CLEAR' : 'KEEP')
+    const coord = draft.coord || {}, validPoint = Number.isFinite(coord.lat) && Math.abs(coord.lat) <= 90 && Number.isFinite(coord.lng) && Math.abs(coord.lng) <= 180
+    this.setData({ form: { ...form }, addressSupplement: typeof draft.addressSupplement === 'string' ? draft.addressSupplement : '',
+      coordinateMode: restoredMode === 'SET' && !validPoint || restoredMode === 'KEEP' && String(form.address || '') !== String((this.data.origin || {}).address || '') ? 'CLEAR' : restoredMode,
+      ...(restoredMode === 'SET' && validPoint ? { coord: { lat: coord.lat, lng: coord.lng } } : {}), infoDraftAvailable: false })
     this.markInfoDraft()
   },
   onDiscardInfoDraft() {
@@ -159,147 +151,94 @@ Page({
   },
   markInfoDraft() {
     const origin = this.data.origin || {}, form = this.data.form
-    const dirty = ['name', 'phone', 'address'].some(k => String(form[k] || '') !== String(origin[k] || ''))
-    this.setData({ infoDirty: dirty, infoDraftAvailable: false, infoDraftNotice: dirty ? '资料有未保存修改；地图选点只保存坐标。' : '' })
+    const dirty = ['name', 'phone', 'address'].some(k => String(form[k] || '') !== String(origin[k] || '')) || !!String(this.data.addressSupplement || '').trim() || this.data.coordinateMode !== 'KEEP'
+    this.setData({ infoDirty: dirty, infoDraftAvailable: false, infoDraftNotice: dirty ? '资料和位置有未保存修改。' : '' })
     const guard = this.infoDraftGuard(), token = this._infoDraftToken || guard.begin()
     this._infoDraftToken = token
-    const result = dirty ? guard.save(token, { form: { ...form } }) : guard.clear(token)
+    const result = dirty ? guard.save(token, { form: { ...form }, coordinateMode: this.data.coordinateMode, coord: { ...this.data.coord }, addressSupplement: this.data.addressSupplement }) : guard.clear(token)
     this.setData({ infoDraftStatus: result.state === 'saved' ? '输入草稿已保留，正式保存后生效。' : result.state === 'empty' ? '' : '草稿尚未确认保存，请留在本页完成操作。' })
     if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '水站资料尚未保存，离开将丢失修改' })
     if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
   },
   onNameInput(e) { if (!this.data.saving) { this.setData({ 'form.name': e.detail.value }); this.markInfoDraft() } },
   onPhoneInput(e) { if (!this.data.saving) { this.setData({ 'form.phone': e.detail.value }); this.markInfoDraft() } },
-  onAddressInput(e) { if (!this.data.saving) { this.setData({ 'form.address': e.detail.value }); this.markInfoDraft() } },
-
-  /**
-   * 保存资料。四项给全（见文件头约束 1）。
-   * `status` 取原值 —— 后端 SQL 会写这一列，漏传就是 NULL（`station.status` 可空但语义是"营业状态未知"）。
-   */
-  async onSave() {
-    if (this.data.saving || this.data.coordSaving || !sameStationSession(this._stationSession)) return
-    const proof = this._stationSession
-    const origin = this.data.origin || {}
-    const name = (this.data.form.name || '').trim()
-    if (!name) {
-      wx.showToast({ title: '水站名称不能为空', icon: 'none' })
-      return
-    }
-    if (!origin.id) {
-      wx.showToast({ title: '没读到水站信息，请下拉刷新重试', icon: 'none' })
-      return
-    }
-
-    this.setData({ saving: true })
-    try {
-      const res = await updateStation(origin.id, {
-        name,
-        phone: (this.data.form.phone || '').trim(),
-        address: (this.data.form.address || '').trim(),
-        status: origin.status
-      })
-      if (!sameStationSession(proof) || this._stationUnloaded) return
-      if (res.code !== 0) {
-        wx.showToast({ title: res.message || '保存失败', icon: 'none' })
-        return
-      }
-      this.onDiscardInfoDraft()
-      this.setData({ infoDirty: false, infoDraftNotice: '' })
-      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
-      wx.showToast({ title: '已保存', icon: 'success' })
-      this.loadData()
-    } catch (err) {
-      if (!sameStationSession(proof) || this._stationUnloaded) return
-      wx.showToast({ title: (err && err.message) || '保存失败', icon: 'none' })
-    } finally {
-      if (sameStationSession(proof) && !this._stationUnloaded) this.setData({ saving: false })
-    }
+  onAddressInput(e) {
+    if (this.data.saving || this.data.coordSaving) return
+    const value = e.detail.value
+    if (value === this.data.form.address) return
+    this.setData({ 'form.address': value, coordinateMode: 'CLEAR', saveMessage: '' }); this.markInfoDraft()
+  },
+  onSupplementInput(e) {
+    if (this.data.saving || this.data.coordSaving) return
+    this.setData({ addressSupplement: e.detail.value, saveMessage: '' }); this.markInfoDraft()
   },
 
-  /**
-   * 地图选点并保存。
-   *
-   * 选完**立即保存**而不是"改了再点保存"：坐标这一项走的是独立端点
-   * （`PUT /api/stations/mine/coordinates`），没有别的可改字段，
-   * 多一步确认只会让站长以为还需要按别处的按钮。
-   *
-   * 地址为空时只补入资料草稿，名称、电话、地址由“保存资料”明确提交。
-   */
+  // 地址和坐标由服务端同一次事务写入；旧接口不可回退串行写入。
+  async onSave() {
+    if (this.data.saving || this.data.coordSaving || !sameStationSession(this._stationSession)) return
+    const proof = this._stationSession, origin = this.data.origin || {}, form = this.data.form
+    const user = proof.app.globalData.userInfo || {}
+    if (user.role !== 'STATION_MANAGER' || Number(origin.id) !== proof.stationId) { this.setData({ saveMessage: '当前身份无法修改此水站资料。' }); return }
+    const name = String(form.name || '').trim(), base = String(form.address || '').trim(), extra = String(this.data.addressSupplement || '').trim()
+    const address = extra ? base + ' ' + extra : base
+    if (!name || !base || address.length > 200) { this.setData({ saveMessage: !name ? '请填写水站名称。' : !base ? '请填写或选择水站地址。' : '地址不能超过200个字。' }); return }
+    const mode = this.data.coordinateMode, point = this.data.coord || {}
+    if (!['SET','KEEP','CLEAR'].includes(mode) || mode === 'SET' && (!Number.isFinite(point.lat) || Math.abs(point.lat) > 90 || !Number.isFinite(point.lng) || Math.abs(point.lng) > 180)) { this.setData({ saveMessage: '地图位置不完整，请重新选择。' }); return }
+    const phone = String(form.phone || '').trim(), oldPhone = String(origin.phone || '').trim()
+    if (!phone && oldPhone) { this.setData({ saveMessage: '当前无法清空联系电话，请填写后保存。' }); return }
+    const payload = { address, coordinateMode: mode, ...(name !== String(origin.name || '').trim() ? { name } : {}),
+      ...(phone && phone !== oldPhone ? { phone } : {}), ...(mode === 'SET' ? { lat: point.lat, lng: point.lng } : {}) }
+    this.setData({ saving: true, saveMessage: '正在保存…' })
+    try {
+      const res = await updateStationProfile(origin.id, payload)
+      if (!sameStationSession(proof) || this._stationUnloaded) return
+      const d = res && res.data
+      const lat = d && d.lat, lng = d && d.lng
+      const paired = (lat == null && lng == null) || (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng))
+      const matchesPoint = mode === 'CLEAR' ? lat == null && lng == null : mode === 'SET'
+        ? paired && lat != null && Math.abs(lat - point.lat) <= 0.00000051 && Math.abs(lng - point.lng) <= 0.00000051 : paired
+      if (!res || res.code !== 0 || !d || Number(d.id) !== Number(origin.id) || d.address !== address || typeof d.name !== 'string'
+        || !Object.prototype.hasOwnProperty.call(d, 'lat') || !Object.prototype.hasOwnProperty.call(d, 'lng') || !matchesPoint) throw Object.assign(new Error('保存结果尚未核实，请重新读取资料。'), { resultUnknown: true })
+      this.onDiscardInfoDraft()
+      this.setData({ origin: d, form: { name: d.name || '', phone: d.phone || '', address: d.address },
+        coord: { lat: d.lat == null ? null : d.lat, lng: d.lng == null ? null : d.lng }, coordinateMode: 'KEEP', addressSupplement: '',
+        infoDirty: false, infoDraftNotice: '', saveMessage: '水站资料已保存。' })
+      if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+      this.refreshModuleSetup()
+    } catch (err) {
+      if (!sameStationSession(proof) || this._stationUnloaded) return
+      const unavailable = err && (Number(err.statusCode) === 404 || Number(err.statusCode) === 405)
+      this.setData({ saveMessage: unavailable ? '当前服务尚不支持地址和位置一起保存，请联系维护人员更新服务。输入已保留。'
+        : err && err.businessRejected ? (err.message || '保存未通过，请核对后重试。') : '暂未确认保存结果，输入已保留；请重新读取资料核对。' })
+    } finally { if (sameStationSession(proof) && !this._stationUnloaded) this.setData({ saving: false }) }
+  },
+
   onPickCoordinates() {
     const session = stationSession()
     if (this._stationUnloaded || this.data.coordSaving || this.data.saving || !sameStationSession(session)
-      || !Number.isSafeInteger(session.stationId) || session.stationId <= 0 || Number(this.data.origin && this.data.origin.id) !== session.stationId) return
+      || Number(this.data.origin && this.data.origin.id) !== session.stationId) return
     const proof = { session, version: this._coordinateVersion = (this._coordinateVersion || 0) + 1, used: false }
-    this._stationSession = session
-    this._coordinatePick = proof
-    this.setData({ coordSaving: true })
+    this._stationSession = session; this._coordinatePick = proof
+    this.setData({ coordSaving: true, saveMessage: '' })
     wx.chooseLocation({
-      success: async (res) => {
+      success: res => {
         if (!this.coordinateCurrent(proof) || proof.used) return
         proof.used = true
-        try {
-          if (typeof res.latitude !== 'number' || typeof res.longitude !== 'number' || !Number.isFinite(res.latitude) || !Number.isFinite(res.longitude)
-            || Math.abs(res.latitude) > 90 || Math.abs(res.longitude) > 180) throw Error('选点坐标未能核实，请重新选择')
-          // 写接口按当前登录站判权；必须在发出之前核对发起身份，不能仅拦迟到渲染。
-          await updateStationCoordinates(res.latitude, res.longitude)
-          if (!this.coordinateCurrent(proof)) return
-
-          const typed = (this.data.form.address || '').trim()
-          const picked = ((res.name || '') + (res.address || '')).trim()
-          const fillAddress = !typed && !!picked
-
-          const patch = { 'coord.lat': res.latitude, 'coord.lng': res.longitude }
-          if (fillAddress) {
-            patch['form.address'] = picked
-          }
-          this.setData(patch)
-
-          // 2026-10-28：地图只写独立坐标，不再顺带保存尚未确认的名称、电话和地址。
-          if (fillAddress) this.markInfoDraft()
-          this.refreshModuleSetup()
-          wx.showToast({ title: fillAddress ? '坐标已保存，地址待保存资料' : '坐标已保存', icon: 'none' })
-        } catch (err) {
-          if (this.coordinateCurrent(proof)) wx.showToast({ title: err.message || '坐标保存失败', icon: 'none' })
-        } finally {
-          if (this.coordinateCurrent(proof)) { this._coordinatePick = null; this.setData({ coordSaving: false }) }
+        const address = String(res.address || '').trim(), name = String(res.name || '').trim()
+        const picked = address && name && !address.includes(name) ? address + ' ' + name : address || name
+        if (!picked || !Number.isFinite(res.latitude) || Math.abs(res.latitude) > 90 || !Number.isFinite(res.longitude) || Math.abs(res.longitude) > 180) {
+          this._coordinatePick = null; this.setData({ coordSaving: false, saveMessage: '地图位置不完整，原输入已保留，请重新选择。' }); return
         }
-      },
-      fail: (err) => {
-        if (!this.coordinateCurrent(proof)) return
+        this.setData({ 'form.address': picked, coord: { lat: res.latitude, lng: res.longitude }, coordinateMode: 'SET', saveMessage: '位置已选择，请核对地址后保存。' })
+        this.markInfoDraft()
         this._coordinatePick = null; this.setData({ coordSaving: false })
-        const msg = (err && err.errMsg) || ''
-        if (msg.indexOf('auth') >= 0 || msg.indexOf('deny') >= 0) {
-          wx.showToast({ title: '需要位置权限，请在设置中开启', icon: 'none' })
-        }
-      }
-    })
-  },
-
-  /** 清除坐标：清除后范围校验跳过（不会拒单），所以文案要说清后果 */
-  onClearCoordinates() {
-    if (this.data.coordSaving || this.data.saving) return
-    const session = stationSession(), version = this._coordinateVersion = (this._coordinateVersion || 0) + 1
-    this._coordinatePick = null
-    const current = () => !this._stationUnloaded && sameStationSession(session) && version === this._coordinateVersion
-      && Number(this.data.origin && this.data.origin.id) === session.stationId
-    if (!current()) return
-    let used = false
-    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认清除',
-      title: '清除水站坐标',
-      content: '清除后系统无法判断订单是否超出配送范围，会跳过范围校验（不会拒单）。确认清除？',
-      success: async (res) => {
-        if (!res.confirm || !current() || used) return
-        used = true
-        this.setData({ coordSaving: true })
-        try {
-          await updateStationCoordinates(null, null)
-          if (!current()) return
-          this.setData({ 'coord.lat': null, 'coord.lng': null }); this.refreshModuleSetup()
-          wx.showToast({ title: '已清除', icon: 'success' })
-        } catch (err) {
-          if (current()) wx.showToast({ title: err.message || '清除失败', icon: 'none' })
-        } finally { if (current()) this.setData({ coordSaving: false }) }
-      }
+      },
+      fail: err => {
+        if (!this.coordinateCurrent(proof)) return
+        const text = String(err && err.errMsg || '')
+        this._coordinatePick = null; this.setData({ coordSaving: false, saveMessage: /cancel/i.test(text) ? '已取消选点，原输入已保留。' : '暂时无法选择位置，原输入已保留。' })
+      },
+      complete: () => { if (this.coordinateCurrent(proof)) { this._coordinatePick = null; this.setData({ coordSaving: false }) } }
     })
   }
 })

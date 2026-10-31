@@ -6,6 +6,7 @@ import com.example.aquaflow.constant.StationOperatingStatus;
 import com.example.aquaflow.dto.StationCoordinateDTO;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.entity.Station;
+import com.example.aquaflow.dto.StationUpdateDTO;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.StationService;
@@ -194,6 +195,13 @@ public class StationController {
         station.setCreatorStaffId(staffId);
         stationService.update(station);
         return Result.success();
+    }
+
+    /** 站长融合资料保存；独立路径使旧后端拒绝新请求，避免忽略坐标意图后仅更新地址。 */
+    @RequireRole({"STATION_MANAGER"})
+    @PutMapping("/{id}/profile")
+    public Result<Station> updateProfile(@PathVariable Long id, @RequestBody StationUpdateDTO request) {
+        return Result.success(stationService.updateProfile(id, request));
     }
 
     @RequireRole({"STATION_MANAGER"})

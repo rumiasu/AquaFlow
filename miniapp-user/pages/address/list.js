@@ -62,7 +62,8 @@ Page({
   },
   onAddAddress() { if (!this.data.mutationPending) wx.navigateTo({ url: '/pages/address/edit' }) },
   onEditAddress(e) {
-    if (this.data.mutationPending || this.data.actionUnknown || this.data.accessDenied) return
+    if (!this.ensurePageSession() || this._disposed || this.data.loading || this.data.loadError || this.data.mutationPending || this.data.actionUnknown || this.data.accessDenied) return
+    if (!this.data.addresses.some(row => String(row.id) === String(e.currentTarget.dataset.id))) return
     wx.navigateTo({ url: '/pages/address/edit?id=' + e.currentTarget.dataset.id })
   },
   onMoreAddress(e) {
@@ -105,11 +106,12 @@ Page({
       const view = failureView(error)
       const known = error && (error.businessRejected === true || String(error.code || error.statusCode) === '401' || String(error.code || error.statusCode) === '403')
       this.setData({ accessDenied: view.denied, actionUnknown: false,
-        actionMessage: view.denied ? view.text : known ? '操作未通过，请重试。' : '连接中断，正在更新地址列表…' })
+        actionMessage: view.denied ? view.text : known ? (action === 'delete' ? '删除未完成，请核对地址后重试。' : '操作未通过，请重试。') : '连接中断，正在更新地址列表…' })
       if (!view.denied && !known) {
         await this.loadAddresses()
         if (!this._disposed && this.ensurePageSession()) this.setData({ actionMessage: this.data.loadError
-          ? '地址列表未能更新，请重新读取后继续。' : '地址列表已更新。' })
+          ? '地址列表未能更新，请重新读取后继续。' : action === 'delete' && this.data.addresses.some(row => String(row.id) === String(id))
+            ? '地址列表已更新；该地址仍在列表中，未能确认删除，请核对后再操作。' : '地址列表已更新，请核对操作结果。' })
       }
     } finally {
       if (!this._disposed) this.setData({ mutationPending: false })

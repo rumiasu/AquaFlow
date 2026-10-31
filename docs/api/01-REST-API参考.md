@@ -447,8 +447,23 @@
 | `DELETE` | `/api/stations/{id} ／ /api/station/{id}` | {"STATION_MANAGER"} | `StationController.delete` |
 | `GET` | `/api/stations/{id} ／ /api/station/{id}` | {"STATION_MANAGER"} | `StationController.getById` |
 | `PUT` | `/api/stations/{id} ／ /api/station/{id}` | {"STATION_MANAGER"} | `StationController.update` |
+| `PUT` | `/api/stations/{id}/profile ／ /api/station/{id}/profile` | {"STATION_MANAGER"} | `StationController.updateProfile`：本站资料、地址与地图点原子保存 |
 | `GET` | `/api/stations/{id}/public-phone ／ /api/station/{id}/public-phone` | {"STATION_MANAGER"} | `StationController.getPublicPhone` |
 | `GET` | `/api/stations/{id}/status ／ /api/station/{id}/status` | {"STATION_MANAGER"} | `StationController.getPublicStatus` |
+
+#### 水站资料与地图点融合（2026-10-31）
+
+`PUT /api/stations/{id}/profile` 仅允许当前站长操作其登录态所属水站；返回 `Result<Station>` 回读结果。独立新路径使旧后端明确拒绝新请求，不会忽略新字段后只改文字却返回成功。旧资料与坐标接口保留，新界面不得串两次请求伪装原子保存。
+
+- `address` 非空、最多200字；`coordinateMode` 必须为 `SET/KEEP/CLEAR`。
+- `SET`：地图重选，必须同时提供合法 `lat/lng`（纬度±90、经度±180），同一事务、同一SQL更新文字与两坐标。
+- `KEEP`：调用方明确确认只补门牌/说明，保留锁内读取的当前地图点；不得夹带坐标。服务端不能从文字判定是否迁址，也不证明点址一致，前端不可把KEEP作为任意改地址的静默默认。地点变化须SET或明确CLEAR。
+- `CLEAR`：明确采用无地图点的手填地址，同时清空两坐标；不得夹带坐标。不自动调用设备位置或猜测坐标。
+- 可一起提交 `name/phone/status`；未传保留。名称/电话提供时非空且分别限100/30字，状态限1/2。非法参数全部拒绝，其他资料字段亦不写。
+- 沿用六位小数坐标存储，回显以成功响应的 `data.address/lat/lng` 为准。失败按body `code`处理，不把旧服务的404或失败回执当保存成功。
+- 当前不带版本号CAS或跨超时的请求凭据：数据库锁与单条更新保证一次请求原子一致，不能阻止后到请求覆盖其显式提交字段。超时结果未知时先回读核实，不把它当事务已回滚，也不自动重复写。
+
+顾客地址原路径不变：编辑未传 `isDefault` 保留原默认，0/1显式修改，新增或编辑设默认在客户锁内串行且保持唯一；显式取消允许没有默认地址，不自动改选。坐标两项都空允许手填，半项或越界拒绝。当前schema仍有订单外键、无软删除列，已被订单引用的本人地址删除返回code=1及“该地址已被订单使用，暂不能删除；可编辑原地址或新增地址”，地址与订单原样保留；未引用本人地址才实际删除。
 
 ### 运营支撑
 

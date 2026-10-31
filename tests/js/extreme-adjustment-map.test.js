@@ -165,8 +165,7 @@ function mapFixture(options = {}) {
   const origin = { id: 1, name: '合成水站', phone: 'synthetic', address: '', status: 1 }
   const page = loadPage(path.join(sourceRoot, MAP), { wx, app, stubs: { 'api/station-mgmt': {
     getMyStation: async () => { reads.push(1); return { code: 0, data: origin } },
-    updateStationCoordinates: async (...args) => { writes.push(['coordinates', ...args]); if (options.coordinates) await options.coordinates(); return { code: 0 } },
-    updateStation: async (...args) => { writes.push(['station', ...args]); return { code: 0 } }
+    updateStationProfile: async (id, body) => { writes.push(['profile', id, body]); if (options.profile) await options.profile(); return { code: 0, data: { ...origin, ...body, lat: body.coordinateMode === 'SET' ? body.lat : null, lng: body.coordinateMode === 'SET' ? body.lng : null } } }
   } } })
   nestedData(page)
   page.setData({ loading: false, origin, form: { name: origin.name, phone: origin.phone, address: '' } })
@@ -183,35 +182,37 @@ for (const change of ['staff', 'station', 'role', 'generation', 'origin', 'unloa
   if (change === 'unload' && t.page.onUnload) t.page.onUnload()
   await t.picks[0].success(point); assert.equal(t.writes.length, 0)
 })
-test('normal map hide/show and token renewal retain valid selection and preserve entered form', async () => {
+test('normal map hide/show and token renewal retain the staged position', async () => {
   const t = mapFixture(); t.page.onPickCoordinates(); if (t.page.onHide) t.page.onHide()
   t.app.globalData.accessToken = 'renewed'; t.app.globalData.userInfo = { ...t.app.globalData.userInfo }
   await t.page.onShow(); assert.equal(t.reads.length, 0)
   await t.picks[0].success(point)
-  // D24 contract: coordinates save independently; the suggested address remains an explicit form draft.
-  assert.equal(t.writes.length, 1); assert.equal(t.writes[0][0], 'coordinates')
-  assert.equal(t.page.data.form.address, point.name + point.address)
+  assert.equal(t.writes.length, 0); assert.equal(t.page.data.coordinateMode, 'SET')
+  assert.equal(t.page.data.form.address, point.address + ' ' + point.name)
   assert.equal(t.page.data.origin.address, ''); assert.equal(t.page.data.infoDirty, true)
+  await t.page.onSave(); assert.equal(t.writes.length, 1); assert.equal(t.writes[0][0], 'profile')
 })
-test('duplicate native map callback writes coordinates once', async () => {
-  const t = mapFixture(); t.page.setData({ 'form.address': '手填详细地址' }); t.page.onPickCoordinates()
+test('duplicate native map callback stages once and one save writes one profile', async () => {
+  const t = mapFixture(); t.page.setData({ 'form.address': '未保存详细地址' }); t.page.onPickCoordinates()
   await t.picks[0].success(point); await t.picks[0].success(point)
-  assert.equal(t.writes.length, 1)
+  assert.equal(t.writes.length, 0); await t.page.onSave(); assert.equal(t.writes.length, 1)
+  assert.equal(t.writes[0][2].coordinateMode, 'SET')
 })
-test('superseded map cycle cannot save the older point', async () => {
-  const t = mapFixture(); t.page.setData({ 'form.address': '手填地址' }); t.page.onPickCoordinates()
+test('superseded map cycle cannot stage the older point', async () => {
+  const t = mapFixture(); t.page.setData({ 'form.address': '原地址' }); t.page.onPickCoordinates()
   t.picks[0].fail({ errMsg: 'cancel' }); t.page.onPickCoordinates(); assert.equal(t.picks.length, 2)
-  await t.picks[0].success(point); assert.equal(t.writes.length, 0)
-  await t.picks[1].success(point); assert.equal(t.writes.length, 1)
+  await t.picks[0].success(point); assert.equal(t.writes.length, 0); assert.equal(t.page.data.form.address, '原地址')
+  await t.picks[1].success(point); assert.equal(t.writes.length, 0); await t.page.onSave(); assert.equal(t.writes.length, 1)
 })
-test('identity change while coordinate write is in flight prevents automatic address write', async () => {
-  const d = deferred(), t = mapFixture({ coordinates: () => d.promise }); t.page.onPickCoordinates()
-  const pending = t.picks[0].success(point); t.app.globalData.userInfo.staffId++
-  d.resolve(); await pending; assert.equal(t.writes.length, 1)
+test('identity change while profile write is in flight cannot repaint another session', async () => {
+  const d = deferred(), t = mapFixture({ profile: () => d.promise }); t.page.onPickCoordinates(); t.picks[0].success(point)
+  const pending = t.page.onSave(); assert.equal(t.writes.length, 1); t.app.globalData.userInfo.staffId++
+  d.resolve(); await pending; assert.equal(t.writes.length, 1); assert.equal(t.page.data.origin.address, '')
 })
-test('old clear-coordinate confirmation cannot write under a new station', async () => {
-  const t = mapFixture(); t.page.onClearCoordinates(); t.app.globalData.userInfo.stationId = 2
-  await t.modals[0].success({ confirm: true }); assert.equal(t.writes.length, 0)
+test('manual address clear intent cannot write under a new station', async () => {
+  const t = mapFixture(); t.page.onPickCoordinates(); t.picks[0].fail({errMsg:'cancel'})
+  t.page.onAddressInput({detail:{value:'新地址'}}); assert.equal(t.page.data.coordinateMode, 'CLEAR')
+  t.app.globalData.userInfo.stationId = 2; await t.page.onSave(); assert.equal(t.writes.length, 0)
 })
 ;(async () => {
   let failed = 0

@@ -16,6 +16,13 @@ public interface AddressMapper {
     @Select("select * from address where id = #{id}")
     Address getById(@Param("id") Long id);
 
+    /** 地址簿变更统一先锁客户行；与同客户下单锁序一致，避免并发产生多个默认地址。 */
+    @Select("select id from customer where id=#{customerId} for update")
+    Long lockCustomer(@Param("customerId") Long customerId);
+
+    @Select("select * from address where id=#{id} for update")
+    Address getByIdForUpdate(@Param("id") Long id);
+
     /**
      * 整行更新地址。
      *
@@ -25,8 +32,8 @@ public interface AddressMapper {
      * 改这条 SQL 时别把那层保护绕过去。</p>
      */
     @Update("update address set name=#{name}, phone=#{phone}, province=#{province}, city=#{city}, district=#{district}, label=#{label}, detail=#{detail}, " +
-            "lat=#{lat}, lng=#{lng}, floor=#{floor}, has_elevator=#{hasElevator}, is_default=#{isDefault}, update_time=NOW() where id=#{id}")
-    void update(Address address);
+            "lat=#{lat}, lng=#{lng}, floor=#{floor}, has_elevator=#{hasElevator}, is_default=#{isDefault}, update_time=NOW() where id=#{id} and customer_id=#{customerId}")
+    int update(Address address);
 
     @Delete("delete from address where id = #{id}")
     void deleteById(@Param("id") Long id);
@@ -42,8 +49,12 @@ public interface AddressMapper {
     @Update("update address set is_default = 0 where customer_id = #{customerId}")
     void clearDefault(@Param("customerId") Long customerId);
 
-    @Update("update address set is_default = 1 where id = #{id}")
-    void setDefault(@Param("id") Long id);
+    @Update("update address set is_default = 1 where id = #{id} and customer_id=#{customerId}")
+    int setDefault(@Param("id") Long id, @Param("customerId") Long customerId);
+
+    /** 当前schema订单FK仍引用地址；不通过迁移或伪造成功绕开。 */
+    @Select("select count(*) from orders where address_id=#{id}")
+    int countOrderReferences(@Param("id") Long id);
 
     @Select("select * from address where (#{customerId} is null or customer_id = #{customerId}) " +
             "and (#{keyword} is null or detail like concat('%', #{keyword}, '%')) " +

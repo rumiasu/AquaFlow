@@ -2,12 +2,15 @@ package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.constant.StationOperatingStatus;
 import com.example.aquaflow.entity.Station;
+import com.example.aquaflow.dto.StationUpdateDTO;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.StationService;
 import com.example.aquaflow.util.GeoUtil;
+import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -79,6 +82,76 @@ public class StationServiceImpl implements StationService {
     public void update(Station station) {
         station.setUpdateTime(LocalDateTime.now());
         stationMapper.update(station);
+    }
+
+    /**
+     * 2026-10-31：原资料和坐标分两次保存会留下新地址配旧坐标。
+     * 新界面使用独立资料路径并显式声明地图点意图，锁内合并并一次更新；旧接口保留原语义。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Station updateProfile(Long stationId, StationUpdateDTO request) {
+        AuthContext.requireManager();
+        if (!AuthContext.requireStationId().equals(stationId)) throw new BusinessException("无权修改他站资料");
+        if (request == null) throw new BusinessException("请填写水站资料");
+        Station station = stationMapper.getByIdForUpdate(stationId);
+        if (station == null || stationMapper.getByIdAndCreator(stationId, AuthContext.getUserId()) == null)
+            throw new BusinessException("水站不存在或无权操作");
+        if (request.getName() != null) station.setName(requiredText(request.getName(), 100, "水站名称"));
+        if (request.getPhone() != null) station.setPhone(requiredText(request.getPhone(), 30, "联系电话"));
+        if (request.getAddress() != null) {
+            if (request.getAddress().trim().length() > 200) throw new BusinessException("水站地址不能超过200字");
+            station.setAddress(request.getAddress().trim());
+        }
+        if (request.getStatus() != null) {
+            if (request.getStatus() != 1 && request.getStatus() != 2) throw new BusinessException("水站状态无效");
+            station.setStatus(request.getStatus());
+        }
+        String mode = request.getCoordinateMode();
+        if (mode == null) throw new BusinessException("请选择保留、重选或清除地图位置");
+        if (mode != null) {
+            requiredText(request.getAddress(), 200, "水站地址");
+            switch (mode) {
+                case "SET" -> {
+                    requireCoordinatePair(request.getLat(), request.getLng(), false);
+                    station.setLat(request.getLat());
+                    station.setLng(request.getLng());
+                }
+                case "KEEP" -> {
+                    requireNoCoordinates(request);
+                    requireCoordinatePair(station.getLat(), station.getLng(), true);
+                }
+                case "CLEAR" -> {
+                    requireNoCoordinates(request);
+                    station.setLat(null);
+                    station.setLng(null);
+                }
+                default -> throw new BusinessException("请选择保留、重选或清除地图位置");
+            }
+        }
+        if (stationMapper.updateProfileWithLocation(station) != 1)
+            throw new BusinessException("水站资料保存失败，请刷新后重试");
+        return stationMapper.getById(stationId);
+    }
+
+    private static String requiredText(String value, int limit, String label) {
+        if (value == null || value.trim().isEmpty()) throw new BusinessException("请填写" + label);
+        if (value.trim().length() > limit) throw new BusinessException(label + "不能超过" + limit + "字");
+        return value.trim();
+    }
+
+    private static void requireNoCoordinates(StationUpdateDTO request) {
+        if (request.getLat() != null || request.getLng() != null)
+            throw new BusinessException("保留或清除位置时请勿同时提交新坐标");
+    }
+
+    private static void requireCoordinatePair(BigDecimal lat, BigDecimal lng, boolean allowEmpty) {
+        if (lat == null && lng == null && allowEmpty) return;
+        if (lat == null || lng == null) throw new BusinessException("请在地图上选择完整的位置坐标");
+        if (lat.compareTo(BigDecimal.valueOf(-90)) < 0 || lat.compareTo(BigDecimal.valueOf(90)) > 0)
+            throw new BusinessException("纬度必须在 -90 到 90 之间");
+        if (lng.compareTo(BigDecimal.valueOf(-180)) < 0 || lng.compareTo(BigDecimal.valueOf(180)) > 0)
+            throw new BusinessException("经度必须在 -180 到 180 之间");
     }
 
     @Override

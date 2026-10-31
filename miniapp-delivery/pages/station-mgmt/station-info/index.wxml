@@ -1,10 +1,5 @@
 <import src="../../../templates/setup-module-tasks.wxml" />
-<!--
-  站长端「水站资料」：站名 / 电话 / 地址 / 坐标。
-  [2026-09-19 新建] 见 index.js 文件头：这几个字段此前在小程序里是死的（只能读不能改）。
-  ⚠️ 保存时四项一起提交（后端是整行覆盖）；`status`（营业/停业硬状态）由 js 原样带回，
-     本页**不提供**它的入口 —— 停业会真拒单、且不在公开选站列表里，不该藏在资料表单里顺手改掉。
--->
+<!-- 水站资料、地址和位置由同一次保存提交。 -->
 <view class="container">
   <view class="settings-section-nav"><button wx:for="{{settingsSections}}" wx:key="target" data-target="{{item.target}}" bindtap="onSettingsSection" class="af-choice b3-on-settings-section" hover-class="af-action--pressed"><view class="af-choice__face">{{item.label}}</view></button></view>
 
@@ -36,35 +31,28 @@
                disabled="{{saving}}" value="{{form.phone}}" bindinput="onPhoneInput" />
       </view>
 
-      <view class="field">
-        <text class="field-label">水站地址</text>
-        <textarea class="field-textarea" placeholder="写清到能找得到，如：阳光小区 8 栋 1 单元 101" maxlength="200"
-                  disabled="{{saving}}" value="{{form.address}}" bindinput="onAddressInput" />
-        <!-- [2026-09-23] 点明"地址与坐标是一次选点同时得到的"，否则站长会以为要填两遍。
-             [2026-09-24] 压成一行 —— 产品反馈"界面好啰嗦"，细节留给下面的坐标卡说。 -->
-        <text class="field-hint">也可以点下面的「地图选点」自动填入</text>
+      <view class="field" id="setup-station-position">
+        <text class="field-label">水站位置</text>
+        <textarea class="field-textarea" placeholder="选择地图位置，或手动填写主要地址" maxlength="200"
+                  disabled="{{saving || coordSaving}}" value="{{form.address}}" bindinput="onAddressInput" />
+        <text class="field-hint" wx:if="{{coordinateMode === 'SET'}}">已选择地图位置，保存后地址与位置一起生效。</text>
+        <text class="field-hint" wx:elif="{{coordinateMode === 'CLEAR'}}">主要地址已手动修改，保存时会清除原地图位置；也可重新选点。</text>
+        <text class="field-hint" wx:elif="{{coord.lat !== null && coord.lng !== null}}">当前地址已有地图位置；修改主要地址会清除旧位置。</text>
+        <text class="field-hint" wx:else>未设置坐标，无法计算配送距离。</text>
+        <button class="af-action af-action--secondary b3-on-pick-coordinates" bindtap="onPickCoordinates" loading="{{coordSaving}}" disabled="{{saving || coordSaving}}">选择地图位置</button>
       </view>
+      <view class="field">
+        <text class="field-label">补充门牌</text>
+        <input class="field-input" placeholder="楼栋、单元或门牌（选填）" maxlength="200" disabled="{{saving || coordSaving}}" value="{{addressSupplement}}" bindinput="onSupplementInput" />
+        <text class="field-hint">补充内容不会改变地图位置；原地址中的门牌不自动拆分。</text>
+      </view>
+      <text class="field-hint" wx:if="{{saveMessage}}">{{saveMessage}}</text>
 
       <text class="draft-status" wx:if="{{infoDraftNotice}}">{{infoDraftNotice}}</text>
       <view class="layout-submit-group"><button disabled="{{saving || coordSaving}}" class="af-action af-action--primary b3-on-save af-action--block" bindtap="onSave" hover-class="af-action--pressed">
         {{saving ? '保存中…' : '保存资料'}}
       </button></view>
     </view>
-
-    <!-- ============ 水站坐标（配送范围判定用）============ -->
-    <view class="card" id="setup-station-position">
-      <view class="card-head">
-        <text class="card-title">水站坐标</text>
-        <text class="badge badge-on" wx:if="{{coord.lat !== null && coord.lng !== null}}">已设置</text>
-        <text class="badge badge-warn" wx:else>未设置</text>
-      </view>
-      <text class="card-sub" wx:if="{{coord.lat !== null && coord.lng !== null}}">当前坐标：{{coord.lat}}, {{coord.lng}}</text>
-      <text class="field-hint" wx:else>未设置坐标，无法计算配送距离。</text>
-      <text class="field-hint">选点后立即保存坐标；地址填入上方草稿，点击保存资料后生效。</text>
-      <view class="layout-coordinate-actions"><button class="af-action af-action--secondary b3-on-pick-coordinates" bindtap="onPickCoordinates" loading="{{coordSaving}}" disabled="{{coordSaving}}" hover-class="af-action--pressed">地图选点并保存坐标</button>
-      <button class="af-action af-action--danger-quiet b3-on-clear-coordinates" wx:if="{{coord.lat !== null || coord.lng !== null}}" bindtap="onClearCoordinates" hover-class="af-action--pressed">清除坐标</button></view>
-    </view>
-
 
   </block>
 

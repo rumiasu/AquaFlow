@@ -15,6 +15,9 @@ PATTERN='(jwt[_-]?secret|app[_-]?secret|secret[_-]?key|secret-id|access[_-]?key|
 
 # 注意：不能用 `git grep -n`（它会连命中整行一起打印，等于把密钥二次抄进 CI 日志）。
 # 这里用 -c 只输出「文件:处数」，既定位到文件，又保证任何密钥值都不会出现在输出里。
+SCAN_STATUS=0
+# 2026-11-01：grep 的 1 才是无匹配；旧 || true 会把权限/仓库/Git故障伪装成扫描通过。
+# Git诊断不直接回显，避免错误文本中的敏感目标再次进入日志。
 HITS="$(git grep -cEI "$PATTERN" -- \
       ':(exclude)*.md' \
       ':(exclude)*example*' \
@@ -22,7 +25,12 @@ HITS="$(git grep -cEI "$PATTERN" -- \
       ':(exclude)*.example' \
       ':(exclude)*application-local.yml' \
       ':(exclude)*.min.js' \
-      ':(exclude)archive/*' || true)"
+      ':(exclude)archive/*' 2>/dev/null)" || SCAN_STATUS=$?
+
+if [ "$SCAN_STATUS" -gt 1 ] || { [ "$SCAN_STATUS" -eq 0 ] && [ -z "$HITS" ]; }; then
+  echo "[scan-secrets] ✗ 扫描未完成（Git退出码 $SCAN_STATUS），不能判定为无密钥。" >&2
+  exit 2
+fi
 
 if [ -n "$HITS" ]; then
   echo "$HITS" | while IFS= read -r line; do

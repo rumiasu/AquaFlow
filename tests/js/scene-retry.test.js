@@ -37,3 +37,4 @@ verify('home', 'posterArtFailed', 'onPosterArtError', page => {
   page._syncHomeIssueSession = () => {}
   page._updateHomeFeedback = () => {}
 }, () => ({}))
+console.log('AQUAFLOW_SUITE_OK 3')

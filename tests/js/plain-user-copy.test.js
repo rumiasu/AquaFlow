@@ -46,6 +46,7 @@ for (const failure of [{ transportConfiguration: true }, { requestMayHaveOccurre
         if (id.endsWith('/storage')) return { stationStorage: {} }
         if (id.endsWith('/token')) return { captureSession: () => session, isCurrentSession: () => true, isCurrentCredentials: () => true }
         if (id.endsWith('/cart-storage')) return {}
+        if (id.endsWith('/business-dialog')) return { showBusinessModal: options => dialogs.push(options) }
         if (id.endsWith('/config/api')) return { API: { ME: '/api/me' } }
         if (id.endsWith('/transport')) return { send: options => { calls.push(options); options.fail(error) } }
         throw Error('unexpected dependency ' + id)
@@ -71,7 +72,8 @@ test('changed financial result titles remain pending and receipt errors retain e
 })
 test('familiar accounting words and existing consequence explanations remain concise and unchanged', () => {
   const receivables = read('miniapp-delivery/pages/station-mgmt/receivables/index.wxml')
-  assert(receivables.includes('登记就是核销')); assert(receivables.includes('要么全成功、要么全不动'))
+  assert(receivables.includes('仅登记实际收到的钱并销账，不会向客户扣款。'))
+  assert(receivables.includes('核实所选款项已实际收到后登记。'))
   const detail = read('miniapp-delivery/pages/order/detail.js')
   assert(detail.includes("'核销认损'")); assert(detail.includes('暂停退押金，不扣押金、不撤桶权益'))
   assert(detail.includes("managerNote: independent ? '客户拒付，站长确认信用风险；欠款继续追收' : '客户拒付，站长核销认损'"))

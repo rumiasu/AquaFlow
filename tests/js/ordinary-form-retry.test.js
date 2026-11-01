@@ -18,7 +18,9 @@ test('company response loss allows an explicit retry and cancel without a compar
   await f.p.onSave(); await f.p.onSave()
   assert.equal(writes, 2); assert.equal(f.p.data.form.companyName, '合成修改'); assert.equal(f.p.data.saveSucceeded, false)
   assert(!render('company', f.p.data).includes('已核对，继续编辑'))
-  f.p.onCancelEdit(); assert.equal(f.p.data.editing, false); assert.equal(f.calls.modal.length, 0)
+  f.p.onCancelEdit(); assert.equal(f.p.data.editing, true); assert.equal(f.calls.modal.length, 1)
+  f.calls.modal[0].success({confirm:false}); assert.equal(f.p.data.form.companyName,'合成修改')
+  f.p.onCancelEdit(); f.calls.modal[1].success({confirm:true}); assert.equal(f.p.data.editing,false)
 })
 test('existing address update can be retried without losing input or declaring false success', async () => {
   let writes = 0

@@ -12,8 +12,21 @@ const { spawnSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
+const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'suite-registration.test.js', name: 'suite discovery, exclusions and completion negative controls' },
+  { file: 'secret-scan-fail-closed.test.js', name: 'secret scanner distinguishes clean grep from execution failure' },
+  { file: 'approved-asset-pages.test.js', name: 'approved asset page contracts' },
+  { file: 'delivery-g04-typography-contrast.test.js', name: 'delivery typography and contrast' },
+  { file: 'fee-sheet-redesign.test.js', name: 'fee sheet presentation' },
+  { file: 'ordinary-form-retry.test.js', name: 'ordinary form retry and confirmed cancellation' },
+  { file: 'plain-user-copy.test.js', name: 'plain-language business feedback' },
+  { file: 'product-phone-feedback.test.js', name: 'product phone feedback' },
+  { file: 'product-simple-upload.test.js', name: 'product simple upload' },
+  { file: 'scene-retry.test.js', name: 'scene image retry' },
+  { file: 'station-status-loading.test.js', name: 'station loading state' },
+  { file: 'ui-scene.test.js', name: 'UI scene fallback and signed reference' },
   { file: 'login-wordmark.test.js', name: 'approved login wordmark and readable fallback' },
   { file: 'packaging-subpackages.test.js', name: 'subpackage routes, dependencies and brand assets' },
   { file: 'temporary-test-login.test.js', name: '临时测试登录环境、凭据清理、身份与迟到回调' },
@@ -225,6 +238,25 @@ const SUITES = [
   { file: 'page-mutation-controls.test.js', name: 'page recovery guard negative controls without source mutation' },
 ]
 
+// 2026-11-01: preserve historical files, but never silently omit active tests or count duplicate contracts twice.
+const EXCLUDED_SUITES = [
+  { file: 'ua-customer-profile-visible-states.test.js', reason: 'Duplicate 49-case suite; canonical customer-profile-visible-states.test.js' },
+  { file: 'ua-mine-service-hierarchy.test.js', reason: 'Superseded label contract; canonical mine-service-hierarchy.test.js' }
+]
+let registryErrors
+try {
+  const discovered=fs.readdirSync(__dirname,{recursive:true}).filter(f=>f.endsWith('.test.js')).map(f=>f.replace(/\\/g,'/'))
+  registryErrors=registryProblems(SUITES,EXCLUDED_SUITES,discovered,file=>fs.existsSync(path.join(__dirname,file)))
+} catch (_) {registryErrors=['suite discovery failed']}
+if(registryErrors.length) {
+  registryErrors.forEach(problem=>console.error('[suite-registry] '+problem))
+  process.exit(1)
+}
+if(process.argv.includes('--check-registry')) {
+  console.log('AQUAFLOW_SUITE_REGISTRY_OK '+SUITES.length)
+  process.exit(0)
+}
+
 // 每个套件跑到底都会打印两行收尾：中文的「全部通过：N 项…」给人看，
 // 以及**纯 ASCII 的 `AQUAFLOW_SUITE_OK N` 给本脚本判**。它是"跑完了"的唯一证据，
 // 不能只看退出码：卡死的用例会让 Node 事件循环空转后静默退出、退出码仍是 0。
@@ -326,7 +358,7 @@ SUITES.forEach((s) => {
   const full = path.join(__dirname, s.file)
   console.log('===== ' + s.name + ' :: ' + s.file + ' =====')
   const r = runSuite(full)
-  const pass = r.status === 0 && r.count > 0
+  const pass = completion(r.status,r.output,r.errorCode,r.logError).passed
 
   if (r.errorCode === 'ETIMEDOUT') {
     // 用例 await 的 Promise 若永远不 resolve，外部的 timeout 是这里唯一的防线。

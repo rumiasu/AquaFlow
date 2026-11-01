@@ -79,6 +79,9 @@ node scripts/check-pending-decisions.js
 node scripts/check-miniapp-text.js
 ```
 
+套件登记快速检查：`node tests/js/run-all.js --check-registry`。总入口先核对发现集与登记/明确排除集；新增套件须登记并输出 `AQUAFLOW_SUITE_OK N`。重复或过期合同的替代覆盖写在入口的 `EXCLUDED_SUITES`，不删除旧文件换取通过。
+
+
 完整门禁入口为 `node scripts/verify-local.js` 或 `bash scripts/verify.sh`，CI 定义在根 `.github/workflows/ci.yml`。依赖缺失、扫描没执行和实际失败要分别报告，不把跳过当通过。页面函数/回调测试不能代替真机。
 
 ## 6. 发布

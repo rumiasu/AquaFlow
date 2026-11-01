@@ -22,3 +22,11 @@
 - 文件删除必须有明确上传人且属于当前站长；平台级可见性不构成删除权。保留平台历史行明确上传人本人的原删除路径，他站文件仍拒绝。`FileManageControllerOwnershipTest` 断言拒绝时 COS 与数据库删除均零调用；`FileUploadIntegrationTest` 覆盖双 NULL、未绑定站长、他站、配送员及客户等 HTTP 分支。
 - WECOM、DINGTALK 和 RAW 使用 JSON 序列化，控制字符可严格往返；SERVERCHAN 保持 URL 编码表单。`AlertWebhookPayloadTest` 逐通道验证，`AlertWebhookIntegrationTest` 的本地接收桩先解析 JSON，另用非法报文和 HTTP 拒绝作负对照，拒绝不得记成 PUSHED。
 - 该批原实现的七项反例中四项失败；修复后报文、文件及告警路由和分层共 28 项通过。不涉及迁移、真实对象删除或外部通知；平台双 NULL 的真实记录是否存在仍未知。
+
+## 测试门禁：失败关闭与套件生命周期
+
+- `scan-secrets.sh` 区分 grep 的匹配、无匹配和执行错误；Git 不可用、权限或仓库错误不得再打印“未发现”。仍只输出疑似文件与计数，不扩大扫描排除范围。
+- `run-all.js` 在启动子套件前递归核对发现集、登记集与有理由的排除集；目录读取失败、漏登记、重复或无理由排除均失败。新增套件须打印完成哨兵，退出 0 本身不足以算通过。
+- 登记原遗漏的 approved-asset-pages、delivery-g04-typography-contrast、fee-sheet-redesign、ordinary-form-retry、plain-user-copy、product-phone-feedback、product-simple-upload、scene-retry、station-status-loading、ui-scene 十套。补 scene-retry 的三组同步完成标记；企业资料取消按现有确认放弃行为修正旧断言；启动 mock 补 business-dialog，收款文案断言按现行实际可见含义更新。
+- 保留但明确排除 ua-customer-profile-visible-states（与 customer-profile-visible-states 重复49例）及 ua-mine-service-hierarchy（旧标签合同由 mine-service-hierarchy 替代）；没有删除旧文件或倒改产品规则。
+- 新增假 Git 和未登记合成套件负对照；修复前均能检出误放行。十套恢复登记及两套治理回归共十二套、109个计数项通过；这不是完整两端或后端全量结果。

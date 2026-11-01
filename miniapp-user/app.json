@@ -6,25 +6,13 @@
     "pages/order/detail",
     "pages/order/create",
     "pages/order/success",
-    "pages/address/list",
-    "pages/address/edit",
-    "pages/barrel/index",
-    "pages/barrel/purchase",
-    "pages/shop/index",
-    "pages/template/index",
-    "pages/ticket/index",
     "pages/mine/index",
     "pages/login/index",
-    "pages/service/index",
     "pages/mine/about",
     "pages/mine/edit",
     "pages/mine/agreement/index",
     "pages/mine/account-data/index",
-    "pages/payment/records",
-    "pages/deposit/records/index",
-    "pages/notice/index",
     "pages/mine/company",
-    "pages/exception/list/list",
     "pages/mine/asset-claims/index"
   ],
   "window": {
@@ -76,5 +64,69 @@
     "integer-stepper": "/components/IntegerStepper/index",
     "product-selector": "/components/ProductSelector/index"
   },
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "subPackages": [
+    {
+      "root": "pages/address",
+      "pages": [
+        "list",
+        "edit"
+      ]
+    },
+    {
+      "root": "pages/barrel",
+      "pages": [
+        "index",
+        "purchase"
+      ]
+    },
+    {
+      "root": "pages/deposit",
+      "pages": [
+        "records/index"
+      ]
+    },
+    {
+      "root": "pages/exception",
+      "pages": [
+        "list/list"
+      ]
+    },
+    {
+      "root": "pages/service",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/shop",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/template",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/ticket",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/notice",
+      "pages": [
+        "index"
+      ]
+    },
+    {
+      "root": "pages/payment",
+      "pages": [
+        "records"
+      ]
+    }
+  ]
 }

@@ -24,6 +24,8 @@ if not os.path.isdir(ROOT):
 
 app = json.load(open(os.path.join(ROOT, "app.json"), encoding="utf-8"))
 registered = set(p.strip("/") for p in app["pages"])
+for pkg in app.get("subPackages", app.get("subpackages", [])):
+    registered.update(pkg["root"].strip("/") + "/" + p.strip("/") for p in pkg.get("pages", []))
 
 # tabbar
 tabs = set(t["pagePath"].strip("/") for t in app.get("tabBar", {}).get("list", []))

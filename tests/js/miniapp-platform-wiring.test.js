@@ -1,3 +1,4 @@
+const { registeredPages } = require('../../scripts/miniapp-pages')
 const assert = require('assert'), fs = require('fs'), path = require('path'), os = require('os')
 const { spawnSync } = require('child_process')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
@@ -6,7 +7,7 @@ let passed = 0
 function test(name, run) { run(); passed++; console.log('PASS ' + name) }
 function platform(side) {
   const wx = createWx(), config = JSON.parse(fs.readFileSync(path.join(ROOT, side, 'app.json'), 'utf8'))
-  const routes = new Set(config.pages.map(p => '/' + p))
+  const routes = new Set(registeredPages(config).map(p => '/' + p))
   const tabs = new Set(config.tabBar.list.map(p => '/' + p.pagePath))
   for (const api of ['navigateTo', 'redirectTo', 'switchTab', 'reLaunch']) {
     wx[api] = o => {
@@ -49,7 +50,7 @@ function main() {
   })
   for (const side of ['miniapp-user', 'miniapp-delivery']) test(side + ' matches native refresh configuration for every registered Page', () => {
     const appConfig = JSON.parse(fs.readFileSync(path.join(ROOT, side, 'app.json'), 'utf8'))
-    for (const route of appConfig.pages) {
+    for (const route of registeredPages(appConfig)) {
       const configFile = path.join(ROOT, side, route + '.json')
       const pageConfig = fs.existsSync(configFile) ? JSON.parse(fs.readFileSync(configFile, 'utf8')) : {}
       const wx = createWx()

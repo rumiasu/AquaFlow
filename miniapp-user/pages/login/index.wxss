@@ -34,3 +34,9 @@
 .test-login { margin-top: 28rpx; padding-top: 24rpx; border-top: 1rpx solid var(--border-color, #e2e8f0); }
 .test-login-title { display: block; margin-bottom: 16rpx; font-size: 26rpx; color: var(--text-secondary, #64748b); }
 .test-login-input { box-sizing: border-box; height: 88rpx; margin-bottom: 16rpx; padding: 0 24rpx; border: 1rpx solid var(--border-color, #d8e0e8); border-radius: 16rpx; background: var(--bg-color, #fff); color: var(--text-primary, #1e293b); font-size: 28rpx; }
+
+/* Shared brand typography: the product function is a separate label. */
+.af-brand-wordmark { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+.af-brand-name { display:block; color:#102a43; font-size:28px; line-height:36px; font-weight:700; }
+.af-brand-english { display:block; color:#1264d6; font-size:16px; line-height:22px; font-weight:600; }
+.af-brand-function { display:block; color:#637083; font-size:14px; line-height:22px; margin-top:8px; }

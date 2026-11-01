@@ -2,6 +2,7 @@
 'use strict'
 // Check actual package inputs, not Node's directory/index resolution or test module stubs.
 const fs = require('fs'), path = require('path'), os = require('os'), cp = require('child_process')
+const { registeredPages } = require('./miniapp-pages')
 const slash = value => value.split(path.sep).join('/')
 function requires(source) {
   const found = [], unsupported = []
@@ -60,13 +61,15 @@ function analyzeProject(projectRoot, repoRoot, tracked) {
     errors.push({ target: file.slice(prefix.length), reason: 'tracked JS missing from working package' })
   }
   const app = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'))
-  for (const entry of ['app.js', ...(app.pages || []).map(route => route + '.js')]) check(entry, 'app.json')
+  const packageRoots = (app.subPackages || app.subpackages || []).map(pkg => pkg.root.replace(/\/$/, '') + '/')
+  const packageOwner = id => packageRoots.find(prefix => id.startsWith(prefix)) || ''
+  for (const entry of ['app.js', ...registeredPages(app).map(route => route + '.js')]) check(entry, 'app.json')
   for (const file of files) {
     if (ignored(file, rules)) continue
     const parsed = requires(fs.readFileSync(path.join(root, file), 'utf8'))
     for (const line of parsed.unsupported) errors.push({ from: file, line, reason: 'dynamic require needs explicit native packaging review' })
     for (const item of parsed.found) {
-      try { const target = resolveId(file, item.specifier); edges.push({ from: file, target, ...item }); check(target, file + ':' + item.line) }
+      try { const target = resolveId(file, item.specifier); edges.push({ from: file, target, ...item }); check(target, file + ':' + item.line); const owner = packageOwner(target); if (owner && owner !== packageOwner(file)) errors.push({ from: file, target, reason: 'main or another subpackage cannot require this subpackage' }) }
       catch (error) { errors.push({ from: file, ...item, reason: error.message }) }
     }
   }

@@ -1,4 +1,5 @@
 'use strict'
+const { registeredPages } = require('../../scripts/miniapp-pages')
 // JS permits duplicate object methods: a later business action can silently replace a navigation handler.
 const fs=require('fs'),path=require('path'),assert=require('assert')
 const root=path.resolve(__dirname,'../..')
@@ -12,7 +13,7 @@ function duplicates(source){const seen=new Map(),bad=[]
 assert.equal(duplicates('Page({\n  onBack() {},\n  async onBack() {}\n})').length,1)
 assert.equal(duplicates('Page({\n  onBack() {},\n  onSave() {},\n    onBack() {}\n})').length,0)
 const failures=[];let pages=0
-for(const app of ['miniapp-user','miniapp-delivery'])for(const route of JSON.parse(fs.readFileSync(path.join(root,app,'app.json'),'utf8')).pages){
+for(const app of ['miniapp-user','miniapp-delivery'])for(const route of registeredPages(JSON.parse(fs.readFileSync(path.join(root,app,'app.json'),'utf8')))){
  pages++;const file=app+'/'+route+'.js'
  for(const item of duplicates(fs.readFileSync(path.join(root,file),'utf8')))failures.push({file,...item})
 }

@@ -57,6 +57,10 @@
       {
         "type": "file",
         "value": "project.private.config.json"
+      },
+      {
+        "type": "file",
+        "value": "assets/logo/aiquan-mark.png"
       }
     ],
     "include": []

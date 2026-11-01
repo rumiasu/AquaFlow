@@ -1,3 +1,4 @@
+const { registeredPages } = require('../../scripts/miniapp-pages')
 const assert = require('assert'), fs = require('fs'), path = require('path')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
 const { parseWxml, validateConditionalSiblings, renderElements } = require('./wxml-tree')
@@ -18,7 +19,7 @@ function elements(route, data) {
 }
 test('all nineteen owned route templates have balanced markup and valid conditional chains', () => {
   const excluded = new Set(['pages/home/index','pages/home/notice','pages/address/list','pages/address/edit','pages/notice/index','pages/mine/company','pages/exception/list/list'])
-  const routes = require('../../miniapp-user/app.json').pages.filter(r => !excluded.has(r))
+  const routes = registeredPages(require('../../miniapp-user/app.json')).filter(r => !excluded.has(r))
   assert.equal(routes.length, 19)
   for (const route of routes) validateConditionalSiblings(parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/' + route + '.wxml'), 'utf8')))
 })

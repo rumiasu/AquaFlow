@@ -94,3 +94,8 @@
 
 /* 英文名单独成行，避免与版本号连在一起。 */
 .brand-english { display: block; margin-bottom: 8rpx; font-size: 26rpx; color: var(--text-secondary); }
+
+.af-brand-wordmark { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.af-brand-name { display:block; color:#102a43; font-size:28px; line-height:36px; font-weight:700; }
+.af-brand-english { display:block; color:#1264d6; font-size:16px; line-height:22px; font-weight:600; }
+.af-brand-function { display:block; color:#637083; font-size:14px; line-height:22px; margin-top:8px; }

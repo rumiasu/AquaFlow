@@ -1,3 +1,4 @@
+const { registeredPages } = require('../../scripts/miniapp-pages')
 /**
  * 站长端「站间结算」台账页流程测试（v67 / 2026-09-27 产品拍板 4.b）。
  *
@@ -222,7 +223,7 @@ function aftercareFixture(options = {}) {
       'TODO_ROUTES 要把它指到站间结算页（清单有、路由没有 ⇒ 点一下只弹"暂未接入页面"）')
 
     const appJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/app.json'), 'utf8'))
-    assert.ok(appJson.pages.indexOf('pages/station-mgmt/inter-station/index') >= 0,
+    assert.ok(registeredPages(appJson).indexOf('pages/station-mgmt/inter-station/index') >= 0,
       'route 指向的页面必须在 app.json 的 pages 里注册，否则 navigateTo 会失败')
   })
 

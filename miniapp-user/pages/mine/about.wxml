@@ -2,8 +2,8 @@
   <view class="about-section">
     <view class="logo-section">
       <image class="logo" src="/assets/logo/aiquan-mark.png" mode="aspectFit"></image>
-      <text class="app-name">艾泉订水</text>
-      <text class="brand-english">AquaFlow</text>
+      <view class="af-brand-wordmark"><text class="af-brand-name">艾泉</text><text class="af-brand-english">AquaFlow</text></view>
+      <text class="af-brand-function">订水</text>
       <text class="app-version">{{version ? '版本 ' + version : '版本暂未提供'}}</text>
     </view>
 

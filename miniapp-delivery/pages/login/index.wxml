@@ -1,8 +1,8 @@
 <view class="login-page b2-page b2-d01 af2-page lv2-page lv2-login">
   <view class="logo-area">
-    <view class="lv2-login-mark"><image class="aiquan-login-mark" src="/assets/logo/aiquan-mark.png" mode="aspectFit" /></view>
-    <text class="title">艾泉工作台</text>
-    <text class="subtitle">AquaFlow · 员工登录</text>
+    <view class="lv2-login-mark"><image class="aiquan-login-mark" src="/assets/logo/aiquan-delivery-mark.png" mode="aspectFit" /></view>
+    <view class="af-brand-wordmark"><text class="af-brand-name">艾泉</text><text class="af-brand-english">AquaFlow</text></view>
+      <text class="af-brand-function">工作台</text>
 
   </view>
 

@@ -1,3 +1,4 @@
+const { registeredPages } = require('../../scripts/miniapp-pages')
 /**
  * 员工端（站长 + 配送员）运行时事实表达回归 —— 2026-09-27 走查 M01/M02/M03/M04/M06、D01/D02/D03/D05/D06/D07。
  *
@@ -354,7 +355,7 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
       '待分配队列**顶部**要有常驻入口，不能只沉在队尾（20 条待分配时得滚到底才找得到）')
     // 台账页必须在 app.json 注册（不注册 = 死链，page_reach_audit 也会红）
     const appJson = JSON.parse(readFile('miniapp-delivery/app.json'))
-    assert.ok(appJson.pages.indexOf('pages/station-mgmt/orders/index') > -1, '台账页要注册在 app.json')
+    assert.ok(registeredPages(appJson).indexOf('pages/station-mgmt/orders/index') > -1, '台账页要注册在 app.json')
     // 台账页不是 tabBar 页 ⇒ 必须走 navigateTo（switchTab 对非 tab 页会失败）
     const idxJs = readFile('miniapp-delivery/pages/station-mgmt/index.js')
     const tabBarBlock = idxJs.slice(idxJs.indexOf('TAB_BAR_PAGES'), idxJs.indexOf('TAB_BAR_PAGES') + 200)

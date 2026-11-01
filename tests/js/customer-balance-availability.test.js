@@ -1,3 +1,4 @@
+const { registeredPages } = require('../../scripts/miniapp-pages')
 const assert=require('assert'),fs=require('fs'),path=require('path')
 const { loadPage,createWx,createApp,armWatchdog,ROOT }=require('./harness')
 const { parseWxml }=require('./wxml-tree')
@@ -50,7 +51,7 @@ test('asset clicks use actual WXML routes and preserve deposit handling and bill
  const primary=cells.filter(n=>hasClass(n,'asset-cell-primary'))
  assert.equal(primary.length,1);assert.equal(primary[0].attrs['data-url'],'/pages/ticket/index')
  for(const cell of cells){
-  const url=cell.attrs['data-url'];assert.equal(cell.attrs.bindtap,'onMenuTap');assert.ok(app.pages.includes(url.slice(1)))
+  const url=cell.attrs['data-url'];assert.equal(cell.attrs.bindtap,'onMenuTap');assert.ok(registeredPages(app).includes(url.slice(1)))
   t.page.onMenuTap({currentTarget:{dataset:{url}}})
   assert.equal(t.wx.__calls.nav.at(-1).type,'navigateTo');assert.equal(t.wx.__calls.nav.at(-1).url,url+'?stationId=1')
   assert.deepStrictEqual(t.wx.getStorageSync('selectedStation'),{id:1,name:'测试站'})

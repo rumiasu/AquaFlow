@@ -5,8 +5,8 @@
       <view class="logo-wrap">
         <image class="logo" src="/assets/logo/aiquan-mark.png" mode="aspectFit"></image>
       </view>
-      <text class="app-name">艾泉订水</text>
-      <text class="app-desc">AquaFlow · 桶装水配送服务</text>
+      <view class="af-brand-wordmark"><text class="af-brand-name">艾泉</text><text class="af-brand-english">AquaFlow</text></view>
+      <text class="af-brand-function">订水</text>
     </view>
 
     <view class="login-section">

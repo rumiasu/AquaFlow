@@ -197,3 +197,9 @@
 
 /* 白底品牌标记与页面正文分开，便于小尺寸阅读。 */
 .aiquan-login-mark { width: 54px; height: 54px; }
+
+/* Shared brand typography: the product function is a separate label. */
+.af-brand-wordmark { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+.af-brand-name { display:block; color:#102a43; font-size:28px; line-height:36px; font-weight:700; }
+.af-brand-english { display:block; color:#1264d6; font-size:16px; line-height:22px; font-weight:600; }
+.af-brand-function { display:block; color:#637083; font-size:14px; line-height:22px; margin-top:8px; }

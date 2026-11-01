@@ -1,3 +1,4 @@
+const { registeredPages } = require('../../scripts/miniapp-pages')
 const assert = require('assert')
 const fs = require('fs')
 const { loadPage, createWx, createApp, armWatchdog } = require('./harness')
@@ -47,7 +48,7 @@ function fill(t) {
 test('natural entries and both native page registrations exist without a new core-page request', () => {
   for (const [root, entry] of [['miniapp-user', 'pages/mine/index.wxml'], ['miniapp-delivery', 'pages/station-mgmt/index.wxml']]) {
     const route = root === 'miniapp-user' ? 'pages/mine/asset-claims/index' : 'pages/station-mgmt/asset-claims/index'
-    assert(JSON.parse(fs.readFileSync(root + '/app.json')).pages.includes(route))
+    assert(registeredPages(JSON.parse(fs.readFileSync(root + '/app.json'))).includes(route))
     assert(fs.readFileSync(root + '/' + entry, 'utf8').includes('/' + route))
   }
 })

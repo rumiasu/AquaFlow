@@ -199,14 +199,17 @@
 .aiquan-login-mark { width: 54px; height: 54px; }
 
 /* Shared brand typography: the product function is a separate label. */
-.af-brand-wordmark { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+.af-brand-wordmark { display:flex; flex-direction:column; align-items:center; gap:2px; }
 .af-brand-name { display:block; color:#102a43; font-size:28px; line-height:36px; font-weight:700; }
 .af-brand-english { display:block; color:#1264d6; font-size:16px; line-height:22px; font-weight:600; }
 .af-brand-function { display:block; color:#637083; font-size:14px; line-height:22px; margin-top:8px; }
 
 /* Transparent artwork sits directly on the login canvas. */
-.af-brand-wordmark { width:144px; padding:0; background:transparent; }
-.af-brand-wordmark-image { display:block; width:144px; height:87px; }
+.af-brand-wordmark { width:116px; padding:0; background:transparent; }
+.af-brand-wordmark-image { display:block; width:116px; height:70px; }
 .af-brand-wordmark-fallback { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
 
-.lv2-login-mark { background:transparent; border-radius:0; }
+.lv2-login .logo-area { align-items:center; gap:0; padding:8px 0 16px; margin:0 0 16px; }
+.lv2-login-mark { width:116px; height:85px; background:transparent; border-radius:0; }
+.aiquan-login-mark { width:100px; height:85px; }
+.lv2-login .af-brand-wordmark { margin-top:8px; }

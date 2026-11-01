@@ -447,7 +447,7 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         record.setOrderId(orderId);
         // 有客户端键就落库；订单内扣票（PaymentServiceImpl）保持 NULL（它的幂等归 uk_ticket_consume）
         record.setIdempotencyKey(key);
-        record.setSource("消费");
+        record.setSource(com.example.aquaflow.constant.TicketRecordSource.CONSUMPTION);
         record.setTicketSource(1);
         record.setUnitPrice(cr.getWeightedUnitPrice());
         record.setTicketLotId(cr.getSingleLotId());

@@ -25,6 +25,24 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ProductImageIntegrationTest extends AbstractIntegrationTest {
 
+    @Test
+    @DisplayName("自定义商品创建和更新拒绝私有照片引用，历史脏引用读取为无图")
+    void privateEvidenceIsRejectedAtWriteAndUnavailableAtRead() {
+        String manager = newManagerToken("私有图隔离站");
+        String key="private/order/42/synthetic-known-evidence.jpg";
+        long count=longOf("select count(*) from product");
+        Api invalid=post("/api/manager/my-products",manager,"{\"name\":\"禁止私有图\",\"category\":1,\"price\":20,\"deposit\":30,\"imageObjectName\":\""+key+"\"}");
+        assertEquals(1,invalid.code(),invalid.toString());assertEquals(count,longOf("select count(*) from product"));
+        long id=createMyProduct(manager,"正常商品",LOCAL_IMAGE_PATH,null);
+        assertEquals(1,put("/api/manager/my-products/"+id,manager,"{\"imageObjectName\":\""+key+"\"}").code());
+        assertEquals(LOCAL_IMAGE_PATH,jdbc.queryForObject("select image_object_name from product where id=?",String.class,id));
+        jdbc.update("update product set image_object_name=? where id=?",key,id);
+        assertNull(imageUrlOf(get("/api/manager/catalog",manager).data(),id));
+        long customer=createCustomer("合成看图客户","private-image-reader");
+        long station=longOf("select owner_station_id from product where id=?",id);
+        assertNull(imageUrlOf(get("/api/products?stationId="+station,customerToken(customer)).data(),id));
+    }
+
     /**
      * 一个真实存在于两端包内的本地路径（品牌官网图）。
      * <p>⚠️ 2026-09-20 前这里用的是 {@code barrel-water.webp} —— 那是平台自制图，
@@ -97,7 +115,7 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("COS 对象键在 COS 不可用时降级为无图，不抛异常、也不冒充本地路径")
     void cosKeyDegradesInsteadOfFailing() {
         String mgr = newManagerToken("图片站C");
-        long productId = createMyProduct(mgr, "对象键商品", "product/2026/09/xxx.jpg", null);
+        long productId = createMyProduct(mgr, "对象键商品", "public/product/2026/09/xxx.jpg", null);
 
         Api list = get("/api/manager/catalog", mgr);
         assertEquals(0, list.code(), "一张图签不出来不能让整个选品列表失败（§8.21 口径）");
@@ -118,10 +136,10 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
         String mgr = newManagerToken("图片站D");
 
         // ① 显式对象键优先：同时传上传回填的 URL 也不能盖掉真正的对象键
-        long byObjectName = createMyProduct(mgr, "对象键优先", "product/real-key.jpg",
+        long byObjectName = createMyProduct(mgr, "对象键优先", "public/product/real-key.jpg",
                 "https://cos.example.com/product/ignored.jpg?sign=x");
         assertEquals(1, intOf("select count(*) from product where id = ? and image_object_name = ?",
-                        byObjectName, "product/real-key.jpg"),
+                        byObjectName, "public/product/real-key.jpg"),
                 "imageObjectName 是落库口径，优先级必须高于上传回填的 imageUrl");
 
         // ② 只拿到预签名 URL 时宁可存 null（界面显示占位图），

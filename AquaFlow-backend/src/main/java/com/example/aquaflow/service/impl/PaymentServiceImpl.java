@@ -224,6 +224,9 @@ public class PaymentServiceImpl implements PaymentService {
             if(current==null || !Objects.equals(current.getCustomerId(),customerId))throw new BusinessException("订单不存在或不属于当前客户");
             if(Integer.valueOf(OrderStatus.CANCELLED).equals(current.getStatus()) || Integer.valueOf(PaymentStatus.REFUNDED).equals(current.getPaymentStatus())
                     || Integer.valueOf(PaymentStatus.CANCELLED).equals(current.getPaymentStatus()))throw new BusinessException("订单已取消或退款，不能重新收款");
+            // 2026-11-01: validate every order before replay; switching a ticket-priced order to cash bypassed consumption.
+            if (!Objects.equals(paymentMethod,current.getPaymentMethod()))
+                throw new BusinessException("付款方式与下单确认不一致，请回到原订单按已确认方式付款");
             requireNewPurchaseDebtClear(current);
         }
 
@@ -362,6 +365,9 @@ public class PaymentServiceImpl implements PaymentService {
             Orders current=paymentLocks.lockOrder(record.getOrderId());
             if(current==null || current.getStatus()==OrderStatus.CANCELLED || current.getPaymentStatus()==PaymentStatus.REFUNDED || current.getPaymentStatus()==PaymentStatus.CANCELLED)
                 throw new BusinessException("订单已经取消或退款，不能再确认收款");
+            // Do not let a pre-fix mismatched pending record become a new paid fact; retain it for reconciliation.
+            if (!Objects.equals(record.getPaymentMethod(),current.getPaymentMethod()))
+                throw new BusinessException("原流水付款方式与订单不一致，请核对原款，不能确认收款");
             requireNewPurchaseDebtClear(current);
         }
         // 订单→流水的固定锁序；锁后重读，不能让等待中的请求使用旧 PENDING 快照。

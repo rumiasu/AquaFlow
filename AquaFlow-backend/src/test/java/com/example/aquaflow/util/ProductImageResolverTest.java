@@ -13,6 +13,21 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ProductImageResolverTest {
 
+    @Test
+    @DisplayName("历史私有键与public路径绕行不得触发商品签名器，重复读取也不例外")
+    void privateEvidenceCannotBeResignedThroughProducts() {
+        java.util.concurrent.atomic.AtomicInteger signs = new java.util.concurrent.atomic.AtomicInteger();
+        ProductImageResolver resolver = new ProductImageResolver(key -> { signs.incrementAndGet(); return "https://synthetic.invalid/signed"; });
+        for (String key : new String[]{"private/order/42/evidence.jpg", "private/asset-claim/evidence.jpg",
+                "public/../private/order/evidence.jpg", "public/./evidence.jpg", "public/%2e%2e/private/evidence.jpg"}) {
+            assertNull(resolver.resolve(key), key);
+            assertNull(resolver.resolve(key), "缓存读取也不得给私有用途续签");
+        }
+        assertEquals(0, signs.get(), "先拒绝用途，再接触签名器或缓存");
+        assertEquals("https://synthetic.invalid/signed", resolver.resolve("public/2026/11/synthetic.jpg"));
+        assertEquals(1, signs.get());
+    }
+
     /** 造一个解析器：签名器固定抛异常（模拟本机 COS 未配置） */
     private ProductImageResolver newResolver() {
         return new ProductImageResolver(obj -> {
@@ -96,7 +111,7 @@ class ProductImageResolverTest {
     @DisplayName("COS 对象键在 COS 不可用时返回 null 而不是抛异常（单条失败不拖垮列表）")
     void cosKeyFailureIsSwallowed() {
         ProductImageResolver resolver = newResolver();
-        assertNull(resolver.resolve("product/2026/09/xxx.jpg"),
+        assertNull(resolver.resolve("public/product/2026/09/xxx.jpg"),
                 "COS 未配置时应有降级：返回 null，绝不抛异常");
     }
 
@@ -112,8 +127,8 @@ class ProductImageResolverTest {
     void cosKeySuccessReturnsSignedUrl() {
         ProductImageResolver resolver = new ProductImageResolver(
                 obj -> "https://cos.example.com/" + obj + "?sign=x");
-        assertEquals("https://cos.example.com/product/2026/09/xxx.jpg?sign=x",
-                resolver.resolve("product/2026/09/xxx.jpg"),
+        assertEquals("https://cos.example.com/public/product/2026/09/xxx.jpg?sign=x",
+                resolver.resolve("public/product/2026/09/xxx.jpg"),
                 "签名器给什么就下发什么");
     }
 

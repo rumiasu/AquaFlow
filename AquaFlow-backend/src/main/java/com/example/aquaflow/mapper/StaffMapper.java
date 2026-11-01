@@ -57,6 +57,10 @@ public interface StaffMapper {
                         @Param("phone") String phone,
                         @Param("status") Integer status);
 
+    /** Own-profile fields only; a manager's committed disable must win over an in-flight profile request. */
+    @Update("UPDATE staff SET name=COALESCE(#{name},name), phone=COALESCE(#{phone},phone), update_time=NOW() WHERE id=#{id} AND status=1")
+    int updateOwnProfile(@Param("id") Long id, @Param("name") String name, @Param("phone") String phone);
+
     /**
      * 员工管理白名单 CAS；归属、角色和原状态必须仍与锁内核验一致。
      * 返回 0 时调用方必须拒绝，不能报告已更新；历史 NULL 状态可通过显式合法状态修复。

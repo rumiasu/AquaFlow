@@ -454,13 +454,14 @@ public class CatalogServiceImpl implements CatalogService {
      */
     private String pickImageValue(String imageObjectName, String imageUrl) {
         if (imageObjectName != null && !imageObjectName.isEmpty()) {
-            return imageObjectName;
+            // 2026-11-01: custom products must not persist private order/claim evidence as a product image.
+            return com.example.aquaflow.util.StationProductImage.normalize(imageObjectName);
         }
         if (imageUrl != null && imageUrl.startsWith("/")) {
-            return imageUrl;
+            return com.example.aquaflow.util.StationProductImage.normalize(imageUrl);
         }
         if (imageUrl != null && !imageUrl.isEmpty()) {
-            log.warn("忽略非对象键的 imageUrl（疑为上传返回的预签名 URL，对象键已丢失）: {}", imageUrl);
+            log.warn("忽略非对象键的旧式 imageUrl；仅记录分类，不记录可能含临时授权的链接");
         }
         return null;
     }

@@ -483,17 +483,12 @@ public class AuthTokenService {
         String phone = params.getPhone();
 
         if ("staff".equals(AuthContext.getUserType())) {
-            Staff staff = staffMapper.getById(userId);
-            if (staff == null) {
-                throw new BusinessException("用户不存在");
-            }
-            // [2026-09-29 下沉收口] 原来是 getById → 改字段 → 全量 update()：
-            // 读与写之间 role / station_id / password_hash 的并发改动会被这份旧快照整行覆盖
-            // （lost update）。白名单更新只碰 name / phone / status（status 原样回写）。
-            staffMapper.updateBaseInfo(userId,
-                    nickname != null && !nickname.isEmpty() ? nickname : staff.getName(),
-                    phone != null && !phone.isEmpty() ? phone : staff.getPhone(),
-                    staff.getStatus());
+            // 2026-11-01: even writing the old status unchanged could reactivate a concurrently disabled employee.
+            // The dedicated conditional UPDATE never touches status/role/station/password, including omitted fields.
+            if (staffMapper.updateOwnProfile(userId,
+                    nickname != null && !nickname.isEmpty() ? nickname : null,
+                    phone != null && !phone.isEmpty() ? phone : null) != 1)
+                throw new BusinessException("员工状态已变化或用户不存在，请重新登录后核对");
             return;
         }
 

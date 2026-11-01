@@ -15,7 +15,9 @@ public interface DispatchAgreementMapper {
     @Update("update dispatch_agreement set status='OFFERED',target_station_id=null,accepted_by=null,accepted_time=null where order_id=#{order} and status='ACCEPTED' and exists(select 1 from orders o where o.id=#{order} and o.status=1)") int recall(Long order);
     @Select("select * from dispatch_agreement where order_id=#{order}") Map<String,Object> get(Long order);
     @Select("select * from dispatch_agreement where order_id=#{order} for update") Map<String,Object> lock(Long order);
-    @Select("select coalesce(sum(unit_price*decrease_qty),0) from ticket_record where order_id=#{order} and source='消耗'") BigDecimal ticketActual(Long order);
+    // 2026-11-01: a former '消耗' predicate missed the real writer's '消费' and froze an underpaid offer.
+    @Select("select coalesce(sum(unit_price*decrease_qty),0) from ticket_record where order_id=#{order} and source='" + com.example.aquaflow.constant.TicketRecordSource.CONSUMPTION + "'") BigDecimal ticketActual(Long order);
+    @Select("select count(*) from ticket_record where order_id=#{order} and decrease_qty>0 and source='" + com.example.aquaflow.constant.TicketRecordSource.CONSUMPTION + "'") int ticketConsumptionCount(Long order);
     @Insert("insert into dispatch_agreement(order_id,source_station_id,target_station_id,service_amount,net_barrels,barrel_mode,barrel_amount,barrel_items,status,quoted_by,note,create_time) values(#{order},#{source},#{target},#{service},#{qty},#{mode},#{barrel},#{items},'OFFERED',#{operator},#{note},now())")
     int insert(@Param("order") Long order,@Param("source") Long source,@Param("target") Long target,@Param("service") BigDecimal service,
                @Param("qty") int qty,@Param("mode") String mode,@Param("barrel") BigDecimal barrel,@Param("items") String items,@Param("operator") Long operator,@Param("note") String note);

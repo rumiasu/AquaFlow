@@ -16,7 +16,7 @@ import java.net.URI;
  *       前端可直接当 {@code src} 使用，无需签名、不会过期；</li>
  *   <li><b>公开永久 HTTPS 原图</b>：不含查询参数、片段或用户信息的图片链接原样返回，不经签名；</li>
  *   <li><b>COS 对象键</b>：三张已核品牌资料图映射到官网永久原图；其它对象键（如
- *       {@code product/xxx.jpg}）经 {@link CosUtil#generatePublicUrl} 签成临时 URL。</li>
+ *       {@code public/product/xxx.jpg}）经 {@link CosUtil#generatePublicUrl} 签成临时 URL。</li>
  * </ol>
  *
  * <p><b>判据：以 {@code /} 开头即视为本地资源路径</b>（COS 对象键不带前导斜杠）。
@@ -73,7 +73,7 @@ public class ProductImageResolver {
      *       且<b>绝不调用签名器</b>（本地图与 COS 配没配无关，这是商品图能显示的根本）；</li>
      *   <li>公开永久 HTTPS 图片链接原样返回；不符合永久链接约束的外部 URL 返回 null，不能当 COS 键；</li>
      *   <li>三张已核品牌资料对象键始终返回官网永久 HTTPS 原图，不依赖 COS 或客户端包内素材；</li>
-     *   <li>其余非空值作为 COS 对象键，返回签名 URL；COS未配置或签名失败
+     *   <li>其余值仅允许规范 public/ 商品对象键，返回签名 URL；COS未配置或签名失败
      *       <b>返回 {@code null}，绝不抛异常</b>。
      *       这是刻意的降级：一张图签不出来不能让整个选品列表失败（判据同 AGENTS §8.21）。</li>
      * </ol>
@@ -106,6 +106,15 @@ public class ProductImageResolver {
         String publicOriginal = ProductImageKeys.verifiedPublicOriginal(imageObjectName);
         if (publicOriginal != null) {
             return publicOriginal;
+        }
+        // 2026-11-01: the read boundary also protects historical rows; knowing an evidence key is not authorization.
+        // Check before any signer/cache access, including traversal/encoded equivalents of a private key.
+        try {
+            String safe = StationProductImage.normalize(imageObjectName);
+            if (safe == null || !safe.startsWith("public/")) return null;
+            imageObjectName = safe;
+        } catch (com.example.aquaflow.exception.BusinessException invalid) {
+            return null;
         }
         if (cosUtil != null && !cosUtil.isCredentialsConfigured()) {
             // 已核品牌键已在上方解析；其它上传缺少签名配置时不能编造可读地址。

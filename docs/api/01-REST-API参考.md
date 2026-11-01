@@ -160,7 +160,7 @@
 | `GET` | `/api/auth/me` | — | `LoginController.me` |
 | `POST` | `/api/auth/refresh` | — | `LoginController.refresh` |
 | `POST` | `/api/auth/select-role` | — | `LoginController.selectRole` |
-| `POST` | `/api/auth/update-profile` | — | `LoginController.updateProfile` |
+| `POST` | `/api/auth/update-profile` | 本人会话 | `LoginController.updateProfile`；员工本人仅改姓名与电话，不写状态、角色、水站或密码；停用竞态返回业务拒绝。 |
 | `POST` | `/api/auth/wx-login` | — | `LoginController.wxLogin` |
 | `POST` | `/api/auth/wx-login-staff` | — | `LoginController.wxLoginStaff` |
 | `GET` | `/api/delivery/bind/applications` | {"DELIVERY","STATION_MANAGER"} | `DeliveryBindingController.getMyApplications` |
@@ -223,7 +223,7 @@
 | `POST` | `/api/manager/catalog/{productId}/select` | "STATION_MANAGER" | `ManagerCatalogController.select` |
 | `POST` | `/api/manager/catalog/{productId}/stock` | "STATION_MANAGER" | `ManagerCatalogController.setStock` |
 | `GET` | `/api/manager/my-products` | "STATION_MANAGER" | `ManagerMyProductController.list` |
-| `POST` | `/api/manager/my-products` | "STATION_MANAGER" | `ManagerMyProductController.create` |
+| `POST` | `/api/manager/my-products` | "STATION_MANAGER" | `ManagerMyProductController.create`；图片仅接受规范 public/ 商品对象键、包内资源或合法永久图片，拒绝私有业务照片引用。 |
 | `GET` | `/api/manager/my-products/submissions` | "STATION_MANAGER" | `ManagerMyProductController.submissions` |
 | `DELETE` | `/api/manager/my-products/{id}` | "STATION_MANAGER" | `ManagerMyProductController.delete` |
 | `PUT` | `/api/manager/my-products/{id}` | "STATION_MANAGER" | `ManagerMyProductController.update` |
@@ -340,7 +340,7 @@
 | `POST` | `/api/manager/inter-station-settlements/{orderId}/price-by-listed` | {"STATION_MANAGER"} | `ManagerInterStationSettlementController.priceByListed` —— 改按**挂牌价**结（差价由卖票站承担，写改价快照） |
 | `POST` | `/api/manager/inter-station-settlements/{orderId}/reverse` | {"STATION_MANAGER"} | `ManagerInterStationSettlementController.reverse` —— **冲销**已结清的那笔（订单取消后留在台账里等人点，冲销不删原记录） |
 | `GET` | `/api/payments` | {"STATION_MANAGER"} | `PaymentController.listAll` |
-| `POST` | `/api/payments` | {"STATION_MANAGER"} | `PaymentController.create` |
+| `POST` | `/api/payments` | 客户本人 / 本履约站站长代录 | `PaymentController.create`；订单付款方式须与建单确认一致，锁内在幂等返回前校验；不支持从此入口隐式换价或换付款方式。 |
 | `GET` | `/api/payments/all` | {"STATION_MANAGER"} | `PaymentController.listAllBackup` |
 | `GET` | `/api/payments/by-customer` | {"STATION_MANAGER"} | `PaymentController.listByCustomerId` |
 | `GET` | `/api/payments/by-order` | {"STATION_MANAGER"} | `PaymentController.listByOrderId` |

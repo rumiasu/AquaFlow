@@ -123,6 +123,12 @@ Page({
         selectedCount: 0, selectedAmountText: '', ordersLoading: false, ordersError: '' })
     }
     this._viewSession = session
+    this._orderNavigating = false
+    if (this.data.customer) {
+      this._settleRevision = (this._settleRevision || 0) + 1
+      this.setData({ orders: [], selectedCount: 0, selectedAmountText: '', ordersLoading: true, ordersError: '' })
+      this.loadOrders()
+    }
     this.load()
   },
 
@@ -274,8 +280,17 @@ Page({
    * 勾选态存在**订单行自己身上**（`checked`），不用 `selected[id]` 这种映射 ——
    * WXML 里按动态键取对象属性容易踩解析差异，而"勾了没反应"是静默失败，最难查。
    */
+  onOpenOrder(e) {
+    if (this._orderNavigating || this._hidden || this._unloaded || this.data.loadError || this.data.ordersError || this.data.ordersLoading) return
+    const session = receivableSession(), id = e.currentTarget.dataset.id
+    if (!session.allowed || !sameSession(this._viewSession, session) || !sameSession(this._ordersReadSession, session)
+      || !validId(id) || !this.data.customer || !this.data.orders.some(o => String(o.orderId) === String(id) && String(o.customerId) === String(this.data.customer.customerId))) return
+    this._orderNavigating = true
+    wx.navigateTo({ url: '/pages/order/detail?id=' + id, fail: () => { this._orderNavigating = false } })
+  },
+
   onToggleOrder(e) {
-    if (this.data.loadError || this.data.ordersError) return
+    if (this.data.loadError || this.data.ordersError || this.data.ordersLoading) return
     const id = Number(e.currentTarget.dataset.id)
     const orders = this.data.orders.map(o =>
       o.orderId === id && canRegister(o) ? Object.assign({}, o, { checked: !o.checked }) : o)

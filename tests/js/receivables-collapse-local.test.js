@@ -4,7 +4,7 @@ const {parseWxml,renderElements}=require('./wxml-tree')
 const file=path.join(ROOT,'miniapp-delivery/pages/station-mgmt/receivables/index.wxml')
 const tree=parseWxml(fs.readFileSync(file,'utf8'))
 function nodes(node,parents=[],out=[]){if(node.tag!=='#text')out.push({node,parents});for(const c of node.children||[])nodes(c,[...parents,node],out);return out}
-const all=nodes(tree), action=name=>all.find(x=>x.node.attrs&&x.node.attrs.bindtap===name)
+const all=nodes(tree), action=name=>all.find(x=>x.node.attrs&&(x.node.attrs.bindtap===name||x.node.attrs.catchtap===name))
 assert(action('onPickCustomer'));assert(action('onBack'));assert.equal(all.filter(x=>x.node.attrs&&x.node.attrs.bindtap==='onBack').length,1)
 assert(!fs.readFileSync(file,'utf8').includes('返回列表'))
 for(const name of ['onEditTerms','onShowTermsHelp','onToggleOrder','onSelectAll','onSettle']){

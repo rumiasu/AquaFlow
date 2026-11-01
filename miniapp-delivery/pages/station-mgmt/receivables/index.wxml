@@ -102,8 +102,8 @@
       </view>
       <view class="empty" wx:elif="{{!orders.length}}">没有待收订单。</view>
       <view class="row" wx:for="{{ordersError || loadError ? [] : orders}}" wx:key="orderId"
-            bindtap="onToggleOrder" data-id="{{item.orderId}}">
-        <view class="check {{item.checked ? 'check-on' : ''}}"><text wx:if="{{item.checked}}">✓</text></view>
+            bindtap="onOpenOrder" data-id="{{item.orderId}}">
+        <view class="check-target" catchtap="onToggleOrder" data-id="{{item.orderId}}" aria-role="checkbox" aria-checked="{{item.checked}}" aria-label="选择订单"><view class="check {{item.checked ? 'check-on' : ''}}"><text wx:if="{{item.checked}}">✓</text></view></view>
         <view class="row-main">
           <text class="row-title">订单 #{{item.orderId}} · {{item.amountText}}</text>
           <text class="row-sub">
@@ -113,6 +113,7 @@
           </text>
           <text class="row-danger" wx:if="{{item.overdue}}">已逾期 {{item.overdueDays}} 天</text>
         </view>
+        <text class="order-detail-link">查看详情 ›</text>
       </view>
     </view>
 

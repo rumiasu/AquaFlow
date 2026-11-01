@@ -53,3 +53,6 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 .settlement-total > view { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px; min-width:0; max-width:100%; }.settlement-label { font-size:13px; }
 
 .receivable-customer-toggle { display:flex; align-items:center; gap:12px; min-height:44px; }
+
+.check-target { display:flex; align-items:center; justify-content:center; flex:none; width:44px; min-height:44px; margin-left:-10px; }
+.order-detail-link { flex:none; color:var(--af-primary); font-size:13px; line-height:20px; }

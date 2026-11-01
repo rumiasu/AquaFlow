@@ -8,8 +8,13 @@ assert.equal(master.readUInt32BE(16), 564); assert.equal(master.readUInt32BE(20)
 assert.equal(crypto.createHash('sha256').update(master).digest('hex'), '79e9c99119fe6fb732b58942e51d57c2a57c29966526bfe4641dc1675c1f4c71')
 const images = ['miniapp-user', 'miniapp-delivery'].map(app => read(app + '/assets/logo/aiquan-wordmark.png'))
 assert(images[0].equals(images[1]), 'both applications use the identical wordmark')
-for (const image of images) { assert.equal(image.readUInt32BE(16), 282); assert.equal(image.readUInt32BE(20), 170); assert(image.length < 60000) }
+for (const image of images) { assert.equal(image.readUInt32BE(16), 282); assert.equal(image.readUInt32BE(20), 170); assert.equal(image[25], 6, 'wordmark PNG must retain an alpha channel'); assert(image.length < 60000) }
 for (const app of ['miniapp-user', 'miniapp-delivery']) {
+ const css = read(app + '/pages/login/index.wxss').toString('utf8')
+ assert.match(css, /\.af-brand-wordmark \{ width:144px; padding:0; background:transparent; \}/)
+ assert.match(css, app === 'miniapp-user' ? /\.logo-wrap \{ background:transparent; border:0; \}/ : /\.lv2-login-mark \{ background:transparent; border-radius:0; \}/)
+ const icon = read(app + (app === 'miniapp-user' ? '/assets/logo/aiquan-mark.png' : '/assets/logo/aiquan-delivery-mark.png'))
+ assert.equal(icon[25], 6, 'brand icon PNG must retain an alpha channel')
  const source = read(app + '/pages/login/index.wxml').toString('utf8')
  assert.match(source, /<image[^>]+src="\/assets\/logo\/aiquan-wordmark\.png"[^>]+mode="aspectFit"[^>]+aria-label="艾泉 AquaFlow"[^>]+binderror="onBrandWordmarkError"/)
  assert(source.includes('wx:else class="af-brand-wordmark-fallback"'))

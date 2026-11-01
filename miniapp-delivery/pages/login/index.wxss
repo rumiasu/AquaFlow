@@ -204,7 +204,9 @@
 .af-brand-english { display:block; color:#1264d6; font-size:16px; line-height:22px; font-weight:600; }
 .af-brand-function { display:block; color:#637083; font-size:14px; line-height:22px; margin-top:8px; }
 
-/* The approved raster wordmark retains its white background. */
-.af-brand-wordmark { width:160px; padding:8px; border-radius:10px; background:#fff; }
-.af-brand-wordmark-image { display:block; width:160px; height:96.5px; }
+/* Transparent artwork sits directly on the login canvas. */
+.af-brand-wordmark { width:144px; padding:0; background:transparent; }
+.af-brand-wordmark-image { display:block; width:144px; height:87px; }
 .af-brand-wordmark-fallback { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+
+.lv2-login-mark { background:transparent; border-radius:0; }

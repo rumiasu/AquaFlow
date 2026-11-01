@@ -30,6 +30,7 @@
 - 登记原遗漏的 approved-asset-pages、delivery-g04-typography-contrast、fee-sheet-redesign、ordinary-form-retry、plain-user-copy、product-phone-feedback、product-simple-upload、scene-retry、station-status-loading、ui-scene 十套。补 scene-retry 的三组同步完成标记；企业资料取消按现有确认放弃行为修正旧断言；启动 mock 补 business-dialog，收款文案断言按现行实际可见含义更新。
 - 保留但明确排除 ua-customer-profile-visible-states（与 customer-profile-visible-states 重复49例）及 ua-mine-service-hierarchy（旧标签合同由 mine-service-hierarchy 替代）；没有删除旧文件或倒改产品规则。
 - 新增假 Git 和未登记合成套件负对照；修复前均能检出误放行。十套恢复登记及两套治理回归共十二套、109个计数项通过；这不是完整两端或后端全量结果。
+- Astra 复核指出新增 shell 用例依赖作者本机路径。已改为遵循 `AQUAFLOW_TEST_SH`，未指定时从 PATH 找 Bash；不再固定盘符，也不在子 shell 再找第二个 Bash。新增 Windows/非 Windows、自定义含空格路径选择和实际缺工具报错负对照；工具缺失仍让套件失败，不跳过验证。
 
 ## 保存反馈：资料与计件单价
 

@@ -15,6 +15,29 @@ function sameStationSession(proof) {
   return proof && proof.app === now.app && proof.generation === now.generation && proof.identity === now.identity && now.app.canAccessStationBusiness()
 }
 
+
+// Compare the desired saved fields before clearing a draft, including an uncertain-write readback.
+function savedStationMatches(station, origin, payload, strictKeep) {
+  if (!station || Number(station.id) !== Number(origin.id) || station.address !== payload.address || typeof station.name !== 'string') return false
+  if (Object.prototype.hasOwnProperty.call(payload, 'name') && station.name !== payload.name) return false
+  if (Object.prototype.hasOwnProperty.call(payload, 'phone') && station.phone !== payload.phone) return false
+  if (!Object.prototype.hasOwnProperty.call(station, 'lat') || !Object.prototype.hasOwnProperty.call(station, 'lng')) return false
+  const lat = station.lat, lng = station.lng
+  const empty = lat == null && lng == null
+  const paired = typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng)
+  if (!empty && !paired) return false
+  const close = (a, b) => typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= 0.00000051
+  if (payload.coordinateMode === 'CLEAR') return empty
+  if (payload.coordinateMode === 'SET') return paired && close(lat, payload.lat) && close(lng, payload.lng)
+  if (!strictKeep) return true
+  if (!Object.prototype.hasOwnProperty.call(origin, 'lat') || !Object.prototype.hasOwnProperty.call(origin, 'lng')) return false
+  return empty ? origin.lat == null && origin.lng == null : close(lat, origin.lat) && close(lng, origin.lng)
+}
+function saveFeedback(page, message, toast, success) {
+  page.setData({ saveMessage: message })
+  if (toast && typeof wx.showToast === 'function') wx.showToast({ title: toast, icon: success ? 'success' : 'none' })
+}
+
 Page({
   onSettingsSection(e) { jumpToSettingSection(this, e) },
   data: {
@@ -160,8 +183,8 @@ Page({
     if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '水站资料尚未保存，离开将丢失修改' })
     if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
   },
-  onNameInput(e) { if (!this.data.saving) { this.setData({ 'form.name': e.detail.value }); this.markInfoDraft() } },
-  onPhoneInput(e) { if (!this.data.saving) { this.setData({ 'form.phone': e.detail.value }); this.markInfoDraft() } },
+  onNameInput(e) { if (!this.data.saving) { this.setData({ 'form.name': e.detail.value, saveMessage: '' }); this.markInfoDraft() } },
+  onPhoneInput(e) { if (!this.data.saving) { this.setData({ 'form.phone': e.detail.value, saveMessage: '' }); this.markInfoDraft() } },
   onAddressInput(e) {
     if (this.data.saving || this.data.coordSaving) return
     const value = e.detail.value
@@ -175,42 +198,56 @@ Page({
 
   // 地址和坐标由服务端同一次事务写入；旧接口不可回退串行写入。
   async onSave() {
-    if (this.data.saving || this.data.coordSaving || !sameStationSession(this._stationSession)) return
+    if (this.data.saving || this.data.coordSaving) return
+    if (!sameStationSession(this._stationSession)) { saveFeedback(this, '登录状态已变化，请重新进入水站资料页面。', '登录状态已变化'); return }
     const proof = this._stationSession, origin = this.data.origin || {}, form = this.data.form
+    const current = () => sameStationSession(proof) && !this._stationUnloaded
     const user = proof.app.globalData.userInfo || {}
-    if (user.role !== 'STATION_MANAGER' || Number(origin.id) !== proof.stationId) { this.setData({ saveMessage: '当前身份无法修改此水站资料。' }); return }
+    if (user.role !== 'STATION_MANAGER' || Number(origin.id) !== proof.stationId) { saveFeedback(this, '当前身份无法修改此水站资料。', '无法保存'); return }
     const name = String(form.name || '').trim(), base = String(form.address || '').trim(), extra = String(this.data.addressSupplement || '').trim()
     const address = extra ? base + ' ' + extra : base
-    if (!name || !base || address.length > 200) { this.setData({ saveMessage: !name ? '请填写水站名称。' : !base ? '请填写或选择水站地址。' : '地址不能超过200个字。' }); return }
+    if (!name || !base || address.length > 200) { saveFeedback(this, !name ? '请填写水站名称。' : !base ? '请填写或选择水站地址。' : '地址不能超过200个字。', '请检查资料'); return }
     const mode = this.data.coordinateMode, point = this.data.coord || {}
-    if (!['SET','KEEP','CLEAR'].includes(mode) || mode === 'SET' && (!Number.isFinite(point.lat) || Math.abs(point.lat) > 90 || !Number.isFinite(point.lng) || Math.abs(point.lng) > 180)) { this.setData({ saveMessage: '地图位置不完整，请重新选择。' }); return }
+    if (!['SET','KEEP','CLEAR'].includes(mode) || mode === 'SET' && (!Number.isFinite(point.lat) || Math.abs(point.lat) > 90 || !Number.isFinite(point.lng) || Math.abs(point.lng) > 180)) { saveFeedback(this, '地图位置不完整，请重新选择。', '请检查位置'); return }
     const phone = String(form.phone || '').trim(), oldPhone = String(origin.phone || '').trim()
-    if (!phone && oldPhone) { this.setData({ saveMessage: '当前无法清空联系电话，请填写后保存。' }); return }
+    if (!phone && oldPhone) { saveFeedback(this, '当前无法清空联系电话，请填写后保存。', '请填写电话'); return }
     const payload = { address, coordinateMode: mode, ...(name !== String(origin.name || '').trim() ? { name } : {}),
       ...(phone && phone !== oldPhone ? { phone } : {}), ...(mode === 'SET' ? { lat: point.lat, lng: point.lng } : {}) }
     this.setData({ saving: true, saveMessage: '正在保存…' })
+    let confirmed = null, checkedAfterUncertain = false
     try {
-      const res = await updateStationProfile(origin.id, payload)
-      if (!sameStationSession(proof) || this._stationUnloaded) return
-      const d = res && res.data
-      const lat = d && d.lat, lng = d && d.lng
-      const paired = (lat == null && lng == null) || (typeof lat === 'number' && Number.isFinite(lat) && typeof lng === 'number' && Number.isFinite(lng))
-      const matchesPoint = mode === 'CLEAR' ? lat == null && lng == null : mode === 'SET'
-        ? paired && lat != null && Math.abs(lat - point.lat) <= 0.00000051 && Math.abs(lng - point.lng) <= 0.00000051 : paired
-      if (!res || res.code !== 0 || !d || Number(d.id) !== Number(origin.id) || d.address !== address || typeof d.name !== 'string'
-        || !Object.prototype.hasOwnProperty.call(d, 'lat') || !Object.prototype.hasOwnProperty.call(d, 'lng') || !matchesPoint) throw Object.assign(new Error('保存结果尚未核实，请重新读取资料。'), { resultUnknown: true })
+      try {
+        const res = await updateStationProfile(origin.id, payload)
+        if (!current()) return
+        if (!res || res.code !== 0 || !savedStationMatches(res.data, origin, payload, false)) throw Object.assign(new Error('保存回执尚未核实'), { resultUnknown: true })
+        confirmed = res.data
+      } catch (err) {
+        if (!current()) return
+        const unavailable = err && ([404, 405].includes(Number(err.statusCode)) || [404, 405].includes(Number(err.backendCode)))
+        if (unavailable) { saveFeedback(this, '当前服务尚不支持地址和位置一起保存，请联系维护人员更新服务。输入已保留。', '服务需更新'); return }
+        if (err && err.businessRejected) { saveFeedback(this, err.message || '保存未通过，请核对后重试。', '保存未完成'); return }
+        if (err && err.requestMayHaveOccurred === false) { saveFeedback(this, '暂时连不上服务，输入已保留，请检查网络后重试。', '连接未成功'); return }
+        // A timeout or malformed receipt may follow a committed write. Read current state once; never issue a second PUT.
+        this.setData({ saveMessage: '正在核对保存结果…' })
+        try {
+          const read = await getMyStation()
+          if (!current()) return
+          if (read && (read.code === 0 || read.code === 200) && savedStationMatches(read.data, origin, payload, true)) {
+            confirmed = read.data; checkedAfterUncertain = true
+          }
+        } catch (_) { /* Keep the input if readback is unavailable. */ }
+        if (!current()) return
+        if (!confirmed) { saveFeedback(this, '暂未确认保存结果，输入已保留；请稍后退出并重新打开本页核对。', '请核对资料'); return }
+      }
+      if (!current()) return
       this.onDiscardInfoDraft()
-      this.setData({ origin: d, form: { name: d.name || '', phone: d.phone || '', address: d.address },
-        coord: { lat: d.lat == null ? null : d.lat, lng: d.lng == null ? null : d.lng }, coordinateMode: 'KEEP', addressSupplement: '',
-        infoDirty: false, infoDraftNotice: '', saveMessage: '水站资料已保存。' })
+      this.setData({ origin: confirmed, form: { name: confirmed.name || '', phone: confirmed.phone || '', address: confirmed.address },
+        coord: { lat: confirmed.lat == null ? null : confirmed.lat, lng: confirmed.lng == null ? null : confirmed.lng }, coordinateMode: 'KEEP', addressSupplement: '',
+        infoDirty: false, infoDraftNotice: '', saveMessage: checkedAfterUncertain ? '已重新读取，当前资料与提交内容一致。' : '水站资料已保存。' })
       if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
+      if (typeof wx.showToast === 'function') wx.showToast({ title: checkedAfterUncertain ? '资料已核对' : '保存成功', icon: 'success' })
       this.refreshModuleSetup()
-    } catch (err) {
-      if (!sameStationSession(proof) || this._stationUnloaded) return
-      const unavailable = err && (Number(err.statusCode) === 404 || Number(err.statusCode) === 405)
-      this.setData({ saveMessage: unavailable ? '当前服务尚不支持地址和位置一起保存，请联系维护人员更新服务。输入已保留。'
-        : err && err.businessRejected ? (err.message || '保存未通过，请核对后重试。') : '暂未确认保存结果，输入已保留；请重新读取资料核对。' })
-    } finally { if (sameStationSession(proof) && !this._stationUnloaded) this.setData({ saving: false }) }
+    } finally { if (current()) this.setData({ saving: false }) }
   },
 
   onPickCoordinates() {

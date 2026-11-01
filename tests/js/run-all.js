@@ -41,6 +41,7 @@ const SUITES = [
   { file: 'argon-interactions-crosscheck.test.js', name: '资产切站、真实弹层与收款确认交叉复核' },
   { file: 'ut-shared-dialog-contract.test.js', name: '集成回归：ut-shared-dialog-contract' },
   { file: 'station-profile-atomic.test.js', name: 'station profile address and coordinates' },
+  { file: 'station-profile-save-recovery.test.js', name: 'station profile save feedback and safe readback' },
   { file: 'df-package-flows.test.js', name: '集成回归：df-package-flows' },
   { file: 'address-fusion-local.test.js', name: '地址选点、门牌与列表管理' },
   { file: 'ua-address-company-guards.test.js', name: 'U-A 地址与企业编辑身份保护' },

@@ -1,6 +1,6 @@
 const { createDraftGuard } = require('../../utils/draft-guard')
 const { showBusinessModal } = require('../../utils/business-dialog')
-const { updateProfile } = require('../../api/auth')
+const { updateProfile, getMe } = require('../../api/auth')
 const { STORAGE_KEYS } = require('../../utils/storage-keys')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 
@@ -9,11 +9,14 @@ Page({
     loading: false,
     submitting: false,
     saveError: '',
+    profileReadPending: false,
     nickname: '',
     phone: '', draftState: 'empty', draftMessage: ''
   },
 
   onLoad() {
+    this._unloaded = false; this._profileFlight = null; this._pendingProfileSave = null
+    this.setData({ profileReadPending: false, submitting: false, profileReadPending: false })
     this._session = captureSession()
     const needLogin = !this._session.loggedIn || !this._session.customerId
     this.setData({ needLogin })
@@ -95,46 +98,90 @@ Page({
     else if (!dirty && wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload()
   },
   onNicknameInput(e) {
+    if (this.data.submitting) return
     this._draftRevision = (this._draftRevision || 0) + 1; this.setData({ nickname: e.detail.value }, () => this.updateLeaveWarning())
   },
 
   onPhoneInput(e) {
+    if (this.data.submitting) return
     this._draftRevision = (this._draftRevision || 0) + 1; this.setData({ phone: e.detail.value }, () => this.updateLeaveWarning())
   },
 
+  // 2026-11-01 F-01: bind the receipt to its original flight; separate the write from local synchronization.
+  profileFlightCurrent(flight) {
+    return !this._unloaded && this._profileFlight === flight && isCurrentSession(flight.session)
+  },
+  async readProfileSave(flight) {
+    try {
+      if (typeof getMe !== 'function') return false
+      const response = await getMe(), value = response && response.data
+      if (!this.profileFlightCurrent(flight) || !value || String(value.customerId) !== String(flight.actor)
+          || value.nickname !== flight.saved.nickname || (value.phone || '') !== flight.saved.phone) return false
+      return true
+    } catch (_) { return false }
+  },
+  finishProfileSave(flight, verified) {
+    if (!this.profileFlightCurrent(flight)) return
+    const unchanged = this.data.nickname === flight.input.nickname && this.data.phone === flight.input.phone
+    this._original = { ...flight.saved }
+    const app = getApp()
+    const userInfo = { ...(app.globalData.userInfo || {}), ...flight.saved }
+    app.globalData.userInfo = userInfo
+    let cacheSynced = true
+    try { wx.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo) } catch (_) { cacheSynced = false }
+    if (unchanged) this.setData({ ...flight.saved })
+    this._saveCompleted = true
+    const cleared = unchanged ? this.clearSavedDraft() : false
+    if (!unchanged) this._saveCompleted = false
+    this.updateLeaveWarning()
+    this._pendingProfileSave = null
+    this.setData({ profileReadPending: false, saveError: cacheSynced ? '' : '资料已保存，本机信息尚未同步，请保留当前页面。' })
+    wx.showToast({ title: verified ? '已核对，资料已保存' : '保存成功', icon: 'success' })
+    if (cacheSynced && cleared && unchanged) setTimeout(() => {
+      if (this.profileFlightCurrent(flight) && this.data.nickname === flight.saved.nickname
+          && this.data.phone === flight.saved.phone) wx.navigateBack()
+    }, 1500)
+  },
+  async onRetryProfileRead() {
+    const flight = this._pendingProfileSave
+    if (!flight || !this.profileFlightCurrent(flight) || this.data.submitting) return
+    this.setData({ submitting: true })
+    try {
+      if (await this.readProfileSave(flight)) this.finishProfileSave(flight, true)
+      else if (this.profileFlightCurrent(flight)) this.setData({ saveError: '保存结果仍未确认，输入已保留，请稍后核对。' })
+    } finally { if (this.profileFlightCurrent(flight)) this.setData({ submitting: false }) }
+  },
   async onSubmit() {
     if (this.data.submitting || this._unloaded) return
     if (this.data.needLogin) { this.setData({ saveError: '请先登录后修改本人资料。' }); return }
     if (!isCurrentSession(this._session)) { this.setData({ saveError: '登录状态已变化，请返回后重新进入个人资料。' }); return }
-    const { nickname, phone } = this.data
-    if (!nickname.trim()) {
-      wx.showToast({ title: '请输入昵称', icon: 'none' })
-      return
-    }
-    if (phone && !/^1\d{10}$/.test(phone)) {
-      wx.showToast({ title: '手机号格式不正确', icon: 'none' })
-      return
-    }
-
-    this.setData({ submitting: true, saveError: '' })
+    const input = { nickname: this.data.nickname, phone: this.data.phone }
+    if (!input.nickname.trim()) { wx.showToast({ title: '请输入昵称', icon: 'none' }); return }
+    if (input.phone && !/^1\d{10}$/.test(input.phone)) { wx.showToast({ title: '手机号格式不正确', icon: 'none' }); return }
+    const flight = { session: this._session, input, actor: this._session.customerId,
+      // The existing update-profile contract treats an empty phone as KEEP, not CLEAR.
+      saved: { nickname: input.nickname.trim(), phone: input.phone.trim() || this._original.phone || '' } }
+    this._profileFlight = flight; this._pendingProfileSave = null
+    this.setData({ profileReadPending: false, submitting: true, profileReadPending: false, saveError: '' })
+    let confirmed = false, verified = false
     try {
-      await updateProfile({ nickname: nickname.trim(), phone: phone.trim() })
-      if (this._unloaded || !isCurrentSession(this._session)) return
-      // 更新本地存储
-      const app = getApp()
-      const userInfo = app.globalData.userInfo || {}
-      userInfo.nickname = nickname.trim()
-      userInfo.phone = phone.trim()
-      app.globalData.userInfo = userInfo
-      wx.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo)
-
-      this._original = { nickname: nickname.trim(), phone: phone.trim() }; this._saveCompleted = true; const cleared = this.clearSavedDraft(); this.updateLeaveWarning()
-      wx.showToast({ title: '保存成功', icon: 'success' })
-      if (cleared) setTimeout(() => { if (!this._unloaded && isCurrentSession(this._session)) wx.navigateBack() }, 1500)
+      await updateProfile({ nickname: input.nickname.trim(), phone: input.phone.trim() })
+      confirmed = true
     } catch (error) {
-      if (!this._unloaded && isCurrentSession(this._session)) this.setData({ saveError: '资料未能保存，输入已保留，请重试。' })
+      if (!this.profileFlightCurrent(flight)) return
+      if (error && error.businessRejected) {
+        this.setData({ saveError: '资料未保存，输入已保留，请核对后重试。' })
+      } else {
+        verified = confirmed = await this.readProfileSave(flight)
+        if (!confirmed && this.profileFlightCurrent(flight)) {
+          this._pendingProfileSave = flight
+          this.setData({ profileReadPending: true, saveError: '保存结果未确认，输入已保留。请先核对结果。' })
+        }
+      }
     } finally {
-      if (!this._unloaded) this.setData({ submitting: false })
+      // Local cache and draft failures cannot be reported as a rejected server write.
+      if (confirmed && this.profileFlightCurrent(flight)) this.finishProfileSave(flight, verified)
+      if (this.profileFlightCurrent(flight)) this.setData({ submitting: false })
     }
   },
   onUnload() { this._unloaded = true }

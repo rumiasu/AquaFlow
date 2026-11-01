@@ -1,5 +1,5 @@
 // 认证相关接口（后端: LoginController）
-const { post } = require('../utils/request')
+const { post, get } = require('../utils/request')
 const { API } = require('../config/api')
 const { isDevelopEnv, isTestLoginClientEnv } = require('../config/api')
 
@@ -31,4 +31,6 @@ const login = (username, password) => {
   return post(API.LOGIN, { username, password })
 }
 
-module.exports = { testLogin, wxLogin, devLogin, updateProfile, login }
+const getMe = () => get(API.ME)
+
+module.exports = { getMe, testLogin, wxLogin, devLogin, updateProfile, login }

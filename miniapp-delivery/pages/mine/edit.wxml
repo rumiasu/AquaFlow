@@ -15,6 +15,7 @@
   </view>
 
   <text class="edit-error" wx:if="{{error}}">{{error}}</text>
+  <button wx:if="{{profileReadPending}}" class="af-action af-action--quiet" disabled="{{submitting}}" bindtap="onRetryProfileRead">核对保存结果</button>
   <button bindtap="onSubmit" disabled="{{submitting}}" loading="{{submitting}}" class="af-action af-action--primary af-action--block">{{submitting ? '保存中...' : '保存'}}</button>
 </view>
 <business-dialog id="business-dialog" />

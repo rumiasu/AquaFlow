@@ -42,6 +42,7 @@
                disabled="{{savingRate}}" bindinput="onRateInput" data-field="floorFreeLevel" placeholder="层数" />
       </view>
 
+      <view wx:if="{{rateSaveNotice}}" class="draft-note">{{rateSaveNotice}}<button wx:if="{{rateRefreshPending}}" disabled="{{savingRate}}" class="af-action af-action--quiet" bindtap="onRetryRateRefresh">刷新已保存单价</button></view>
       <button class="af-action af-action--primary af-action--block form-submit" disabled="{{!isManager || savingRate || loading || payrollReadError}}" bindtap="onSaveRate">
         {{savingRate ? '保存中…' : '保存'}}
       </button>

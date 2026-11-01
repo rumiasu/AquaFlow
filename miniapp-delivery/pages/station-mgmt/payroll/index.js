@@ -117,7 +117,7 @@ Page({
       floorBonusPerLevel: '',
       floorFreeLevel: ''
     },
-    savingRate: false,
+    savingRate: false, rateSaveNotice: '', rateRefreshPending: false,
     // ---- 结算单 ----
     payrolls: [], filteredPayrolls: [], payrollKeyword: '', payrollStart: '', payrollEnd: '', payrollListError: '', payrollReadError: '', payrollScope: '', payrollLimit: 100,
     payrollBeforeId: null, payrollHasMore: false, payrollLoadingMore: false, payrollMoreError: '',
@@ -279,6 +279,9 @@ Page({
     return context.app === current.app && context.stationId === current.stationId && context.identity === current.identity
   },
   invalidatePayrollReads() {
+    this._rateSaveEpoch = (this._rateSaveEpoch || 0) + 1
+    this._rateSaveFlight = null; this._savedRateRefresh = null
+    this.setData({ savingRate: false, rateSaveNotice: '', rateRefreshPending: false })
     this.invalidatePreview()
     this._payrollLoadSeq = (this._payrollLoadSeq || 0) + 1
     this._payrollMoreSeq = (this._payrollMoreSeq || 0) + 1
@@ -631,7 +634,7 @@ Page({
 
   async onSaveRate() {
     if (!this.canManage() || this.data.savingRate || this.data.loading || this.data.payrollReadError) return
-    const f = this.data.rateForm
+    const f = { ...this.data.rateForm }
     if (!/^\d+(\.\d{1,2})?$/.test(String(f.perBucketAmount).trim())) {
       wx.showToast({ title: '请填写计件金额，不计件请填0', icon: 'none' }); return
     }
@@ -641,29 +644,71 @@ Page({
     if (f.productId === '0' && this.num(f.floorBonusPerLevel) > 0 && !/^\d+$/.test(String(f.floorFreeLevel).trim())) {
       wx.showToast({ title: '启用楼层补贴后请填免费层数', icon: 'none' }); return
     }
-    this.setData({ savingRate: true })
+    const flight = { context: this.payrollContext(), epoch: this._rateSaveEpoch || 0,
+      actor: this.adjustmentActor(), input: f }
+    this._rateSaveFlight = flight; this._savedRateRefresh = null
+    this.setData({ savingRate: true, rateSaveNotice: '', rateRefreshPending: false })
+    // 2026-11-01 C-02: a confirmed PUT stays confirmed even when its following reads fail.
     try {
       await put(PIECE_RATE, {
-        productId: Number(f.productId),
-        perBucketAmount: this.num(f.perBucketAmount),
-        floorBonusPerLevel: this.num(f.floorBonusPerLevel),
-        floorFreeLevel: this.num(f.floorFreeLevel)
+        productId: Number(f.productId), perBucketAmount: this.num(f.perBucketAmount),
+        floorBonusPerLevel: this.num(f.floorBonusPerLevel), floorFreeLevel: this.num(f.floorFreeLevel)
       })
-      if (this._rateDrafts) this._rateDrafts.delete(this.adjustmentActor() + ':' + f.productId)
+    } catch (err) {
+      if (this.rateSaveCurrent(flight)) {
+        this.setData({ rateSaveNotice: err && err.businessRejected ? '单价未保存，请核对后重试。' : '单价保存结果未确认，请先刷新列表核对。' })
+        wx.showToast({ title: err && err.businessRejected ? '单价未保存' : '保存结果未确认', icon: 'none' })
+      }
+      if (this.rateSaveCurrent(flight)) this.setData({ savingRate: false })
+      return
+    }
+    if (!this.rateSaveCurrent(flight)) return
+    this._savedRateRefresh = flight
+    let draftSynced = true
+    if (JSON.stringify(this.data.rateForm) === JSON.stringify(f)) {
+      if (this._rateDrafts) this._rateDrafts.delete(flight.actor + ':' + f.productId)
       this._rateDraftChanged = false
       this.setData({ rateDraftNotice: '' })
-      this.persistPayrollDraft()
-      wx.showToast({ title: '已保存', icon: 'success' })
+      try { this.persistPayrollDraft() } catch (_) { draftSynced = false }
+    }
+    flight.draftSynced = draftSynced
+    this.setData({ rateSaveNotice: '单价已保存，正在刷新列表。', rateRefreshPending: true })
+    wx.showToast({ title: '单价已保存', icon: 'success' })
+    try { await this.refreshSavedRate(flight) }
+    finally { if (this.rateSaveCurrent(flight)) this.setData({ savingRate: false }) }
+  },
+
+  rateSaveCurrent(flight) {
+    return !!flight && this._rateSaveFlight === flight && (this._rateSaveEpoch || 0) === flight.epoch
+      && this.payrollContextCurrent(flight.context)
+  },
+  async refreshSavedRate(flight) {
+    if (!this.rateSaveCurrent(flight)) return
+    try {
       const res = await get(PIECE_RATE)
-      const d = this.decorateRates((res.data || {}).rates || [], this.data.products)
+      if (!this.rateSaveCurrent(flight)) return
+      if (!res || !res.data || !Array.isArray(res.data.rates)) throw new Error('invalid readback')
+      const d = this.decorateRates(res.data.rates, this.data.products)
       this.setData({ rates: d.rates, rateProducts: d.products, defaultCurrentText: d.defaultCurrentText,
         rateReady: d.rateReady, hasProductZero: d.hasProductZero, defaultRateText: d.defaultRateText })
-      await this.loadPreview()
-    } catch (err) {
-      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
-    } finally {
-      this.setData({ savingRate: false })
+    } catch (_) {
+      if (this.rateSaveCurrent(flight)) this.setData({ rateSaveNotice: '单价已保存，列表尚未刷新；当前显示的是之前的数据。', rateRefreshPending: true })
+      return
     }
+    try { await this.loadPreview() }
+    catch (_) { if (this.rateSaveCurrent(flight)) this.setData({ previewError: '应发预览暂未刷新，请重试。' }) }
+    if (!this.rateSaveCurrent(flight)) return
+    const previewFailed = !!this.data.previewError
+    this.setData({ rateSaveNotice: previewFailed ? '单价已保存，应发预览尚未刷新。'
+      : flight.draftSynced === false ? '单价已保存，输入草稿清理尚未确认。' : '单价已保存，列表已刷新。',
+      rateRefreshPending: previewFailed })
+  },
+  async onRetryRateRefresh() {
+    const flight = this._savedRateRefresh
+    if (!this.rateSaveCurrent(flight) || this.data.savingRate) return
+    this.setData({ savingRate: true })
+    try { await this.refreshSavedRate(flight) }
+    finally { if (this.rateSaveCurrent(flight)) this.setData({ savingRate: false }) }
   },
 
   /* ---------------- 结算单 ---------------- */

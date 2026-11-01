@@ -15,6 +15,7 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'save-result-feedback.test.js', name: '资料写入成功、缓存失败与结果未知读回' },
   { file: 'suite-registration.test.js', name: 'suite discovery, exclusions and completion negative controls' },
   { file: 'secret-scan-fail-closed.test.js', name: 'secret scanner distinguishes clean grep from execution failure' },
   { file: 'approved-asset-pages.test.js', name: 'approved asset page contracts' },

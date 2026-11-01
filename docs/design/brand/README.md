@@ -8,3 +8,5 @@
 原始裁剪只用于留存，不进入小程序包；运行图片的源文件路径不变，页面以 `aspectFit` 显示。
 
 `aiquan-customer-master.png` 和 `aiquan-delivery-reference.png` 为旧版设计留档，不再作为当前运行图的来源。
+
+`aiquan-wordmark-source.png` 为原始首版品牌图矩形裁剪（原图像素坐标 346,600 至 910,940，不含图标），保持原白底；两端登录运行资源仅等比缩放，失败时回退可读文字。

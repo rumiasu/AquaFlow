@@ -14,7 +14,9 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
 }
 
 Page({
+  onBrandWordmarkError() { this.setData({ brandWordmarkFailed: true }) },
   data: {
+    brandWordmarkFailed: false,
     loading: false,
     loginError: '',
     agreementCatalog: drafts,

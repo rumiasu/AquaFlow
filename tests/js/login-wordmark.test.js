@@ -1,0 +1,21 @@
+'use strict'
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto')
+const { loadPage, createWx, createApp } = require('./harness')
+const root = path.resolve(__dirname, '../..')
+const read = file => fs.readFileSync(path.join(root, file))
+const master = read('docs/design/brand/aiquan-wordmark-source.png')
+assert.equal(master.readUInt32BE(16), 564); assert.equal(master.readUInt32BE(20), 340)
+assert.equal(crypto.createHash('sha256').update(master).digest('hex'), '79e9c99119fe6fb732b58942e51d57c2a57c29966526bfe4641dc1675c1f4c71')
+const images = ['miniapp-user', 'miniapp-delivery'].map(app => read(app + '/assets/logo/aiquan-wordmark.png'))
+assert(images[0].equals(images[1]), 'both applications use the identical wordmark')
+for (const image of images) { assert.equal(image.readUInt32BE(16), 282); assert.equal(image.readUInt32BE(20), 170); assert(image.length < 60000) }
+for (const app of ['miniapp-user', 'miniapp-delivery']) {
+ const source = read(app + '/pages/login/index.wxml').toString('utf8')
+ assert.match(source, /<image[^>]+src="\/assets\/logo\/aiquan-wordmark\.png"[^>]+mode="aspectFit"[^>]+aria-label="艾泉 AquaFlow"[^>]+binderror="onBrandWordmarkError"/)
+ assert(source.includes('wx:else class="af-brand-wordmark-fallback"'))
+ assert(source.includes('class="af-brand-name">艾泉</text>')); assert(source.includes('class="af-brand-english">AquaFlow</text>'))
+ assert(source.includes(app === 'miniapp-user' ? 'class="af-brand-function">订水</text>' : 'class="af-brand-function">工作台</text>'))
+ const page = loadPage(app + '/pages/login/index.js', { wx: createWx(), app: createApp() })
+ assert.equal(page.data.brandWordmarkFailed, false); page.onBrandWordmarkError(); assert.equal(page.data.brandWordmarkFailed, true)
+}
+console.log('AQUAFLOW_SUITE_OK 5')

@@ -14,6 +14,7 @@ const fs = require('fs')
 const os = require('os')
 
 const SUITES = [
+  { file: 'login-wordmark.test.js', name: 'approved login wordmark and readable fallback' },
   { file: 'packaging-subpackages.test.js', name: 'subpackage routes, dependencies and brand assets' },
   { file: 'temporary-test-login.test.js', name: '临时测试登录环境、凭据清理、身份与迟到回调' },
   { file: 'layout-order-recovery.test.js', name: '未知提交底栏实测与销毁回调隔离' },

@@ -5,7 +5,10 @@
       <view class="logo-wrap">
         <image class="logo" src="/assets/logo/aiquan-mark.png" mode="aspectFit"></image>
       </view>
-      <view class="af-brand-wordmark"><text class="af-brand-name">艾泉</text><text class="af-brand-english">AquaFlow</text></view>
+      <view class="af-brand-wordmark">
+        <image wx:if="{{!brandWordmarkFailed}}" class="af-brand-wordmark-image" src="/assets/logo/aiquan-wordmark.png" mode="aspectFit" aria-label="艾泉 AquaFlow" binderror="onBrandWordmarkError" />
+        <view wx:else class="af-brand-wordmark-fallback"><text class="af-brand-name">艾泉</text><text class="af-brand-english">AquaFlow</text></view>
+      </view>
       <text class="af-brand-function">订水</text>
     </view>
 

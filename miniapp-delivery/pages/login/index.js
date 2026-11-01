@@ -15,7 +15,9 @@ function testLoginMessage(error) {
 }
 
 Page({
+  onBrandWordmarkError() { this.setData({ brandWordmarkFailed: true }) },
   data: {
+    brandWordmarkFailed: false,
     loading: false,
     agreementCatalog: drafts,
     agreementNotice: drafts.notice,

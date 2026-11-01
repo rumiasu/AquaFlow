@@ -1,24 +1,25 @@
 <view class="page b2-page b2-d03 af2-page lv2-page lv2-account">
   <view class="view-tabs"><button data-view="apply" bindtap="onSetView" class="af-choice b2-choice {{activeView === 'apply' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeView === 'apply'}}">✓</text>申请办理</view></button><button data-view="records" bindtap="onSetView" class="af-choice b2-choice {{activeView === 'records' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeView === 'records'}}">✓</text>申请记录</view></button></view>
   <view class="card">
-    <view class="lv2-title-row"><view class="af2-icon-tile lv2-neutral-tile"><icon name="user" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text>个人资料申请</text></view>
-    <text class="body">查询、更正、导出、删除资料或注销账户</text>
-    <text class="body" wx:if="{{options && !options.intakeEnabled}}">申请暂未开放</text>
-    <text class="body" wx:if="{{options.intakeEnabled && options.intakeContact}}">受理联系渠道：{{options.intakeContact}}</text>
-    <button bindtap="onToggleDetails" class="af-action af-action--quiet"><view class="af-action__face">办理说明 {{detailsExpanded ? '收起 −' : '展开 +'}}</view></button>
-    <view wx:if="{{detailsExpanded}}"><text class="body">申请登记后需人工核实，登记不代表办理完成。</text><text class="body" wx:if="{{options.notice}}">{{options.notice}}</text><text class="body">不会自动导出、删除或匿名化资料，也不会注销账户或清理未结业务。</text></view>
+    <view class="lv2-title-row"><view class="af2-icon-tile lv2-neutral-tile"><icon name="user" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text>申请办理范围</text></view>
+    <text class="body">申请查询、更正、导出或删除个人资料，也可申请注销账户。</text>
+    <text class="body account-profile-hint">修改昵称或手机号，请在“我的”页面点击顶部个人信息。</text>
+    <text class="account-intake-status" wx:if="{{options && !options.intakeEnabled}}">申请暂未开放，可查看已登记记录。</text>
+    <text class="body" wx:if="{{options && options.intakeEnabled && options.intakeContact}}">受理联系渠道：{{options.intakeContact}}</text>
+    <button wx:if="{{options && options.intakeEnabled}}" bindtap="onToggleDetails" class="af-action af-action--quiet"><view class="af-action__face">办理说明 {{detailsExpanded ? '收起 −' : '展开 +'}}</view></button>
+    <view wx:if="{{detailsExpanded}}"><text class="body">申请登记后需人工核实，登记不代表办理完成。</text><text class="body" wx:if="{{options && options.notice}}">{{options.notice}}</text><text class="body">不会自动导出、删除或匿名化资料，也不会注销账户或清理未结业务。</text></view>
     <text class="error" wx:if="{{error}}">{{error}}</text>
-    <button bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}" class="af-action af-action--quiet"><view class="af-action__face">重新查询</view></button>
+    <button wx:if="{{error || originalUnavailable}}" bindtap="onRetry" disabled="{{loading}}" loading="{{loading}}" class="af-action af-action--quiet"><view class="af-action__face">重新查询</view></button>
   </view>
-  <view class="card" wx:if="{{activeView === 'apply' && options.closureCheckSupported}}">
+  <view class="card" wx:if="{{activeView === 'apply' && options && options.closureCheckSupported}}">
     <text class="title">注销前检查</text>
     <text class="body">仅检查未结事项，不执行注销</text>
     <text class="error" wx:if="{{checkError}}">{{checkError}}</text>
     <button bindtap="onCheck" disabled="{{loading}}" class="af-action af-action--quiet"><view class="af-action__face">查询未结事项</view></button>
     <text class="body" wx:if="{{check}}">{{check.message}}</text>
-    <view wx:for="{{check.blockingItems}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>
+    <view wx:for="{{check ? check.blockingItems : []}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>
   </view>
-  <view class="card" wx:if="{{activeView === 'apply' && options.intakeEnabled}}">
+  <view class="card" wx:if="{{activeView === 'apply' && options && options.intakeEnabled}}">
     <text class="title">登记本人申请</text>
     <picker range="{{options.requestTypes}}" range-key="label" bindchange="onType" disabled="{{pending || submitting}}"><view class="body">{{selectedLabel}} ›</view></picker>
     <text class="body">未提交内容离页不保存</text>

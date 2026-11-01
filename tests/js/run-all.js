@@ -24,6 +24,7 @@ const SUITES = [
   { file: 'visual-v2-contract.test.js', name: '视觉v2双色兼容、真实队列与待办、完整管理路由及图片回退' },
   { file: 'claim-photo-transport.test.js', name: '认领照片私有上传传输、会话与原凭据恢复' },
   { file: 'profile-claim-hierarchy.test.js', name: 'profile requests and optional claim photo hierarchy' },
+  { file: 'staff-account-request-ui.test.js', name: 'staff profile request states and recovery controls' },
   { file: 'mine-service-hierarchy.test.js', name: '我的资产层级、资料入口与反馈恢复边界' },
   { file: 'copy-clarity-boundaries.test.js', name: '精简界面说明并保留付款及退款状态边界' },
   { file: 'station-pricing-confirmation.test.js', name: '本站首次定价、保存确认、零押金与失败保留' },

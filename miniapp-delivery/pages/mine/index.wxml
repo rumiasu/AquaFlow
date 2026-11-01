@@ -246,7 +246,7 @@
   <view class="menu-list" wx:if="{{isLogin}}">
     <view bindtap="onAccountData" class="af-entry b2-menu-entry">
       <icon name="user" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" />
-      <text class="menu-text">个人资料申请</text>
+      <text class="menu-text">个人信息与账号申请</text>
       <text class="af-entry__arrow">></text>
     </view>
 

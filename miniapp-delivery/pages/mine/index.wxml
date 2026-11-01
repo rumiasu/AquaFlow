@@ -100,19 +100,19 @@
 
     <!-- 配送员：自己的活（口径全部按人统计，见 /api/delivery/stats/today） -->
     <view class="stats-row" wx:else>
-      <view class="stats-item role-stat-current">
+      <view class="stats-item role-stat-current" bindtap="onOpenTaskStat" data-tab="delivering" aria-role="button">
         <text class="stats-value">{{statsReady && todayStats.deliveringCount !== null && todayStats.deliveringCount !== undefined ? todayStats.deliveringCount : '待核实'}}</text>
-        <text class="stats-label">配送中</text>
+        <text class="stats-label">配送中</text><text class="stats-link">查看 ›</text>
       </view>
       <view class="stats-divider"></view>
-      <view class="stats-item">
+      <view class="stats-item" bindtap="onOpenTaskStat" data-tab="completed" aria-role="button">
         <text class="stats-value">{{statsReady && todayStats.completedCount !== null && todayStats.completedCount !== undefined ? todayStats.completedCount : '待核实'}}</text>
-        <text class="stats-label">今日送达</text>
+        <text class="stats-label">今日送达</text><text class="stats-link">查看 ›</text>
       </view>
       <view class="stats-divider"></view>
-      <view class="stats-item role-stat-physical">
+      <view class="stats-item role-stat-physical" bindtap="onBarrelRecords" aria-role="button">
         <text class="stats-value">{{statsReady && todayStats.returnBarrels !== null && todayStats.returnBarrels !== undefined ? todayStats.returnBarrels : '待核实'}}</text>
-        <text class="stats-label">回桶数</text>
+        <text class="stats-label">回桶数</text><text class="stats-link">全部记录 ›</text>
       </view>
     </view>
     <!-- Hide only verified zero counts. Unknown and failed reads stay actionable. -->
@@ -133,7 +133,7 @@
     <text class="personal-shortcuts-heading" wx:if="{{isManager}}">我的配送</text>
     <view class="personal-shortcuts-grid">
       <view bindtap="onMyEarnings" class="personal-shortcut personal-shortcut-money" aria-role="button">
-        <icon name="wallet" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" /><text>我的工资</text>
+        <icon name="wallet" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" /><text>我的收益</text>
       </view>
       <view bindtap="onBarrelRecords" class="personal-shortcut personal-shortcut-physical" aria-role="button">
         <icon name="barrel" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" /><text>空桶记录</text>

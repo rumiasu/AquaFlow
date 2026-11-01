@@ -205,7 +205,7 @@ test('personal shortcuts remain accessible to both roles and precede station adm
   }
   const text = source('miniapp-delivery/pages/mine/index.wxml')
   assert(text.indexOf('personal-shortcuts') < text.indexOf('<!-- 站长：水站摘要'))
-  assert.equal(nodes(mineTree, n => n.attrs && n.attrs.bindtap === 'onBarrelRecords').length, 1)
+  assert.equal(nodes(mineTree, n => n.attrs && n.attrs.bindtap === 'onBarrelRecords').length, 2)
 })
 test('workbench stays manager-only with original handler; salary/barrel/history routes remain', () => {
   const entry = nodes(mineTree, n => n.attrs && n.attrs.bindtap === 'onGoStationMgmt')

@@ -728,3 +728,5 @@
 .b2-logout { box-sizing:border-box; display:flex; align-items:center; justify-content:center; width:160px; min-height:48px; margin:20px auto; padding:8px 20px; color:#5D6B7D; background:#FFFFFF; border:1px solid #7C8A9C; border-radius:8px; }
 .personal-shortcut { background:#FFFFFF; border:1px solid #DDE5EF; }
 .stats-card { background:#EAF2FF; }
+
+.stats-link { display:block; color:#1264D6; font-size:12px; line-height:18px; margin-top:4px; }

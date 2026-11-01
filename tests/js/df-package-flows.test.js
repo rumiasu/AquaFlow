@@ -220,7 +220,7 @@ test('D36 customer precedes amount and historical status does not use pending co
 })
 test('D40 period and all-time unsettled ranges remain explicitly separate', () => {
   const t = mount('my-earnings'), texts = view('my-earnings', { ...t.p.data, unsettledTotalText: '-12.00', periodTotalText: '0.00' }).map(n => n.text || '').join('|')
-  assert(texts.includes('全部未结记录')); assert(texts.includes('-12.00')); assert(texts.includes('区间收益'))
+  assert(texts.includes('全部未入单记录') && texts.includes('不代表可领取')); assert(texts.includes('-12.00')); assert(texts.includes('区间收益'))
 })
 test('D32 progress expansion only changes visibility and keeps current refund facts', () => {
   const t = mount('station-mgmt/barrel-return'); const record = { id: 1, refundProgress: { paid: 0, remaining: 10 } }; t.p.setData({ selected: record }); t.p.onToggleReturnProgress(); assert.equal(t.p.data.selected, record); assert(t.p.data.returnProgressExpanded)

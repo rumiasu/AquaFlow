@@ -6,17 +6,16 @@
 <view class="page b2-page b2-d40 af2-page lv2-page lv2-earnings">
 
 <view class="lv2-title-row"><view class="af2-icon-tile lv2-money-tile"><icon name="wallet" size="24px" color="#54467C" variant="duotone" fill-color="#E7E2F7" /></view><text>我的收益</text></view>
-  <!-- 未结合计是配送员最关心的那个数，放在最上面 -->
   <view class="summary">
     <view class="summary-main">
-      <text class="summary-label">尚未计入结算单（元）</text>
-      <text class="summary-value">{{unsettledTotalText}}</text>
-      <text class="summary-hint">全部未结记录 · 不受下方日期限制</text>
+      <text class="summary-label">区间收益（元）</text>
+      <text class="summary-value">{{periodTotalText}}</text>
+      <text class="summary-hint">{{from}} 至 {{to}} · 包含计件与调整</text>
     </view>
     <view class="summary-side">
-      <text class="summary-label">区间收益（元）</text>
-      <text class="summary-value-sm">{{periodTotalText}}</text>
-      <text class="summary-hint">{{from}} 至 {{to}}</text>
+      <text class="summary-label">尚未计入结算单（元）</text>
+      <text class="summary-value-sm">{{unsettledTotalText}}</text>
+      <text class="summary-hint">全部未入单记录，不代表可领取</text>
     </view>
   </view>
 
@@ -30,23 +29,6 @@
   <view class="ui-state" wx:if="{{loadError}}"><text class="ui-state-title">工资加载失败</text><text class="ui-state-copy">{{loadError}}</text><button bindtap="onRetry" class="af-action af-action--quiet"><view class="af-action__face">重新读取工资</view></button></view>
 
   <block wx:if="{{loaded && !loading && !loadError}}">
-    <!-- ============ 结算单 ============ -->
-    <view class="card">
-      <view class="card-title">我的结算单</view><text class="summary-hint">仅登记线下发薪，不触发转账</text>
-      <view class="empty" wx:if="{{payrolls.length === 0}}">暂无结算单</view>
-      <view class="payroll" wx:for="{{payrolls}}" wx:key="id">
-        <view class="payroll-row">
-          <text class="payroll-period">{{item.periodText}}</text>
-          <text class="payroll-status">{{item.statusText}}</text>
-        </view>
-        <view class="payroll-row">
-          <text class="payroll-no">{{item.payrollNo}}</text>
-          <text class="payroll-amount">¥{{item.totalText}}</text>
-        </view>
-        <view class="payroll-paid" wx:if="{{item.paidText}}">已发放登记时间：{{item.paidText}}</view>
-      </view>
-    </view>
-
     <!-- ============ 收益明细 ============ -->
     <view class="card">
       <view class="card-title">收益明细</view>
@@ -61,6 +43,24 @@
           <text class="item-amount">{{item.amountText}}</text>
           <text class="item-detail" wx:if="{{item.detailText}}">{{item.detailText}}</text>
         </view>
+      </view>
+    </view>
+
+    <!-- ============ 结算单 ============ -->
+    <view class="settlement-entry" bindtap="onToggleSettlement" aria-role="button"><text>结算</text><text>{{showSettlement ? '收起 −' : '查看记录 ›'}}</text></view>
+    <view class="card" wx:if="{{showSettlement}}">
+      <view class="card-title">结算记录</view><text class="summary-hint">仅登记线下发薪，不触发转账</text>
+      <view class="empty" wx:if="{{payrolls.length === 0}}">暂无结算单</view>
+      <view class="payroll" wx:for="{{payrolls}}" wx:key="id">
+        <view class="payroll-row">
+          <text class="payroll-period">{{item.periodText}}</text>
+          <text class="payroll-status">{{item.statusText}}</text>
+        </view>
+        <view class="payroll-row">
+          <text class="payroll-no">{{item.payrollNo}}</text>
+          <text class="payroll-amount">¥{{item.totalText}}</text>
+        </view>
+        <view class="payroll-paid" wx:if="{{item.paidText}}">已发放登记时间：{{item.paidText}}</view>
       </view>
     </view>
 

@@ -20,7 +20,7 @@
 
   <text class="known-scope" wx:if="{{loaded && (unknownReturn || unknownDiscrepancy)}}">{{unknownReturn}} 条回收量、{{unknownDiscrepancy}} 条差异未提供，未计入对应小计。</text>
   <view class="record-list">
-    <view class="record-card" wx:for="{{records}}" wx:key="id">
+    <view class="record-card" wx:for="{{records}}" wx:key="id" data-id="{{item.id}}" bindtap="onRecordTap" aria-role="button">
       <view class="record-top">
         <!-- 跨站履约单后端刻意不下发 customerName（画像归归属站）→ 回落订单收件人 -->
         <text class="record-customer">{{item.customerName || item.receiverName || '未知客户'}}</text>
@@ -34,6 +34,7 @@
         <text class="meta-divider">|</text>
         <text class="meta-bucket">{{item.firstProductName}}</text>
       </view>
+      <text class="record-detail-link">查看订单详情 ›</text>
       <view class="record-bottom" wx:if="{{item.hasDiscrepancy || !item.discKnown}}">
         <text class="discrepancy-tag {{item.discTagClass}}">
           {{item.discLabel}}<text wx:if="{{item.discKnown}}"> {{item.discAbsText}}桶</text>

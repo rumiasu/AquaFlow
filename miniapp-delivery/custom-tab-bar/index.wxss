@@ -13,8 +13,9 @@
   bottom: 0;
   z-index: 100;
   display: flex;
-  background: var(--bg-white);
-  border-top: 1rpx solid var(--border-light);
+  background: #ffffff;
+  border-top: 1px solid #d9e3ee;
+  box-shadow: 0 -4px 12px rgba(32, 56, 82, .08);
   padding-bottom: env(safe-area-inset-bottom);
 }
 

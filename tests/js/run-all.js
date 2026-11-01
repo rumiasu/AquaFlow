@@ -204,6 +204,7 @@ const SUITES = [
   { file: 'request-malformed-envelope.test.js', name: '两端异步响应损坏、续期与重发收尾' },
   { file: 'notice-draft-flow.test.js', name: '公告发布/草稿（站长端）' },
   { file: 'coordination-assign-flow.test.js', name: '待分配→分配配送员（站长端，2026-09-27 真机事故回归）' },
+  { file: 'delivery-mine-entries.test.js', name: 'delivery stats, barrels, earnings and tab bar' },
   { file: 'delivery-coordination-experience.test.js', name: '配送协作条件分支、接单分区、角色动作与安全区' },
   { file: 'barrel-preview-station.test.js', name: '退桶试算的服务水站上下文（2026-09-27 静默失败回归）' },
   { file: 'barrel-return-refund.test.js', name: '退桶审批 · 退押金并当面交付（v66 第 3 步语义收窄）' },

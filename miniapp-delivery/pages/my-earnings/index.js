@@ -30,7 +30,7 @@ Page({
     unsettledTotalText: '待核实',
     items: [],
     payrolls: [],
-    note: ''
+    note: '', showSettlement: false
   },
 
   onShow() {
@@ -57,6 +57,8 @@ Page({
     this.setData({ range })
     this.load()
   },
+
+  onToggleSettlement() { this.setData({ showSettlement: !this.data.showSettlement }) },
 
   onRetry() { return this.load() },
 

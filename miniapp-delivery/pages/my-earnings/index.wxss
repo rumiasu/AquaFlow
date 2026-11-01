@@ -269,3 +269,5 @@ button:not(.af-action):not(.af-choice) { min-height:44px; height:auto; line-heig
 .lv2-earnings .payroll-paid, .lv2-earnings .item-meta, .lv2-earnings .item-detail { font-size:12px; line-height:20px; }
 .lv2-earnings .item-amount { font-size:18px; line-height:26px; }
 .lv2-earnings .summary-value, .lv2-earnings .summary-value-sm, .lv2-earnings .payroll-amount, .lv2-earnings .item-amount { max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-all; }
+
+.settlement-entry { min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 12px; margin-bottom:10px; color:var(--text-regular); background:#fff; border:1px solid var(--border-color); border-radius:10px; font-size:14px; }

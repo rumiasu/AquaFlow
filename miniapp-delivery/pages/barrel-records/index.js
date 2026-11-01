@@ -8,7 +8,7 @@ Page({
 
   onLoad() { this._unloaded = false },
   // 2026-10-02：首屏只在 onShow 读取，重试也走同一访问守卫。
-  onShow() { return this.loadData() },
+  onShow() { this._recordNavigating = false; return this.loadData() },
   onRetry() { return this.loadData() },
   _context() {
     const app = getApp(), u = app.globalData.userInfo || wx.getStorageSync(STORAGE_KEYS.USER_INFO) || {}
@@ -88,6 +88,15 @@ Page({
     this._requestVersion = (this._requestVersion || 0) + 1
     this._pullVersion = (this._pullVersion || 0) + 1
     if (this._pullRefreshing) { this._pullRefreshing = false; wx.stopPullDownRefresh() }
+  },
+
+  onRecordTap(e) {
+    const id = e.currentTarget.dataset.id
+    if (this._recordNavigating || this._unloaded || !this.data.loaded || this.data.loading || this.data.error
+      || this._dataContext !== this._context() || !getApp().canAccessStationBusiness() || !validId(id)
+      || !(this.data.records || []).some(r => String(r.id) === String(id))) return
+    this._recordNavigating = true
+    wx.navigateTo({ url: '/pages/order/detail?id=' + id, fail: () => { this._recordNavigating = false } })
   },
 
   formatDate(d) {

@@ -58,6 +58,11 @@ Page({
     this._syncCollectionRecovery()
     this.resetHomeStationIdentity()
     const app = getApp()
+    const intent = app.globalData.mineDeliveryTabIntent
+    delete app.globalData.mineDeliveryTabIntent
+    const session = homeStationSession()
+    if (intent && intent.generation === session.generation && intent.identity === session.identity
+      && app.canAccessStationBusiness() && ['delivering', 'completed'].includes(intent.tab)) this.setData({ activeTab: intent.tab })
     // 自绘底栏：配送员只有 配送/我的 两项（本页是配送员的主页）
     syncTabBar(this, '/pages/home/index')
     if (!app.canAccessStationBusiness()) {

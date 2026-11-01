@@ -401,6 +401,15 @@ Page({
     wx.navigateTo({ url: '/pages/station-mgmt/station-info/index' })
   },
 
+  onOpenTaskStat(e) {
+    const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}, tab = e.currentTarget.dataset.tab
+    if (this._statNavigation || !this.data.isLogin || this.data.isManager || !app.canAccessStationBusiness() || !['delivering', 'completed'].includes(tab)) return
+    const intent = { tab, generation: app._loginGeneration || 0, identity: JSON.stringify([!!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+    g.mineDeliveryTabIntent = intent
+    this._statNavigation = true
+    wx.switchTab({ url: '/pages/home/index', fail: () => { if (g.mineDeliveryTabIntent === intent) delete g.mineDeliveryTabIntent; wx.showToast({ title: '暂时无法打开配送列表', icon: 'none' }) }, complete: () => { this._statNavigation = false } })
+  },
+
   onBarrelRecords() {
     wx.navigateTo({ url: '/pages/barrel-records/index' })
   },

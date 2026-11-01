@@ -132,8 +132,10 @@ public class FileManageController {
         }
         if (AuthContext.isManager()) {
             Long uid = AuthContext.getUserId();
-            if (file.getUploaderId() != null && !file.getUploaderId().equals(uid.intValue())) {
-                return Result.error("无权删除他人文件");
+            // 2026-11-01: NULL platform ownership is visibility, never permission to delete.
+            // Preserve explicit legacy uploader ownership; fail before either COS or database deletion.
+            if (uid == null || file.getUploaderId() == null || file.getUploaderId().longValue() != uid.longValue()) {
+                return Result.error("无法确认该文件属于您，无权删除");
             }
         }
         // 删除 COS 文件。

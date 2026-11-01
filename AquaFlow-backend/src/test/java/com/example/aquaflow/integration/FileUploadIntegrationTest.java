@@ -235,6 +235,24 @@ class FileUploadIntegrationTest extends AbstractIntegrationTest {
 
     /* ==================== v45 夹具 ==================== */
 
+    @Test
+    @DisplayName("平台双NULL文件仅可见不可删，角色和站别不能借NULL绕过")
+    void platformFileWithoutAnOwnerCannotBeDeletedByAnyActor() {
+        long a=createStation("平台归属A"),b=createStation("平台归属B");
+        long manager=createStaff("合成站长","STATION_MANAGER",a,1),other=createStaff("合成他站站长","STATION_MANAGER",b,1);
+        long unbound=createStaff("合成未绑定站长","STATION_MANAGER",null,1),driver=createStaff("合成配送员","DELIVERY",a,1),customer=createCustomer("合成文件客户","file-null-owner-reader");
+        long file=insert("insert into file_info(file_name,file_size,file_type,mime_type,object_name,category,uploader_id,station_id) values('synthetic.pdf',1,'other','application/pdf','public/general/synthetic.pdf','general',null,null)");
+        for(String token:java.util.List.of(staffToken(manager,"STATION_MANAGER",a),staffToken(other,"STATION_MANAGER",b),staffToken(unbound,"STATION_MANAGER",null),staffToken(driver,"DELIVERY",a),customerToken(customer))) {
+            assertNotEquals(0,delete("/api/files/"+file,token).code());
+            assertEquals(1,longOf("select count(*) from file_info where id=?",file));
+        }
+        long ownedPlatform=insertFile(manager,null,"legacy-owned.pdf");
+        assertEquals(0,delete("/api/files/"+ownedPlatform,staffToken(manager,"STATION_MANAGER",a)).code(),"保留平台历史行明确上传人的原删除权");
+        long foreignHistorical=insertFile(manager,b,"foreign-owned.pdf");
+        assertNotEquals(0,delete("/api/files/"+foreignHistorical,staffToken(manager,"STATION_MANAGER",a)).code());
+        assertEquals(1,longOf("select count(*) from file_info where id=?",foreignHistorical));
+    }
+
     /** 直接插一条文件登记（本机 COS 未配置，走不了真实上传路径） */
     private long insertFile(long uploaderId, Long stationId, String name) {
         String sql = "INSERT INTO file_info(file_name, file_size, file_type, mime_type, object_name, "

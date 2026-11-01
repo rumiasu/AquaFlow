@@ -50,6 +50,7 @@ class AlertWebhookIntegrationTest extends AbstractIntegrationTest {
      * （{@code {"errcode":0,"errmsg":"ok"}}），而不是空体 —— 空体会让"业务码校验"这条分支测不到。
      */
     private static volatile String stubBody = "{\"errcode\":0,\"errmsg\":\"ok\"}";
+    private static volatile int stubHttpStatus = 200;
 
     static {
         HttpServer server = null;
@@ -57,10 +58,14 @@ class AlertWebhookIntegrationTest extends AbstractIntegrationTest {
         try {
             server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             server.createContext("/hook", exchange -> {
-                RECEIVED.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-                byte[] out = stubBody.getBytes(StandardCharsets.UTF_8);
+                String payload=new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                RECEIVED.add(payload);
+                boolean valid;
+                try { valid=new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload).isObject(); }
+                catch (Exception malformed) {valid=false;}
+                byte[] out = (valid?stubBody:"{\"errcode\":400,\"errmsg\":\"invalid JSON\"}").getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
-                exchange.sendResponseHeaders(200, out.length);
+                exchange.sendResponseHeaders(valid?stubHttpStatus:400, out.length);
                 exchange.getResponseBody().write(out);
                 exchange.close();
             });
@@ -95,6 +100,20 @@ class AlertWebhookIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private com.example.aquaflow.service.AlertService alertService;
+
+    @Test
+    @DisplayName("接收桩拒绝非法JSON，HTTP拒绝不能记为PUSHED")
+    void strictReceiverRejectsMalformedJsonAndHttpFailureRemainsFailed() throws Exception {
+        var request=java.net.http.HttpRequest.newBuilder(java.net.URI.create(HOOK_URL))
+                .header("Content-Type","application/json").POST(java.net.http.HttpRequest.BodyPublishers.ofString("{\"text\":\"bad\njson\"}")).build();
+        var response=java.net.http.HttpClient.newHttpClient().send(request,java.net.http.HttpResponse.BodyHandlers.ofString());
+        assertEquals(400,response.statusCode(),"负对照：桩不能无条件接受非法JSON");
+        stubHttpStatus=422;
+        try {
+            globalExceptionHandler.handleRuntimeException(new RuntimeException("合成渠道拒绝\n\r\t\"\\"));
+            assertEquals("FAILED",jdbc.queryForObject("select notify_status from alert_log where alert_type='SYSTEM' order by id desc limit 1",String.class));
+        } finally {stubHttpStatus=200;}
+    }
 
     @Test
     @DisplayName("系统故障告警会 POST 到外部渠道，并把 notify_status 回写成 PUSHED")

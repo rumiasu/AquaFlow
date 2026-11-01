@@ -38,6 +38,7 @@ import java.util.List;
 @Service
 @Slf4j
 public class AlertServiceImpl implements AlertService {
+    private static final tools.jackson.databind.ObjectMapper WEBHOOK_JSON = tools.jackson.databind.json.JsonMapper.builder().build();
 
     @Autowired
     private AlertLogMapper alertLogMapper;
@@ -216,14 +217,13 @@ public class AlertServiceImpl implements AlertService {
             }
             case "RAW":
                 // 自建接收端/其它中介：给出结构化字段，由对方决定怎么转成微信消息
-                return "{\"title\":\"" + esc(row.getTitle()) + "\",\"source\":\"" + esc(row.getSource())
-                        + "\",\"content\":\"" + esc(str(row.getContent())) + "\",\"level\":\""
-                        + esc(row.getLevel()) + "\"}";
+                return WEBHOOK_JSON.writeValueAsString(java.util.Map.of("title",str(row.getTitle()),"source",str(row.getSource()),
+                        "content",str(row.getContent()),"level",str(row.getLevel())));
             case "WECOM":
             case "DINGTALK":
             default:
-                // 企业微信群机器人 / 钉钉自定义机器人：同一形状
-                return "{\"msgtype\":\"text\",\"text\":{\"content\":\"" + esc(text) + "\"}}";
+                // 2026-11-01: handwritten escaping left real LF/CR/TAB invalid in JSON, silently losing alerts.
+                return WEBHOOK_JSON.writeValueAsString(java.util.Map.of("msgtype","text","text",java.util.Map.of("content",text)));
         }
     }
 
@@ -267,7 +267,4 @@ public class AlertServiceImpl implements AlertService {
         }
     }
 
-    private String esc(String s) {
-        return s == null ? "" : s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

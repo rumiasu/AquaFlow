@@ -517,7 +517,7 @@
 | `POST` | `/api/feedback/refund-disputes/close` | "STATION_MANAGER"；精确责任站 | `FeedbackController.closeDispute`；必填处理结果、OPEN与期望版本；无需客户确认，客户仍可重提 |
 | `GET` | `/api/files` | {"STATION_MANAGER"} | `FileManageController.list` |
 | `POST` | `/api/files/upload` | {"STATION_MANAGER"} | `FileManageController.upload` |
-| `DELETE` | `/api/files/{id}` | {"STATION_MANAGER"} | `FileManageController.delete` |
+| `DELETE` | `/api/files/{id}` | {"STATION_MANAGER"} | `FileManageController.delete`；须有明确上传人且为本人，他站文件拒绝；平台可见不等于可删，双 NULL 不放行。 |
 | `GET` | `/api/notices` | {"STATION_MANAGER"} | `NoticeController.listPublished` |
 | `POST` | `/api/notices` | {"STATION_MANAGER"} | `NoticeController.save` |
 | `GET` | `/api/notices/all` | {"STATION_MANAGER"} | `NoticeController.listAll` |

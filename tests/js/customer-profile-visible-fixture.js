@@ -16,7 +16,7 @@ function fixture(name, overrides = {}) {
   const calls = { toast: [], modal: [], nav: [], write: [], logs: [], timers: [], stop: 0 }
   const defaults = {
     getAddresses: async () => ({ data: [] }), getAddressDetail: async id => ({ data: { id, name: '原联系人', detail: '原门牌' } }),
-    createAddress: async () => ({ data: { id: 9 } }), updateAddress: async () => ({ data: null }),
+    createAddress: async () => ({ data: { id: 9 } }), updateAddress: async (id, value) => ({ data: { ...value, id } }),
     deleteAddress: async () => ({ data: null }), setDefaultAddress: async () => ({ data: null }),
     getNotices: async () => ({ data: [] }), getCompanyInfo: async () => ({ data: null }),
     updateCompanyInfo: async () => ({ data: { id: 1, companyName: '已保存企业' } }),

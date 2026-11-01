@@ -17,9 +17,9 @@ const createAddress = (data) => {
   return post(API.CREATE_ADDRESS, data)
 }
 
-// PUT /api/addresses/{id}
+// Versioned intent route: older backends must reject rather than silently ignore CLEAR flags.
 const updateAddress = (id, data) => {
-  return put(`${API.ADDRESSES}/${id}`, data)
+  return put(`${API.ADDRESSES}/${id}/profile`, data)
 }
 
 // DELETE /api/addresses/{id} (customerId 从 JWT 获取)

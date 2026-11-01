@@ -24,7 +24,7 @@ test('company response loss allows an explicit retry and cancel without a compar
 })
 test('existing address update can be retried without losing input or declaring false success', async () => {
   let writes = 0
-  const f = fixture('edit', { api: { getAddressDetail: async () => ok(address), updateAddress: async () => { if (++writes === 1) throw lost(); return ok(null) } } })
+  const f = fixture('edit', { api: { getAddressDetail: async () => ok(address), updateAddress: async (id, value) => { if (++writes === 1) throw lost(); return ok({ ...value, id }) } } })
   f.p.setData({ isEdit: true, addressId: 3 }); await f.p.loadAddress(3)
   f.p.onInputChange(event('detail', '合成新门牌'))
   await f.p.onSubmit(); assert.equal(f.p.data.saveSucceeded, false); assert.equal(f.p.data.formData.detail, '合成新门牌')

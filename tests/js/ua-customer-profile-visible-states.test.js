@@ -126,7 +126,7 @@ test('edit: failed original read hides and blocks blank form; retry restores exa
   let fails = true, writes = 0
   const f = fixture('edit', { api: {
     getAddressDetail: async () => { if (fails) throw unavailable(); return ok(address) },
-    updateAddress: async () => { writes++; return ok(null) }
+    updateAddress: async (id, value) => { writes++; return ok({ ...value, id }) }
   } })
   f.p.setData({ isEdit: true, formReady: false, addressId: 3 })
   await f.p.loadAddress(3)

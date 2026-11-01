@@ -15,6 +15,7 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'address-explicit-clear.test.js', name: '地址显式清空、版本路由与真实回执' },
   { file: 'save-result-feedback.test.js', name: '资料写入成功、缓存失败与结果未知读回' },
   { file: 'suite-registration.test.js', name: 'suite discovery, exclusions and completion negative controls' },
   { file: 'secret-scan-fail-closed.test.js', name: 'secret scanner distinguishes clean grep from execution failure' },

@@ -186,6 +186,7 @@
 | `DELETE` | `/api/addresses/{id}` | — | `AddressController.delete` |
 | `GET` | `/api/addresses/{id}` | — | `AddressController.getById` |
 | `PUT` | `/api/addresses/{id}` | — | `AddressController.update` |
+| `PUT` | `/api/addresses/{id}/profile` | 顾客本人；版本化合并，成功返回完整地址 | `AddressController.updateProfile` |
 | `PUT` | `/api/addresses/{id}/default` | — | `AddressController.setDefault` |
 | `GET` | `/api/customer/exceptions` | — | `CustomerExceptionController.myExceptions` |
 | `GET` | `/api/customer/exceptions/{id}` | — | `CustomerExceptionController.myExceptionDetail` |
@@ -789,3 +790,14 @@
 同一员工、站别、原编号及相同内容重试返回原回执，不再增加库存、流水或补位；同键改内容、
 重复或损坏回执均拒绝。站行锁与库存、流水和回执处于同一事务，未知结果应保存原编号核实，
 不能自动换编号另开入库。旧 `POST /api/inventory/inbound` 继续兼容原行为，不提供该原编号保证。
+
+
+### 顾客地址显式清空（2026-11-01）
+
+`PUT /api/addresses/{id}/profile` 仅当前顾客本人可用，不能变更归属。普通字段省略或 null 保留已存值；非 null 值合并写入。
+`clearFloor: true` 将楼层清为未确认，`clearElevator: true` 将电梯清为未确认，二者独立。
+`clearCoordinates: true` 同时清纬度和经度；重选点必须同时提供 lat/lng，范围为 [-90,90]/[-180,180]，明确 0 合法。
+清空标志与相应非 null 设值同时出现时业务拒绝（code=1），不进行部分保存。isDefault 只允许 0/1，省略保留，由原客户锁保证默认唯一。
+成功 data 是完整已存地址，包含 id、customerId 及可空字段；小程序按该回执核对，不以空成功体宣称清空成功。
+旧 `PUT /api/addresses/{id}` 继续沿用其 null 楼层/电梯保留语义。新小程序连接旧后端时新路由明确失败并提示服务需更新；不退回旧路径写第二次。
+该改动不回写历史订单金额或快照，不改变楼层/电梯未确认时的收费政策，也不引入地址表迁移。

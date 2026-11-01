@@ -13,7 +13,11 @@ function sameAddress(row, payload) {
   const text = value => value == null ? '' : String(value)
   const number = value => value == null || value === '' ? null : Number(value)
   return ['name','phone','province','city','district','detail','label'].every(key => text(row[key]) === text(payload[key]))
-    && ['lat','lng','floor','hasElevator'].every(key => number(row[key]) === number(payload[key]))
+    && ['floor','hasElevator'].every(key => number(row[key]) === number(payload[key]))
+    && ['lat','lng'].every(key => {
+      const a = number(row[key]), b = number(payload[key])
+      return a === null || b === null ? a === b : a.toFixed(6) === b.toFixed(6)
+    })
     && Number(row.isDefault || 0) === Number(payload.isDefault || 0)
 }
 
@@ -398,7 +402,15 @@ Page({
     }
     try {
       if (isEdit) {
-        await updateAddress(addressId, submitData)
+        // 2026-11-01 C-01: explicit CLEAR is separate from legacy null/omission (KEEP).
+        const response = await updateAddress(addressId, { ...submitData,
+          clearFloor: submitData.floor === null,
+          clearElevator: submitData.hasElevator === null,
+          clearCoordinates: submitData.lat === null && submitData.lng === null })
+        if (this._disposed || !this.ensurePageSession()) return
+        const saved = response && response.data
+        if (!saved || Number(saved.id) !== Number(addressId) || !sameAddress(saved, submitData))
+          throw new Error('地址保存结果尚未确认')
       } else {
         let present = false
         if (this._lastCreatePayload === JSON.stringify(submitData)) {
@@ -425,11 +437,13 @@ Page({
       if (this._disposed || !this.ensurePageSession()) return
       console.error('Save address error:', error)
       const denied = this.isAccessError(error)
+      const serviceMissing = isEdit && /^(404|405)$/.test(String(error && (error.code || error.statusCode) || ''))
       const rejected = error && (error.businessRejected === true || String(error.code || error.statusCode) === '401' || String(error.code || error.statusCode) === '403')
       if (!isEdit && !rejected && !denied) this._lastCreatePayload = JSON.stringify(submitData)
       this.setData({ accessDenied: denied, saveUnknown: false, saveMessage: denied
         ? '当前账号无权保存此地址，输入已保留，请使用客户账号登录。'
-        : rejected ? '地址未保存，输入已保留，请核对信息后重试。'
+        : serviceMissing ? '地址服务需更新，输入已保留，请更新服务后重试。'
+          : rejected ? '地址未保存，输入已保留，请核对信息后重试。'
           : '暂未收到保存结果，输入已保留，可直接重试。' })
       if (denied) {
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',

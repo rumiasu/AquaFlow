@@ -1,6 +1,7 @@
 package com.example.aquaflow.service.impl;
 
 import com.example.aquaflow.entity.Address;
+import com.example.aquaflow.dto.AddressProfileDTO;
 import com.example.aquaflow.mapper.AddressMapper;
 import com.example.aquaflow.service.AddressService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,8 +63,7 @@ public class AddressServiceImpl implements AddressService {
         // 地址更新是整行覆盖（mapper 的 update 把 name/phone/…/floor/has_elevator 全写一遍），
         // 而旧版客户端不传这两个新字段 —— 直接写会把客户已填的楼层抹成 NULL，
         // 楼层费就再也算不出来（本仓「整行覆盖」事故的同一形状，已发生多次）。
-        // 语义：**只允许改，不允许用 null 清空**；要清空得显式传 0 之外的约定值（当前不支持清空，
-        // 因为 has_elevator 的三态里「未确认」是初始态而非用户会主动选择的状态）。
+        // 旧接口 null/省略继续表示保留；显式清空走 updateProfile 的版本化意图接口。
         Address target = addressMapper.getById(address.getId());
         if (target == null) throw new BusinessException("地址不存在");
         lockCustomer(target.getCustomerId());
@@ -89,6 +89,41 @@ public class AddressServiceImpl implements AddressService {
         }
         // 2026-10-31：原先设默认后把isDefault=null再整行写回，会丢失默认。现在保留明确标记同次写入。
         if (addressMapper.update(address) != 1) throw new BusinessException("地址保存失败，请刷新后重试");
+    }
+
+    /** 2026-11-01 C-01: merge only supplied values under the same owner/default lock. */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Address updateProfile(Long customerId, Long addressId, AddressProfileDTO request) {
+        lockCustomer(customerId);
+        Address target = addressMapper.getByIdForUpdate(addressId);
+        if (target == null || !customerId.equals(target.getCustomerId())) throw new BusinessException("地址不存在或无权修改");
+        if (request.getCustomerId() != null && !customerId.equals(request.getCustomerId())) throw new BusinessException("不支持变更地址归属客户");
+        boolean clearFloor = Boolean.TRUE.equals(request.getClearFloor());
+        boolean clearElevator = Boolean.TRUE.equals(request.getClearElevator());
+        boolean clearCoordinates = Boolean.TRUE.equals(request.getClearCoordinates());
+        if (clearFloor && request.getFloor() != null || clearElevator && request.getHasElevator() != null
+                || clearCoordinates && (request.getLat() != null || request.getLng() != null))
+            throw new BusinessException("清空与填写不能同时提交，请重新核对地址");
+        validateDefault(request.getIsDefault());
+        validateCoordinates(request);
+        if (request.getFloor() != null && request.getFloor() < 0) throw new BusinessException("楼层不能为负数");
+        if (request.getHasElevator() != null && request.getHasElevator() != 0 && request.getHasElevator() != 1)
+            throw new BusinessException("电梯信息无效");
+        if (request.getName() != null) target.setName(request.getName());
+        if (request.getPhone() != null) target.setPhone(request.getPhone());
+        if (request.getProvince() != null) target.setProvince(request.getProvince());
+        if (request.getCity() != null) target.setCity(request.getCity());
+        if (request.getDistrict() != null) target.setDistrict(request.getDistrict());
+        if (request.getLabel() != null) target.setLabel(request.getLabel());
+        if (request.getDetail() != null) target.setDetail(request.getDetail());
+        if (clearFloor || request.getFloor() != null) target.setFloor(request.getFloor());
+        if (clearElevator || request.getHasElevator() != null) target.setHasElevator(request.getHasElevator());
+        if (clearCoordinates || request.getLat() != null) { target.setLat(request.getLat()); target.setLng(request.getLng()); }
+        if (request.getIsDefault() != null) target.setIsDefault(request.getIsDefault());
+        if (Integer.valueOf(1).equals(target.getIsDefault())) addressMapper.clearDefault(customerId);
+        if (addressMapper.update(target) != 1) throw new BusinessException("地址保存失败，请刷新后重试");
+        return addressMapper.getById(addressId);
     }
 
     /**

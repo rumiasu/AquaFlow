@@ -3,6 +3,7 @@ package com.example.aquaflow.controller;
 import com.example.aquaflow.annotation.RequireRole;
 import com.example.aquaflow.common.Result;
 import com.example.aquaflow.entity.Address;
+import com.example.aquaflow.dto.AddressProfileDTO;
 import com.example.aquaflow.entity.Customer;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.OrderMapper;
@@ -156,6 +157,12 @@ public class AddressController {
         address.setId(id);
         addressService.update(address);
         return Result.success();
+    }
+
+    /** Versioned intent-aware route: an old server must reject instead of ignoring CLEAR flags. */
+    @PutMapping("/{id}/profile")
+    public Result<Address> updateProfile(@PathVariable Long id, @RequestBody AddressProfileDTO request) {
+        return Result.success(addressService.updateProfile(AuthContext.requireCustomerId(), id, request));
     }
 
     @DeleteMapping("/{id}")

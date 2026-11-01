@@ -210,6 +210,6 @@
 .af-brand-wordmark-fallback { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
 
 .lv2-login .logo-area { align-items:center; gap:0; padding:8px 0 16px; margin:0 0 16px; }
-.lv2-login-mark { width:116px; height:85px; background:transparent; border-radius:0; }
-.aiquan-login-mark { width:100px; height:85px; }
+.lv2-login-mark { width:116px; height:68px; background:transparent; border-radius:0; }
+.aiquan-login-mark { width:100px; height:68px; }
 .lv2-login .af-brand-wordmark { margin-top:8px; }

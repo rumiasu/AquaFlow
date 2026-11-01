@@ -13,7 +13,7 @@ for (const app of ['miniapp-user', 'miniapp-delivery']) {
  const css = read(app + '/pages/login/index.wxss').toString('utf8')
  assert.match(css, /\.af-brand-wordmark \{ width:116px; padding:0; background:transparent; \}/)
  assert.match(css, app === 'miniapp-user' ? /\.logo-section \{ display:flex; flex-direction:column; align-items:center; \}/ : /\.lv2-login \.logo-area \{ align-items:center; gap:0;/)
- assert.match(css, app === 'miniapp-user' ? /\.logo \{ width:100px; height:85px; \}/ : /\.aiquan-login-mark \{ width:100px; height:85px; \}/)
+ assert.match(css, app === 'miniapp-user' ? /\.logo \{ width:100px; height:85px; \}/ : /\.aiquan-login-mark \{ width:100px; height:68px; \}/)
  assert.match(css, /\.af-brand-wordmark-image \{ display:block; width:116px; height:70px; \}/)
  const icon = read(app + (app === 'miniapp-user' ? '/assets/logo/aiquan-mark.png' : '/assets/logo/aiquan-delivery-mark.png'))
  assert.equal(icon[25], 6, 'brand icon PNG must retain an alpha channel')

@@ -59,18 +59,15 @@
       <button class="af-action af-action--quiet" wx:if="{{!pending}}" data-index="{{index}}" bindtap="onRemoveProduct" disabled="{{submitting}}"><text class="af-action__face">移除此行</text></button>
     </view>
     <view class="claim-field"><text>补充说明（必填）</text><textarea class="claim-input claim-textarea" value="{{form.note}}" maxlength="500" data-field="note" bindinput="onField" disabled="{{pending || submitting}}" placeholder="填写便于水站核对的信息" /></view>
-    <view class="claim-guide" wx:if="{{!pending}}">
-      <view class="claim-guide-toggle af-entry" bindtap="onToggleClaimGuide"><text>什么材料可帮助核对</text><text>{{showClaimGuide ? '收起' : '查看示意'}} {{showClaimGuide ? '⌃' : '›'}}</text></view>
-<view class="claim-guide-body" wx:if="{{showClaimGuide}}"><view class="af-graphic-slot--claim claim-guide-graphic"><image wx:if="{{!claimGuideImageFailed}}" src="/assets/ui/guide-claim-material.png" mode="aspectFit" binderror="onClaimGuideImageError" /><icon wx:else name="bill" size="40px" color="#1264D6" /></view><view><text class="claim-title">押金条照片（选填）</text><text class="claim-muted">可补充自己的押金条照片，或在说明中写明便于核对的信息。</text></view></view>
-    </view>
     <view class="claim-field" wx:if="{{!pending}}">
-      <text>押金条照片（选填）</text>
+      <view class="claim-photo-heading"><text>押金条照片（选填）</text><view class="claim-guide-toggle" bindtap="onToggleClaimGuide" aria-role="button"><text>{{showClaimGuide ? '收起示意' : '查看示意'}}</text></view></view>
       <image wx:if="{{form.photoPath}}" class="claim-photo" src="{{form.photoPath}}" mode="aspectFit" />
-      <text class="claim-muted" wx:if="{{form.photoPath}}">{{photoUploading ? '正在上传…' : (form.photoConfirmed ? '已添加' : '照片待重试')}}</text>
-      <button class="af-action af-action--quiet" wx:if="{{!form.photoPath}}" bindtap="onChoosePhoto" disabled="{{submitting || photoUploading}}"><text class="af-action__face">添加照片</text></button>
+      <text class="claim-muted" wx:if="{{form.photoPath}}">{{photoUploading ? '正在上传…' : (form.photoConfirmed ? '已上传' : '照片待确认')}}</text>
+      <button class="af-action af-action--secondary claim-photo-add" wx:if="{{!form.photoPath}}" bindtap="onChoosePhoto" disabled="{{submitting || photoUploading}}"><text class="af-action__face">＋ 添加照片</text></button>
       <button class="af-action af-action--quiet" wx:if="{{form.photoPath && !form.photoConfirmed}}" bindtap="onRetryPhoto" disabled="{{submitting || photoUploading}}"><text class="af-action__face">重试照片</text></button>
       <button class="af-action af-action--quiet" wx:if="{{form.photoPath && !form.photoConfirmed}}" bindtap="onChoosePhoto" disabled="{{submitting || photoUploading}}"><text class="af-action__face">重新选择</text></button>
       <button class="af-action af-action--quiet" wx:if="{{form.photoPath}}" bindtap="onRemovePhoto" disabled="{{submitting || photoUploading}}"><text class="af-action__face">移除照片</text></button>
+      <view class="claim-guide-body" wx:if="{{showClaimGuide}}"><view class="af-graphic-slot--claim claim-guide-graphic"><image wx:if="{{!claimGuideImageFailed}}" src="/assets/ui/guide-claim-material.png" mode="aspectFit" binderror="onClaimGuideImageError" /><icon wx:else name="bill" size="40px" color="#1264D6" /></view><view><text class="claim-title">押金条照片（选填）</text><text class="claim-muted">可补充自己的押金条照片，无法提供可在补充说明填写有助核对的信息。</text></view></view>
     </view>
     <button class="af-action af-action--primary af-action--block" wx:if="{{!pending}}" bindtap="onSubmit" loading="{{submitting}}" disabled="{{!canCreate || submitting || photoUploading}}">确认清单并提交</button>
     <button class="af-action af-action--primary af-action--block" wx:else bindtap="onRecover" loading="{{submitting}}" disabled="{{!ready || loading || submitting}}">恢复原申请</button>

@@ -91,3 +91,7 @@
 /* Visual v2: page hierarchy and semantic surfaces. */
 .claim-line { overflow-wrap:anywhere; }
 .claim-amount { color:var(--af2-ink-money); }
+
+.claim-photo-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.claim-guide-toggle { min-height:44px; flex:none; color:var(--text-regular); font-size:13px; }
+.claim-photo-add { min-height:52px; width:100%; margin-top:8px; border:1px dashed var(--af-primary); background:var(--af2-surface-order); }

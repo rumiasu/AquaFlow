@@ -216,8 +216,9 @@ Page({
     if (!lines.length) {
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '系统没有给出补偿建议',
-        content: '这张异常单没有可执行的补偿项，只能选择「忽略」。',
-        showCancel: false
+        content: '尚无可直接执行的补偿项。请先查看订单核实；如需办理资产调整，可从本页进入客户资产，按实际依据另行办理。本异常仍保留待处理。',
+        confirmText: '查看订单', cancelText: '返回', showCancel: true,
+        success: r => { if (r.confirm && current()) this.onOpenExceptionOrder({ currentTarget: { dataset: { id } } }) }
       })
       return
     }
@@ -287,6 +288,19 @@ Page({
     }
   },
 
+  exceptionForNavigation(e) {
+    if (this._exceptionsHidden || !getApp().canAccessStationBusiness() || this._listContext !== this.exceptionContext()) return null
+    return this.data.items.find(item => String(item.id) === String(e.currentTarget.dataset.id)) || null
+  },
+  onOpenExceptionOrder(e) {
+    const item = this.exceptionForNavigation(e)
+    if (item && /^[1-9][0-9]*$/.test(String(item.orderId))) wx.navigateTo({ url: '/pages/order/detail?id=' + item.orderId })
+  },
+  onOpenExceptionCustomer(e) {
+    const item = this.exceptionForNavigation(e)
+    if (item && /^[1-9][0-9]*$/.test(String(item.customerId))) wx.navigateTo({ url: '/pages/station-mgmt/customers/detail/index?id=' + item.customerId })
+  },
+
   onReachBottom() { return this.onLoadMore() },
   onLoadMore() { return this.loadList(false) },
   onRetryList() { return this.loadList(this.data.page === 0) },
@@ -297,6 +311,7 @@ Page({
 
   async loadList(reset) {
     if (!reset && (this.data.loading || this.data.loadingMore || !this.data.hasMore)) return
+    this._listContext = this.exceptionContext()
     const seq = this._listSeq = (this._listSeq || 0) + 1
     const page = reset ? 1 : this.data.page + 1
     const query = { page, size: this.data.size }

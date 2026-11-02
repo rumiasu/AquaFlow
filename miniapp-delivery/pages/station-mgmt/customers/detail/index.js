@@ -49,6 +49,7 @@ Page({
       app.routeByRole(true)
       return
     }
+    this._openReturnRequested = options.action === 'return-empty'
     const id = options.id
     const canViewAssets = app.isStationManager()
     this.setData({ id, canViewAssets })
@@ -249,7 +250,13 @@ Page({
       if (!current()) return
       this.setData({ assets: null, assetsError: err.message || '资产加载失败' })
     } finally {
-      if (current()) this.setData({ assetsLoading: false })
+      if (current()) {
+        this.setData({ assetsLoading: false })
+        if (this._openReturnRequested && this.data.canViewAssets && this.data.assets && !this.data.assetsError) {
+          this._openReturnRequested = false
+          this.onShowReturnEmpty()
+        }
+      }
     }
   },
 

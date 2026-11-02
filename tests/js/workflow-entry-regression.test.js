@@ -1,0 +1,27 @@
+const assert = require('assert')
+const fs = require('fs')
+const root = require('path').resolve(__dirname, '../..')
+const {loadPage,createWx,createApp}=require(root+'/tests/js/harness')
+const event=id=>({currentTarget:{dataset:{id}}})
+const app=createApp({globalData:{isLogin:true,userInfo:{staffId:17,stationId:2,role:'STATION_MANAGER'}},isStationManager:()=>true})
+const calls=[]; const wx=createWx();wx.navigateTo=arg=>calls.push(arg.url)
+const e=loadPage('miniapp-delivery/pages/station-mgmt/exceptions/index.js',{wx,app})
+e._listContext=e.exceptionContext();e.setData({items:[{id:966001,orderId:970003,customerId:930002}]})
+e.onOpenExceptionOrder(event(966001));e.onOpenExceptionCustomer(event(966001))
+assert.deepStrictEqual(calls,['/pages/order/detail?id=970003','/pages/station-mgmt/customers/detail/index?id=930002'])
+e._exceptionsHidden=true;e.onOpenExceptionOrder(event(966001));assert.equal(calls.length,2)
+e._exceptionsHidden=false;app.globalData.userInfo.stationId=3;e.onOpenExceptionCustomer(event(966001));assert.equal(calls.length,2)
+const o=loadPage('miniapp-delivery/pages/station-mgmt/owed-barrels/index.js',{wx,app});o._dataContext=o._context();o.setData({groups:[{customerId:930002}]})
+o.onReturnEmpty(event(930002));assert.equal(calls.pop(),'/pages/station-mgmt/customers/detail/index?id=930002&action=return-empty')
+o.onReturnEmpty(event('930002&x=1'));assert.equal(calls.length,2)
+o._unloaded=true;o.onReturnEmpty(event(930002));assert.equal(calls.length,2)
+async function main(){
+ let requests=0,opened=0
+ const d=loadPage('miniapp-delivery/pages/station-mgmt/customers/detail/index.js',{wx,app,stubs:{'api/station-mgmt':{getCustomerAssets:async()=>{requests++;return {code:0,data:{}}}}}})
+ d.setData({id:930002,canViewAssets:true});d._customerOwner=d.customerContext();d._openReturnRequested=true;d.decorateAssets=x=>x;d.onShowReturnEmpty=()=>opened++
+ await d.loadAssets(930002);assert.equal(opened,1);await d.loadAssets(930002);assert.equal(opened,1)
+ d._openReturnRequested=true;d._returnHidden=true;await d.loadAssets(930002);assert.equal(opened,1);assert.equal(requests,2)
+ const css=fs.readFileSync(root+'/miniapp-delivery/pages/coordination/index.wxss','utf8');assert(css.includes('margin:0 0 8px'));assert(css.includes('height:auto; max-width:100%'))
+ console.log('AQUAFLOW_SUITE_OK 8'); console.log('WORKFLOW_ENTRY_REGRESSION_PASS: routes, identity/hide guards, malformed ID, read-before-open, one-shot opening, explicit metric spacing')
+}
+main().catch(e=>{console.error(e);process.exitCode=1})

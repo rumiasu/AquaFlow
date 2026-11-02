@@ -106,6 +106,13 @@ Page({
     wx.navigateTo({ url: `/pages/station-mgmt/customers/detail/index?id=${id}` })
   },
 
+  onReturnEmpty(e) {
+    const id = e.currentTarget.dataset.id
+    if (this._unloaded || !getApp().canAccessStationBusiness() || this._dataContext !== this._context()
+      || !validId(id) || !this.data.groups.some(row => String(row.customerId) === String(id))) return
+    wx.navigateTo({ url: '/pages/station-mgmt/customers/detail/index?id=' + id + '&action=return-empty' })
+  },
+
   onCallCustomer(e) {
     const phone = e.currentTarget.dataset.phone
     if (phone) wx.makePhoneCall({ phoneNumber: String(phone) })

@@ -60,6 +60,10 @@
               <text class="ex-label">站长</text>
               <text class="ex-value">{{item.managerNote}}</text>
             </view>
+            <view class="ex-actions">
+              <button class="af-action af-action--quiet" data-id="{{item.id}}" bindtap="onOpenExceptionOrder"><view class="af-action__face">查看订单 / 售后</view></button>
+              <button class="af-action af-action--quiet" data-id="{{item.id}}" bindtap="onOpenExceptionCustomer"><view class="af-action__face">核对客户资产</view></button>
+            </view>
             <text class="ex-time">{{item.timeText}}</text>
             <!-- 处置入口（2026-09-20 产品批准开放「A1」）：只有两个动作。
                  ⚠️ 这里**没有任何金额/数量输入框** —— 「按系统建议补偿」的明细由后端下发、前端原样提交，

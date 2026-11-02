@@ -918,3 +918,9 @@
 @media (prefers-contrast:more) { .v2-overview-note { color:#FFFFFF; } }
 
 .v2-workbench .v2-todo { background:var(--af2-surface-current); border-color:var(--af2-surface-current); }
+
+/* Explicit block spacing survives native text layout without relying on flex gap. */
+.v2-workbench .v2-queue-tab .af-choice__face { display:flex; flex-direction:column; align-items:center; justify-content:center; height:auto; min-height:88px; padding:10px 4px 14px; box-sizing:border-box; }
+.v2-workbench .v2-queue-tab .tab-count { position:static; display:block; flex:none; height:auto; max-width:100%; line-height:32px; margin:0 0 8px; white-space:normal; word-break:break-all; }
+.v2-workbench .v2-queue-label { position:static; display:block; flex:none; line-height:22px; white-space:nowrap; }
+.v2-workbench .v2-queue-tab { min-width:0; box-sizing:border-box; }

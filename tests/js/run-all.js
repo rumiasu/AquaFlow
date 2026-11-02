@@ -15,6 +15,7 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'workflow-entry-regression.test.js', name: '异常与欠桶办理入口及首页统计间距' },
   { file: 'dispatch-offer-consent.test.js', name: '外派报价原确认版本与旧服务能力拒绝' },
   { file: 'address-explicit-clear.test.js', name: '地址显式清空、版本路由与真实回执' },
   { file: 'save-result-feedback.test.js', name: '资料写入成功、缓存失败与结果未知读回' },

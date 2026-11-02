@@ -24,9 +24,19 @@ class DispatchPoolAgreementLifecycleTest {
         Fixture f = new Fixture();
         if (rejected) f.service.stationReject(1L, "本站暂时无法配送", true);
         else f.service.outsource(1L, null, "请求别站配送", false);
-        verify(f.agreements).recallIfUnstarted(1L);
-        verify(f.agreements).prepare(f.order, null);
+        var sequence = inOrder(f.agreements);
+        if (rejected) {
+            sequence.verify(f.agreements).recallIfUnstarted(1L);
+            verify(f.agreements, never()).recallAcceptedBeforeReroute(any());
+        } else {
+            // Repeating an identical OFFERED route preserves its displayed round.
+            // Only an already ACCEPTED agreement needs recalling before rerouting.
+            sequence.verify(f.agreements).recallAcceptedBeforeReroute(1L);
+            verify(f.agreements, never()).recallIfUnstarted(any());
+        }
+        sequence.verify(f.agreements).prepare(f.order, null);
         verify(f.agreements, never()).accepted(any(), any());
+        verify(f.agreements, never()).accepted(any(), any(), any());
     }
 
     @Test void directedOfferIsPreparedOnceForItsActualTarget() throws Exception {

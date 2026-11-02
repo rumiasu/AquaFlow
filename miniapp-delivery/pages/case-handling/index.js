@@ -8,7 +8,7 @@ function owner() {
   return JSON.stringify([STAFF_APP,!!d.isLogin,u.staffId||d.customerId||wx.getStorageSync('customerId'),u.stationId,u.role])
 }
 Page({
-  data:{kind:'',id:null,ready:false,loading:false,error:'',history:[],version:0,canReply:false,canClose:false,canResolve:false,reason:'',busy:false,pending:false,result:''},
+  data:{kind:'',id:null,ready:false,loading:false,error:'',history:[],version:0,canReply:false,canClose:false,canResolve:false,reason:'',busy:false,pending:false,result:'',subjectText:'',subjectCategory:'',statusText:'',blockReason:'',orderId:null},
   onLoad(options){
     const kind=options.kind,id=options.id
     if(!ids(id)||!['FEEDBACK','EXCEPTION'].includes(kind)||(!STAFF_APP&&kind!=='FEEDBACK')) {this._invalid=true;this.setData({error:'处理对象无效，请返回原记录'});return}
@@ -18,7 +18,7 @@ Page({
   onShow(){
     this._hidden=false
     if(this._invalid)return
-    if(!this.current()){this.setData({ready:false,history:[],reason:'',pending:false,canReply:false,canClose:false,canResolve:false,busy:false,error:'登录身份已变化，请返回原记录重新进入'});return}
+    if(!this.current()){this.setData({ready:false,history:[],subjectText:'',subjectCategory:'',statusText:'',blockReason:'',orderId:null,reason:'',pending:false,canReply:false,canClose:false,canResolve:false,busy:false,error:'登录身份已变化，请返回原记录重新进入'});return}
     if(!this._flight)this.setData({busy:false})
     return this.load()
   },
@@ -43,10 +43,14 @@ Page({
       if(!this.current()||seq!==this._seq)return
       if(!r||r.code!==0||!d||d.kind!==this.data.kind||String(d.caseId)!==this.data.id||!Number.isSafeInteger(d.version)||d.version<0||!Array.isArray(d.actions))throw new Error('处理记录尚未核对，请刷新重试')
       const history=d.actions.map(a=>({...a,label:a.actionText||'处理记录'}))
-      this.setData({ready:true,history,version:d.version,canReply:STAFF_APP&&d.canReply===true,canClose:STAFF_APP&&d.canClose===true,canResolve:STAFF_APP&&d.canResolve===true})
+      this.setData({ready:true,history,version:d.version,canReply:STAFF_APP&&d.canReply===true,canClose:STAFF_APP&&d.canClose===true,canResolve:STAFF_APP&&d.canResolve===true,
+        subjectText:typeof d.subjectText==='string'?d.subjectText:'',subjectCategory:typeof d.subjectCategory==='string'?d.subjectCategory:'',
+        statusText:typeof d.statusText==='string'?d.statusText:'',blockReason:typeof d.blockReason==='string'?d.blockReason:'',orderId:STAFF_APP&&ids(d.orderId)?String(d.orderId):null})
     }catch(e){if(this.current()&&seq===this._seq)this.setData({error:e.message||'暂时无法核对处理记录'})}
     finally{if(this.current()&&seq===this._seq)this.setData({loading:false})}
   },
+  // 2026-11-02：原事项先核对，关联订单只沿现有员工权限入口读取。
+  onOpenOrder(){if(STAFF_APP&&this.current()&&this.data.ready&&ids(this.data.orderId))wx.navigateTo({url:'/pages/order/detail?id='+this.data.orderId})},
   onReason(e){if(!this.data.busy&&!this.data.pending)this.setData({reason:e.detail.value})},
   onReply(){return this.act('REPLY')},
   onClose(){return this.act('CLOSE')},

@@ -40,6 +40,19 @@ class DeliveryReportIdempotencyTest {
         sequence.verify(f.exceptions).reportReceiptsForUpdate(eq(20L), startsWith("report:"));
     }
 
+    @Test void crossStationFieldReportAndAlertBelongToTheSameFulfillingStation() {
+        Fixture f = new Fixture();
+        f.order.setDeliveryStationId(9L);
+        BarrelBusinessPolicy policy = mock(BarrelBusinessPolicy.class);
+        when(policy.isEnabled()).thenReturn(true);
+        ReflectionTestUtils.setField(f.service, "barrelPolicy", policy);
+        AuthContext.set(new AuthContext.AuthUser(20L, "staff", "DELIVERY", 9L));
+        var report = f.report("DR-cross-station-001");
+        assertEquals(9L, report.getStationId());
+        verify(f.alerts).stationFault(eq(9L), eq("WARN"), eq("OrderBarrelException"), anyString(), anyString(), eq("ORDER_BARREL_EXCEPTION"), eq(report.getId()));
+        verify(f.alerts, never()).stationFault(eq(8L), anyString(), anyString(), anyString(), anyString(), anyString(), any());
+    }
+
     @Test void handledOriginalIsStillReturnedAndANewKeyCanReportANewIdenticalEvent() {
         Fixture f = new Fixture(); var first = f.report("DR-original-001");
         f.records.get(first.getId()).setStatus("IGNORED");

@@ -292,7 +292,8 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         // 站长端可见性（产品裁定：本次**不做真推送**，靠站长端列表 / 待办数字暴露）：
         // 这条异常单 status=STAFF_RECORDED，而「待处理桶异常」那个待办数字正是按它计数的，
         // 所以站长自己就会看到多了一条 —— 不需要 NotificationService（它 6 个方法目前全是空壳）。
-        alertService.stationFault(order.getStationId(), "WARN", "OrderBarrelException",
+        // 2026-11-02：跨站现场异常已归履约站，提醒也认同一责任站，避免投给无法办理的归属站。
+        alertService.stationFault(ex.getStationId(), "WARN", "OrderBarrelException",
                 "配送员上报现场问题：" + label,
                 "订单 " + orderId + " 由配送员上报「" + label + "」"
                         + (staffNote == null || staffNote.isBlank() ? "" : "（补充：" + staffNote + "）")

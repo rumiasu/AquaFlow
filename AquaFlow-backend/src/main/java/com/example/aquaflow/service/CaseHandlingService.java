@@ -59,14 +59,27 @@ public class CaseHandlingService {
     }
     public Map<String,Object> exceptionView(Long id) {
         var e=exceptions.getById(id);authorizeException(e);ready();var out=view("EXCEPTION",id,e.getStationId());
-        out.put("canResolve",canResolve(e));out.put("status",e.getStatus());out.put("statusText",e.getStatusText());return out;
+        out.put("canResolve",canResolve(e));out.put("status",e.getStatus());out.put("statusText",e.getStatusText());
+        // 2026-11-02：只给编号会令站长无法核对原事项；摘要仅取已授权异常，不扩展客户画像读取。
+        out.put("subjectText",e.getStaffNote()==null||e.getStaffNote().isBlank()?e.getCategoryText():e.getStaffNote());
+        out.put("subjectCategory",e.getCategoryText());out.put("orderId",e.getOrderId());
+        out.put("blockReason",canResolve(e)?"":!"STAFF_RECORDED".equals(e.getStatus())
+            ?"原异常已有办理结果，请查看处理记录。"
+            :"CUSTOMER_REFUSE".equals(e.getCategory())?"拒付事项须在业务待办中核对，不能按无需补偿结案。"
+            :"仍有桶水差异或补偿待办，请先核对原订单和客户资产，不能按无需补偿结案。");
+        return out;
     }
     public Map<String,Object> feedbackView(Long id) {
         var f=feedback.getById(id);var station=authorizeFeedback(f);ready();var out=view("FEEDBACK",id,station);
         // Each station has its own handling line. Never label one station's closure as global closure.
         if(station==null){out.put("version",0L);out.remove("closed");}
         out.put("canReply",station!=null&&!Boolean.TRUE.equals(out.get("closed")));
-        out.put("canClose",out.get("canReply"));return out;
+        out.put("canClose",out.get("canReply"));
+        // 匿名反馈只展示提交者主动填写的原内容，不下发身份、联系方式或客户资料。
+        out.put("subjectText",f.getContent());out.put("subjectCategory",f.getCategory());
+        out.put("statusText",station==null?"各水站回复记录":Boolean.TRUE.equals(out.get("closed"))?"本站已结案":"本站待处理");
+        out.put("blockReason",station!=null&&Boolean.TRUE.equals(out.get("closed"))?"本站已登记结案结果，可查看原回复与处理记录。":"");
+        return out;
     }
     private Map<String,Object> replay(String kind,Long id,Long station,ExceptionActionEvidence.Input input) {
         if(!input.key().matches("[A-Za-z0-9_-]{1,64}"))throw new BusinessException("办理编号格式无效，请重新核对原请求");

@@ -158,3 +158,6 @@
 .lv2-bind .status-value { font-size:16px; line-height:24px; color:var(--af2-ink); }
 .lv2-bind .btn-wrap { display:flex; flex-wrap:wrap; gap:8px 16px; padding:12px 0; margin:0; justify-content:center; }
 .lv2-bind > .b2-inline-tool { margin-top:24px; }
+
+/* 2026-11-02：长页末项与操作保留底部安全区；只调整本页容器，不改变业务分支。 */
+.container { box-sizing:border-box; padding-bottom:calc(32px + env(safe-area-inset-bottom)); }

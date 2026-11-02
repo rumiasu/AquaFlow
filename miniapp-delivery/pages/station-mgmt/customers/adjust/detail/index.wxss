@@ -130,3 +130,6 @@ button.af-entry::after { border:0; }
 
 /* Visual v2: page-specific information and action grouping. */
  .head { padding:16px; border-radius:14px; background:var(--af2-surface-current); } .head-left,.head .status { color:var(--af2-ink-current); } .snap-head { background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); border-radius:8px; } .snap-row { border-bottom:1px solid var(--af-border); } .card { border-radius:14px; box-shadow:none; }
+
+/* 2026-11-02：长页末项与操作保留底部安全区；只调整本页容器，不改变业务分支。 */
+.container { box-sizing:border-box; padding-bottom:calc(32px + env(safe-area-inset-bottom)); }

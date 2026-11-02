@@ -160,6 +160,33 @@ class DeliveryMyEarningsIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, mgrSelf.data().path("items").size(), "本用例里站长没送过单，明细应为空");
     }
 
+    @Test void historicalPayrollCursorIsStableAndNeverReadsAnotherEmployee() {
+        long[] ids=seed();String token=staffToken(ids[5],"DELIVERY",ids[0]);
+        long oldest=0;
+        for(int n=0;n<23;n++) {
+            long id=insert("insert into staff_payroll(payroll_no,station_id,staff_id,period_start,period_end,total_amount,status) values(?,?,?,date_add('2020-01-01',interval ? day),date_add('2020-01-01',interval ? day),12,3)","SYN-HISTORY-"+n,ids[0],ids[5],n,n);
+            if(n==0)oldest=id;
+        }
+        var first=get("/api/delivery/earnings/payrolls?staffId="+ids[6],token);
+        assertEquals(0,first.code());assertEquals(20,first.data().path("payrolls").size());assertTrue(first.data().path("hasMore").asBoolean());
+        long cursor=first.data().path("nextBeforeId").asLong();
+        insert("insert into staff_payroll(payroll_no,station_id,staff_id,period_start,period_end,total_amount,status) values('SYN-NEW',?,?,'2025-01-01','2025-01-01',99,3)",ids[0],ids[5]);
+        var next=get("/api/delivery/earnings/payrolls?beforeId="+cursor,token);
+        assertEquals(3,next.data().path("payrolls").size());assertFalse(next.data().path("hasMore").asBoolean());
+        assertEquals(oldest,next.data().path("payrolls").get(2).path("id").asLong());
+        assertEquals(0,get("/api/delivery/earnings/payrolls",staffToken(ids[6],"DELIVERY",ids[0])).data().path("payrolls").size());
+        assertFalse(get("/api/delivery/earnings/payrolls?beforeId=0",token).isSuccess());
+    }
+
+    @Test void historicalPayrollDetailRequiresOwnerAndCustomerCannotRead() {
+        long[] ids=seed();long payroll=insert("insert into staff_payroll(payroll_no,station_id,staff_id,period_start,period_end,total_amount,status) values('SYN-DETAIL',?,?,'2020-01-01','2020-01-31',0,3)",ids[0],ids[5]);
+        String path="/api/delivery/earnings/payrolls/"+payroll;
+        assertTrue(get(path,staffToken(ids[5],"DELIVERY",ids[0])).isSuccess());
+        assertFalse(get(path,staffToken(ids[6],"DELIVERY",ids[0])).isSuccess());
+        assertFalse(get(path,customerToken(ids[1])).isSuccess());
+        assertFalse(get("/api/delivery/earnings/payrolls",customerToken(ids[1])).isSuccess());
+    }
+
     // ---------- helpers ----------
 
     /** @return {station, customer, address, product, manager, deliveryA, deliveryB} */

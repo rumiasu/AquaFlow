@@ -22,7 +22,9 @@
   <view class="chips">
     <view bindtap="onRange" data-range="month" class="af-choice b2-choice {{range === 'month' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{range === 'month'}}">✓</text>本月至今</view></view>
     <view bindtap="onRange" data-range="today" class="af-choice b2-choice {{range === 'today' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{range === 'today'}}">✓</text>只看今天</view></view>
+    <button bindtap="onOpenRange" class="af-action af-action--quiet">选择日期</button>
   </view>
+  <view class="card earnings-range" wx:if="{{rangeExpanded}}"><text class="card-title">查看历史收益</text><view class="earnings-dates"><picker mode="date" value="{{fromDraft}}" bindchange="onFromChange"><view>开始：{{fromDraft || '请选择'}}</view></picker><picker mode="date" value="{{toDraft}}" bindchange="onToChange"><view>结束：{{toDraft || '请选择'}}</view></picker></view><text class="ui-state-copy" wx:if="{{rangeError}}">{{rangeError}}</text><button bindtap="onApplyPeriod" class="af-action af-action--primary">查看所选期间</button></view>
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>
 
@@ -51,7 +53,7 @@
     <view class="card" wx:if="{{showSettlement}}">
       <view class="card-title">结算记录</view><text class="summary-hint">仅登记线下发薪，不触发转账</text>
       <view class="empty" wx:if="{{payrolls.length === 0}}">暂无结算单</view>
-      <view class="payroll" wx:for="{{payrolls}}" wx:key="id">
+      <view class="payroll" wx:for="{{payrolls}}" wx:key="id" bindtap="onOpenPayroll" data-id="{{item.id}}" aria-role="button">
         <view class="payroll-row">
           <text class="payroll-period">{{item.periodText}}</text>
           <text class="payroll-status">{{item.statusText}}</text>
@@ -61,7 +63,10 @@
           <text class="payroll-amount">¥{{item.totalText}}</text>
         </view>
         <view class="payroll-paid" wx:if="{{item.paidText}}">已发放登记时间：{{item.paidText}}</view>
+        <text class="payroll-detail-entry">查看本单明细 ›</text>
       </view>
+      <text class="ui-state-copy" wx:if="{{payrollError}}">{{payrollError}}</text><button wx:if="{{payrollHasMore}}" bindtap="onMorePayrolls" disabled="{{payrollLoadingMore}}" loading="{{payrollLoadingMore}}" class="af-action af-action--quiet">{{payrollError ? '重试读取更早工资单' : '继续查看更早工资单'}}</button>
+      <view class="payroll-detail" wx:if="{{selectedPayroll}}"><view class="payroll-row"><text class="card-title">{{selectedPayroll.payrollNo}}</text><button bindtap="onClosePayroll" class="af-action af-action--quiet">关闭明细</button></view><text class="summary-hint">{{selectedPayroll.periodText}} · {{selectedPayroll.statusText}}</text><text class="payroll-amount">¥{{selectedPayroll.totalText}}</text><text wx:if="{{detailLoading}}">正在读取本单明细…</text><view wx:elif="{{detailError}}"><text class="ui-state-copy">{{detailError}}</text><button bindtap="onRetryPayrollDetail" class="af-action af-action--quiet">重新读取明细</button></view><block wx:else><text wx:if="{{!detailItems.length}}" class="summary-hint">本单暂无收益明细记录。</text><view class="item" wx:for="{{detailItems}}" wx:for-item="entry" wx:key="id"><view class="item-left"><text class="item-kind">{{entry.kindText}}</text><text class="item-meta">{{entry.timeText}}</text><text class="item-meta" wx:if="{{entry.note}}">{{entry.note}}</text></view><text class="item-amount">{{entry.amountText}}</text></view></block></view>
     </view>
 
     <!-- 口径说明由服务端下发，前端不复述 -->

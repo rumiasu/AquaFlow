@@ -47,6 +47,11 @@ public interface StaffPayrollMapper {
     @Select("select * from staff_payroll where staff_id = #{staffId} order by id desc limit #{limit}")
     List<StaffPayroll> listByStaff(@Param("staffId") Long staffId, @Param("limit") int limit);
 
+    /** 2026-11-02：本人历史用严格递减id游标，新增工资单不挤掉后续页；staffId只能来自会话。 */
+    @Select("<script>select * from staff_payroll where staff_id=#{staffId} "
+            + "<if test='beforeId != null'>and id &lt; #{beforeId} </if>order by id desc limit #{limit}</script>")
+    List<StaffPayroll> listByStaffBefore(@Param("staffId") Long staffId,@Param("beforeId") Long beforeId,@Param("limit") int limit);
+
     /** 本站某状态的结算单张数（站长首页「待办聚合」用：草稿 = 待确认） */
     @Select("select count(*) from staff_payroll where station_id = #{stationId} and status = #{status}")
     int countByStatus(@Param("stationId") Long stationId, @Param("status") Integer status);

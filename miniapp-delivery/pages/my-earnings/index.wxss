@@ -271,3 +271,19 @@ button:not(.af-action):not(.af-choice) { min-height:44px; height:auto; line-heig
 .lv2-earnings .summary-value, .lv2-earnings .summary-value-sm, .lv2-earnings .payroll-amount, .lv2-earnings .item-amount { max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-all; }
 
 .settlement-entry { min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 12px; margin-bottom:10px; color:var(--text-regular); background:#fff; border:1px solid var(--border-color); border-radius:10px; font-size:14px; }
+
+/* 2026-11-02：历史期间和工资单明细保持页面内只读，窄屏不挤压日期与金额。 */
+.chips { flex-wrap:wrap; }
+.earnings-dates { display:flex; flex-wrap:wrap; gap:12px; margin:12px 0; }
+.earnings-dates picker { flex:1 1 160px; min-width:0; }
+.earnings-dates picker view { min-height:48px; display:flex; align-items:center; padding:8px 12px; box-sizing:border-box; border:1px solid var(--af2-line); border-radius:10px; font-size:16px; }
+.payroll-detail-entry { display:block; min-height:44px; padding-top:10px; box-sizing:border-box; text-align:right; color:var(--af-primary); font-size:14px; }
+.payroll-detail { margin-top:20px; padding-top:20px; border-top:1px solid var(--af2-line); }
+.payroll-detail .payroll-row { flex-wrap:wrap; gap:12px; }
+.payroll-detail .card-title { min-width:0; overflow-wrap:anywhere; }
+.payroll-detail .item { flex-wrap:wrap; gap:12px; }
+.page { padding-bottom:calc(28px + env(safe-area-inset-bottom)); }
+
+/* 2026-11-02：本页业务数字、记录和说明的窄屏阅读层级。 */
+.lv2-earnings .summary-label,.lv2-earnings .summary-hint,.lv2-earnings .payroll-paid,.lv2-earnings .item-meta,.lv2-earnings .item-detail { font-size:14px; line-height:22px; }
+.lv2-earnings .payroll-row { flex-wrap:wrap; gap:8px; }

@@ -34,7 +34,7 @@ import java.util.Map;
 @RequireRole({"DELIVERY", "STATION_MANAGER"})
 public class DeliveryEarningController {
 
-    /** 结算单列表一次最多给几条（配送员只需要看最近几张）。 */
+    /** 首页首批大小；更早记录由本人游标查询提供。 */
     private static final int PAYROLL_LIMIT = 20;
 
     /** 口径说明：由后端下发，前端不复述（本仓约定：展示文案不在前端拼） */
@@ -47,6 +47,20 @@ public class DeliveryEarningController {
 
     @Autowired
     private StaffPayrollMapper staffPayrollMapper;
+
+    @Autowired private com.example.aquaflow.service.SelfPayrollQueryService selfPayroll;
+
+    /** 员工端本人历史工资；类级员工角色守卫，身份仅取AuthContext，顾客不能调用。 */
+    @GetMapping("/payrolls")
+    public Result<Map<String,Object>> payrolls(@RequestParam(required=false) Long beforeId) {
+        return Result.success(selfPayroll.page(beforeId));
+    }
+
+    /** 员工端本人工资单只读明细；不能通过单据id查询同事，不办理发薪。 */
+    @GetMapping("/payrolls/{id}")
+    public Result<Map<String,Object>> payrollDetail(@PathVariable Long id) {
+        return Result.success(selfPayroll.detail(id));
+    }
 
     /**
      * [F-16] 业务时钟（不是 {@code Clock} 本体 —— 时间源统一收在 util 里，

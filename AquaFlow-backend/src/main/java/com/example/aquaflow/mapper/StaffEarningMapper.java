@@ -46,6 +46,10 @@ public interface StaffEarningMapper {
     @Select("select * from staff_earning where payroll_id = #{payrollId} order by id asc")
     List<StaffEarning> listByPayroll(@Param("payrollId") Long payrollId);
 
+    /** 本人工资单明细，单据和明细同时锁定会话中的员工，不能借单据编号查同事收益。 */
+    @Select("select * from staff_earning where payroll_id=#{payrollId} and staff_id=#{staffId} order by id desc")
+    List<StaffEarning> listByPayrollForStaff(@Param("payrollId") Long payrollId,@Param("staffId") Long staffId);
+
     /** 某人在某站、某期间内**未结算**的明细（生成结算单时用） */
     @Select("select * from staff_earning where station_id = #{stationId} and staff_id = #{staffId} "
             + "and payroll_id is null and create_time >= #{start} and create_time < #{endExclusive} "

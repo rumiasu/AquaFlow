@@ -263,6 +263,8 @@
 |---|---|---|---|
 | `GET` | `/api/delivery/barrel-records` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getBarrelRecords` |
 | `GET` | `/api/delivery/earnings` | {"DELIVERY","STATION_MANAGER"} | `DeliveryEarningController.myEarnings` |
+| `GET` | `/api/delivery/earnings/payrolls` | {"DELIVERY","STATION_MANAGER"} | `DeliveryEarningController.payrolls` |
+| `GET` | `/api/delivery/earnings/payrolls/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryEarningController.payrollDetail` |
 | `GET` | `/api/delivery/history` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getDeliveryHistory` |
 | `POST` | `/api/delivery/orders/assign/{id}` | "STATION_MANAGER" | `StationDeliveryConsoleController.assignOrder` |
 | `GET` | `/api/delivery/orders/assigned-to-me` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getAssignedToMeOrders` |
@@ -828,3 +830,9 @@ quoted 新路径让旧后端明确拒绝，不会把 token 当未知字段忽略
 | `POST` | `/api/feedback/{id}/close` | 关联站长；回复结果并结案，同样三字段；不处理任何退款或资产 | `FeedbackController.closeFeedback` |
 
 同一原对象行锁内先验权限、再查原回执，随后校验版本/状态并追加持久凭据。相同键同内容重放原结果，改内容或版本拒绝；不同键同版本竞争仅一笔可成。核实结案为独立VERIFIED状态，不等同IGNORED；未执行补偿不得关闭。反馈回复由顾客“我的反馈→查看水站回复与结果”读取，不发送短信或微信订阅通知。回复和结案都是客户可见文本，不能填写内部敏感资料。原匿名读脱敏保持不变。
+
+### 本人历史工资只读查询（2026-11-02）
+
+员工端 `/api/delivery/earnings/payrolls` 每页20张，`beforeId` 可省略，提供时必须为正整数；响应 `payrolls`、`hasMore`、`nextBeforeId`，只按登录员工及严格递减的id分页。初次收益响应仍提供首批工资单；后续页使用首批最后id。客户端不能用时间或offset替代游标。
+
+`/api/delivery/earnings/payrolls/{id}` 返回本人 `payroll` 和 `items`。单据不属于本人或不存在均业务拒绝，顾客角色不能访问两接口。身份及站别均不接受客户端覆盖，不执行结算、发薪或退款。原收益接口的 `from`/`to` 仍按含结束日口径查询，可用于历史期间。

@@ -227,6 +227,7 @@ SOURCE seed_platform_pulisi_185.sql;
 | 70 | `migration_v85_station_pricing_confirmation.sql` | 每站每商品的成功定价确认标记；仅回填已有站级正价格覆盖或本站自定义价格的可证据记录，不改价格、押金、库存、上架或更新时间。先执行一次增量，再安装配套后端/员工端；可重复执行。真实库未执行。 |
 | 71 | `migration_v86_historical_asset_claim_photo.sql` | 历史认领可选照片旁表；按客户与申请凭据关联，不改既有资产。新库 schema 已包含，存量库需先核对目标并安装增量，再启用配套功能；本次未执行真实库迁移。 |
 | 72 | `migration_v87_inventory_cost_snapshots.sql` | 库存和出入库流水可空成本快照；当前启动守卫要求列存在。含非幂等 ALTER，仅对确认缺失列逐条执行，先核准目标并备份；未知历史成本保留 NULL，不重跑整套、不填 0。 |
+| 73 | `migration_v88_dispatch_offer_version.sql` | 外派报价轮次版本；已有协议表先核对列定义并备份，缺列时安装。新后端有只读启动守卫；不改历史金额或自动接受报价。 |
 
 ## 历史迁移演进（脚本已删除，结论保留）
 
@@ -492,3 +493,11 @@ ALTER TABLE inventory ADD COLUMN image_object_name_override VARCHAR(512) DEFAULT
 `migration_v87_inventory_cost_snapshots.sql` 添加 `inventory.cost_amount`（当前实物总成本池）与 `inventory_record.cost_amount`（变动成本快照）两个可空 `DECIMAL(18,2)` 列。先正常备份并只读核对目标库与列定义，仅缺列时单独执行对应 `ALTER`，两列均已符合定义时跳过；已有列定义不符则停止核实。脚本不含 `SET/PREPARE`，不能当成可重复整份连跑的迁移。历史不回填，明确 0 与未知 `NULL` 区分。
 
 先迁移再安装配套后台；`InventoryCostSchemaGuard` 启动时只读校验两列，不自动 DDL。未安装或定义不符会拒绝启动，所以仅替换 JAR 不能完成升级。旧的当前单价仅留存兼容，报表不再用它补写历史。入库成本选填，不新增独立必填设置；期间成本不完整时仅展示收入。合成库验证不代表云库已迁移，本轮未对业务库执行 SQL。
+
+## v88 外派报价确认版本
+
+`migration_v88_dispatch_offer_version.sql` 增加 `dispatch_agreement.offer_version BIGINT NOT NULL DEFAULT 1`。已有协议金额、状态和原接受凭据不回算；旧记录获得初始版本1。
+先运行 `deployment/limited-trial/schema-preflight-v88-readonly.sql` 核对真实目标与列定义并完成备份。缺列才执行本增量；已有列仅在定义完全符合时跳过，定义冲突停止核实，不靠重复执行修正。
+新库 schema 已含此列。配套新后端在已有协议表却缺失/不符列定义时拒绝启动，不会自动DDL。
+先完成结构准备，再确认全部配套后端实例和流量已切换，最后更新两端；不要以旧后端能忽略新列推断旧/新写实例混部已安全验收。
+本轮只在已备份的专用本机合成库验证，不代表目标云库已迁移、服务已部署或真实业务已验收。

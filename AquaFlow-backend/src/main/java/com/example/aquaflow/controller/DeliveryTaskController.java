@@ -148,6 +148,13 @@ public class DeliveryTaskController {
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
+    @PostMapping("/orders/{id}/accept-quoted")
+    public Result<Void> acceptQuoted(@PathVariable Long id, @RequestBody @Valid DeliveryOrderActionDTO.AcceptQuote body) {
+        orderWorkflowService.acceptOrder(id,body.getQuoteToken());
+        return Result.success();
+    }
+
+    @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @PostMapping("/orders/{id}/confirm-offline-pay")
     public Result<Void> confirmOfflinePay(@PathVariable Long id) {
         orderWorkflowService.confirmOfflinePay(id);

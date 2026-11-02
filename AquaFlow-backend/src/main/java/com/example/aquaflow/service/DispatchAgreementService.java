@@ -50,19 +50,28 @@ public class DispatchAgreementService {
         if (mapper.quote(orderId,dto.getServiceAmount(),dto.getBarrelMode(),dto.getBarrelAmount(),AuthContext.getUserId(),dto.getNote())!=1) throw new BusinessException("对方已接单，报价不可再变更");
         audit.log("DispatchAgreement","QUOTE",String.valueOf(orderId),"服务报价 "+dto.getServiceAmount()+"；桶方案 "+dto.getBarrelMode()+" "+dto.getBarrelAmount()+"；"+dto.getNote(),null);
     }
-    @Transactional public void accepted(Orders order,Long station) {
+    @Transactional public void accepted(Orders order,Long station) { accepted(order,station,null); }
+    /** 2026-11-01 B-03: check the displayed round while holding the agreement row lock. */
+    @Transactional public void accepted(Orders order,Long station,String quoteToken) {
         if (!policy.hasSchema() || Objects.equals(order.getStationId(),station)) return;
         Map<String,Object> agreement=mapper.lock(order.getId());
+        // 2026-11-02 owner ruling: keep the pre-B03 guard exactly. Only the switch-off path may skip
+        // consent; with the model enabled a missing agreement row is a hard failure (fail closed).
         if(agreement==null && !policy.isEnabled())return;
         if (agreement!=null && Set.of("ACCEPTED","BARREL_CLOSED").contains(String.valueOf(agreement.get("status")))
-                && Objects.equals(((Number)agreement.get("target_station_id")).longValue(),station)) return;
-        if (agreement==null || mapper.accept(order.getId(),station,AuthContext.getUserId())!=1) throw new BusinessException("外包报价已变更，请刷新并确认后接单");
+                && agreement.get("target_station_id") instanceof Number target && target.longValue()==station.longValue()) return;
+        if (agreement==null || !"OFFERED".equals(agreement.get("status"))
+                || agreement.get("target_station_id") instanceof Number target && target.longValue()!=station.longValue()
+                || !DispatchOfferFingerprint.matches(quoteToken,DispatchOfferFingerprint.token(agreement,station)))
+            throw new BusinessException("外包报价已变化或尚未确认，请刷新查看报价并重新确认；旧版请先更新");
+        if (mapper.accept(order.getId(),station,AuthContext.getUserId())!=1) throw new BusinessException("外包报价已变更，请刷新并确认后接单");
         audit.log("DispatchAgreement","ACCEPT",String.valueOf(order.getId()),"履约站 "+station+" 接受服务和桶交接约定",null);
     }
     public Map<String,Object> info(Long order) {
         if (!policy.hasSchema()) return Map.of();
         Map<String,Object> row=mapper.get(order); if(row==null)return Map.of();
         Map<String,Object> out=new LinkedHashMap<>();
+        if ("OFFERED".equals(row.get("status"))) out.put("quoteToken",DispatchOfferFingerprint.token(row,AuthContext.getStationId()));
         out.put("serviceAmount",row.get("service_amount")); out.put("netBarrels",row.get("net_barrels"));
         out.put("barrelAmount",row.get("barrel_amount")); out.put("barrelItems",row.get("barrel_items")); out.put("status",row.get("status"));
         out.put("actualNetBarrels",row.get("actual_net_barrels")); out.put("actualBarrelItems",row.get("actual_barrel_items"));
@@ -120,6 +129,17 @@ public class DispatchAgreementService {
         audit.log("DispatchAgreement","BARREL_HANDOVER",String.valueOf(order),"水站 "+station+" 确认本方实际交接；"+note,null);
     }
     @Transactional public void recallIfUnstarted(Long orderId) { if(policy.isEnabled())mapper.recall(orderId); }
+    /**
+     * 2026-11-02 B-03: 只有**显式召回/改派**才作废当前轮次；「把一份已经 OFFERED 的报价重新路由」
+     * 必须交给 {@code prepare → mapper.route} 比对真实目标站——目标相同 ⇒ 同一轮（token 不变），
+     * 目标不同 ⇒ 推进轮次（旧 token 失效）。ACCEPTED 的重新路由仍按原行为先召回（清 target、置 OFFERED、
+     * 推进轮次），保持既有「已接受可改派」语义不变。
+     */
+    @Transactional public void recallAcceptedBeforeReroute(Long orderId) {
+        if (!policy.isEnabled()) return;
+        Map<String,Object> row=mapper.lock(orderId);
+        if (row!=null && "ACCEPTED".equals(String.valueOf(row.get("status")))) mapper.recall(orderId);
+    }
     @Transactional public Map<String,Object> raiseToListed(Long orderId) {
         Orders order=locks.lockOrder(orderId);
         Map<String,Object> agreement=mapper.lock(orderId);

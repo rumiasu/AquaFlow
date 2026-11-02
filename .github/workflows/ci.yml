@@ -242,6 +242,16 @@ jobs:
           AQUAFLOW_ALLOW_DB_RESET: aquaflow_prodstartup_check
         run: node scripts/prod-startup-check.js
 
+      # Keep the exact bootJar that passed the local-config and production-startup checks.
+      # This archives a development build; it does not publish or deploy any service.
+      - name: Archive validated backend JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-bootjar
+          path: AquaFlow-backend/build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 1
+
       - name: 上传测试报告（失败时也保留，便于排查）
         if: always()
         uses: actions/upload-artifact@v4

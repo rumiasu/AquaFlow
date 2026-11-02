@@ -31,6 +31,7 @@ public interface OrderWorkflowService {
 
     /** 配送员接单：待配送 → 配送中（CAS，仅无主或已分配给本人时可接）。 */
     void acceptOrder(Long orderId);
+    void acceptOrder(Long orderId, String quoteToken);
 
     /** 确认线下（现金）收款：补写 PAID 流水 + 入账预收押金，已送达则顺带闭环为已完成。 */
     void confirmOfflinePay(Long orderId);
@@ -102,6 +103,7 @@ public interface OrderWorkflowService {
 
     /** 抢单池抢单：本站认领并指定配送员（CAS，仅当订单仍在池中）。 */
     void claimPool(Long orderId, Long targetStaffId);
+    void claimPool(Long orderId, Long targetStaffId, String quoteToken);
 
     /**
      * 跨站外派风险提示文案（下发给前端，前端原样展示、不得自编）。
@@ -120,6 +122,7 @@ public interface OrderWorkflowService {
      *        他站定向外派过来的涉押金/桶权益单，未确认即拒绝（不涉押金的单不要求）
      */
     void assignToStaff(Long orderId, Long targetStaffId, boolean riskAcknowledged);
+    void assignToStaff(Long orderId, Long targetStaffId, boolean riskAcknowledged, String quoteToken);
 
     /** 配送员/站长转让订单给本站其他员工。 */
     void transferToStaff(Long orderId, Long targetStaffId, String reason);

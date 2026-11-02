@@ -304,18 +304,26 @@ Page({
 
   async onAcceptOrder(e) {
     const id = e.currentTarget.dataset.id
+    const order = (this.data.assignedOrders || []).find(row => String(row.id) === String(id))
+    const offer = order && order.dispatchAgreement
+    const quoteToken = offer && offer.status === 'OFFERED' ? offer.quoteToken : null
+    if (offer && offer.status === 'OFFERED' && (!quoteToken || offer.serviceAmount == null || offer.barrelAmount == null)) {
+      wx.showToast({ title: '报价尚未确认，请更新并刷新', icon: 'none' }); return
+    }
+    const offerText = quoteToken ? '本单服务报酬 ¥' + offer.serviceAmount + '；' + (offer.barrelNote || '')
+      + '；桶折款 ¥' + offer.barrelAmount + '。确认接受此约定？' : '确定接受此配送任务？'
     // #47: 防重复点击
     if (this._accepting) return
     this._accepting = true
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认接单',
       confirmText: '接单配送', cancelText: '暂不接单',
-      content: '确定接受此配送任务？',
+      content: offerText,
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '接单中...' })
           try {
-            await acceptOrder(id)
+            await acceptOrder(id, quoteToken)
             wx.hideLoading()
             wx.showToast({ title: '接单成功', icon: 'success' })
             // ⚠️ 必须显式传 isManager（loadData 的第一句就是 setData({onlyAssigned: !manager})）：

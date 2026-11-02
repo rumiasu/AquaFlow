@@ -145,6 +145,14 @@ public class StationDeliveryConsoleController {
     }
 
     @RequireRole("STATION_MANAGER")
+    @PostMapping("/orders/assign-quoted/{id}")
+    public Result<Void> assignQuoted(@PathVariable Long id, @RequestBody @Valid DeliveryOrderActionDTO.Assign body) {
+        if (body.getQuoteToken()==null || !body.getQuoteToken().matches("[a-f0-9]{64}")) return Result.error("请重新查看并确认外包报价");
+        orderWorkflowService.assignToStaff(id,body.getDeliveryStaffId(),Boolean.TRUE.equals(body.getRiskAcknowledged()),body.getQuoteToken());
+        return Result.success();
+    }
+
+    @RequireRole("STATION_MANAGER")
     @PostMapping("/orders/return/{id}/approve")
     public Result<Void> approveReturn(@PathVariable Long id) {
         orderWorkflowService.approveReturn(id);

@@ -838,6 +838,14 @@ Page({
   },
 
   onShowAssign(e) {
+    const id = e.currentTarget.dataset.id
+    const order = Object.values(this.data.lists || {}).flat().find(row => String(row.id) === String(id))
+    const offer = order && order.dispatchAgreement
+    if (offer && offer.status === 'OFFERED' && !offer.quoteToken) {
+      wx.showToast({ title: '报价服务需更新，请刷新后重试', icon: 'none' }); return
+    }
+    // Capture the quote displayed when this dialog opens, not one fetched after confirmation.
+    this._assignOffer = { orderId: id, quoteToken: offer && offer.status === 'OFFERED' ? offer.quoteToken : null }
     this.setModalState({
       showAssignModal: true,
       currentOrderId: e.currentTarget.dataset.id
@@ -848,6 +856,7 @@ Page({
     const staffId = e.currentTarget.dataset.id
     const name = e.currentTarget.dataset.name
     const orderId = this.data.currentOrderId
+    const quoteToken = this._assignOffer && String(this._assignOffer.orderId) === String(orderId) ? this._assignOffer.quoteToken : null
 
     // 风险确认**只对「别站指定外派给本站」的押金/桶权益单**弹（后端 needsConfirm 说了算，
     // 见 _confirmRisk）：本站单是站内部分配，不弹 —— 后端 risky = 跨站 && 涉押金，
@@ -861,9 +870,10 @@ Page({
     wx.showLoading({ title: '分配中...' })
     try {
       const body = { deliveryStaffId: staffId }
+      if (quoteToken) body.quoteToken = quoteToken
       // 漏传它就是"用户确认了、后端当没确认"（后端会拒），与 §8.15 静默丢字段同款
       if (risk.acknowledged) body.riskAcknowledged = true
-      await post(`${API.DELIVERY_ASSIGN}/${orderId}`, body)
+      await post(`${quoteToken ? API.DELIVERY_ASSIGN_QUOTED : API.DELIVERY_ASSIGN}/${orderId}`, body)
       wx.hideLoading()
       wx.showToast({ title: `已分配给 ${name}`, icon: 'success' })
       this.setModalState({ showAssignModal: false, currentOrderId: null })
@@ -961,6 +971,12 @@ Page({
   // 抢单池 - 抢单
   onClaimPool(e) {
     const id = e.currentTarget.dataset.id
+    const order = (this.data.lists.pool || []).find(row => String(row.id) === String(id))
+    const offer = order && order.dispatchAgreement
+    if (offer && offer.status === 'OFFERED' && !offer.quoteToken) {
+      wx.showToast({ title: '报价服务需更新，请刷新后重试', icon: 'none' }); return
+    }
+    const quoteToken = offer && offer.status === 'OFFERED' ? offer.quoteToken : null
     const colleagues = this.data.staffList || []
     if (colleagues.length === 0) {
       // [2026-09-20 真机联调] 这条链读的是**页面已加载的** staffList。原来只要它是空的就断言
@@ -997,7 +1013,7 @@ Page({
               if (!risk.ok) return
               wx.showLoading({ title: '抢单中...' })
               try {
-                await claimPoolOrder(id, { deliveryStaffId: target.id })
+                await claimPoolOrder(id, { deliveryStaffId: target.id, ...(quoteToken ? { quoteToken } : {}) })
                 wx.hideLoading()
                 wx.showToast({ title: '抢单成功', icon: 'success' })
                 this.loadAllData()

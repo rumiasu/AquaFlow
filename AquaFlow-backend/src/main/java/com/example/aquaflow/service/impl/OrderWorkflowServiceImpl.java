@@ -330,7 +330,11 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void acceptOrder(Long orderId) {
+    public void acceptOrder(Long orderId) { acceptOrder(orderId, null); }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void acceptOrder(Long orderId, String quoteToken) {
         Long staffId = AuthContext.getUserId();
         Long stationId = AuthContext.requireStationId();
 
@@ -370,7 +374,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (affected == 0) {
             throw new BusinessException("接单失败，订单状态已变更，请刷新后重试");
         }
-        dispatchAgreements.accepted(order,stationId);
+        dispatchAgreements.accepted(order,stationId,quoteToken);
         // 旧实现把 "[接单]" 只写进内存对象、从未落库（没有后续 update），此处改为原子追加。
         orderMapper.appendSpecialNote(orderId, "[接单] 配送员ID=" + staffId);
 
@@ -1231,7 +1235,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             if (changed == 0) {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
-            dispatchAgreements.recallIfUnstarted(orderId);
+            dispatchAgreements.recallAcceptedBeforeReroute(orderId);
             dispatchAgreements.prepare(order,targetStationId);
             // 定向外派 = 钱货都归目标站 → 待收款流水跟着走
             movePendingCollectionTo(orderId, targetStationId);
@@ -1257,7 +1261,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             if (changed == 0) {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
-            dispatchAgreements.recallIfUnstarted(orderId);
+            dispatchAgreements.recallAcceptedBeforeReroute(orderId);
             dispatchAgreements.prepare(order, null);
             // 放入池中 = 又回归属站 → 待收款流水跟着回归属站
             movePendingCollectionTo(orderId, order.getStationId());
@@ -1323,9 +1327,15 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void claimPool(Long orderId, Long targetStaffId) {
+    public void claimPool(Long orderId, Long targetStaffId) { claimPool(orderId, targetStaffId, null); }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void claimPool(Long orderId, Long targetStaffId, String quoteToken) {
         Long stationId = AuthContext.requireStationId();
-        Orders order = requireOrder(orderId);
+        // 2026-11-02 B-03: 三条接受入口统一先锁订单读取当前状态，再锁协议核对 token。
+        // 与报价/召回沿用同一锁序，状态判断、CAS 和所确认的报价在同一事务内完成。
+        Orders order = requireOrderForUpdate(orderId);
         // ⚠️ [2026-09-20] 原来先判 delivery_station_id、且文案写死"已被其他水站抢单"，
         // 但**下单时 delivery_station_id 就等于归属站**（OrderServiceImpl:479）—— 于是任何
         // "没被外派过"的单来抢（包括状态早已不是待配送的历史单）都会得到"被别站抢走了"这个
@@ -1360,7 +1370,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             // 执行 CAS 之前，池里这单被别站抢走（或状态已变）。这里本来就是"被抢走"的语义。
             throw new BusinessException("该订单已被其他水站抢单");
         }
-        dispatchAgreements.accepted(order,stationId);
+        dispatchAgreements.accepted(order,stationId,quoteToken);
         // 抢单 = 钱货都归抢单站 → 待收款流水跟着走（否则归属站列着一笔它收不到的钱）
         movePendingCollectionTo(orderId, stationId);
         // [2026-09-25 库存预留模型] 库存凭据跟着抢单站走（旧站释放、本站在**本站可用量**内重建）。
@@ -1377,7 +1387,11 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void assignToStaff(Long orderId, Long targetStaffId, boolean riskAcknowledged) {
+    public void assignToStaff(Long orderId, Long targetStaffId, boolean riskAcknowledged) { assignToStaff(orderId, targetStaffId, riskAcknowledged, null); }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void assignToStaff(Long orderId, Long targetStaffId, boolean riskAcknowledged, String quoteToken) {
         Long stationId = AuthContext.requireStationId();
         Orders order = requireOrderForUpdate(orderId);
         if (!stationId.equals(deliveryStation(order))) {
@@ -1414,7 +1428,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (changed == 0) {
             throw new BusinessException("订单状态已变更，请刷新后重试");
         }
-        if (crossStation) dispatchAgreements.accepted(order,stationId);
+        if (crossStation) dispatchAgreements.accepted(order,stationId,quoteToken);
         orderMapper.appendSpecialNote(orderId, "[分配] 站长分配给 " + target.getName());
         if (risky) appendRiskAckNote(orderId, "接收站", stationId);
         log("ASSIGN", orderId, serviceMap("targetStaffId", targetStaffId,

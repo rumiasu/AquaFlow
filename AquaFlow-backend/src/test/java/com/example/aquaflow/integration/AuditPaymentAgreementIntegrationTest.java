@@ -126,7 +126,7 @@ class AuditPaymentAgreementIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0,post("/api/delivery/orders/transfer/"+id+"/outsource",ta,"{\"targetStationId\":"+b+",\"riskAcknowledged\":true}").code());
         BigDecimal expected=new BigDecimal("20.00").add(new BigDecimal(fee));
         assertEquals(0,expected.compareTo(decimalOf("select service_amount from dispatch_agreement where order_id=?",id)));
-        assertEquals(0,post("/api/delivery/orders/assign/"+id,tb,"{\"deliveryStaffId\":"+driver+",\"riskAcknowledged\":true}").code());
+        assertEquals(0,post("/api/delivery/orders/assign-quoted/"+id,tb,"{\"deliveryStaffId\":"+driver+",\"riskAcknowledged\":true,\"quoteToken\":\""+quoteTokenOf(id,tb)+"\"}").code());
         assertEquals(0,post("/api/delivery/orders/"+id+"/accept",staffToken(driver,"DELIVERY",b),"{}").code());
         assertEquals(0,post("/api/delivery/orders/"+id+"/complete",staffToken(driver,"DELIVERY",b),"{\"collected\":true,\"itemReturns\":[]}").code());
         Api settled=post("/api/manager/inter-station-settlements/"+id+"/settle",ta,"{\"note\":\"合成线下交付凭据\"}");assertEquals(0,settled.code(),settled.toString());
@@ -136,5 +136,56 @@ class AuditPaymentAgreementIntegrationTest extends AbstractIntegrationTest {
         Api pkg=post("/api/ticket-packages",ta,"{\"productId\":"+product+",\"qty\":"+quantity+",\"price\":"+new BigDecimal(price).multiply(BigDecimal.valueOf(quantity))+",\"title\":\"合成批次\"}");
         assertEquals(0,pkg.code(),pkg.toString());confirmPurchase("/api/tickets/purchase",quantity,key,pkg.data().path("id").asLong());
         // Real purchased batches remain intact even if this station later changes its retail price.
+    }
+    /** B-03: the receiving station must present the token it actually displayed. */
+    String quoteTokenOf(long id,String stationToken) {
+        Api view=get("/api/manager/dispatch-agreements/"+id,stationToken);assertEquals(0,view.code(),view.toString());
+        String token=view.data().path("quoteToken").asText();assertTrue(token.matches("[a-f0-9]{64}"),view.toString());return token;
+    }
+    /**
+     * B-03 第 4 项：真实水票批次消费（8+12=20）+ 手工报价 37.50 + 抢单池认领。
+     * 用非桶装（category=2、deposit=0）的可购票商品，避免改动「押金/桶权益单不得入池」这条规则。
+     */
+    @Test void realTicketConsumptionBacksAManualPoolQuoteAndTheViewedTokenFreezesIt() {
+        seed(false);
+        long bottle=createProduct("审计瓶装水",2,"20.00","0.00",1,"20.00");
+        createInventoryFull(a,bottle,50,1,"20.00");createInventoryFull(b,bottle,50,1,"20.00");
+        product=bottle;
+        buyTicketsAt(1,"8.00","pool-batch-8");buyTicketsAt(1,"12.00","pool-batch-12");
+        long id=order(3,2,false);assertEquals(0,pay(id,3).code());
+        String consumption="select coalesce(sum(unit_price*decrease_qty),0) from ticket_record where order_id=? and source='消费'";
+        assertEquals(0,new BigDecimal("20.00").compareTo(decimalOf(consumption,id)),"两批 8+12 都真实扣票");
+        assertEquals(0,post("/api/delivery/orders/transfer/"+id+"/outsource",ta,"{}").code());
+        assertEquals(0,new BigDecimal("20.00").compareTo(decimalOf("select service_amount from dispatch_agreement where order_id=?",id)),"默认报价取实付票值");
+        String viewed=quoteTokenOf(id,tb);
+        assertEquals(0,put("/api/manager/dispatch-agreements/"+id,ta,"{\"serviceAmount\":37.50,\"barrelMode\":\"RETURN_EMPTY\",\"barrelAmount\":0,\"note\":\"合成手工报价\"}").code());
+        String current=quoteTokenOf(id,tb);assertNotEquals(viewed,current,"手工改价必须换轮次");
+        assertEquals(1,post("/api/delivery/orders/"+id+"/claim-pool-quoted",tb,"{\"deliveryStaffId\":"+driver+",\"quoteToken\":\""+viewed+"\"}").code());
+        assertEquals("OFFERED",jdbc.queryForObject("select status from dispatch_agreement where order_id=?",String.class,id));
+        assertEquals(1,intOf("select count(*) from orders where id=? and delivery_station_id is null",id));
+        assertEquals(0,post("/api/delivery/orders/"+id+"/claim-pool-quoted",tb,"{\"deliveryStaffId\":"+driver+",\"quoteToken\":\""+current+"\"}").code());
+        assertEquals("ACCEPTED",jdbc.queryForObject("select status from dispatch_agreement where order_id=?",String.class,id));
+        assertEquals(0,new BigDecimal("37.50").compareTo(decimalOf("select service_amount from dispatch_agreement where order_id=?",id)),"接受后按展示的 37.50 冻结");
+        assertEquals(b,longOf("select target_station_id from dispatch_agreement where order_id=?",id));
+        assertEquals(b,longOf("select delivery_station_id from orders where id=?",id));
+        assertEquals(a,longOf("select station_id from orders where id=?",id));
+        assertEquals(0,new BigDecimal("20.00").compareTo(decimalOf(consumption,id)),"接受报价不改写真实票消费");
+        assertEquals(1,intOf("select count(*) from ticket_account where customer_id=? and product_id=? and remain_quantity=0",customer,product),"两批票已全部扣完");
+    }
+    /**
+     * B-03 第 4 项的兜底覆盖：若可购票的非桶装商品不被现有购票规则支持，
+     * 这条同样证明「真实票消费 + 手工报价 + 出示 token 的定向接受」可用（桶装商品、定向外派）。
+     */
+    @Test void realTicketConsumptionWithAManualQuoteIsAcceptedOnTheDirectedRoute() {
+        seed(true);
+        buyTicketsAt(1,"8.00","directed-8");buyTicketsAt(1,"12.00","directed-12");
+        long id=order(3,2,false);assertEquals(0,pay(id,3).code());
+        assertEquals(0,post("/api/delivery/orders/transfer/"+id+"/outsource",ta,"{\"targetStationId\":"+b+",\"riskAcknowledged\":true}").code());
+        assertEquals(0,new BigDecimal("20.00").compareTo(decimalOf("select service_amount from dispatch_agreement where order_id=?",id)));
+        assertEquals(0,put("/api/manager/dispatch-agreements/"+id,ta,"{\"serviceAmount\":37.50,\"barrelMode\":\"RETURN_EMPTY\",\"barrelAmount\":0,\"note\":\"合成手工报价\"}").code());
+        assertEquals(0,post("/api/delivery/orders/assign-quoted/"+id,tb,"{\"deliveryStaffId\":"+driver+",\"riskAcknowledged\":true,\"quoteToken\":\""+quoteTokenOf(id,tb)+"\"}").code());
+        assertEquals("ACCEPTED",jdbc.queryForObject("select status from dispatch_agreement where order_id=?",String.class,id));
+        assertEquals(0,new BigDecimal("37.50").compareTo(decimalOf("select service_amount from dispatch_agreement where order_id=?",id)));
+        assertEquals(0,new BigDecimal("20.00").compareTo(decimalOf("select coalesce(sum(unit_price*decrease_qty),0) from ticket_record where order_id=? and source='消费'",id)));
     }
 }

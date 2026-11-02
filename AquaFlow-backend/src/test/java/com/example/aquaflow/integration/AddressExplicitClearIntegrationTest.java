@@ -88,6 +88,8 @@ class AddressExplicitClearIntegrationTest extends AbstractIntegrationTest {
         for(String token:List.of(customerToken(other),staffToken(manager,"STATION_MANAGER",station),staffToken(driver,"DELIVERY",station)))
             assertFalse(put("/api/addresses/"+address+"/profile",token,"{\"clearFloor\":true}").isSuccess());
         oldValues();
+        assertEquals(1,intOf("select count(*) from address where id=? and customer_id=? and is_default=1",address,customer));
+        assertEquals("合成收件人",jdbc.queryForObject("select name from address where id=?",String.class,address));
     }
     @Test @DisplayName("设默认与清空同事务生效，省略默认值保留唯一默认")
     void defaultRemainsOwnedAndUnique() {

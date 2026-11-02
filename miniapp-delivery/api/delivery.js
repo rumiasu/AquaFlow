@@ -18,8 +18,9 @@ const getOrderDetail = (id) => {
 }
 
 // 接单
-const acceptOrder = (id) => {
-  return post(`${API.DELIVERY_ORDERS}/${id}/accept`)
+const acceptOrder = (id, quoteToken) => {
+  return quoteToken ? post(`${API.DELIVERY_ORDERS}/${id}/accept-quoted`, { quoteToken })
+    : post(`${API.DELIVERY_ORDERS}/${id}/accept`)
 }
 
 // 完成配送
@@ -92,7 +93,7 @@ const getStationDeliveringOrders = () => {
 
 // 分配订单给指定配送员（站长用）
 const assignOrder = (id, data) => {
-  return post(`${API.DELIVERY_ASSIGN}/${id}`, data)
+  return post(`${data && data.quoteToken ? API.DELIVERY_ASSIGN_QUOTED : API.DELIVERY_ASSIGN}/${id}`, data)
 }
 
 // 获取水站配送员列表
@@ -141,7 +142,7 @@ const getPoolOrders = () => {
 
 // 从抢单池抢单（后端路由 /api/delivery/orders/{id}/claim-pool，{id} 在路径中间）
 const claimPoolOrder = (id, data) => {
-  return post(`${API.DELIVERY_ORDERS}/${id}/claim-pool`, data)
+  return post(`${API.DELIVERY_ORDERS}/${id}/${data && data.quoteToken ? 'claim-pool-quoted' : 'claim-pool'}`, data)
 }
 
 // 本站外派出去的单（首页「外派」页签的两个子页签都读它）：

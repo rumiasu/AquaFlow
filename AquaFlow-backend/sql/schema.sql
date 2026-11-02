@@ -1232,6 +1232,7 @@ CREATE TABLE IF NOT EXISTS inter_station_recovery (
   KEY idx_recovery_parties (from_station_id,to_station_id,status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS dispatch_agreement (
+    offer_version BIGINT NOT NULL DEFAULT 1 COMMENT '外派报价轮次版本',
   order_id BIGINT NOT NULL PRIMARY KEY, source_station_id BIGINT NOT NULL, target_station_id BIGINT NULL,
   service_amount DECIMAL(10,2) NOT NULL, net_barrels INT NOT NULL, barrel_mode VARCHAR(24) NOT NULL,
   actual_net_barrels INT NULL, actual_barrel_items VARCHAR(2000) NULL,

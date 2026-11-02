@@ -19,6 +19,14 @@ import java.util.List;
  * 用 {@code @NotNull}；可选项保持原默认语义（如缺省 reason 回退到各端点既定文案）。</p>
  */
 public final class DeliveryOrderActionDTO {
+    /** Explicit consent command; a server without this route cannot silently ignore its token. */
+    @Data
+    public static class AcceptQuote {
+        @jakarta.validation.constraints.NotBlank(message="请重新查看并确认外包报价")
+        @jakarta.validation.constraints.Pattern(regexp="[a-f0-9]{64}",message="报价确认信息无效，请刷新")
+        private String quoteToken;
+    }
+
 
     private DeliveryOrderActionDTO() {}
 
@@ -84,6 +92,8 @@ public final class DeliveryOrderActionDTO {
      */
     @Data
     public static class Assign {
+        @jakarta.validation.constraints.Size(max=64,message="报价确认信息无效")
+        private String quoteToken;
         @NotNull(message = "请指定配送员")
         private Long deliveryStaffId;
         private Boolean riskAcknowledged;
@@ -106,6 +116,8 @@ public final class DeliveryOrderActionDTO {
     /** claimPoolOrder：从抢单池抢单，deliveryStaffId 必填 */
     @Data
     public static class ClaimPool {
+        @jakarta.validation.constraints.Size(max=64,message="报价确认信息无效")
+        private String quoteToken;
         @NotNull(message = "请指定配送员")
         private Long deliveryStaffId;
     }

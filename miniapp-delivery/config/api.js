@@ -199,6 +199,7 @@ const API = {
   DELIVERY_COMPLETED_TODAY: '/api/delivery/orders/completed-today',
   DELIVERY_STATION_DELIVERING: '/api/delivery/orders/station-delivering',
   DELIVERY_ASSIGN: '/api/delivery/orders/assign',
+  DELIVERY_ASSIGN_QUOTED: '/api/delivery/orders/assign-quoted',
   DELIVERY_ASSIGNED_TO_ME: '/api/delivery/orders/assigned-to-me',
   DELIVERY_HISTORY: '/api/delivery/history',
   DELIVERY_TRANSFERS: '/api/delivery/transfers',

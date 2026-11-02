@@ -26,6 +26,15 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
         cus=customerToken(customer); mgr=staffToken(manager,"STATION_MANAGER",station);
     }
     String purchaseBody(int q,String key) { return "{\"stationId\":"+station+",\"productId\":"+product+",\"quantity\":"+q+",\"paymentMethod\":2,\"idempotencyKey\":\""+key+"\"}"; }
+    /** B-03: the receiving station must present exactly the token it displayed. */
+    String offerToken(long orderId,String stationToken) {
+        Api view=get("/api/manager/dispatch-agreements/"+orderId,stationToken);assertEquals(0,view.code(),view.toString());
+        String token=view.data().path("quoteToken").asText();assertTrue(token.matches("[a-f0-9]{64}"),view.toString());return token;
+    }
+    Api assignQuoted(long orderId,String stationToken,long staffId) {
+        return post("/api/delivery/orders/assign-quoted/"+orderId,stationToken,
+                "{\"deliveryStaffId\":"+staffId+",\"riskAcknowledged\":true,\"quoteToken\":\""+offerToken(orderId,stationToken)+"\"}");
+    }
     long buy(int qty,String key) {
         Api p=post("/api/barrel-rights/purchase",cus,purchaseBody(qty,key)); assertEquals(0,p.code(),p.toString());
         long payment=p.data().path("paymentId").asLong(); Api confirmed=put("/api/payments/"+payment+"/confirm",mgr,null); assertEquals(0,confirmed.code(),confirmed.toString()); return payment;
@@ -177,7 +186,7 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
         long b=createStation("债权履约站");long bm=createStaff("乙站长","STATION_MANAGER",b,1);String bt=staffToken(bm,"STATION_MANAGER",b);createInventoryFull(b,product,10,1,"8.00");createInventoryRecord(b,product,10,"STOCK_IN",0);
         assertEquals(0,post("/api/delivery/orders/"+id+"/dispatch",mgr,"{\"targetStationId\":"+b+",\"riskAcknowledged\":true}").code());
         // 接收站沿既有风险确认入口分配给站长本人，再进行原拒付/资产站核实场景。
-        assertEquals(0,post("/api/delivery/orders/assign/"+id,bt,"{\"deliveryStaffId\":"+bm+",\"riskAcknowledged\":true}").code());
+        assertEquals(0,assignQuoted(id,bt,bm).code());
         deliver(id,bt,0,0,false);refusal(id,bt);
         assertEquals(0,intOf("select asset_freeze_confirmed from customer_refusal_case where order_id=?",id));
         assertEquals(1,put("/api/manager/refusal-cases/"+id+"/confirm-freeze",bt,"{}").code());
@@ -198,7 +207,7 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
         Api sent=post("/api/delivery/orders/"+id+"/dispatch",mgr,"{\"targetStationId\":"+b+",\"riskAcknowledged\":true}");assertEquals(0,sent.code(),sent.toString());
         Api view=get("/api/manager/dispatch-agreements/"+id,bt);assertEquals(0,view.code(),view.toString());assertEquals(0,new BigDecimal("20.00").compareTo(new BigDecimal(view.data().path("serviceAmount").asText())));
         assertEquals(0,put("/api/manager/dispatch-agreements/"+id,mgr,"{\"serviceAmount\":28,\"barrelMode\":\"RETURN_EMPTY\",\"barrelAmount\":0,\"note\":\"加价外包\"}").code());
-        long ds=createStaff("乙配送","DELIVERY",b,1);Api assigned=post("/api/delivery/orders/assign/"+id,bt,"{\"deliveryStaffId\":"+ds+",\"riskAcknowledged\":true}");assertEquals(0,assigned.code(),assigned.toString());
+        long ds=createStaff("乙配送","DELIVERY",b,1);Api assigned=assignQuoted(id,bt,ds);assertEquals(0,assigned.code(),assigned.toString());
         assertEquals(1,put("/api/manager/dispatch-agreements/"+id,mgr,"{\"serviceAmount\":99,\"barrelMode\":\"RETURN_EMPTY\",\"barrelAmount\":0}").code());
         deliver(id,staffToken(ds,"DELIVERY",b),0,0,false);assertEquals(1,ledger.occupiedQty(customer,station,product));assertEquals(0,ledger.rightQty(customer,b,product));assertEquals(b,intOf("select settle_station_id from orders where id=?",id));
         assertEquals(0,post("/api/manager/station-barrel-balances/"+id+"/received",mgr,"{\"note\":\"甲实际交空桶\"}").code());assertEquals("ACCEPTED",jdbc.queryForObject("select status from dispatch_agreement where order_id=?",String.class,id));
@@ -223,7 +232,7 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
     @Test void actualCrossStationBarrelDifferenceRequiresBothStationsBeforeClosure() {
         seed();buy(1,"right");long first=order("first",1);pay(first,1);deliver(first,mgr,0,0,false);
         long id=order("cross-short-return",1);pay(id,1);long b=createStation("乙桶站"),bm=createStaff("乙站长","STATION_MANAGER",b,1),ds=createStaff("乙配送","DELIVERY",b,1);String bt=staffToken(bm,"STATION_MANAGER",b);createInventoryFull(b,product,10,1,"8.00");createInventoryRecord(b,product,10,"STOCK_IN",0);
-        assertEquals(0,post("/api/delivery/orders/"+id+"/dispatch",mgr,"{\"targetStationId\":"+b+",\"riskAcknowledged\":true}").code());assertEquals(0,post("/api/delivery/orders/assign/"+id,bt,"{\"deliveryStaffId\":"+ds+",\"riskAcknowledged\":true}").code());deliver(id,staffToken(ds,"DELIVERY",b),1,0,false);
+        assertEquals(0,post("/api/delivery/orders/"+id+"/dispatch",mgr,"{\"targetStationId\":"+b+",\"riskAcknowledged\":true}").code());assertEquals(0,assignQuoted(id,bt,ds).code());deliver(id,staffToken(ds,"DELIVERY",b),1,0,false);
         assertEquals(1,intOf("select barrel_disputed from dispatch_agreement where order_id=?",id));assertEquals(1,intOf("select actual_net_barrels from dispatch_agreement where order_id=?",id));assertEquals(1,post("/api/manager/station-barrel-balances/"+id+"/received",bt,"{\"note\":\"未协商不能结清\"}").code());
         String proposal="{\"barrelMode\":\"SETTLE_BARREL\",\"barrelAmount\":30,\"note\":\"旧桶客户未交回，甲对乙补桶折款，客户欠桶仍保留\"}";
         assertEquals(1,put("/api/manager/station-barrel-balances/"+id+"/proposal",bt,proposal).code());assertEquals(0,put("/api/manager/station-barrel-balances/"+id+"/proposal",mgr,proposal).code());assertEquals(1,post("/api/manager/station-barrel-balances/"+id+"/agree",mgr,"{}").code());assertEquals(0,post("/api/manager/station-barrel-balances/"+id+"/agree",bt,"{}").code());

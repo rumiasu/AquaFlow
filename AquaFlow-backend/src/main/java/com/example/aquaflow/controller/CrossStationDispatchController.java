@@ -169,6 +169,14 @@ public class CrossStationDispatchController {
      * {@code delivery_station_id} 为空，站点名保持 null，前端据此显示"等别站接单"。</p>
      */
     @RequireRole("STATION_MANAGER")
+    @PostMapping("/orders/{id}/claim-pool-quoted")
+    public Result<Void> claimQuoted(@PathVariable Long id, @RequestBody @Valid DeliveryOrderActionDTO.ClaimPool body) {
+        if (body.getQuoteToken()==null || !body.getQuoteToken().matches("[a-f0-9]{64}")) return Result.error("请重新查看并确认外包报价");
+        orderWorkflowService.claimPool(id,body.getDeliveryStaffId(),body.getQuoteToken());
+        return Result.success();
+    }
+
+    @RequireRole("STATION_MANAGER")
     @GetMapping("/orders/dispatch-tracking")
     public Result<?> getDispatchTracking() {
         Long stationId = AuthContext.requireStationId();

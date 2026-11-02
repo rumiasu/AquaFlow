@@ -801,3 +801,18 @@
 成功 data 是完整已存地址，包含 id、customerId 及可空字段；小程序按该回执核对，不以空成功体宣称清空成功。
 旧 `PUT /api/addresses/{id}` 继续沿用其 null 楼层/电梯保留语义。新小程序连接旧后端时新路由明确失败并提示服务需更新；不退回旧路径写第二次。
 该改动不回写历史订单金额或快照，不改变楼层/电梯未确认时的收费政策，也不引入地址表迁移。
+
+### 外派报价原确认命令（v88配套）
+
+| 方法 | 路径 | 权限与调用契约 | 实现 |
+|---|---|---|---|
+| `POST` | `/api/delivery/orders/{id}/accept-quoted` | 配送员/站长；`{quoteToken}`，仍保留原订单/分配权限 | `DeliveryTaskController.acceptQuoted` |
+| `POST` | `/api/delivery/orders/assign-quoted/{id}` | 站长；`{deliveryStaffId,riskAcknowledged?,quoteToken}` | `StationDeliveryConsoleController.assignQuoted` |
+| `POST` | `/api/delivery/orders/{id}/claim-pool-quoted` | 站长；`{deliveryStaffId,quoteToken}`，仍拒绝不符合原抢单规则的单 | `CrossStationDispatchController.claimQuoted` |
+
+读取当事方协议或池/定向列表时，OFFERED 的 `quoteToken` 绑定当前接收站、订单、归属/目标、报价轮次、服务报酬、桶模式/金额/必要净桶条目和备注。
+调用方发送用户实际已查看的 token，不得先自动读取新 token 再代替用户接受变价。缺失、过期或不匹配返回业务 code=1，须刷新查看并主动重新确认。
+规范化数值精度及桶条目展示排序不构成变价，null 与0不混同；取消/再外派、接收目标变化和报价ABA通过轮次失效。
+旧接单/分配/抢单命令保留，但不能首次接受新模型的跨站OFFERED报价；同站订单、禁用新模型且无协议的旧流程及已接受后的正常配送继续沿用原契约。
+quoted 新路径让旧后端明确拒绝，不会把 token 当未知字段忽略后静默接受新价格。成功仍为 code=0 的普通写回执；失败事务不保留订单/指派/库存/桶票/支付/协议变化。
+该契约不增加付款方式转换、自动接受差价、桶权益转移权限或真实支付能力；需要配套新后端全部实例就绪后再更新小程序。

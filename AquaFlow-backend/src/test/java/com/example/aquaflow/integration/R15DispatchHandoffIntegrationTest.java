@@ -22,6 +22,14 @@ class R15DispatchHandoffIntegrationTest extends AbstractIntegrationTest {
     private long order() { return createOrderFull(customer, address, a, product, 1, 1, 2, "40.00", "0.00", "40.00", false, 0); }
     private String ma() { return staffToken(managerA, "STATION_MANAGER", a); }
     private String mb() { return staffToken(managerB, "STATION_MANAGER", b); }
+    /** B-03: the receiving station must present exactly the token it displayed. */
+    private String viewedToken(long id, String stationToken) {
+        var view = get("/api/manager/dispatch-agreements/" + id, stationToken);
+        assertTrue(view.isSuccess(), view.toString());
+        String token = view.data().path("quoteToken").asText();
+        assertTrue(token.matches("[a-f0-9]{64}"), view.toString());
+        return token;
+    }
 
     @ParameterizedTest @ValueSource(booleans = {false, true})
     void ordinaryPoolOfferExistsAndClaimFreezesItWithoutMovingCustomerAssets(boolean rejectEntrance) {
@@ -31,7 +39,8 @@ class R15DispatchHandoffIntegrationTest extends AbstractIntegrationTest {
         assertTrue(put.isSuccess(), "入池应成功: " + put);
         assertEquals(1, longOf("select count(*) from dispatch_agreement where order_id=? and status='OFFERED' and target_station_id is null", id));
         assertEquals("40.00", jdbc.queryForObject("select service_amount from dispatch_agreement where order_id=?", java.math.BigDecimal.class, id).toPlainString());
-        assertTrue(post("/api/delivery/orders/" + id + "/claim-pool", mb(), "{\"deliveryStaffId\":" + driverB + "}").isSuccess());
+        assertTrue(post("/api/delivery/orders/" + id + "/claim-pool-quoted", mb(), "{\"deliveryStaffId\":" + driverB
+                + ",\"quoteToken\":\"" + viewedToken(id, mb()) + "\"}").isSuccess());
         assertEquals(a, longOf("select station_id from orders where id=?", id));
         assertEquals(b, longOf("select settle_station_id from orders where id=?", id));
         assertEquals(1, longOf("select count(*) from dispatch_agreement where order_id=? and status='ACCEPTED' and target_station_id=?", id, b));
@@ -43,7 +52,8 @@ class R15DispatchHandoffIntegrationTest extends AbstractIntegrationTest {
         assertTrue(put("/api/manager/dispatch-agreements/" + id, ma(), "{\"serviceAmount\":37.50,\"barrelMode\":\"RETURN_EMPTY\",\"barrelAmount\":0,\"note\":\"R15 明确报价\"}").isSuccess());
         assertTrue(contains(get("/api/delivery/orders/directed-incoming", mb()), id));
         assertTrue(post("/api/delivery/orders/transfer/" + id + "/outsource", ma(), "{}").isSuccess());
-        assertTrue(post("/api/delivery/orders/" + id + "/claim-pool", mb(), "{\"deliveryStaffId\":" + driverB + "}").isSuccess());
+        assertTrue(post("/api/delivery/orders/" + id + "/claim-pool-quoted", mb(), "{\"deliveryStaffId\":" + driverB
+                + ",\"quoteToken\":\"" + viewedToken(id, mb()) + "\"}").isSuccess());
         assertFalse(contains(get("/api/delivery/orders/directed-incoming", mb()), id));
         assertEquals("37.50", jdbc.queryForObject("select service_amount from dispatch_agreement where order_id=?", java.math.BigDecimal.class, id).toPlainString());
         long another = order();

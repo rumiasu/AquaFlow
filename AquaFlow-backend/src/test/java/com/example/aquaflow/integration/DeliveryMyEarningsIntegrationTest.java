@@ -160,7 +160,8 @@ class DeliveryMyEarningsIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, mgrSelf.data().path("items").size(), "本用例里站长没送过单，明细应为空");
     }
 
-    @Test void historicalPayrollCursorIsStableAndNeverReadsAnotherEmployee() {
+    @Test
+    void historicalPayrollCursorIsStableAndNeverReadsAnotherEmployee() {
         long[] ids=seed();String token=staffToken(ids[5],"DELIVERY",ids[0]);
         long oldest=0;
         for(int n=0;n<23;n++) {
@@ -178,7 +179,8 @@ class DeliveryMyEarningsIntegrationTest extends AbstractIntegrationTest {
         assertFalse(get("/api/delivery/earnings/payrolls?beforeId=0",token).isSuccess());
     }
 
-    @Test void historicalPayrollDetailRequiresOwnerAndCustomerCannotRead() {
+    @Test
+    void historicalPayrollDetailRequiresOwnerAndCustomerCannotRead() {
         long[] ids=seed();long payroll=insert("insert into staff_payroll(payroll_no,station_id,staff_id,period_start,period_end,total_amount,status) values('SYN-DETAIL',?,?,'2020-01-01','2020-01-31',0,3)",ids[0],ids[5]);
         String path="/api/delivery/earnings/payrolls/"+payroll;
         assertTrue(get(path,staffToken(ids[5],"DELIVERY",ids[0])).isSuccess());

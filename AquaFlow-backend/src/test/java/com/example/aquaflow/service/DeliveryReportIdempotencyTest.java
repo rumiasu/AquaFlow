@@ -40,7 +40,8 @@ class DeliveryReportIdempotencyTest {
         sequence.verify(f.exceptions).reportReceiptsForUpdate(eq(20L), startsWith("report:"));
     }
 
-    @Test void crossStationFieldReportAndAlertBelongToTheSameFulfillingStation() {
+    @Test
+    void crossStationFieldReportAndAlertBelongToTheSameFulfillingStation() {
         Fixture f = new Fixture();
         f.order.setDeliveryStationId(9L);
         BarrelBusinessPolicy policy = mock(BarrelBusinessPolicy.class);

@@ -282,6 +282,9 @@ Page({
         content: (err && err.message) || '请稍后重试',
         showCancel: false
       })
+      // 另一位站长可能已推进原异常；明确拒绝也要刷新，不能让旧待办继续诱导再次办理。
+      this.setData({ actionNotice: '本次办理未获通过，请按最新记录核对。' })
+      await this.load()
       return false
     }
   },

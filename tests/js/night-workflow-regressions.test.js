@@ -34,6 +34,11 @@ async function main() {
     assert(t.page.data.actionNotice.includes('原记录显示'));assert.equal(t.refreshes(),1)
     await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,1)
   })
+  await test('another manager advancing the case refreshes after a definite rejection without executing again',async()=>{
+    const t=exception({write:async()=>{throw Object.assign(Error('该异常已被处理'),{businessRejected:true})}})
+    await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,1);assert.equal(t.refreshes(),1)
+    assert(t.page.data.actionNotice.includes('未获通过'));assert.equal(t.page.data.uncertainId,null)
+  })
   await test('unavailable original read keeps explicit read-only recovery and cannot dispatch execute',async()=>{
     let reads=0
     const t=exception({read:async()=>{if(++reads>1)throw Error('offline');return {data:{id:41,status:'STAFF_RECORDED',suggestedTicketQty:2,adjustProductId:9}}},write:async()=>{throw Error('unknown')}})

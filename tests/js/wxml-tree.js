@@ -56,7 +56,9 @@ function expression(value, data) {
   const match = /^{{([\s\S]*)}}$/.exec(value)
   assert(match, 'expected binding expression')
   const context = new Proxy({ ...data }, { get: (target, key) => target[key] })
-  return vm.runInNewContext(match[1], context, { timeout: 100 })
+  // 2026-11-02：共享云机器中普通属性读取也曾因调度/GC超过100ms；保持有限预算，
+  // 用1秒单表达式上限避免把调度延迟当业务失败。套件总看门狗和真实断言继续生效。
+  return vm.runInNewContext(match[1], context, { timeout: 1000 })
 }
 
 function renderElements(root, data, options = {}) {

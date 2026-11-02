@@ -17,6 +17,12 @@ function exception(overrides={}) {
   return {page,app,wx,writes,dialogs,reads:()=>reads,refreshes:()=>refreshes}
 }
 async function main() {
+  await test('WXML projection still rejects unbounded expressions and invalid syntax',async()=>{
+    const {parseWxml,renderElements}=require('./wxml-tree')
+    assert.throws(()=>renderElements(parseWxml('<view wx:if="{{(()=>{while(true){}})()}}"></view>'),{}),/timed out/)
+    assert.throws(()=>renderElements(parseWxml('<view wx:if="{{broken +}}"></view>'),{}),/Unexpected/)
+    assert.equal(renderElements(parseWxml('<view wx:if="{{count === 0}}"></view>'),{count:0}).length,1)
+  })
   await test('approved compensation executes once through handle and refreshes instead of calling execute',async()=>{
     const t=exception();await t.page.onApproveSuggested(event(41))
     assert.equal(t.writes.length,1);assert(t.writes[0][0].endsWith('/handle'));assert.equal(t.writes[0][1].refundTicketQty,2)

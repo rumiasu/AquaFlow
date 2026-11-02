@@ -123,11 +123,11 @@ test('D34 ignore is single flight, requires reason, and cancel writes nothing', 
   const second = t.p.onIgnore(tap(1)); t.modals[1].success({ confirm: true, content: '核对无异常' }); t.modals[1].success({ confirm: true, content: '重复回调' }); await second
   assert.equal(t.calls.length, 1); assert.equal(t.calls[0][1].managerNote, '核对无异常')
 })
-test('D34 approval has one confirmation with real destination, and keeps handle then execute', async () => {
+test('D34 approval has one confirmation with real destination and only the transactional handle command', async () => {
   const t = exceptions(); const pending = t.p.onApproveSuggested(tap(1)); await turn(); assert.equal(t.modals.length, 1)
   const modal = t.modals[0]; assert(modal.details.some(row => row.value.includes('增加押金账户余额'))); assert.equal(modal.initialValue, '')
   modal.success({ confirm: true, content: '已核对' }); await pending
-  assert.equal(t.calls.length, 2); assert(t.calls[0][0].endsWith('/handle')); assert(t.calls[1][0].endsWith('/execute'))
+  assert.equal(t.calls.length, 1); assert(t.calls[0][0].endsWith('/handle'))
 })
 test('D34 note draft is scoped to the original exception and late confirmations cannot write', async () => {
   const t = exceptions(); t.p._exceptionApprovalKey = JSON.stringify([t.p.exceptionContext(), '1']); t.p._exceptionApprovalNote = '属于第一单'

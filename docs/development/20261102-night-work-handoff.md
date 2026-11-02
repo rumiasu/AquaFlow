@@ -135,3 +135,7 @@ Windows需使用已安装Git Bash，设置 `AQUAFLOW_TEST_SH` 并把Git bin/usr/
 - `pages/station-mgmt/staff/profile/index`
 - `pages/station-mgmt/asset-claims/index`
 - `pages/case-handling/index`
+
+## 云端接续批次一（2026-11-02）
+
+远端文档提交 eae65ef 已核对并正常快进；云端成为唯一业务写入方。修复异常补偿成功后重复调用执行接口而误报失败：现在仅发送一次 handle，网络结果未知只查原异常，不追加补偿；员工画像增加返回刷新、读取代次和身份失效保护；顾客无需补偿结案显示后端明确结果及完成进度。定向 night-workflow-regressions 7项、df-package-flows 31项、workflow-entry-regression 8项通过。首次完整JS运行有3套在既有WXML表达式求值100ms上限超时，非业务断言失败，正在独立复跑，不登记为完整通过。尚无本批数据库变更。

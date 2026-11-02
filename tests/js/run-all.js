@@ -15,6 +15,7 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'night-workflow-regressions.test.js', name: '补偿单次编排、未知结果核对、画像刷新与无需补偿结案' },
   { file: 'case-handling-page.test.js', name: '核实结案与顾客可见反馈、版本与未知结果恢复' },
   { file: 'workflow-entry-regression.test.js', name: '异常与欠桶办理入口及首页统计间距' },
   { file: 'dispatch-offer-consent.test.js', name: '外派报价原确认版本与旧服务能力拒绝' },

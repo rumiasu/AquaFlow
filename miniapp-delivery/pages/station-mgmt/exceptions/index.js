@@ -74,7 +74,8 @@ Page({
     // 页签上的角标：待处置（WARN）的条数。它是"有没有事等着我"的信号，
     // 与其他两个级别的计数一样**在筛选之前**算好，切筛选不会把它清零
     // （否则切到「留痕」时角标变 0，会被读成"没有待处置的事"）
-    statsExpanded: false, handling: false, alertWarnCount: 0
+    statsExpanded: false, handling: false, alertWarnCount: 0,
+    uncertainId: null, actionNotice: ''
   },
 
   /**
@@ -141,7 +142,7 @@ Page({
    *   ① 忽略（IGNORE，一分钱不动）；② 按系统建议补偿（APPROVE，明细**只能等于**后端建议值）。
    * 硬约束（改这里之前先读 design/20 §9.3）：
    *   · **界面上不提供金额 / 数量输入框** —— 人手输入金额在本仓出过事故（§8.17 同族）；
-   *   · **两步走**：一次确认列清处理说明与补偿，仍先登记处理意见、再执行补偿；
+   *   · **一次事务**：确认列清处理说明与补偿，handle 内登记并执行，不追加 execute；
    *   · **一次只处理一张单**（不做批量、不做"全部同意"）；
    *   · **失败留在页面上可重试**，不用一闪而过的 toast；
    *   · 仍不开放 MODIFY（手工改判）与 ESCALATE —— 那是 A2 的范围。 */
@@ -185,7 +186,7 @@ Page({
   },
 
   /**
-   * ② 按系统建议补偿：先读详情拿建议值 → 列出"将要发生什么" → 登记处理意见 → 确认执行。
+   * ② 按系统建议补偿：读详情 → 确认明细 → 同一事务登记并执行 → 刷新。
    * ⚠️ 提交的明细与后端下发的 `suggested*` **逐字相同**，前端不做任何算术。
    */
   async onApproveSuggested(e) {
@@ -209,6 +210,12 @@ Page({
       return
     }
     if (!dto || !current()) return
+    // 2026-11-02：办理会在同一事务内执行补偿；已终结的原记录只能核对，不能再发执行命令。
+    if (dto.status && dto.status !== 'STAFF_RECORDED') {
+      this.setData({ actionNotice: '原记录状态已变化，请按最新记录核对。', uncertainId: null })
+      await this.load()
+      return
+    }
 
     const lines = []
     if (dto.suggestedTicketQty) lines.push(`退水票 ${dto.suggestedTicketQty} 张`)
@@ -225,7 +232,7 @@ Page({
 
     const note = await this.askNote('确认建议补偿', '处理说明（必填）', {
       initialValue: this._exceptionApprovalNote || '', confirmText: '确认执行', confirmColor: '#BD3328',
-      description: '按以下建议登记处理意见，再执行补偿。金额与数量不可修改。执行后如需纠正须另行办理资产调整。',
+      description: '确认后将登记意见并执行以下补偿。金额与数量不可修改；纠正须另行办理资产调整。',
       details: [{ label: '异常单', value: '#' + id }, ...lines.map(value => ({ label: '补偿去向', value }))]
     })
     if (note === null || !current()) return
@@ -240,17 +247,22 @@ Page({
       managerNote: note
     }, null)
     if (!handled || !current()) return
-    await this.executeCompensation(id)
+    this.setData({ uncertainId: null, actionNotice: '补偿已执行，请以刷新后的办理记录为准。' })
+    wx.showToast({ title: '补偿已执行', icon: 'success' })
+    await this.load()
     if (current()) this._exceptionApprovalNote = ''
     } finally { if (this._exceptionAction === action) { this._exceptionAction = null; this.setData({ handling: false }) } }
   },
 
-  /** 第一步：登记处理意见。返回 true = 已登记，可以继续执行。 */
+  /** 登记并由服务端事务执行补偿；返回 true 表示已收到成功，结果未知只读核对。 */
   async submitHandle(id, body, okTitle) {
+    const context = this.exceptionContext()
+    const current = () => !this._exceptionsHidden && context === this.exceptionContext() && getApp().canAccessStationBusiness()
     try {
       wx.showLoading({ title: '处理中...' })
       await post(EXCEPTIONS + '/' + id + '/handle', body)
       wx.hideLoading()
+      if (!current()) return false
       if (okTitle) {
         wx.showToast({ title: okTitle, icon: 'success' })
         this.load()
@@ -258,6 +270,13 @@ Page({
       return true
     } catch (err) {
       wx.hideLoading()
+      if (!current()) return false
+      // 2026-11-02：网络失败不代表事务失败，只查询原单，绝不追加 /execute 或自动重发补偿。
+      if (!err.businessRejected) {
+        this.setData({ uncertainId: id, actionNotice: '原办理结果待核对，请勿重复补偿。' })
+        await this.executeCompensation(id)
+        return false
+      }
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '处理失败',
         content: (err && err.message) || '请稍后重试',
@@ -267,26 +286,27 @@ Page({
     }
   },
 
-  /** 第二步：执行补偿。后端失败时会整体回滚到可重试状态，所以这里给「重试」入口。 */
+  /** 保留原入口名供既有调用兼容；现在只核对原异常，补偿写入只由 /handle 编排。 */
   async executeCompensation(id) {
     if (this._exceptionsHidden || !getApp().canAccessStationBusiness()) return
     const context = this.exceptionContext()
     try {
-      wx.showLoading({ title: '执行中...' })
-      await post(EXCEPTIONS + '/' + id + '/execute')
-      wx.hideLoading()
-      wx.showToast({ title: '补偿已执行', icon: 'success' })
-      this.load()
+      const res = await get(EXCEPTIONS + '/' + id)
+      if (this._exceptionsHidden || context !== this.exceptionContext()) return
+      const row = res && res.data
+      if (!row || String(row.id) !== String(id) || !row.status) throw new Error('原办理记录尚未核实')
+      const terminal = ['EXECUTED', 'IGNORED', 'VERIFIED'].includes(row.status)
+      this.setData({ uncertainId: terminal ? null : id, actionNotice: terminal
+        ? '原记录显示：' + (row.statusText || '办理已结束') + '。请核对最新记录。'
+        : row.status === 'STAFF_RECORDED' ? '原记录仍待处理。请先核实最新状态，再重新选择办理动作。' : '原记录正在办理，请稍后再次核对。' })
+      if (row.status === 'STAFF_RECORDED') this.setData({ uncertainId: null })
+      await this.load()
     } catch (err) {
-      wx.hideLoading()
-      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-        title: '补偿执行失败',
-        content: ((err && err.message) || '请稍后重试') + '\n\n处理意见已登记，可在本单上重试执行。',
-        confirmText: '重试',
-        success: (r) => { if (r.confirm && !this._exceptionsHidden && context === this.exceptionContext()) this.executeCompensation(id) }
-      })
+      if (!this._exceptionsHidden && context === this.exceptionContext()) this.setData({ uncertainId: id,
+        actionNotice: '原办理结果尚未核实，请重试核对，勿再次补偿。' })
     }
   },
+  onVerifyHandling() { if (this.data.uncertainId) return this.executeCompensation(this.data.uncertainId) },
 
   exceptionForNavigation(e) {
     if (this._exceptionsHidden || !getApp().canAccessStationBusiness() || this._listContext !== this.exceptionContext()) return null

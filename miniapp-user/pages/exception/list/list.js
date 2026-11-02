@@ -19,6 +19,8 @@ function chineseLabel(value, fallback) {
   return typeof value === 'string' && /[\u3400-\u9fff]/.test(value) && !/[A-Za-z_]/.test(value) ? value : fallback
 }
 function compensationOf(item) {
+  // 2026-11-02：无需补偿结案不是结果未知，不能继续提示顾客等待补偿。
+  if (item.status === 'VERIFIED') return item.statusText || '处理结果待核实'
   const actual = []
   const suggested = []
   // REFUND_CASH 的现行执行路径增加客户押金账户；字段名不能解释成现金到账。
@@ -92,8 +94,8 @@ Page({
     }
   },
   decorateException(item) {
-    const colors = { STAFF_RECORDED: 'warning', MANAGER_PENDING: 'primary', MANAGER_APPROVED: 'info', EXECUTING: 'primary', EXECUTED: 'success', IGNORED: 'default' }
-    const steps = { STAFF_RECORDED: 0, MANAGER_PENDING: 1, MANAGER_APPROVED: 1, EXECUTING: 2, EXECUTED: 3 }
+    const colors = { STAFF_RECORDED: 'warning', MANAGER_PENDING: 'primary', MANAGER_APPROVED: 'info', EXECUTING: 'primary', EXECUTED: 'success', VERIFIED: 'success', IGNORED: 'default' }
+    const steps = { STAFF_RECORDED: 0, MANAGER_PENDING: 1, MANAGER_APPROVED: 1, EXECUTING: 2, EXECUTED: 3, VERIFIED: 3 }
     const discrepancy = numeric(item.discrepancy) ? Number(item.discrepancy) : null
     return { ...item,
       statusLabel: chineseLabel(item.statusText, '状态待核实'),

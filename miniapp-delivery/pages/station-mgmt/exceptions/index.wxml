@@ -8,6 +8,7 @@
     · **不显示桶损耗**：2026-09-18 已定本站不做损耗出账，那张卡恒为 0 只会让这页显乱。
 -->
 <view class="page">
+  <view class="ui-state" wx:if="{{actionNotice}}"><text class="ui-state-copy">{{actionNotice}}</text><button wx:if="{{uncertainId}}" bindtap="onVerifyHandling" class="af-action af-action--quiet">核对原办理结果</button></view>
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>
 

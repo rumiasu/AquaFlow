@@ -399,3 +399,5 @@ button.af-entry::after { border:0; }
 
 /* Visual v2: page-specific information and action grouping. */
  .tabs,.filter-bar { background:var(--af2-surface-neutral); border-radius:10px; } .card { border-radius:14px; box-shadow:none; } .ex-head { padding:12px; border-radius:10px; background:var(--af2-surface-danger); } .ex-head .ex-cat,.ex-head .ex-id { color:var(--af2-ink-danger); } .ex-actions { gap:8px; }
+
+page{background:#f5f7fa}.page{padding-bottom:calc(24px + env(safe-area-inset-bottom))}.card{border:0;background:#fff;padding:16px;border-radius:16px}.ex{padding:18px 0;border-bottom:1px solid #eef1f5}.ex-head{background:#edf4ff;border-radius:10px;padding:10px 12px}.ex-head .ex-cat,.ex-head .ex-id{color:#375a85}.ex-row{margin-top:10px}.ex-value{min-width:0;overflow-wrap:anywhere}.ex-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.ex-actions button{flex:1 1 110px;min-height:44px}.ex>.af-action--primary{margin-top:16px}.page-note{font-size:13px;color:#637083;line-height:1.7}

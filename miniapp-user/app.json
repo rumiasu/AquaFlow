@@ -127,6 +127,12 @@
       "pages": [
         "records"
       ]
+    },
+    {
+      "root": "pages/case-handling",
+      "pages": [
+        "index"
+      ]
     }
   ]
 }

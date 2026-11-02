@@ -148,6 +148,16 @@ public class ManagerExceptionController {
         return Result.success();
     }
 
+    @Autowired private com.example.aquaflow.service.CaseHandlingService caseHandling;
+    /** 核实结案能力与版本；不执行财务调整。 */
+    @GetMapping("/{id}/resolution")
+    public Result<?> resolution(@PathVariable Long id) { return Result.success(caseHandling.exceptionView(id)); }
+    /** 仅无差异、无欠水、无补偿待办的未处理异常可核实结案。 */
+    @PostMapping("/{id}/resolve")
+    public Result<?> resolve(@PathVariable Long id, @jakarta.validation.Valid @RequestBody com.example.aquaflow.dto.ExceptionCloseoutDTO input) {
+        return Result.success(caseHandling.resolve(id,input));
+    }
+
     /** 异常统计看板 */
     @GetMapping("/stats")
     public Result<?> stats(

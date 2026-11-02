@@ -228,6 +228,7 @@ SOURCE seed_platform_pulisi_185.sql;
 | 71 | `migration_v86_historical_asset_claim_photo.sql` | 历史认领可选照片旁表；按客户与申请凭据关联，不改既有资产。新库 schema 已包含，存量库需先核对目标并安装增量，再启用配套功能；本次未执行真实库迁移。 |
 | 72 | `migration_v87_inventory_cost_snapshots.sql` | 库存和出入库流水可空成本快照；当前启动守卫要求列存在。含非幂等 ALTER，仅对确认缺失列逐条执行，先核准目标并备份；未知历史成本保留 NULL，不重跑整套、不填 0。 |
 | 73 | `migration_v88_dispatch_offer_version.sql` | 外派报价轮次版本；已有协议表先核对列定义并备份，缺列时安装。新后端有只读启动守卫；不改历史金额或自动接受报价。 |
+| 74 | `migration_v89_case_handling_action.sql` | 非财务核实结案与顾客可见反馈回复的追加记录，先核目标与表定义、备份，再安装结构和配套后端，最后更新两端。既有财务/桶票记录不变，云端未执行。 |
 
 ## 历史迁移演进（脚本已删除，结论保留）
 
@@ -501,3 +502,9 @@ ALTER TABLE inventory ADD COLUMN image_object_name_override VARCHAR(512) DEFAULT
 新库 schema 已含此列。配套新后端在已有协议表却缺失/不符列定义时拒绝启动，不会自动DDL。
 先完成结构准备，再确认全部配套后端实例和流量已切换，最后更新两端；不要以旧后端能忽略新列推断旧/新写实例混部已安全验收。
 本轮只在已备份的专用本机合成库验证，不代表目标云库已迁移、服务已部署或真实业务已验收。
+
+## v89 非财务办理记录
+
+`migration_v89_case_handling_action.sql` 仅新建追加式处理记录表 case_handling_action，不改现有反馈、订单、钱、桶或水票。已有库须先核对实际目标并保留可恢复备份，执行 `deployment/limited-trial/schema-preflight-v89-readonly.sql`。表不存在才运行本增量；表已存在时核对列、InnoDB、两个唯一索引，结构不同停止核查，不能通过重跑CREATE假称修复。
+
+先准备结构，再将配套后端全部实例更新，最后更新顾客/员工两端。缺表时新办理接口明确拒绝；旧后端无新路径，小程序不假成功。创建表不会修改原反馈或将异常自动结案。多个已有关系站各有自己的回复及结案记录，客户本人可查看各站回复；站长不能借匿名反馈获取客户身份。本轮未执行云端迁移或发布。

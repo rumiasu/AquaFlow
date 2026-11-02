@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "处理记录",
+  "usingComponents": {
+    "business-dialog": "/components/BusinessDialog/index"
+  }
+}

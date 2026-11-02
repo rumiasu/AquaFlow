@@ -17,10 +17,10 @@ function fixture(route, stubs = {}) {
 function elements(route, data) {
   return renderElements(parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/' + route + '.wxml'), 'utf8')), data, { includeText: true })
 }
-test('all nineteen owned route templates have balanced markup and valid conditional chains', () => {
+test('all twenty owned route templates have balanced markup and valid conditional chains', () => {
   const excluded = new Set(['pages/home/index','pages/home/notice','pages/address/list','pages/address/edit','pages/notice/index','pages/mine/company','pages/exception/list/list'])
   const routes = registeredPages(require('../../miniapp-user/app.json')).filter(r => !excluded.has(r))
-  assert.equal(routes.length, 19)
+  assert.equal(routes.length, 20)
   for (const route of routes) validateConditionalSiblings(parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-user/' + route + '.wxml'), 'utf8')))
 })
 test('error presentation hides raw exception text and preserves the original unknown flags', () => {

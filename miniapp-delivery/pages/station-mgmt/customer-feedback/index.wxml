@@ -5,7 +5,7 @@
   <view class="hint" wx:if="{{!denied}}">
     <!-- [2026-09-24] 去掉"后端暂无回复/处置功能"这类开发措辞：站长需要知道的是
          **"这里只能看，回不了"** —— 不然他会到处找回复按钮。 -->
-    <text>普通反馈仅供查看。退款争议结案不会办理退款或改变金额，顾客可再次提出异议。</text>
+    <text>普通反馈可回复并结案，顾客可在我的反馈中查看。退款争议结案不会办理退款或改变金额，顾客可再次提出异议。</text>
   </view>
 
   <!-- 权限不足：不说"暂无数据"，否则配送员会以为本站真的没有反馈 -->
@@ -78,6 +78,7 @@
         <text class="content" wx:if="{{item.refundObjectText}}">{{item.refundObjectText}} · {{item.authorText}}</text>
 
         <text class="content">{{item.content}}</text>
+        <button wx:if="{{!item.refundType}}" class="af-action af-action--primary" bindtap="onOpenHandling" data-id="{{item.id}}">回复 / 处理记录</button>
 
         <view class="card-foot">
           <text class="foot-item" wx:if="{{item.contactText}}">{{item.contactText}}</text>

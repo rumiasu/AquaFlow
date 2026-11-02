@@ -103,6 +103,12 @@
         "staff/profile/index",
         "asset-claims/index"
       ]
+    },
+    {
+      "root": "pages/case-handling",
+      "pages": [
+        "index"
+      ]
     }
   ]
 }

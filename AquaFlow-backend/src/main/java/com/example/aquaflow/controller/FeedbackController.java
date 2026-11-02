@@ -52,6 +52,21 @@ public class FeedbackController {
     @GetMapping("/refund-options")
     public Result<Map<String,Object>> refundOptions(@RequestParam(defaultValue="1") int page) {return Result.success(refundFeedbackService.options(page));}
 
+    @Autowired private com.example.aquaflow.service.CaseHandlingService caseHandling;
+    /** 本人看各站回复；站长只看本站处理线，不回传匿名身份。 */
+    @GetMapping("/{id}/handling")
+    public Result<?> handling(@PathVariable Long id) { return Result.success(caseHandling.feedbackView(id)); }
+    @RequireRole("STATION_MANAGER")
+    @PostMapping("/{id}/reply")
+    public Result<?> reply(@PathVariable Long id,@Valid @RequestBody com.example.aquaflow.dto.ExceptionCloseoutDTO input) {
+        return Result.success(caseHandling.feedbackAct(id,input,false));
+    }
+    @RequireRole("STATION_MANAGER")
+    @PostMapping("/{id}/close")
+    public Result<?> closeFeedback(@PathVariable Long id,@Valid @RequestBody com.example.aquaflow.dto.ExceptionCloseoutDTO input) {
+        return Result.success(caseHandling.feedbackAct(id,input,true));
+    }
+
     /**
      * 客户/员工提交反馈（自动识别身份）。
      *

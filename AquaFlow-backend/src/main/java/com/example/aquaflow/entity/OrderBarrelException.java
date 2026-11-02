@@ -95,6 +95,7 @@ public class OrderBarrelException {
             case "EXECUTING":        return "执行中";
             case "EXECUTED":         return "已完成";
             case "IGNORED":          return "已忽略";
+            case "VERIFIED":         return "核实结案（无需补偿）";
             default:                 return status;
         }
     }

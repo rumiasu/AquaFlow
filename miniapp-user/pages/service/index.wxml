@@ -128,6 +128,7 @@
         <text class="service-label" wx:if="{{item.refundObjectText}}">{{item.refundObjectText}} · {{item.authorText}}</text>
         <text class="history-content">{{item.displayContent || item.content}}</text>
         <text class="history-time">{{item.createTime}}</text>
+        <button wx:if="{{!item.refundType}}" class="af-action af-action--quiet" data-id="{{item.id}}" bindtap="onFeedbackHandling"><view class="af-action__face">查看水站回复与结果</view></button>
         <button class="af-action af-action--quiet" wx:if="{{!refundRef && item.refundType && item.refundId}}" data-type="{{item.refundType}}" data-id="{{item.refundId}}" bindtap="onHistoryRefund"><text class="af-action__face">查看退款争议与说明</text></button>
       </view>
     </view>

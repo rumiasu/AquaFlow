@@ -1,0 +1,6 @@
+.case-page{min-height:100vh;box-sizing:border-box;padding:20px 16px calc(28px + env(safe-area-inset-bottom));background:#f5f7fa;color:#253d59;font-size:14px;line-height:1.6}
+.case-head{margin-bottom:16px}.case-title{display:block;font-size:24px;font-weight:600;line-height:1.4}.case-ref,.case-time{display:block;font-size:12px;color:#637083;margin-top:8px}
+.case-note{display:block;font-size:13px;color:#52657c;margin:12px 0;line-height:1.7}
+.case-card{background:#fff;border-radius:16px;padding:18px 16px;margin:16px 0;box-shadow:0 2px 10px rgba(37,61,89,.04)}
+.case-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}.case-status{color:#1677ff;font-weight:600}.case-reason{display:block;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px}
+.case-label{display:block;font-size:16px;font-weight:600;margin-bottom:12px}.case-card textarea{box-sizing:border-box;width:100%;min-height:120px;padding:12px;border-radius:10px;background:#f5f7fa;font-size:16px;line-height:1.6}.case-card button{margin-top:14px;min-height:48px}.case-error{padding:12px;border-radius:10px;background:#fff1f0;color:#a12b28}.case-result{display:block;padding:12px;background:#e9f7ef;color:#236b45;border-radius:10px}

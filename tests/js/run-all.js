@@ -15,6 +15,7 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'case-handling-page.test.js', name: '核实结案与顾客可见反馈、版本与未知结果恢复' },
   { file: 'workflow-entry-regression.test.js', name: '异常与欠桶办理入口及首页统计间距' },
   { file: 'dispatch-offer-consent.test.js', name: '外派报价原确认版本与旧服务能力拒绝' },
   { file: 'address-explicit-clear.test.js', name: '地址显式清空、版本路由与真实回执' },

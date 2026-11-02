@@ -280,6 +280,12 @@ Page({
   },
   onRetryRefund() { this.loadRefundThread() },
   onDisputeReason(e) { if (this._draftHidden || this._unloaded) return; this.setData({ disputeReason: e.detail.value }, () => { this.updateLeaveWarning(); this.saveDraft() }) },
+  onFeedbackHandling(e) {
+    const id=e.currentTarget.dataset.id
+    if(!captureSession().loggedIn||this.data.submitting||this.data.disputeSubmitting)return
+    const row=this.data.history.find(item=>String(item.id)===String(id)&&!item.refundType)
+    if(row&&/^[1-9][0-9]*$/.test(String(id)))wx.navigateTo({url:'/pages/case-handling/index?kind=FEEDBACK&id='+id})
+  },
   onHistoryRefund(e) {
     const { type, id } = e.currentTarget.dataset
     if (!type || !id || this.data.submitting || this.data.disputeSubmitting) return

@@ -33,6 +33,6 @@ assert(failedFeedback.some(n => n.attrs.bindtap === 'onRetry'))
 const dispute = { refundType: 'BARREL_RETURN', refundId: 12, statusText: '待处理', objectText: '退押金', canClose: true, actions: [] }
 const disputeView = view('miniapp-delivery/pages/station-mgmt/customer-feedback/index', { ...feedbackBase, activeSection: 'disputes', type: 'empty', disputes: [dispute], selectedDispute: dispute, disputeReady: true })
 const disputeText = text(disputeView)
-for (const phrase of ['普通反馈仅供查看', '结案不会办理退款或改变金额', '顾客可再次提出异议', '结案无需顾客确认', '不取消顾客既有权利']) assert(disputeText.includes(phrase), phrase)
+for (const phrase of ['普通反馈可回复并结案', '结案不会办理退款或改变金额', '顾客可再次提出异议', '结案无需顾客确认', '不取消顾客既有权利']) assert(disputeText.includes(phrase), phrase)
 assert(disputeView.some(n => n.attrs.bindtap === 'onCloseDispute'))
 console.log('AQUAFLOW_SUITE_OK 1')

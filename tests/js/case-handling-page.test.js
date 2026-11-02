@@ -1,0 +1,31 @@
+const assert=require('assert'),path=require('path')
+const root=path.resolve(__dirname,'../..')
+const {loadPage,createWx,createApp}=require(root+'/tests/js/harness')
+let passed=0
+const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return {promise,resolve,reject}}
+function fixture(opts={}){
+ const wx=opts.wx||createWx(),app=opts.app||createApp({globalData:{isLogin:true,customerId:42,userInfo:{staffId:7,stationId:2,role:'STATION_MANAGER'}}}),sent=[]
+ const kind=opts.kind||'FEEDBACK',data={kind,caseId:1,version:0,actions:[],canReply:true,canClose:true,canResolve:kind==='EXCEPTION'}
+ const api={get:async()=>({code:0,data}),post:async(url,body)=>{sent.push({url,body});if(opts.post)return opts.post(url,body);return {code:0,data:{kind,caseId:1,version:body.expectedVersion+1,action:url.endsWith('/resolve')?'VERIFY':url.endsWith('/close')?'CLOSE':'REPLY'}}}}
+ const page=loadPage((opts.customer?'miniapp-user':'miniapp-delivery')+'/pages/case-handling/index.js',{wx,app,stubs:{'utils/request':api}})
+ page.onLoad({kind,id:'1'});return {page,wx,app,sent,data}
+}
+async function test(name,fn){await fn();passed++;console.log('PASS '+name)}
+async function main(){
+ await test('confirmed reply and closure use exact case path/version and refresh',async()=>{for(const action of ['onReply','onClose']){const f=fixture();await f.page.onShow();f.page.setData({reason:'已核实回复'});await f.page[action]();assert.equal(f.sent.length,1);assert.equal(f.sent[0].body.expectedVersion,0);assert(f.sent[0].body.idempotencyKey);assert.equal(f.page.data.pending,false);assert.equal(f.page.data.reason,'')}})
+ await test('explicit no-compensation resolution is a distinct command',async()=>{const f=fixture({kind:'EXCEPTION'});await f.page.onShow();f.page.setData({reason:'划痕已核对，无需补偿'});await f.page.onResolve();assert.equal(f.sent[0].url,'/api/manager/exceptions/1/resolve');assert(!('amount' in f.sent[0].body))})
+ await test('cancelled or empty confirmation does not write',async()=>{const f=fixture();await f.page.onShow();await f.page.onReply();f.page.setData({reason:'说明'});f.wx.__modalAutoConfirm=false;await f.page.onReply();assert.equal(f.sent.length,0)})
+ await test('double click sends once',async()=>{const d=deferred(),f=fixture({post:()=>d.promise});await f.page.onShow();f.page.setData({reason:'说明'});const a=f.page.onReply();await Promise.resolve();await Promise.resolve();await f.page.onReply();assert.equal(f.sent.length,1);d.resolve({code:0,data:{kind:'FEEDBACK',caseId:1,version:1,action:'REPLY'}});await a})
+ await test('unknown result survives restart and retries same request',async()=>{const f=fixture({post:async()=>{throw Error('synthetic timeout')}});await f.page.onShow();f.page.setData({reason:'原说明'});await f.page.onReply();assert(f.page.data.pending);const saved=f.sent[0].body;f.page.onHide();const g=fixture({wx:f.wx,app:f.app});await g.page.onShow();assert(g.page.data.pending);g.data.version=8;await g.page.onRetry();assert.deepStrictEqual(g.sent[0].body,saved);assert(!g.page.data.pending)})
+ await test('first definite rejection clears unused request and preserves error',async()=>{const f=fixture({post:async()=>{throw Object.assign(Error('版本已变化'),{businessRejected:true})}});await f.page.onShow();f.page.setData({reason:'说明'});await f.page.onReply();assert(!f.page.data.pending);assert.equal(f.page.data.error,'版本已变化')})
+ await test('invalid success cannot clear unknown request',async()=>{const f=fixture({post:async()=>({code:0,data:{}})});await f.page.onShow();f.page.setData({reason:'说明'});await f.page.onReply();assert(f.page.data.pending)})
+ await test('silent storage loss prevents dispatch',async()=>{const f=fixture();await f.page.onShow();f.wx.setStorageSync=()=>{};f.page.setData({reason:'说明'});await f.page.onReply();assert.equal(f.sent.length,0)})
+ await test('identity switch ignores late receipt and retains original intent',async()=>{const d=deferred(),f=fixture({post:()=>d.promise});await f.page.onShow();f.page.setData({reason:'说明'});const a=f.page.onReply();await Promise.resolve();await Promise.resolve();f.app.globalData.userInfo.stationId=3;d.resolve({code:0,data:{kind:'FEEDBACK',caseId:1,version:1,action:'REPLY'}});await a;assert(f.wx.__storage.size>0);assert.equal(f.page.data.result,'')})
+ await test('customer reads replies but cannot execute staff actions',async()=>{const f=fixture({customer:true});f.data.actions=[{id:1,action:'REPLY',reason:'顾客可见回复',stationName:'本站'}];await f.page.onShow();assert.equal(f.page.data.history[0].reason,'顾客可见回复');assert(!f.page.data.canReply);await f.page.onReply();assert.equal(f.sent.length,0)})
+ await test('missing capability or old backend never enables write',async()=>{const f=fixture();f.data.kind='WRONG';await f.page.onShow();f.page.setData({reason:'说明'});await f.page.onReply();assert(!f.page.data.ready);assert.equal(f.sent.length,0)})
+ await test('unavailable resolution remains read-only',async()=>{const f=fixture({kind:'EXCEPTION'});f.data.canResolve=false;await f.page.onShow();f.page.setData({reason:'不能覆盖补偿'});await f.page.onResolve();assert.equal(f.sent.length,0)})
+ await test('hide/show invalidates an old confirmation without dispatch',async()=>{const f=fixture();await f.page.onShow();let modal;f.wx.showModal=o=>{modal=o};f.page.setData({reason:'说明'});const a=f.page.onReply();f.page.onHide();await f.page.onShow();modal.success({confirm:true});await a;assert.equal(f.sent.length,0);assert(!f.page.data.busy)})
+ await test('hide/show ignores late receipt but permits explicit original retry',async()=>{const d=deferred(),f=fixture({post:()=>d.promise});await f.page.onShow();f.page.setData({reason:'说明'});const a=f.page.onReply();await Promise.resolve();await Promise.resolve();f.page.onHide();await f.page.onShow();d.resolve({code:0,data:{kind:'FEEDBACK',caseId:1,version:1,action:'REPLY'}});await a;assert(f.page.data.pending);assert.equal(f.page.data.result,'');assert(!f.page.data.busy)})
+ console.log('AQUAFLOW_SUITE_OK '+passed)
+}
+main().catch(e=>{console.error(e);process.exitCode=1})

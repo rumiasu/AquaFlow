@@ -816,3 +816,15 @@
 旧接单/分配/抢单命令保留，但不能首次接受新模型的跨站OFFERED报价；同站订单、禁用新模型且无协议的旧流程及已接受后的正常配送继续沿用原契约。
 quoted 新路径让旧后端明确拒绝，不会把 token 当未知字段忽略后静默接受新价格。成功仍为 code=0 的普通写回执；失败事务不保留订单/指派/库存/桶票/支付/协议变化。
 该契约不增加付款方式转换、自动接受差价、桶权益转移权限或真实支付能力；需要配套新后端全部实例就绪后再更新小程序。
+
+### 非财务核实结案与普通反馈回复（v89配套）
+
+| 方法 | 路径 | 权限与契约 | 实现 |
+|---|---|---|---|
+| `GET` | `/api/manager/exceptions/{id}/resolution` | 本站站长；能力、版本及办理历史 | `ManagerExceptionController.resolution` |
+| `POST` | `/api/manager/exceptions/{id}/resolve` | 本站站长；expectedVersion/idempotencyKey/reason，理由最多500字。仅未处理且无数量差异、欠水、待补偿值的非拒付异常可核实结案 | `ManagerExceptionController.resolve` |
+| `GET` | `/api/feedback/{id}/handling` | 普通反馈本人可读各站回复；关联站长只读本站线，匿名身份不下发 | `FeedbackController.handling` |
+| `POST` | `/api/feedback/{id}/reply` | 关联站长；expectedVersion/idempotencyKey/reason，最多1000字 | `FeedbackController.reply` |
+| `POST` | `/api/feedback/{id}/close` | 关联站长；回复结果并结案，同样三字段；不处理任何退款或资产 | `FeedbackController.closeFeedback` |
+
+同一原对象行锁内先验权限、再查原回执，随后校验版本/状态并追加持久凭据。相同键同内容重放原结果，改内容或版本拒绝；不同键同版本竞争仅一笔可成。核实结案为独立VERIFIED状态，不等同IGNORED；未执行补偿不得关闭。反馈回复由顾客“我的反馈→查看水站回复与结果”读取，不发送短信或微信订阅通知。回复和结案都是客户可见文本，不能填写内部敏感资料。原匿名读脱敏保持不变。

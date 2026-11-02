@@ -292,6 +292,10 @@ Page({
     if (this._exceptionsHidden || !getApp().canAccessStationBusiness() || this._listContext !== this.exceptionContext()) return null
     return this.data.items.find(item => String(item.id) === String(e.currentTarget.dataset.id)) || null
   },
+  onOpenResolution(e) {
+    const item = this.exceptionForNavigation(e)
+    if (item) wx.navigateTo({ url: '/pages/case-handling/index?kind=EXCEPTION&id=' + item.id })
+  },
   onOpenExceptionOrder(e) {
     const item = this.exceptionForNavigation(e)
     if (item && /^[1-9][0-9]*$/.test(String(item.orderId))) wx.navigateTo({ url: '/pages/order/detail?id=' + item.orderId })

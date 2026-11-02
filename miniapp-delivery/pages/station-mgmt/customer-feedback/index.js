@@ -1,4 +1,4 @@
-// 站长端「客户反馈」：普通反馈只读；退款关联记录只向责任站展示并允许追加说明。
+// 站长端「客户反馈」：普通反馈可回复与结案；退款关联记录只向责任站展示并允许追加说明。
 //
 // 为什么这个页面必须存在（别删）：
 //   顾客端 `miniapp-user/utils/request.js` 在接口 `code=500` 时会弹「要把这个问题告诉水站吗？」，
@@ -10,7 +10,7 @@
 //   本页读的正是它落库的数据）；删掉的只是那个没有入口的员工端页面。
 //
 // 三条口径（改这个页面时必须守住）：
-//   1. 普通反馈保持只读。2026-10-08退款争议允许责任站登记结果并结案，客户可重提；
+//   1. 普通反馈通过独立处理记录回复与结案。2026-10-08退款争议允许责任站登记结果并结案，客户可重提；
 //      争议状态与实际退款分别处理，业务判权仍由原申请/原款确定。
 //   2. **加载失败必须与"没有反馈"区分开**（本仓 §8.22：零覆盖端点的真实形态是"界面空白"，
 //      与"确实没有"无法区分）。失败时把后端 `message` 原样打在页面上，并**清空 list**，
@@ -29,7 +29,7 @@
 // 已知的数据边界（属后端问题、本页不掩盖）：
 //   · `contact` 字段顾客端一键上报**根本不发**（`request.js` 的 data 只有 category 与 content），
 //     因此这列对自动上报恒为空，只有顾客手动填过联系方式的反馈才有值。
-//   · 普通反馈没有回复/处置状态；关联退款可追加说明，不能据此标记退款已完成。
+//   · 普通反馈回复和结案在独立处理记录中，客户本人可见；不据此标记实际退款已完成。
 //   · 自动上报（顾客端一键上报）**刻意保持实名**（顾客端 `utils/request.js` 的
 //     `offerErrorReport` 不传 anonymous）：报障的价值在于站长能复现/追问；
 //     只有顾客在「客服/反馈」页手动提交时才可能匿名。
@@ -65,6 +65,12 @@ Page({
     disputeResult: '', disputeSubmitting: false, pendingDispute: false, disputeHistoryExpanded: false
   },
 
+  onOpenHandling(e) {
+    const app=getApp(),u=app.globalData.userInfo||{},id=e.currentTarget.dataset.id
+    if(this.data.denied||!app.isStationManager()||this._draftOwner!==[app._loginGeneration||0,u.staffId,u.stationId,u.role].join(':'))return
+    const row=this.data.list.find(item=>String(item.id)===String(id)&&!item.refundType)
+    if(row&&/^[1-9][0-9]*$/.test(String(id)))wx.navigateTo({url:'/pages/case-handling/index?kind=FEEDBACK&id='+id})
+  },
   onLoad() {
     const app = getApp()
     if (!app.canAccessStationBusiness()) {

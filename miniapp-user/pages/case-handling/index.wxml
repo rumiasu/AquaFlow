@@ -1,0 +1,17 @@
+<view class="case-page">
+ <view class="case-head"><text class="case-title">{{kind === 'EXCEPTION' ? '核实异常' : '水站回复'}}</text><text class="case-ref">记录 #{{id}}</text></view>
+ <view class="case-note">{{kind === 'EXCEPTION' ? '仅用于核实后无需补偿的异常。仍有差异、欠水或补偿待办时不能结案。' : '回复与结案记录会显示在顾客的我的反馈中；不代表退款或资产调整。'}}</view>
+ <text wx:if="{{loading}}">正在核对…</text>
+ <view class="case-error" wx:if="{{error}}">{{error}}</view><text class="case-result" wx:if="{{result}}">{{result}}</text>
+ <view class="case-card" wx:for="{{history}}" wx:key="id"><view class="case-row"><text class="case-status">{{item.label}}</text><text>{{item.stationName || '水站名称待核实'}}</text></view><text class="case-reason">{{item.reason}}</text><text class="case-time">{{item.createTime}}</text></view>
+ <text wx:if="{{ready && !history.length}}">暂无办理记录</text>
+ <view class="case-card" wx:if="{{canReply || canClose || canResolve || pending}}">
+  <text class="case-label">{{kind === 'EXCEPTION' ? '核实理由' : '给顾客的回复 / 处理结果'}}</text>
+  <textarea value="{{reason}}" bindinput="onReason" disabled="{{busy || pending}}" maxlength="{{kind === 'EXCEPTION' ? 500 : 1000}}" placeholder="请写明核实经过及结果" auto-height />
+  <text class="case-note" wx:if="{{pending}}">原办理结果待核对，重试会沿用原内容，不会另建一次操作。</text>
+  <button wx:if="{{pending}}" bindtap="onRetry" disabled="{{busy}}" loading="{{busy}}" class="af-action af-action--primary">核对 / 重试原办理</button>
+  <block wx:else><button wx:if="{{canResolve}}" bindtap="onResolve" disabled="{{busy}}" loading="{{busy}}" class="af-action af-action--primary">核实无需补偿并结案</button><button wx:if="{{canReply}}" bindtap="onReply" disabled="{{busy}}" loading="{{busy}}" class="af-action af-action--primary">回复顾客</button><button wx:if="{{canClose}}" bindtap="onClose" disabled="{{busy}}" class="af-action af-action--secondary">回复并结案</button></block>
+ </view>
+ <button wx:if="{{!pending}}" bindtap="onRetry" disabled="{{busy || loading}}" class="af-action af-action--quiet">刷新处理记录</button>
+</view>
+<business-dialog id="business-dialog" />

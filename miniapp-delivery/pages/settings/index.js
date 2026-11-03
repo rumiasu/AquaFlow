@@ -16,6 +16,8 @@ const {
 
 Page({
   ...accountHistory,
+  onOpenAccountHistory() { return accountHistory.onOpenAccountHistory.call(this) },
+  onRetryAccountHistory() { return accountHistory.onRetryAccountHistory.call(this) },
   data: {
     staffId: '',
     stationName: '',

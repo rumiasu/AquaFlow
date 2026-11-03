@@ -1,6 +1,8 @@
 const accountHistory = require('../../utils/account-history-entry')
 Page({
   ...accountHistory,
+  onOpenAccountHistory() { return accountHistory.onOpenAccountHistory.call(this) },
+  onRetryAccountHistory() { return accountHistory.onRetryAccountHistory.call(this) },
   data: {
     version: ''
   },

@@ -1093,7 +1093,7 @@ Page({
     // 两条处置（不动 create.js —— 它被另一条工作流占着）：
     //   ① 加 `fail` 回调：真失败时**出声**（toast + console），不再静默无反应；
     //   ② 打一行 url 长度与商品行数，下一次走查能把"点了没反应"直接对上号（只记长度，不记地址内容）。
-    const url = `/pages/order/create?items=${encodeURIComponent(JSON.stringify(itemsParam))}&addressId=${address.id}&addressDetail=${encodeURIComponent(address.detail || '')}&source=3&stationId=${this.data.currentStationId || ''}`
+    const url = `/pages/order/create?items=${encodeURIComponent(JSON.stringify(itemsParam))}&addressId=${address.id}&addressDetail=${encodeURIComponent(address.detail || '')}&source=3&stationId=${this.data.currentStationId || ''}&cartOrigin=1`
     console.log('[home] 去结算：url 长度=' + url.length + '，商品行=' + itemsParam.length)
     wx.navigateTo({
       url,

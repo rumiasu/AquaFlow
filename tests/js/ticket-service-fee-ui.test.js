@@ -88,4 +88,18 @@ test('another staff page adopts the existing unknown request instead of overwrit
  assert.equal(second.writes.length,0);assert.deepEqual(second.page._originalOrderRequest,first.writes[0]);assert(second.page.data.unknownOrder)
  await second.page.onRetryOriginal();assert.equal(second.writes.length,1);assert.deepEqual(second.writes[0],first.writes[0])
 })
+
+test('split fee detail distinguishes reference water from other-fee total, including zero',()=>{
+ const tree=parseWxml(read('miniapp-user/pages/order/detail.wxml'))
+ for(const cash of [0,7]){
+  const view=renderElements(tree,{...loadPage('miniapp-user/pages/order/detail.js',{wx:createWx(),app:createApp()}).data,detailState:'ready',order:{id:3,status:1,ticketCashAmount:cash,ticketDeliveryCredit:0},fee:{waterText:'40.00',totalText:'47.00',hasDeposit:false,extraDepositText:'0.00',hasDeliveryFee:false,hasFloorFee:false},payments:[]},{includeText:true})
+  assert(view.some(n=>n.text.includes('水费参考（水票办理）')))
+  assert(view.some(n=>n.text.includes('原单其他费用合计')))
+  assert(view.some(n=>n.text.includes('原单参考总额')))
+ }
+ const legacy=renderElements(tree,{...loadPage('miniapp-user/pages/order/detail.js',{wx:createWx(),app:createApp()}).data,detailState:'ready',order:{id:3,status:1},fee:{waterText:'40.00',totalText:'47.00',hasDeposit:false,extraDepositText:'0.00',hasDeliveryFee:false,hasFloorFee:false},payments:[]},{includeText:true})
+ assert(!legacy.some(n=>n.text.includes('原单其他费用合计')))
+ assert(legacy.some(n=>n.tag==='text'&&n.text==='合计'))
+})
+
 ;(async()=>{for(const t of tests){await t.run();console.log('PASS '+t.name)}done();console.log('AQUAFLOW_SUITE_OK '+tests.length)})().catch(e=>{done();console.error(e);process.exitCode=1})

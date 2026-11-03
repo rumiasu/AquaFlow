@@ -174,6 +174,8 @@ public class ReceivableService {
                 paymentService.applyDepositOnPaid(orderId);
                 collectedCount++;
             }
+            com.example.aquaflow.util.OrderCollectionCompletion.finishDelivered(
+                    orderMapper, orderId, asInt(order.get("status")));
             if (orderMapper.settleIfCollected(orderId) == 0) {
                 // 走到这里说明收款成功却没核销上 —— 宁可失败出声，也不要让站长以为账销了
                 throw new BusinessException("订单 " + orderId + " 核销失败：未处于已收款状态");

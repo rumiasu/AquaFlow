@@ -20,7 +20,7 @@ function draftPage(wx,app,session){
 }
 async function draft(){
  const wx=createWx(),app=createApp(),session={loggedIn:true,customerId:7,epoch:1};wx.showModal=()=>{throw Error('native fallback used')}
- const data={viewStationId:1,loading:false,maxReturnQty:5,customerBarrelAsset:[{productId:5,availableRights:5}],returnProductOptions:[{id:5}],summary:{independentRights:true}}
+ const data={viewStationId:1,loading:false,maxReturnQty:5,stationReturnQty:5,customerBarrelAsset:[{productId:5,independentRights:true,availableRights:5}],returnProductOptions:[{id:5}],summary:{independentRights:true}}
  const first=draftPage(wx,app,session);first.setData(data);first.onShowReturnModal();first.onReturnQtyInput({detail:{value:'2'}});first.onReturnNoteInput({detail:{value:'搬家'}})
  const next=draftPage(wx,app,session);next.setData(data);next.readUiDraft();assert.equal(next.data.uiDraftAvailable,true)
  const d=dialog('miniapp-user',wx,next);next.onRestoreUiDraft();assert.equal(d.c.data.visible,true);assert.equal(next.data.returnForm.productId,null);d.c.onCancel();await tick();assert.equal(next.data.returnForm.productId,null)

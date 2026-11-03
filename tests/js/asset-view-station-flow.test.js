@@ -24,7 +24,7 @@ function context() {
 }
 function page(rel, api={}, env=context()) {
   const stubs = {
-    'api/asset-stations': { getAssetStation: async id => ok(id===22?B:A), listAssetStations: api.list || (async () => ok({ stations:[A,B],hasMore:false,nextStationId:null })) },
+    'api/asset-stations': { getAssetStation: api.station || (async id => ok(id===22?B:A)), listAssetStations: api.list || (async () => ok({ stations:[A,B],hasMore:false,nextStationId:null })) },
     'api/barrel': { getBarrelSummary: api.summary || (async () => ok(summary())),
       getBarrelSummaryByType: api.holdings || (async () => ok([holding])), getBarrelRecords: api.records || (async () => ok([])),
       previewBarrelReturn: api.preview || (async () => ok({ refundAmount:60 })), requestBarrelReturn: api.submit || (async () => ok(null)) },
@@ -201,7 +201,7 @@ test('identity change invalidates pending asset read', async () => {
   assert.strictEqual(p.data.deposit,null)
 })
 test('return preview uses asset station and ignores a previous quantity result', async () => {
-  const slow=deferred(),seen=[],{p}=page('barrel/index',{preview:(product,qty,station)=>{seen.push(station);return qty===1?slow.promise:Promise.resolve(ok({refundAmount:120}))}})
+  const slow=deferred(),seen=[],{p}=page('barrel/index',{holdings:async()=>ok([{...holding,availableRights:2}]),preview:(product,qty,station)=>{seen.push(station);return qty===1?slow.promise:Promise.resolve(ok({refundAmount:120}))}})
   await select(p);p.setData({returnForm:{productId:5,quantity:1}});const first=p.refreshPreview()
   p.setData({returnForm:{productId:5,quantity:2}});await p.refreshPreview();slow.resolve(ok({refundAmount:60}));await first
   assert.deepStrictEqual(seen,[22,22]);assert.strictEqual(p.data.preview.refundAmount,120)
@@ -260,6 +260,18 @@ test('picker failure has retry, closed or previous-session responses are ignored
   const retry=picker(async()=>{throw new Error('列表离线')});await retry.p.openPicker()
   assert.strictEqual(retry.p.data.errorText,'列表离线');assert.strictEqual(retry.p.data.loading,false)
 })
+
+test('cached asset station name is revalidated on every activation without changing order station', async () => {
+  let name='新站名',calls=0;const {p,env}=page('barrel/index',{station:async id=>{calls++;return ok({...A,id,name})}})
+  p.onLoad({});await p.onShow();await new Promise(r=>setImmediate(r));assert.equal(p.data.stationName,'新站名');name='再次改名';p.onHide();await p.onShow();await new Promise(r=>setImmediate(r));assert.equal(p.data.stationName,'再次改名');assert.equal(calls,2);assert.equal(env.wx.__storage.get('selectedStation').name,A.name)
+})
+test('late previous asset name cannot replace newer station metadata',async()=>{
+  const old=deferred();let calls=0;const {p}=page('barrel/index',{station:id=>++calls===1?old.promise:Promise.resolve(ok({...A,id,name:'最新站名'}))});p.onLoad({});await p.onShow();p.onHide();await p.onShow();old.resolve(ok({...A,name:'迟到旧站名'}));await new Promise(r=>setImmediate(r));assert.equal(p.data.stationName,'最新站名')
+})
+test('service station entry returns to order home without changing viewed or order station',()=>{
+  const {p,env}=picker(async()=>ok({stations:[],hasMore:false}));p.openOrderHome();assert.equal(env.wx.__calls.nav.pop().url,'/pages/home/index');assert.equal(env.wx.__storage.get('selectedStation').id,11);assert.equal(env.wx.__calls.storageSet.length,0);assert.equal(p.properties.stationId,11)
+})
+test('busy asset action blocks service-home navigation',()=>{const {p,env}=picker(async()=>ok({stations:[],hasMore:false}));p.properties.busy=true;p.openOrderHome();assert.equal(env.wx.__calls.nav.length,0)})
 
 ;(async()=>{
   let passed=0

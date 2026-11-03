@@ -835,8 +835,11 @@ public class OrderServiceImpl implements OrderService {
             if (rows != null) rows.forEach(CustomerProfileMask::maskIfCrossStation);
             return rows;
         }
-        return orderMapper.list(stationId, customerId, status, createTimeStart, createTimeEnd, limit, offset,
+        List<Orders> rows = orderMapper.list(stationId, customerId, status, createTimeStart, createTimeEnd, limit, offset,
                 staffScope);
+        if ("customer".equals(AuthContext.getUserType()) && rows != null)
+            rows.forEach(this::attachCustomerCancelRequest);
+        return rows;
     }
 
     @Override
@@ -844,8 +847,7 @@ public class OrderServiceImpl implements OrderService {
         Orders order = orderMapper.getById(id);
         if (order != null) {
             order.setDeliveryArrangementHint(deliveryArrangementHint(order));
-            var request=cancelRequests.latestCustomerCancelRequest(id);
-            if(request!=null)order.setCustomerCancelRequest(com.example.aquaflow.vo.CustomerCancelRequestVO.of(request,cancelResults.get(request.getId())));
+            attachCustomerCancelRequest(order);
             List<OrderItem> items = orderItemMapper.listByOrderId(id);
             order.setItems(items);
             List<BarrelRecord> deliveryRecords = barrelRecordMapper.listDeliveryByOrder(
@@ -861,6 +863,13 @@ public class OrderServiceImpl implements OrderService {
             }
         }
         return order;
+    }
+
+    /** List and detail share the same pending/handled customer cancellation facts. */
+    private void attachCustomerCancelRequest(Orders order) {
+        var request = cancelRequests.latestCustomerCancelRequest(order.getId());
+        order.setCustomerCancelRequest(request == null ? null :
+                com.example.aquaflow.vo.CustomerCancelRequestVO.of(request, cancelResults.get(request.getId())));
     }
 
     /** 根据真实待处理申请和最新安排事实展示；不解析内部备注，也不生成 ETA 或客户同意。 */

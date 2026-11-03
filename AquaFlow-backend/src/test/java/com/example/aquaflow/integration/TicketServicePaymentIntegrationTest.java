@@ -37,6 +37,7 @@ class TicketServicePaymentIntegrationTest extends AbstractIntegrationTest {
         assertEquals(1,intOf("select payment_status from orders where id=?",order));
         assertEquals(0,new BigDecimal("7").compareTo(decimalOf("select amount from payment_record where order_id=?",order)));
         assertEquals(0,decimalOf("select water_amount from payment_record where order_id=?",order).signum());
+        assertTrue(jdbc.queryForObject("select note from payment_record where order_id=?",String.class,order).startsWith("水票订单其他费用（不含水费）"));
         Api detail=get("/api/orders/"+order,customerToken());assertTrue(detail.isSuccess(),detail.message());assertEquals(0,new BigDecimal("7").compareTo(detail.data().path("collectAmount").decimalValue()));
         assertTrue(detail.data().path("needCollect").asBoolean());assertFalse(detail.data().path("canRepay").asBoolean());
     }
@@ -75,6 +76,7 @@ class TicketServicePaymentIntegrationTest extends AbstractIntegrationTest {
         Api collected=post("/api/delivery/orders/"+order+"/confirm-offline-pay",managerToken(),null);assertTrue(collected.isSuccess(),collected.message());
         assertEquals(4,intOf("select status from orders where id=?",order));assertEquals(2,intOf("select payment_status from orders where id=?",order));assertEquals(8,balance());
         assertEquals(0,new BigDecimal("7").compareTo(decimalOf("select amount from payment_record where order_id=? and status=2",order)));
+        assertTrue(jdbc.queryForObject("select note from payment_record where order_id=? and status=2",String.class,order).startsWith("水票订单其他费用（不含水费）"));
     }
     @Test void serviceRefundDoesNotReturnWaterAndWaterRefundDoesNotRefundNominalCash() {
         seed();long order=create("split-aftersale",1);assertTrue(pay(order).isSuccess());deliver(order,true);long payment=originalPayment(order);

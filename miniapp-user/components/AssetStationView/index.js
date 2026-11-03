@@ -12,8 +12,22 @@ Component({
   },
   data: { open: false, loading: false, errorText: '', stations: [], hasMore: false, nextStationId: 0 },
   lifetimes: { attached() { this._alive = true }, detached() { this._alive = false; this._read = (this._read || 0) + 1 } },
-  pageLifetimes: { hide() { this.close() } },
+  pageLifetimes: { hide() { this._homeFlight = null; this.close() } },
   methods: {
+    openOrderHome() {
+      if (this.properties.busy) { wx.showToast({ title: '请等待当前办理完成', icon: 'none' }); return }
+      if (this._homeFlight) return
+      const flight = this._homeFlight = {}, session = captureSession()
+      const release = () => { if (this._homeFlight === flight) this._homeFlight = null }
+      const fail = () => {
+        if (this._homeFlight === flight && this._alive && isCurrentSession(session))
+          wx.showToast({ title: '打开订水首页失败，请重试', icon: 'none' })
+        release()
+      }
+      this.close()
+      try { wx.switchTab({ url: '/pages/home/index', fail, complete: release }) }
+      catch (_) { fail() }
+    },
     openPicker() {
       if (this.properties.busy) { wx.showToast({ title: '请等待当前办理完成', icon: 'none' }); return }
       if (this.data.open && this.data.loading) return

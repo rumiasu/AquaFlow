@@ -1,3 +1,4 @@
+const { captureSubmittedCart, consumeSubmittedCart } = require('../../utils/submitted-cart')
 const { showBusinessModal } = require('../../utils/business-dialog')
 const { getProductDetail } = require('../../api/product')
 const { getOrderDetail } = require('../../api/order')
@@ -210,6 +211,7 @@ Page({
   },
 
   onLoad(options) {
+    this._sourceCart = !!options && (options.source === 'cart' || options.cartOrigin === '1')
     if (!app.globalData.isLogin) {
       wx.redirectTo({ url: '/pages/login/index' })
       return
@@ -1684,6 +1686,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const request = JSON.parse(JSON.stringify(requestRecord.body))
     const navigationProof = { ...this._captureOrderNavigation(null), stationId: request.stationId, session,
       paymentMethod: request.paymentMethod, ticketFeePaymentMethod: request.ticketFeePaymentMethod, ticketFeeQuoteAmount: request.ticketFeeQuoteAmount, wechatPay: requestRecord.wechatPay, paymentContext: requestRecord.paymentContext }
+    const cartProof = this._sourceCart && !replay ? captureSubmittedCart(app, request.stationId, request.items) : null
+    const cartEpoch = this._orderNavigationEpoch || 0
     this.setData({ submitting: true, submitState: 'creating', idempotencyKey: request.idempotencyKey,
       showOfflineConfirm: false, showAssetConfirm: false, showShortageConfirm: false, showUnifiedConfirm: false })
     try {
@@ -1702,6 +1706,9 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 原回执只登记原请求指纹；页面编辑、卸载或重新登录不能授权旧回调继续付款。
       orderIntent.settleRequest(requestRecord, 'known', orderId)
       if (!current()) return
+      consumeSubmittedCart(app, cartProof, () => current() && !this._quoteHidden
+        && String(this.data.stationId) === String(request.stationId)
+        && cartEpoch === (this._orderNavigationEpoch || 0))
       this._rememberSubmittedOrder(orderId, requestRecord.fingerprint, false)
       payMethodStorage.set(request.paymentMethod)
       await this.proceedToPayment(orderId, data, { ...navigationProof, orderId })

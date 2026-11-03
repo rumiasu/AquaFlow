@@ -8,7 +8,9 @@
     </view>
     <text class="scope-switch">{{busy ? '办理中' : '切换 ›'}}</text>
   </view>
-  
+  <button class="scope-order-entry" bindtap="openOrderHome" disabled="{{busy}}">
+    <text>查看当前订水水站</text><text>去首页 ›</text>
+  </button>
 </view>
 <view class="picker-mask" wx:if="{{open}}" bindtap="close"></view>
 <view class="picker" wx:if="{{open}}" catchtap="stopPropagation">

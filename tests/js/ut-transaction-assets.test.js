@@ -24,7 +24,7 @@ function fixture(pagePath, stubs = {}, extra = {}) {
 test('U09 editable quantity retains blank and rejects invalid preview without guessing 1',async()=>{
   let previews=0
   const t=fixture('miniapp-user/pages/barrel/index.js',{'api/barrel':{previewBarrelReturn:async()=>{previews++;return ok({refundAmount:30})}}})
-  t.page.setData({loading:false,summaryFailed:false,holdingsFailed:false,maxReturnQty:5,returnForm:{productId:5,quantity:1,note:''}})
+  t.page.setData({loading:false,summaryFailed:false,holdingsFailed:false,maxReturnQty:5,stationReturnQty:5,customerBarrelAsset:[{productId:5,independentRights:true,availableRights:5}],returnForm:{productId:5,quantity:1,note:''}})
   t.page.onReturnQtyInput(event(5,''));await tick()
   assert.equal(t.page.data.returnForm.quantity,'');assert(t.page.data.returnQuantityError);assert.equal(previews,0)
   t.page.onReturnQtyInput(event(5,'2'));await tick()
@@ -35,7 +35,7 @@ test('U09 closing dirty draft is cancellable and reopens the exact same form',as
   const t=fixture('miniapp-user/pages/barrel/index.js');t.page.refreshPreview=()=>{}
   t.page._returnRecoveryScope='7:1';t.page._returnInitial='{}';t.page.syncReturnRecovery=()=>null
   const form={productId:5,quantity:2,note:'长备注，关闭后继续',pickupMode:'STORE'}
-  t.page.setData({showReturnModal:true,returnForm:form,maxReturnQty:5,summary:{independentRights:true}})
+  t.page.setData({showReturnModal:true,returnForm:form,maxReturnQty:5,stationReturnQty:5,summary:{independentRights:true}})
   t.wx.__modalAutoConfirm=false;t.page.onCloseReturnModal();assert.equal(t.page.data.showReturnModal,true)
   t.wx.__modalAutoConfirm=true;t.page.onCloseReturnModal();assert.equal(t.page.data.showReturnModal,false)
   t.page.onShowReturnModal();assert.equal(t.page.data.showReturnModal,true);assert.deepEqual(t.page.data.returnForm,form)
@@ -181,7 +181,7 @@ test('U05 blank shared-stepper input keeps the draft and invalidates quoting unt
 test('U09 UI draft survives page replacement and restores only after explicit confirmation',async()=>{
   const api={'api/barrel':{previewBarrelReturn:async()=>ok({refundAmount:60})}}
   const t=fixture('miniapp-user/pages/barrel/index.js',api)
-  const data={viewStationId:1,loading:false,maxReturnQty:5,customerBarrelAsset:[{productId:5,availableRights:5}],returnProductOptions:[{id:5}],summary:{independentRights:true}}
+  const data={viewStationId:1,loading:false,maxReturnQty:5,stationReturnQty:5,customerBarrelAsset:[{productId:5,independentRights:true,availableRights:5}],returnProductOptions:[{id:5}],summary:{independentRights:true}}
   t.page.setData(data);t.page.onShowReturnModal();t.page.onReturnQtyInput(event(5,'2'));t.page.onReturnNoteInput(event(5,'搬家'))
   const next=fixture('miniapp-user/pages/barrel/index.js',api,{wx:t.wx});next.page.setData(data);next.page.readUiDraft()
   assert.equal(next.page.data.uiDraftAvailable,true);assert.equal(next.page.data.returnForm.productId,null)

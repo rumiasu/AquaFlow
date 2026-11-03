@@ -21,7 +21,7 @@ function sync(page) {
   const station = selection(page)
   const orderStation = stationStorage.get()
   page.setData({ viewStationId: station ? station.id : null,
-    stationName: station ? station.name : '', orderStationName: orderStation && orderStation.name || '',
+    stationName: station ? station.name : '', orderStationName: orderStation && ((metadata[orderStation.id] || {}).name || orderStation.name) || '',
     viewStationStatusText: station && station.statusText || '' })
   return station
 }
@@ -36,8 +36,8 @@ function activate(page) {
   page._assetHidden = false
   page._assetLife = (page._assetLife || 0) + 1
   const station = sync(page)
-  // 直接链接到历史站时，只经本人关系接口取得站名；不信任 URL 的站名。
-  if (station && !station.name) {
+  // 每次回页核实名称与营业状态；保持本人关系、页面轮次和资产站守卫，不写下单站。
+  if (station) {
     const context = beginRead(page, 'stationName')
     getAssetStation(station.id).then(res => {
       if (!current(page, context) || !res || res.code !== 0 || !res.data

@@ -140,8 +140,12 @@ public class OrderController {
         // ⚠️ **顾客端传 false**：客户自己那张没付钱的单必须看得见（他要在列表里点进去继续付款，
         //    挡掉等于钱收不到）。身份判据用上面那段已经归一化过的分支结果，不重新解析请求参数。
         boolean staffScope = !"customer".equals(userType);
-        return Result.success(orderService.list(stationId, customerId, status, createTimeStart, createTimeEnd,
-                size, offset, staffScope));
+        List<Orders> rows = orderService.list(stationId, customerId, status, createTimeStart, createTimeEnd,
+                size, offset, staffScope);
+        // Same customer-facing channel capability as detail; employee visibility is unchanged.
+        if (!staffScope && rows != null) rows.forEach(order ->
+                order.setSelfPayAllowed(paymentService.canSelfPay(order)));
+        return Result.success(rows);
     }
 
     @GetMapping("/{id}")

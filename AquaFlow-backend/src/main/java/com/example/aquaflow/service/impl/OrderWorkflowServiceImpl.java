@@ -435,11 +435,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // 已送达则顺带闭环为已完成；[2026-09-30 修 F-11] 必须取受影响行数 ——
         // 并发下订单可能已被别的路径改走（CAS 命中 0 行），若继续往下走收款/押金，订单会
         // 静默停在已送达、界面却说已完成。
-        if (cur == OrderStatus.DELIVERED) {
-            if (orderMapper.updateStatusIf(orderId, OrderStatus.DELIVERED, OrderStatus.COMPLETED) == 0) {
-                throw new BusinessException("订单状态已变更，请刷新后重试");
-            }
-        }
+        com.example.aquaflow.util.OrderCollectionCompletion.finishDelivered(orderMapper, orderId, cur);
         orderMapper.appendSpecialNote(orderId, "[线下收款确认] 配送员ID=" + staffId);
 
         // [AQ-002] 置「已付款」必须补写 PAID 支付流水，否则订单已付款却无凭证，日结对不上

@@ -72,7 +72,7 @@ function newPage(sc) {
   const wx = createWx()
   if (s.station) wx.setStorageSync('selectedStation', s.station)
   const page = loadPage('miniapp-user/pages/barrel/index.js', { stubs, wx, app: createApp() })
-  page.setData({ loading: false }) // 只测已完成资产读取后的试算上下文。
+  page.setData({ loading: false, stationReturnQty: 2, maxReturnQty: 2, customerBarrelAsset: [{productId: 3, independentRights: true, availableRights: 2, occupiedQty: 2}] }) // 只测已完成资产读取后的试算上下文。
   // 摆到"已选商品、数量为 1"的状态（真实情况下由打开退桶弹窗填入）
   page.data.returnForm = Object.assign({}, page.data.returnForm, { productId: 3, quantity: 1 })
   return { page, calls, wx }

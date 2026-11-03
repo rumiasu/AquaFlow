@@ -368,6 +368,11 @@ public class PaymentServiceImpl implements PaymentService {
         return record.isSimulated() ? confirmMockChannelIfApplicable(record.getId()) : record;
     }
 
+    private String ticketFeeNote(String note) {
+        String scope = "水票订单其他费用（不含水费）";
+        return truncateNote(scope + (note == null || note.isBlank() ? "" : "：" + note));
+    }
+
     private PaymentRecord createSplitPayment(Orders order,String note) {
         var split=ticketPayments.get(order.getId());
         if("CANCELLED".equals(split.state()))throw new BusinessException("水票原单已终止，不能重新支付");
@@ -382,7 +387,7 @@ public class PaymentServiceImpl implements PaymentService {
         record.setStationId(StationUtil.settleStation(order));record.setPaymentMethod(method);
         record.setAmount(split.cashDue());record.setWaterAmount(BigDecimal.ZERO);record.setBarrelDeposit(split.deposit());
         record.setDeliveryFee(split.delivery().subtract(split.credit()));record.setFloorFee(split.floor());
-        record.setNote(note);record.setCreateTime(LocalDateTime.now());record.setUpdateTime(LocalDateTime.now());
+        record.setNote(ticketFeeNote(note));record.setCreateTime(LocalDateTime.now());record.setUpdateTime(LocalDateTime.now());
         record.setStatus(split.cashDue().signum()==0?PaymentStatus.PAID:PaymentStatus.PENDING);mockPolicy.prepare(record);
         paymentRecordMapper.insert(record);
         if(record.getStatus()==PaymentStatus.PAID) {
@@ -399,8 +404,10 @@ public class PaymentServiceImpl implements PaymentService {
         // 而不是 RuntimeException —— 后者会被兜底处理器转成 code=500「系统错误」，
         // 让"重复点击确认"这类正常场景看起来像后端崩了。
         if (record == null) throw new BusinessException("支付记录不存在");
+        Orders collectionOrder = null;
         if (record.getOrderId() != null) {
             Orders current=paymentLocks.lockOrder(record.getOrderId());
+            collectionOrder = current;
             if(current==null || current.getStatus()==OrderStatus.CANCELLED || current.getPaymentStatus()==PaymentStatus.REFUNDED || current.getPaymentStatus()==PaymentStatus.CANCELLED)
                 throw new BusinessException("订单已经取消或退款，不能再确认收款");
             // Do not let a pre-fix mismatched pending record become a new paid fact; retain it for reconciliation.
@@ -467,6 +474,8 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new BusinessException("订单付款状态已变化，本次确认回滚，请核对原结果");
             // [AQ-009] 支付成功时才入账预收桶押金（此前在下单时即入账，那时客户一分未付）
             applyDepositOnPaid(record.getOrderId());
+            com.example.aquaflow.util.OrderCollectionCompletion.finishDelivered(
+                    orderMapper, record.getOrderId(), collectionOrder.getStatus());
         }
     }
 
@@ -582,8 +591,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void recordCashCollection(Long orderId) {
-        // 默认事由即"配送员现场收款"——本方法最初的唯一调用方是 completeDelivery。
-        recordCashCollection(orderId, "配送员现场收款（货到付款）");
+        // 收款人由 operatorId 留痕；默认说明不假定调用者是配送员。
+        recordCashCollection(orderId, "现场收款（货到付款）");
     }
 
     @Override
@@ -602,7 +611,7 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentRecord original=createSplitPayment(order,note);
             ticketPayments.validateRecord(order,original);
             if(original.getStatus()==PaymentStatus.PENDING) {
-                if(paymentRecordMapper.confirmPendingToPaid(orderId,StationUtil.settleStation(order),note,AuthContext.getUserId())!=1)throw new BusinessException("原服务费收款状态已变化");
+                if(paymentRecordMapper.confirmPendingToPaid(orderId,StationUtil.settleStation(order),ticketFeeNote(note),AuthContext.getUserId())!=1)throw new BusinessException("原服务费收款状态已变化");
                 ticketPayments.paid(order);
             }
             return;
@@ -611,7 +620,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (hasPaidRecord(orderId)) {
             return;
         }
-        String finalNote = note != null && !note.isEmpty() ? note : "配送员现场收款（货到付款）";
+        String finalNote = note != null && !note.isEmpty() ? note : "现场收款（货到付款）";
         Long settleStationId = StationUtil.settleStation(order);
         // [2026-09-18] 已有一条**待收款**流水时，就地确认它，**不要再插一条 PAID**：
         // 一单只能有一条活跃流水（生成列 active_order_id 把 status ∈ (1,2) 都算活跃 +

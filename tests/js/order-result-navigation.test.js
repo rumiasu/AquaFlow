@@ -286,6 +286,23 @@ test('缺失或非法布局测量不伪造高度，也不影响原单恢复', as
   assert.deepStrictEqual(f.businessCounts(), [1, 1, 1])
 })
 
+test('fresh cart submission clears only its unchanged submitted cart once', async () => {
+  const f=fixture();let cart={5:2},clears=0;f.page._sourceCart=true;f.app.getCart=()=>cart;f.app.clearCart=()=>{clears++;cart={}}
+  await f.page._createOrder(false);assert.equal(clears,1);assert.deepStrictEqual(cart,{})
+  await f.page._createOrder(false);assert.equal(clears,1);assert.equal(f.writes.length,1)
+})
+test('new cart edits during create receipt are retained', async () => {
+  const f=fixture();let cart={5:2},clears=0;f.page._sourceCart=true;f.app.getCart=()=>cart;f.app.clearCart=()=>{clears++;cart={}}
+  const pending=f.page._createOrder(false);cart={5:3};await pending;assert.equal(clears,0);assert.deepStrictEqual(cart,{5:3})
+})
+test('leaving and returning cannot authorize the old create callback to clear cart', async () => {
+  const f=fixture();let clears=0;f.page._sourceCart=true;f.app.getCart=()=>({5:2});f.app.clearCart=()=>{clears++}
+  const pending=f.page._createOrder(false);f.page._invalidateOrderNavigation();await pending;assert.equal(clears,0)
+})
+test('non-cart reorder preserves matching current cart', async () => {
+  const f=fixture();let clears=0;f.app.getCart=()=>({5:2});f.app.clearCart=()=>{clears++};await f.page._createOrder(false);assert.equal(clears,0)
+})
+
 ;(async () => {
   const done = armWatchdog(30000); let failed = 0
   try {

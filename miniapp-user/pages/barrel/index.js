@@ -1,3 +1,4 @@
+const { readCompanionOrders } = require('../../utils/companion-orders')
 const { createDraftGuard } = require('../../utils/draft-guard')
 const { showBusinessModal } = require('../../utils/business-dialog')
 const { getBarrelSummary, getBarrelRecords, getBarrelSummaryByType, requestBarrelReturn, previewBarrelReturn, confirmBarrelReturn, changeBarrelReturnArrangement, withdrawBarrelReturn } = require('../../api/barrel')
@@ -83,6 +84,7 @@ Page({
     // 桶数据部分加载失败时的提示（空串 = 全部正常）。见 loadData 里的说明。
     loadError: '',
     showReturnModal: false,
+    companionOrdersLoading: false,
     returnForm: {
       productId: null,
       quantity: 1,
@@ -95,7 +97,7 @@ Page({
     // 典型场景：顾客还没选服务水站 ⇒ 见 refreshPreview 的注释（2026-09-27 修）。
     previewHint: '',
     previewing: false,
-    maxReturnQty: 0,
+    stationReturnQty: 0, maxReturnQty: 0,
     submitting: false
   },
 
@@ -110,6 +112,8 @@ Page({
   },
 
   onHide() {
+    this._companionRead = null
+    this.setData({ companionOrdersLoading: false })
     this.persistUiDraft()
     assetViewStation.suspend(this)
     this._arrangementHidden = true
@@ -125,6 +129,11 @@ Page({
   },
 
   async loadData() {
+    if (!this.data.pendingReturn) {
+      this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
+      this._previewIntent = null
+      this.setData({ preview: null, previewReady: false, previewing: false, previewHint: '' })
+    }
     const context = assetViewStation.beginRead(this)
     // 2026-10-22：资产重读即作废旧试算，保留输入但不能沿用刷新前的办理资格。
     this._returnPreviewVersion = (this._returnPreviewVersion || 0) + 1
@@ -136,11 +145,11 @@ Page({
     const needLogin = !context.session.loggedIn || !context.session.customerId
     this.setData({ needLogin })
     if (needLogin) { this.setData({ loading: false, refreshing: false, summary: null, records: [], customerBarrelAsset: [], returnProductOptions: [],
-      summaryFailed: true, holdingsFailed: true, recordsFailed: true, maxReturnQty: 0, loadError: '请先登录后查看本人水桶与押金。' }); return }
+      summaryFailed: true, holdingsFailed: true, recordsFailed: true, stationReturnQty: 0, maxReturnQty: 0, loadError: '请先登录后查看本人水桶与押金。' }); return }
     const keep = this._lastAssetScope && this._lastAssetScope.stationId === stationId && isCurrentSession(this._lastAssetScope.session)
     this.setData({ loading: !keep, refreshing: !!keep, ...(keep ? {} : { summary: null, records: [], customerBarrelAsset: [], returnProductOptions: [] }),
       summaryStale: false, holdingsStale: false, recordsStale: false,
-      summaryFailed: false, holdingsFailed: false, recordsFailed: false, loadError: '', maxReturnQty: 0 })
+      summaryFailed: false, holdingsFailed: false, recordsFailed: false, loadError: '', stationReturnQty: 0, maxReturnQty: 0 })
     if (!stationId) { this.setData({ loading: false, refreshing: false, summaryFailed: true, holdingsFailed: true, recordsFailed: true,
       loadError: '请在上方选择要查看的资产水站' }); return }
     try {
@@ -259,8 +268,10 @@ Page({
       const ceiling = occupiedBuckets !== undefined && occupiedBuckets !== null
         ? occupiedBuckets
         : (rightBuckets || 0)
-      this.setData({ maxReturnQty: Math.max(0, (ceiling || 0) - (pendingReturns || 0)) })
-      if (this.data.summary.independentRights) this.setData({ maxReturnQty: this.data.summary.availableRights || 0 })
+      const stationReturnQty = this.data.summary.independentRights
+        ? this.data.summary.availableRights || 0 : Math.max(0, (ceiling || 0) - (pendingReturns || 0))
+      this.setData({ stationReturnQty, maxReturnQty: stationReturnQty })
+      if (this.data.returnForm.productId) this.setData({ maxReturnQty: this.returnProductLimit(this.data.returnForm.productId) })
     } finally {
       if (assetViewStation.current(this, context)) this.setData({ loading: false, refreshing: false })
     }
@@ -428,7 +439,7 @@ Page({
     if (this.data.refreshing || this.data.summaryFailed || this.data.holdingsFailed) {
       this.setData({ loadError: '退还前需重新核实桶与押金，请重新加载。' }); return
     }
-    if (this.data.maxReturnQty <= 0) {
+    if (this.data.stationReturnQty <= 0) {
       wx.showToast({ title: '暂无可退水桶', icon: 'none' })
       return
     }
@@ -504,6 +515,16 @@ Page({
       this.setData({ preview: null, previewHint: '' })
       return
     }
+    if (productId) {
+      const limit = this.returnProductLimit(productId)
+      this.setData({ maxReturnQty: limit })
+      if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > limit) {
+        const message = limit > 0 ? '请填写 1 至 ' + limit + ' 的整数' : '该商品当前没有可退数量，请重新选择商品'
+        this.setData({ returnQuantityError: message, previewHint: message })
+        return
+      }
+      this.setData({ returnQuantityError: '' })
+    }
     const context = assetViewStation.beginRead(this, 'preview')
     const current = () => version === this._returnPreviewVersion && assetViewStation.current(this, context)
     const stationId = context.stationId || await resolveStationId()
@@ -531,6 +552,14 @@ Page({
     } finally {
       if (current()) this.setData({ previewing: false })
     }
+  },
+
+  returnProductLimit(productId) {
+    const row = (this.data.customerBarrelAsset || []).find(item => String(item.productId) === String(productId))
+    const station = Number(this.data.stationReturnQty)
+    const available = row && Number(row.independentRights ? row.availableRights : row.occupiedQty)
+    return Number.isSafeInteger(station) && station >= 0 && Number.isSafeInteger(available) && available >= 0
+      ? Math.min(station, available) : 0
   },
 
   onReturnQtyChange(e) {
@@ -716,10 +745,8 @@ Page({
       if (!mode) return
       let companionOrderId=null
       if (mode === 'COMBINED') {
-        const response=await getOrders({ stationId: record.stationId, page: 1, pageSize: 500 })
-        if (!current()) return
-        const data=response.data, rows=(Array.isArray(data)?data:data && data.records || [])
-          .filter(o => String(o.stationId) === String(record.stationId) && (o.status === 1 || o.status === 2))
+        const rows=await this.loadCompanionOrders(record.stationId, current)
+        if (!current() || !rows) return
         if (!rows.length) { wx.showToast({ title: '暂无进行中的送水订单，可选择到店或独立上门', icon: 'none' }); return }
         const selected=await this.pickCompanionOrder(rows, current)
         if (!selected || !current()) return
@@ -759,6 +786,18 @@ Page({
       finally { release() }
     } })
   },
+  async loadCompanionOrders(stationId, current) {
+    const flight = this._companionRead = {}
+    this.setData({ companionOrdersLoading: true })
+    try { return await readCompanionOrders(getOrders, stationId, current) }
+    finally {
+      if (this._companionRead === flight) {
+        this._companionRead = null
+        this.setData({ companionOrdersLoading: false })
+      }
+    }
+  },
+
   // 原生菜单每次只展示少量选项；分页保留本次已读到的全部可选订单。
   async pickCompanionOrder(rows, current) {
     let page = 0
@@ -777,7 +816,9 @@ Page({
   async onPickupMode() {
     if (this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError || this._pickupFlight) return
     const context = assetViewStation.beginRead(this, 'pickupDialog')
+    const previewVersion = this._returnPreviewVersion || 0
     const current = () => !this.data.pendingReturn && !this.data.submitting && assetViewStation.current(this, context)
+      && previewVersion === (this._returnPreviewVersion || 0)
     this._pickupFlight = true
     try {
       const result = await this.arrangementDialog({ itemList: ['到店办理', '单独上门收桶（费用须先确认）', '随送水订单顺路收桶'] }, true)
@@ -792,11 +833,8 @@ Page({
       }
       const stationId = context.stationId || await resolveStationId()
       if (!stationId || !current()) return
-      const response = await getOrders({ stationId, page: 1, size: 100 })
-      if (!current()) return
-      const data = response && response.data
-      if (!Array.isArray(data) && !(data && Array.isArray(data.records))) throw new Error('送水订单暂未加载，请重试')
-      const rows = (Array.isArray(data) ? data : data.records).filter(o => o.stationId === stationId && (o.status === 1 || o.status === 2))
+      const rows = await this.loadCompanionOrders(stationId, current)
+      if (!current() || !rows) return
       if (!rows.length) { wx.showToast({ title: '暂无进行中的送水订单，请选到店或单独上门', icon: 'none' }); return }
       const picked = await this.pickCompanionOrder(rows, current)
       if (!picked || !current()) return

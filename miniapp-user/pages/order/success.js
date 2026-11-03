@@ -84,12 +84,7 @@ Page({
         return
       }
       this.applyOrderFacts(order)
-      // 路由到达或旧订单便捷缓存不能证明本次下单成功；先核对明确传入的原单与站别。
-      if (String(this._directOrderId) === String(order.id) && order.stationId
-        && String(order.stationId) === String(this.data.stationId) && !this._cartCleared) {
-        getApp().clearCart(this.data.stationId)
-        this._cartCleared = true
-      }
+
     } catch (e) {
       if (!current()) return
       console.warn('loadOrderStatus error:', e)

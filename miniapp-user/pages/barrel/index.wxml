@@ -1,4 +1,5 @@
 <page-meta page-style="{{showReturnModal ? 'overflow: hidden;' : ''}}"></page-meta>
+<text class="companion-orders-loading" wx:if="{{!showReturnModal && companionOrdersLoading}}" aria-role="status">正在读取可选送水订单…</text>
 <view class="container barrel-assets-page">
   <asset-station-view compact="{{true}}" id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
   <loading wx:if="{{loading}}"></loading>
@@ -75,7 +76,7 @@
              数量与"押金 ¥X/桶"一律没动。
         -->
         <text class="section-title">我的水桶</text>
-        <view class="af-action af-action--quiet barrel-return-entry" bindtap="onShowReturnModal" wx:if="{{maxReturnQty > 0 && !refreshing && !summaryFailed && !holdingsFailed}}">
+        <view class="af-action af-action--quiet barrel-return-entry" bindtap="onShowReturnModal" wx:if="{{stationReturnQty > 0 && !refreshing && !summaryFailed && !holdingsFailed}}">
           <!-- [2026-10-10] 未领权益也可退出；申请标题不把所有权益说成已领取实物。 -->
           <text class="af-action__face">{{summary.independentRights ? '退还权益' : '申请退桶'}} ›</text>
         </view>
@@ -185,6 +186,7 @@
 
   <view class="modal-mask" wx:if="{{showReturnModal}}" bindtap="onCloseReturnModal"></view>
   <view class="modal-content {{showReturnModal ? 'show' : ''}}" catchtap="">
+    <text class="companion-orders-loading" wx:if="{{showReturnModal && companionOrdersLoading}}" aria-role="status">正在读取可选送水订单…</text>
     <view class="modal-header">
       <text class="modal-title">{{pendingReturn ? '核对原退还申请' : (summary.independentRights ? '申请退还权益' : '申请退桶')}}</text>
       <text class="modal-close" bindtap="onCloseReturnModal">×</text>

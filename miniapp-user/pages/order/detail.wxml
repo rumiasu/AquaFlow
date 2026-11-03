@@ -66,7 +66,7 @@
   <view class="info-section" wx:if="{{fee}}">
     <view class="section-title">费用明细</view>
     <view class="info-row">
-      <text class="label">水费</text>
+      <text class="label">{{order.ticketCashAmount != null ? '水费参考（水票办理）' : '水费'}}</text>
       <text class="value">{{fee.waterText === '待核实' ? '待核实' : '¥' + fee.waterText}}</text>
     </view>
     <view class="info-row" wx:if="{{fee.hasDeposit}}">
@@ -83,9 +83,10 @@
       <text class="value">{{fee.floorFeeText === '待核实' ? '待核实' : '¥' + fee.floorFeeText}}</text>
     </view>
     <view class="info-row" wx:if="{{order.ticketDeliveryCredit > 0}}"><text class="label">本次配送抵扣</text><text class="value">−¥{{order.ticketDeliveryCredit}}</text></view>
-    <view class="info-row" wx:if="{{order.ticketCashAmount !== null && order.ticketCashAmount !== undefined}}"><text class="label">原单其他费用</text><text class="value">¥{{order.ticketCashAmount}}</text></view>
+    <view class="info-row fee-total" wx:if="{{order.ticketCashAmount != null}}"><text class="label">原单其他费用合计</text><text class="value">¥{{order.ticketCashAmount}}</text></view>
+    <view class="info-row" wx:if="{{order.ticketCashAmount != null}}"><text class="label">支付范围</text><text class="value">水费按水票办理；其他费用不含水费</text></view>
     <view class="info-row fee-total">
-      <text class="label">合计</text>
+      <text class="label">{{order.ticketCashAmount != null ? '原单参考总额' : '合计'}}</text>
       <text class="value">{{fee.totalText === '待核实' ? '待核实' : '¥' + fee.totalText}}</text>
     </view>
   </view>

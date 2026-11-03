@@ -287,6 +287,12 @@ test('fee detail entry and close keep 44 CSS pixel touch targets on narrow scree
   assert(/class="detail-sheet-close" bindtap="onDetailPopupClose"/.test(markup))
 })
 
+test('valid old result URL cannot clear a newly edited same-station cart', async () => {
+  const t=fixture('order/success',{'api/order':{getOrderDetail:async()=>ok({id:20,stationId:11})},'api/template':{getQuickOrder:async()=>ok(null)}})
+  let clears=0;t.app.clearCart=()=>{clears++};t.page.onLoad({id:'20',stationId:'11'});await new Promise(r=>setImmediate(r))
+  assert.equal(t.page.data.loadState,'ok');assert.equal(clears,0)
+})
+
 ;(async()=>{
   let failed=0
   for(const t of tests){try{await t.run();console.log('PASS '+t.name)}catch(error){failed++;console.error('FAIL '+t.name+' '+error.stack)}}

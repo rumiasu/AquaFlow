@@ -35,4 +35,32 @@ class CollectionCompletionIntegrationTest extends AbstractIntegrationTest {
   try{Future<Api>a=pool.submit(()->{start.await();return confirm(manager);});Future<Api>b=pool.submit(()->{start.await();return settle();});start.countDown();Api x=a.get(20,TimeUnit.SECONDS),y=b.get(20,TimeUnit.SECONDS);assertTrue(x.code()==0||y.code()==0);assertEquals(4,status());once();assertEquals(2,intOf("select settlement_status from orders where id=?",order));}
   finally{pool.shutdownNow();}
  }
+ @Test void stationChangeWhileConfirmationWaitsMustRecheckCollectionAuthority() throws Exception {
+  seed(1);
+  long target=createStation("迁入收款站");
+  String targetManager=staffToken(createStaff("迁入站长","STATION_MANAGER",target,1),"STATION_MANAGER",target);
+  ExecutorService pool=Executors.newSingleThreadExecutor();
+  try(var blocker=java.util.Objects.requireNonNull(jdbc.getDataSource()).getConnection()) {
+   blocker.setAutoCommit(false);
+   try(var update=blocker.prepareStatement("update orders set delivery_station_id=?,settle_station_id=? where id=?")) {
+    update.setLong(1,target);update.setLong(2,target);update.setLong(3,order);assertEquals(1,update.executeUpdate());
+   }
+   try(var update=blocker.prepareStatement("update payment_record set station_id=? where id=? and status=1")) {
+    update.setLong(1,target);update.setLong(2,payment);assertEquals(1,update.executeUpdate());
+   }
+   Future<Api> pending=pool.submit(()->confirm(manager));
+   try {
+    long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(15);int waiting=0;
+    while(System.nanoTime()<deadline) {
+     waiting=intOf("select count(*) from performance_schema.data_lock_waits w join performance_schema.data_locks l on l.engine_lock_id=w.requesting_engine_lock_id and l.engine=w.engine where l.object_schema=database() and l.object_name='orders' and l.index_name='PRIMARY'");
+     if(waiting>0)break;Thread.sleep(25);
+    }
+    assertTrue(waiting>0,"confirm must pass old controller check and wait for current order");
+   } finally {blocker.commit();}
+   Api rejected=pending.get(20,TimeUnit.SECONDS);assertEquals(1,rejected.code(),rejected.toString());
+   assertEquals(1,intOf("select status from payment_record where id=?",payment));
+   assertEquals(1,intOf("select payment_status from orders where id=?",order));
+   assertEquals(0,confirm(targetManager).code());once();assertEquals(1,status());
+  } finally {pool.shutdownNow();}
+ }
 }

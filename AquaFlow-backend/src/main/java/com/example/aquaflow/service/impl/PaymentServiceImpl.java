@@ -417,6 +417,15 @@ public class PaymentServiceImpl implements PaymentService {
         // 订单→流水的固定锁序；锁后重读，不能让等待中的请求使用旧 PENDING 快照。
         record = paymentLocks.lockPayment(paymentId);
         if (record == null) throw new BusinessException("支付记录不存在");
+        // [2026-11-03] Dispatch may move the pending receipt after the controller check.
+        // Recheck the locked collection owner before recording another station's cash.
+        if ("staff".equals(AuthContext.getUserType())) {
+            AuthContext.requireManager();
+            Long collectionStation = collectionOrder == null ? record.getStationId() : StationUtil.settleStation(collectionOrder);
+            if (!AuthContext.requireStationId().equals(collectionStation)) {
+                throw new BusinessException("收款归属已变化，仅当前收款站可确认");
+            }
+        }
         if (record.isSimulated() || isMockWechatPay(record.getPaymentMethod())) {
             mockPolicy.requireSelf(record.getCustomerId());
             if (!record.isSimulated()) throw new BusinessException("原款没有模拟渠道凭据，不能模拟确认");

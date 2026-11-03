@@ -302,4 +302,48 @@ class OrderTaskAccessIntegrationTest extends AbstractIntegrationTest {
             assertEquals(colleague, assignee(id));
         } finally { pool.shutdownNow(); }
     }
+    @Test void stationTransferQueueKeepsOnlyDriversOwnRequests() {
+        seed();
+        long mine = task(otherStation, station, driver, 2, 1, 2);
+        long theirs = task(station, station, colleague, 2, 1, 2);
+        assertEquals(0, post("/api/delivery/orders/return/" + mine, del, "{}").code());
+        assertEquals(0, post("/api/delivery/orders/return/" + theirs, otherDel, "{}").code());
+        Api own = get("/api/delivery/transfers", del);
+        assertEquals(0, own.code());
+        assertMasked(row(own.data(), mine));
+        assertNull(row(own.data(), theirs), "station-wide requests must not expose another driver's task");
+        Api managerRows = get("/api/delivery/transfers", mgr);
+        assertEquals(0, managerRows.code());
+        assertNotNull(row(managerRows.data(), mine));
+        assertNotNull(row(managerRows.data(), theirs));
+        assertEquals(0, post("/api/manager/bind/release", mgr, "{\"staffId\":" + driver + "}").code());
+        assertDenied(get("/api/delivery/transfers", del));
+    }
+
+    @Test void incomingTransferFollowsCurrentBindingWithoutReassigningBeforeConsent() {
+        seed();
+        long old = task(station, station, driver, 2, 1, 2);
+        assertEquals(0, post("/api/delivery/orders/transfer/" + old, del,
+                "{\"deliveryStaffId\":" + colleague + "}").code());
+        Api before = get("/api/delivery/transfers/incoming", otherDel);
+        assertEquals(0, before.code());
+        assertNotNull(row(before.data(), old));
+        assertEquals(driver, assignee(old));
+        assertEquals(0, post("/api/manager/bind/release", mgr, "{\"staffId\":" + colleague + "}").code());
+        assertDenied(get("/api/delivery/transfers/incoming", otherDel));
+        assertEquals(0, post("/api/delivery/bind/apply", otherDel, "{\"stationId\":" + otherStation + "}").code());
+        assertEquals(0, post("/api/manager/bind/approve", otherMgr, "{\"staffId\":" + colleague + "}").code());
+        long current = task(otherStation, otherStation, foreignDriver, 2, 1, 2);
+        assertEquals(0, post("/api/delivery/orders/transfer/" + current, foreignDel,
+                "{\"deliveryStaffId\":" + colleague + "}").code());
+        Api after = get("/api/delivery/transfers/incoming", otherDel);
+        assertEquals(0, after.code());
+        assertNull(row(after.data(), old));
+        assertNotNull(row(after.data(), current));
+        assertDenied(post("/api/delivery/orders/transfer/" + old + "/claim", otherDel, "{}"));
+        assertEquals(0, post("/api/delivery/orders/transfer/" + current + "/claim", otherDel, "{}").code());
+        assertEquals(driver, assignee(old));
+        assertEquals(colleague, assignee(current));
+    }
+
 }

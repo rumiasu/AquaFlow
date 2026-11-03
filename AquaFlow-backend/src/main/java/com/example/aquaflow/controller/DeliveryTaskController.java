@@ -323,6 +323,8 @@ public class DeliveryTaskController {
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @GetMapping("/transfers/incoming")
     public Result<?> getIncomingTransfers() {
+        // [2026-11-03] An old transfer target does not authorize reads after unbinding.
+        AuthContext.requireStationId();
         Long staffId = AuthContext.getUserId();
         return Result.success(deliveryConsoleService.listIncomingTransfers(staffId));
     }

@@ -17,6 +17,11 @@ public final class OrderTaskAccess {
         Integer state = order.getStatus();
         return Integer.valueOf(PaymentStatus.PAID).equals(order.getPaymentStatus())
                 || Integer.valueOf(PayMethod.CASH).equals(order.getPaymentMethod())
+                // [2026-11-03] v90 fee COD is dispatchable before cash collection;
+                // keep the same active reservation gate as the task-list SQL.
+                || (Integer.valueOf(PayMethod.TICKET).equals(order.getPaymentMethod())
+                    && Integer.valueOf(PayMethod.CASH).equals(order.getTicketFeePaymentMethod())
+                    && ("HELD".equals(order.getTicketWaterState()) || "CONSUMED".equals(order.getTicketWaterState())))
                 || Integer.valueOf(OrderStatus.DELIVERED).equals(state)
                 || Integer.valueOf(OrderStatus.COMPLETED).equals(state)
                 || Integer.valueOf(OrderStatus.CANCELLED).equals(state);

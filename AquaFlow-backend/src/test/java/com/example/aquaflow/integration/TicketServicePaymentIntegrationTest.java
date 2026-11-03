@@ -29,6 +29,61 @@ class TicketServicePaymentIntegrationTest extends AbstractIntegrationTest {
     String body(String key,int channel) {return "{\"stationId\":"+station+",\"addressId\":"+address+",\"paymentMethod\":3,\"ticketFeePaymentMethod\":"+channel+",\"ticketFeeQuoteAmount\":7,\"ticketDeliveryCreditQuote\":0,\"idempotencyKey\":\""+key+"\",\"items\":[{\"productId\":"+product+",\"quantity\":2}]}";}
     long create(String key,int channel) {Api r=post("/api/orders/create",customerToken(),body(key,channel));assertTrue(r.isSuccess(),r.message());return r.data().path("orderId").asLong();}
     int balance(){return intOf("select remain_quantity from ticket_account where customer_id=?",customer);}
+    @Test void codTicketTasksRemainReadableOnlyByCurrentStationAndAssignedDriver() {
+        seed();
+        long driver=createStaff("票单配送员","DELIVERY",station,1);
+        long colleague=createStaff("其他配送员","DELIVERY",station,1);
+        long otherStation=createStation("他站");
+        long outsider=createStaff("他站站长","STATION_MANAGER",otherStation,1);
+        String driverToken=staffToken(driver,"DELIVERY",station);
+        String colleagueToken=staffToken(colleague,"DELIVERY",station);
+        String outsiderToken=staffToken(outsider,"STATION_MANAGER",otherStation);
+        long order=create("split-readable-cod",2);
+        Api assigned=post("/api/delivery/orders/assign/"+order,managerToken(),"{\"deliveryStaffId\":"+driver+"}");
+        assertTrue(assigned.isSuccess(),assigned.message());
+        assertTaskListed("assigned-to-me",driverToken,order,true);
+        assertTaskListed("assigned-to-me",colleagueToken,order,false);
+        for(String path:java.util.List.of("/api/orders/","/api/delivery/orders/")) {
+            assertTrue(get(path+order,driverToken).isSuccess(),path);
+            assertTrue(get(path+order,managerToken()).isSuccess(),path);
+            assertFalse(get(path+order,colleagueToken).isSuccess(),path);
+            assertFalse(get(path+order,outsiderToken).isSuccess(),path);
+        }
+        Api accepted=post("/api/delivery/orders/"+order+"/accept",driverToken,null);
+        assertTrue(accepted.isSuccess(),accepted.message());
+        assertTaskListed("delivering",driverToken,order,true);
+        assertTaskListed("delivering",colleagueToken,order,false);
+        assertTrue(get("/api/orders/"+order,driverToken).isSuccess());
+        assertTrue(get("/api/delivery/orders/"+order,driverToken).isSuccess());
+        assertEquals(1,intOf("select payment_status from orders where id=?",order));
+        assertEquals(10,balance(),"reading and accepting must not invent payment or consume tickets");
+        long online=create("split-hidden-online",1);
+        assertFalse(get("/api/orders/"+online,managerToken()).isSuccess());
+        assertFalse(get("/api/delivery/orders/"+online,managerToken()).isSuccess());
+    }
+    private void assertTaskListed(String list,String token,long order,boolean expected) {
+        Api response=get("/api/delivery/orders/"+list,token);
+        assertTrue(response.isSuccess(),response.message());
+        boolean found=false;
+        for(var row:response.data()) if(row.path("id").asLong()==order) found=true;
+        assertEquals(expected,found,list);
+    }
+    @Test void ticketTaskVisibilityRequiresAnActiveCodReservation() {
+        var order=new com.example.aquaflow.entity.Orders();
+        order.setStatus(1);order.setPaymentStatus(1);order.setPaymentMethod(3);order.setTicketFeePaymentMethod(2);
+        for(String state:new String[]{null,"CANCELLED","REFUNDED","UNKNOWN"}) {
+            order.setTicketWaterState(state);
+            assertFalse(com.example.aquaflow.util.OrderTaskAccess.visibleToEmployee(order));
+        }
+        for(String state:java.util.List.of("HELD","CONSUMED")) {
+            order.setTicketWaterState(state);
+            assertTrue(com.example.aquaflow.util.OrderTaskAccess.visibleToEmployee(order));
+        }
+        order.setTicketFeePaymentMethod(1);
+        assertFalse(com.example.aquaflow.util.OrderTaskAccess.visibleToEmployee(order));
+        order.setPaymentStatus(2);
+        assertTrue(com.example.aquaflow.util.OrderTaskAccess.visibleToEmployee(order));
+    }
     Api pay(long order){return post("/api/payments",customerToken(),"{\"orderId\":"+order+",\"paymentMethod\":3,\"amount\":0.01}");}
     @Test void quoteTicketsCoverWaterOnlyAndCreationReservesWithoutConsuming() {
         seed();Api q=post("/api/payments/quote",customerToken(),"{\"stationId\":"+station+",\"addressId\":"+address+",\"paymentMethod\":3,\"ticketFeePaymentMethod\":2,\"items\":[{\"productId\":"+product+",\"quantity\":2}]}");

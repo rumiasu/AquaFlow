@@ -201,8 +201,11 @@ public class StationDeliveryConsoleController {
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @GetMapping("/transfers")
     public Result<?> getTransferRecords() {
-        Long stationId = AuthContext.getStationId();
-        return Result.success(deliveryConsoleService.listStationTransferred(stationId));
+        Long stationId = AuthContext.requireStationId();
+        // [2026-11-03] The station queue includes other drivers' private delivery snapshots.
+        List<Orders> rows = deliveryConsoleService.listStationTransferred(stationId);
+        if (AuthContext.isDelivery()) rows = OrderTaskAccess.currentOwnTasks(rows);
+        return Result.success(rows);
     }
 
     /**

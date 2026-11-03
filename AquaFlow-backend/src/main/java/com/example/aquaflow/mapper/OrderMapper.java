@@ -765,8 +765,13 @@ public interface OrderMapper {
             //    同时要求订单确实还挂在发起人手上（delivery_staff_id = from_staff_id），
             //    否则站长代发起的转单会列进一条已经不在他名下的单。
             "where exists (select 1 from order_transfer t where t.order_id = o.id and t.status = 'PENDING' " +
-            "  and t.sub_kind = 'TRANSFER' and t.to_staff_id = #{staffId} " +
+            "  and t.kind = 'STAFF' and t.sub_kind = 'TRANSFER' and t.to_staff_id = #{staffId} " +
             "  and o.delivery_staff_id = t.from_staff_id) " +
+            // [2026-11-03] Pending consent keeps the sender assigned, but requires the recipient's current station.
+            "and o.status in (1,2) and exists (select 1 from staff s where s.id=#{staffId} and s.status=1 " +
+            "and s.station_id=coalesce(o.delivery_station_id,o.station_id)) " +
+            "and (o.payment_status=2 or o.payment_method=2 or (o.payment_method=3 and exists(" +
+            "select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED')))) " +
             "order by o.update_time desc")
     List<Orders> listIncomingTransfers(@Param("staffId") Long staffId);
 

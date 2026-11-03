@@ -175,6 +175,7 @@ const SUITES = [
   { file: 'scoped-p2-entry-finish.test.js', name: '台账送达取消筛选、资产摘要与空态下一步' },
   { file: 'checkout-consent-closeout.test.js', name: '合并押金授权、报价变化重确认与精确提示去重' },
   { file: 'receivables-order-navigation.test.js', name: 'receivables order navigation and selection' },
+  { file: 'receivables-terms-session.test.js', name: '应收账期客户与会话隔离' },
   { file: 'receivables-collapse-local.test.js', name: 'receivables customer collapse' },
   { file: 'scoped-receivables-login.test.js', name: '应收可信合计确认及未登录单一恢复行动' },
   { file: 'delivery-config-pull-refresh.test.js', name: '配送计费下拉刷新、会话/卸载隔离与双请求收尾' },

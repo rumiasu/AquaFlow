@@ -119,11 +119,13 @@ Page({
     }
     const session = receivableSession()
     if (this._viewSession && !sameSession(this._viewSession, session)) {
+      this.onCloseTerms()
       this.setData({ overview: null, allCustomers: [], customers: [], customer: null, orders: [],
         selectedCount: 0, selectedAmountText: '', ordersLoading: false, ordersError: '' })
     }
     this._viewSession = session
     this._orderNavigating = false
+    if (this.data.termsVisible && this.data.customer) this.loadRisk(this.data.customer.customerId)
     if (this.data.customer) {
       this._settleRevision = (this._settleRevision || 0) + 1
       this.setData({ orders: [], selectedCount: 0, selectedAmountText: '', ordersLoading: true, ordersError: '' })
@@ -133,6 +135,10 @@ Page({
   },
 
   onHide() {
+    // Backgrounding invalidates old callbacks/confirmations, but keeps the unsaved draft.
+    this._termsRevision = (this._termsRevision || 0) + 1
+    if (this._recalcFlight && this._recalcFlight.cancelConfirmation) this._recalcFlight.cancelConfirmation()
+    this.setData({ risk: null })
     this._hidden = true
     this._settleRevision = (this._settleRevision || 0) + 1
     if (this._settleFlight && this._settleFlight.cancelConfirmation) this._settleFlight.cancelConfirmation()
@@ -186,6 +192,7 @@ Page({
 
   /** 从明细返回客户列表时也要刷新（核销后数字会变）。 */
   onBack() {
+    this.onCloseTerms()
     this._ordersRequest = (this._ordersRequest || 0) + 1
     this._settleRevision = (this._settleRevision || 0) + 1
     this.setData({ customer: null, orders: [], selectedCount: 0, selectedAmountText: '', ordersLoading: false, ordersError: '' })
@@ -235,6 +242,7 @@ Page({
     const id = Number(e.currentTarget.dataset.id)
     const customer = this.data.customers.find(c => c.customerId === id)
     if (!customer) return
+    this.onCloseTerms()
     this._settleRevision = (this._settleRevision || 0) + 1
     this.setData({ customer, orders: [], selectedCount: 0, selectedAmountText: '' })
     await this.loadOrders()
@@ -397,7 +405,8 @@ Page({
 
   onEditTerms() {
     const c = this.data.customer
-    if (!c) return
+    if (!c || !receivableSession().allowed || this._hidden || this._unloaded) return
+    this.onCloseTerms()
     this.setData({
       termsVisible: true,
       // 留空 = 清除账期（即时结清）；0 与留空等价，UI 上不给站长制造"0 天"这种含糊值
@@ -416,9 +425,10 @@ Page({
    * 拿不到就什么都不显示（留 `risk: null`），不编造一个"正常"。
    */
   async loadRisk(customerId) {
+    const context = this._termsContext()
     try {
       const res = await get(CREDIT_TERMS + customerId + '/risk')
-      if (res && res.code === 0 && res.data) {
+      if (this._termsCurrent(context) && String(customerId) === String(context.customerId) && res && res.code === 0 && res.data) {
         this.setData({ risk: res.data })
       }
     } catch (err) {
@@ -434,33 +444,53 @@ Page({
    * 只能走这个显式动作（服务端每张被改动的单都会在 `special_note` 留痕）。
    */
   async onRecalcTerms() {
-    if (this.data.recalcBusy) return
-    const c = this.data.customer
-    const res = await new Promise((resolve) => {
-      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-        title: '重算未结账单',
-        content: '把「还没结清」的挂账单按当前账期重算应付日期。\n\n已付款或已取消的单不受影响；每张被改动的单都会留下记录。',
-        confirmText: '重算',
-        success: resolve,
-        fail: () => resolve({ confirm: false })
-      })
-    })
-    if (!res || !res.confirm) return
-
+    if (this._recalcFlight || this._termsFlight) return
+    const context = this._termsContext(), c = this.data.customer
+    if (!this._termsCurrent(context)) return
+    const raw = String(this.data.termsInput || '').trim()
+    const saved = c.dueDays == null ? 0 : Number(c.dueDays)
+    if (!Number.isInteger(Number(raw)) || Number(raw) !== saved) {
+      wx.showToast({ title: '请先保存新账期，再重算未结账单', icon: 'none' })
+      return
+    }
+    const flight = this._recalcFlight = {}
     this.setData({ recalcBusy: true })
     try {
-      const r = await post(CREDIT_TERMS + c.customerId + '/credit-terms/recalculate')
+      const res = await new Promise(resolve => {
+        flight.cancelConfirmation = () => resolve({ confirm: false })
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
+          title: '重算未结账单',
+          content: (c.customerName || '当前客户') + '：按已保存账期（' + (saved ? saved + ' 天' : '即时结清')
+            + '）重算未结账单。\n\n已付款或已取消的单不受影响；每张被改动的单都会留下记录。',
+          confirmText: '重算', success: resolve, fail: () => resolve({ confirm: false })
+        })
+      })
+      delete flight.cancelConfirmation
+      if (!res || !res.confirm || !this._termsCurrent(context)
+        || String(this.data.termsInput || '').trim() !== raw) return
+      const r = await post(CREDIT_TERMS + context.customerId + '/credit-terms/recalculate')
+      if (!this._termsCurrent(context)) return
       const n = r && r.data ? r.data.changedCount : 0
       wx.showToast({ title: n > 0 ? ('已重算 ' + n + ' 张单') : '没有需要重算的单', icon: 'none' })
-      this.setData({ termsVisible: false })
-      this.load()
-      this.loadOrders()
+      this.onCloseTerms()
+      await Promise.all([this.load(), this.loadOrders()])
     } catch (err) {
-      // 现结客户没有可重算的挂账单时，服务端回的是业务错误（而不是 0）—— 原样显示，别静默
-      wx.showToast({ title: err.message || '重算失败', icon: 'none' })
+      if (this._termsCurrent(context)) wx.showToast({ title: err.message || '重算失败', icon: 'none' })
     } finally {
-      this.setData({ recalcBusy: false })
+      if (this._recalcFlight === flight) { this._recalcFlight = null; if (!this._unloaded) this.setData({ recalcBusy: false }) }
     }
+  },
+
+  // [2026-11-03] Old callbacks used to replace a newly selected customer's facts.
+  // Bind reads, writes and confirmations to both the staff session and this dialog opening.
+  _termsContext() {
+    return { revision: this._termsRevision, session: receivableSession(), customerId: this.data.customer && this.data.customer.customerId }
+  },
+  _termsCurrent(context) {
+    return context && context.session.allowed && context.revision === this._termsRevision
+      && !this._hidden && !this._unloaded && this.data.termsVisible
+      && sameSession(context.session, receivableSession()) && this.data.customer
+      && this.data.customer.customerId === context.customerId
   },
 
   onTermsInput(e) {
@@ -468,40 +498,51 @@ Page({
   },
 
   onCloseTerms() {
-    this.setData({ termsVisible: false })
+    this._termsRevision = (this._termsRevision || 0) + 1
+    if (this._recalcFlight && this._recalcFlight.cancelConfirmation) this._recalcFlight.cancelConfirmation()
+    // Closing a view cannot cancel an already sent write or release its in-flight guard.
+    this.setData({ termsVisible: false, risk: null })
   },
 
   async onSaveTerms() {
-    if (this.data.termsSaving) return
+    if (this._termsFlight || this._recalcFlight) return
+    const context = this._termsContext()
+    if (!this._termsCurrent(context)) return
     const c = this.data.customer
     const raw = String(this.data.termsInput || '').trim()
     let dueDays = null
     if (raw !== '') {
       const n = Number(raw)
-      if (isNaN(n) || n < 0 || n > 365) {
+      if (!Number.isInteger(n) || n < 0 || n > 365) {
         wx.showToast({ title: '账期天数应在 0 ~ 365 之间', icon: 'none' })
         return
       }
       dueDays = n
     }
 
+    const flight = this._termsFlight = {}
     this.setData({ termsSaving: true })
     try {
       const res = await put(CREDIT_TERMS + c.customerId + '/credit-terms', { dueDays })
-      wx.showToast({ title: '已保存', icon: 'success' })
-      this.setData({ termsVisible: false })
+      if (this._unloaded || !sameSession(context.session, receivableSession())) return
+      const viewCurrent = this._termsCurrent(context)
+      // Ignore overview reads started before this confirmed write.
+      this._overviewRequest = (this._overviewRequest || 0) + 1
       // 账期只影响**之后**下的单（历史单的 due_date 是快照），所以这里刷新的是客户行的账期文案
       const dueDaysSaved = (res.data || {}).dueDays
-      const customers = this.data.customers.map(x =>
+      const allCustomers = this.data.allCustomers.map(x =>
         x.customerId === c.customerId ? Object.assign({}, x, { dueDays: dueDaysSaved }) : x)
       this.setData({
-        customers,
-        customer: Object.assign({}, c, { dueDays: dueDaysSaved })
+        allCustomers, loading: false,
+        customer: this.data.customer && this.data.customer.customerId === c.customerId
+          ? Object.assign({}, this.data.customer, { dueDays: dueDaysSaved }) : this.data.customer
       })
+      this._applyOverdueFilter()
+      if (viewCurrent) { wx.showToast({ title: '已保存', icon: 'success' }); this.onCloseTerms() }
     } catch (err) {
-      wx.showToast({ title: err.message || '保存失败', icon: 'none' })
+      if (this._termsCurrent(context)) wx.showToast({ title: err.message || '保存失败', icon: 'none' })
     } finally {
-      this.setData({ termsSaving: false })
+      if (this._termsFlight === flight) { this._termsFlight = null; if (!this._unloaded) this.setData({ termsSaving: false }) }
     }
   },
 

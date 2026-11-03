@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** 新模型走真实 HTTP/MySQL，检查客户钱、票、实物和占用后果。旧模型另保留回归。 */
 @TestPropertySource(properties={"aquaflow.barrel.independent-rights-enabled=true","aquaflow.barrel.maintenance-enabled=false","app.payment.mock-wechat-pay=true"})
 class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @Autowired BarrelLedgerService ledger;
     @Autowired ReconciliationService reconcile;
     @Autowired BusinessWaitingService waiting;
@@ -247,4 +248,33 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
         seed();buy(1,"right");long id=order("unknown-channel",1);createPaymentRecord(id,customer,station,"20.00",1,1);jdbc.update("update orders set create_time=date_sub(now(),interval 20 minute) where id=?",id);
         waiting.expire(id);assertEquals(1,intOf("select status from orders where id=?",id));assertEquals(0,ledger.availableRights(customer,station,product));
     }
+    @Test void legacyDeliveryUsesCurrentRightsAfterConcurrentUnusedCapacityRefund() {
+        seed();buy(4,"rr-old-rights");
+        long delivered=order("rr-delivered-one",1);pay(delivered,1);deliver(delivered,mgr,0,0,false);
+        long legacy=createOrderFull(customer,address,station,product,2,2,2,"20.00","0.00","20.00",false,1);
+        createOrderItem(legacy,product,"历史桶装水",1,"20.00","0.00",0);
+        long back=request(3,"rr-unused-return");
+        assertEquals(0,put("/api/barrels/records/"+back+"/approve",mgr,"{\"pickupFee\":0}").code());
+        assertEquals(0,status(back,2).code());
+        var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        tx.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        var pool=Executors.newSingleThreadExecutor();
+        try {
+            var rejected=assertThrows(com.example.aquaflow.exception.BusinessException.class,()->tx.executeWithoutResult(ignored->{
+                String rightsSql="select coalesce(sum(remain_qty),0) from customer_barrel_lot where customer_id=? and station_id=? and product_id=? and status=1";
+                assertEquals(4,intOf(rightsSql,customer,station,product));
+                Api refunded=CompletableFuture.supplyAsync(()->status(back,3),pool).orTimeout(30,TimeUnit.SECONDS).join();
+                assertEquals(0,refunded.code(),refunded.toString());
+                assertEquals(4,intOf(rightsSql,customer,station,product),"prove the delivery transaction still sees its old snapshot");
+                ledger.applyDelivery(legacy,customer,station,Map.of(product,4),manager);
+            }));
+            assertTrue(rejected.getMessage().contains("超过"),rejected.getMessage());
+        } finally {pool.shutdownNow();}
+        assertEquals(1,ledger.rightQty(customer,station,product));
+        assertEquals(0,ledger.overQty(customer,station,product));
+        assertEquals(1,ledger.occupiedQty(customer,station,product));
+        assertEquals(new BigDecimal("30.00"),decimalOf("select balance from customer_deposit_account where customer_id=? and station_id=?",customer,station));
+        assertEquals(0,intOf("select count(*) from barrel_record where related_order_id=?",legacy));
+    }
+
 }

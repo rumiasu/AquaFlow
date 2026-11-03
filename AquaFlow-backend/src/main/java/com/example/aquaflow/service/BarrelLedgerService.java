@@ -422,7 +422,9 @@ public class BarrelLedgerService {
             // 同样存在「都读到旧 occupied → 都通过校验 → 重复冲减」的窗口，与纯还桶同类。
             int rights = lockRights(customerId, stationId, pid);
 
-            int rightBefore = rightQty(customerId, stationId, pid);
+            // [2026-11-03] A plain read here can reuse a pre-refund RR snapshot.
+            // Combine the locked current rights with current over, never two different moments.
+            int rightBefore = rights;
             int overBefore = lockedOverQty(customerId, stationId, pid);
             int occupiedBefore = rightBefore + overBefore;
 

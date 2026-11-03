@@ -43,6 +43,7 @@ public class PaymentRecord {
 
     /** 支付金额 */
     private BigDecimal amount;
+    private transient Boolean canRefundComponents;
 
     /**
      * 在线购买水票：所购水票标识（对应数据库 payment_record.ticket_water_type_id 列）。

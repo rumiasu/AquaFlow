@@ -117,3 +117,9 @@
 ## 本轮候选新增：v88 报价确认版本
 
 原 v80–v87 预检继续保留；另运行 schema-preflight-v88-readonly.sql 核对 dispatch_agreement.offer_version。先核准真实目标并备份，按 AquaFlow-backend/sql/README.md 仅安装缺失的 v88 增量；列定义冲突停止，不重跑整套迁移。新后端缺该列会拒绝启动，不自动DDL。结构准备后确认全部新后端实例及流量切换完成，再更新两端。旧/新后端写实例混部未验收，新前端不能靠旧服务忽略报价确认字段继续运行。本目录仍不是云端迁移或部署完成记录。
+
+## 2026-11-03 水票服务费组合付款与看板更新（v90）
+
+本轮更新须同时更新后端和两端，旧2e205后端包不包含这些能力。付款开关沿用现有规则，不新增微信渠道或凭据。存量测试库须在已完成v89后安装v90四表：先只读 `precheck_v90_ticket_service_payment.sql`，按 `sql/README.md` 执行 `migration_v90_01_order_ticket_payment.sql` 至 `migration_v90_04_ticket_delivery_benefit.sql`（整文件工具可改用同内容的 `migration_v90_ticket_service_payment.sql`），再只读 `verify_v90_ticket_service_payment.sql`。不能把完整schema作为存量升级，也不重导215条演示数据。四表及核验通过后，使用本轮最终CI提交的JAR按既有上传方式更新后端，再更新两端开发者工具项目。
+
+水票只抵水费，配送/楼层等余款单独选择现有付款方式；指定档位赠一次配送费权益默认关闭。新增补偿建议与执行已停用，原凭据与有理由结案保留；今日看板改为昨日同一时刻对比，订单金额不冒充实收净额。完整规则、取消退款和更新检查见 `docs/development/20261103-ticket-service-payment-progress.md`。未代用户执行迁移、云部署、真机视觉验收或真实微信收退款；新业务发生后不能直接回退不认识预留/分项凭据的旧后端。

@@ -957,6 +957,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       const res = await getQuote({
         items: quoteItems,
         paymentMethod: selectedMethod,
+        ticketFeePaymentMethod: selectedMethod === 3 ? this.data.ticketFeePaymentMethod : undefined,
         stationId: stationId,
         // [v35] 必须带上收货地址：配送范围要靠它取坐标、楼层费要靠它取楼层。
         // 不传的话后端算不出距离与楼层（按"拿不准就不收"处理），
@@ -1051,7 +1052,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         const ticketAlt = (payMethods || []).find(m => m.enabled && m.id !== 3)
         const ticketAltMethod = ticketAlt ? ticketAlt.id : null
         const ticketAltLabel = ticketAlt ? ('改用' + (ticketAlt.name || '其它支付方式')) : ''
-        // 客户这次**实际要付**的钱：票能全抵 → 0（水费/押金/配送费随票一并结清）；
+        // 客户这次**实际要付**的钱：票抵水费；服务费按服务端分项另付；
         // 抵不掉 → 订单全额（本单用不了票，改选方式后就是全额付）。
         // ⚠️ 只用于展示，不参与任何提交参数 —— 提交金额一律由后端按订单重算。
         const payableAmount = ticketPay && amountKnown(ticketPay.payableAmount) ? Number(ticketPay.payableAmount) : totalAmount
@@ -1103,11 +1104,16 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           extraDepositAmountText: extraDepositBuckets > 0 ? extraDepositAmount.toFixed(2) : '',
           totalAmountText: totalAmount.toFixed(2),
           // 计费区展示用（水票支付时"只计费除去水票的部分"）：
-          // 票能全抵 → 0.00；否则 = 订单全额。totalAmount/totalAmountText 仍是**真实订单金额**，
+          // 票仅抵水费；其余费用取服务端报价。totalAmount/totalAmountText 仍是**真实订单金额**，
           // 两者刻意的分开：展示值绝不能混进任何提交参数。
           payableAmountText: payableAmount.toFixed(2),
           payableAmountLabel,
           ticketPay,
+          ticketFeeMethods: Array.isArray(d.ticketFeeMethods) ? d.ticketFeeMethods.filter(m => m.id !== 1 || !mockWechatBlocked) : [],
+          ticketFeePaymentMethod: nextMethod === 3 ? d.ticketFeePaymentMethod : null,
+          ticketFeeAmount: nextMethod === 3 ? d.ticketFeeAmount : null,
+          ticketDeliveryCredit: nextMethod === 3 ? d.ticketDeliveryCredit : null,
+          ticketDeliveryCreditText: nextMethod === 3 && amountKnown(d.ticketDeliveryCredit) ? Number(d.ticketDeliveryCredit).toFixed(2) : '',
           ticketCoverText,
           ticketShortfallHint,
           checkoutWarnings: checkoutWarningsOf(blocked, blockReason, feeWarnings, ticketShortfallHint),
@@ -1276,7 +1282,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         title: '暂不可下单',
         content: this.data.blockReason || '当前订单暂不满足下单条件，请调整后重试',
         showCancel: !!missing,
-        confirmText: missing ? '交桶押金' : '知道了',
+        confirmText: missing ? '单独交桶押金' : '知道了',
         success: (res) => {
           if (missing && res.confirm) wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + this.data.stationId + '&productId=' + missing.productId + '&quantity=' + missing.quantity + '&from=order' })
         }
@@ -1428,12 +1434,19 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
    * 本次下单意图的比较指纹；unknown 时变化只阻止新建，不能据此丢掉原键。
    * 与 utils/orderIntent.js 的 fingerprint 一一对应。
    */
+  onPickTicketFeeMethod(e) {
+    if (this.data.submitting || this.data.submitState === 'unknown') return
+    const id = Number(e.currentTarget.dataset.id)
+    if (!(this.data.ticketFeeMethods || []).some(m => m.id === id && m.enabled)) return
+    this.setData({ ticketFeePaymentMethod: id }, () => this.refreshQuote())
+  },
   _currentIntent() {
     return {
       customerId: getCustomerId(),
       stationId: this.data.stationId,
       addressId: this.data.address && this.data.address.id,
       paymentMethod: this.data.selectedMethod,
+      ticketFeePaymentMethod: this.data.selectedMethod === 3 ? this.data.ticketFeePaymentMethod : undefined,
       items: (this.data.products || []).map(p => ({ productId: p.id, quantity: p.quantity || 1 }))
     }
   },
@@ -1497,7 +1510,14 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
 
   /** 绑定原单、水站和最初登录周期；导航恢复不依赖后来编辑的购物车，也不发资金请求。 */
   _captureOrderNavigation(orderId) {
-    return { orderId, stationId: this.data.stationId, selectedStationId: stationStorage.getId(),
+    const original = this._originalOrderRequest
+    const body = original && String(original.orderId) === String(orderId) && original.body
+    return { orderId, paymentMethod: body ? body.paymentMethod : this.data.selectedMethod,
+      ticketFeePaymentMethod: body ? body.ticketFeePaymentMethod : this.data.ticketFeePaymentMethod,
+      ticketFeeQuoteAmount: body ? body.ticketFeeQuoteAmount : this.data.ticketFeeAmount,
+      wechatPay: original && body ? original.wechatPay : this.data.wechatPay,
+      paymentContext: original && body ? original.paymentContext : null,
+      stationId: this.data.stationId, selectedStationId: stationStorage.getId(),
       session: captureSession(), epoch: this._orderNavigationEpoch || 0 }
   },
 
@@ -1644,6 +1664,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
             productDeposit: parseFloat(p.deposit) || 0, quantity: p.quantity || 1 })),
           addressId: this.data.address.id, specialNote: this.data.note, source: 3,
           paymentMethod: this.data.selectedMethod, stationId: this.data.stationId,
+          ...(this.data.selectedMethod === 3 ? { ticketFeePaymentMethod: this.data.ticketFeePaymentMethod,
+            ticketFeeQuoteAmount: this.data.ticketFeeAmount, ticketDeliveryCreditQuote: this.data.ticketDeliveryCredit } : {}),
           extraDeposit: this.data.extraDepositAmount || 0,
           barrelPurchases: (this.data.barrelPurchases || []).map(l => ({ productId: l.productId, quantity: l.quantity, unitPrice: Number(l.unitPrice) })),
           confirmShortage: confirmShortage === true
@@ -1661,7 +1683,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     this._originalOrderRequest = requestRecord
     const request = JSON.parse(JSON.stringify(requestRecord.body))
     const navigationProof = { ...this._captureOrderNavigation(null), stationId: request.stationId, session,
-      paymentMethod: request.paymentMethod, wechatPay: requestRecord.wechatPay, paymentContext: requestRecord.paymentContext }
+      paymentMethod: request.paymentMethod, ticketFeePaymentMethod: request.ticketFeePaymentMethod, ticketFeeQuoteAmount: request.ticketFeeQuoteAmount, wechatPay: requestRecord.wechatPay, paymentContext: requestRecord.paymentContext }
     this.setData({ submitting: true, submitState: 'creating', idempotencyKey: request.idempotencyKey,
       showOfflineConfirm: false, showAssetConfirm: false, showShortageConfirm: false, showUnifiedConfirm: false })
     try {
@@ -1690,6 +1712,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         orderIntent.settleRequest(requestRecord, 'prepared')
         if (current()) {
           this.setData({ submitState: 'idle', unknownResultText: '' }, () => this._measureOrderRecoveryBar())
+          if (request.paymentMethod === 3 && request.ticketFeeQuoteAmount != null) this.refreshQuote()
           showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '订单未创建', content: errorText(error, '本次下单未被接受') + '\n\n请调整后重新提交。', showCancel: false, confirmText: '知道了' })
         }
         return
@@ -1809,7 +1832,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const payMethod = navigationProof.paymentMethod || this.data.selectedMethod
     const wechatPay = navigationProof.paymentMethod ? navigationProof.wechatPay : this.data.wechatPay
     const wechatReady = !!(wechatPay && wechatPay.enabled)
-    if (payMethod === 3 || (payMethod === 1 && wechatReady)) {
+    const feeMethod = navigationProof.ticketFeePaymentMethod
+    if ((payMethod === 3 && (feeMethod !== 2 || Number(navigationProof.ticketFeeQuoteAmount) === 0)) || (payMethod === 1 && wechatReady)) {
       const outcome = await this._paySameOrder(orderId, payMethod, navigationProof)
       if (!current()) return
       // "已下单"态的按钮文案跟着真实结果走：结清了就显示「查看这笔订单」，没结清显示「继续支付」
@@ -1889,9 +1913,10 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         customerId: proof.session.customerId,
         ...context,
         paymentMethod: paymentMethod,
+        ticketFeePaymentMethod: Number(proof.ticketFeeQuoteAmount) === 0 ? undefined : proof.ticketFeePaymentMethod,
         ticketProductId: null,
         ticketQty: null
-      }, { simulatedWechatPay: paymentMethod === 1 && !!((proof.wechatPay || this.data.wechatPay) && (proof.wechatPay || this.data.wechatPay).simulated) })
+      }, { simulatedWechatPay: (paymentMethod === 1 || paymentMethod === 3 && proof.ticketFeePaymentMethod === 1) && !!((proof.wechatPay || this.data.wechatPay) && (proof.wechatPay || this.data.wechatPay).simulated) })
       // 请求成功 ≠ 钱到账：一律回读订单的支付事实（服务端重算的金额与状态才是真相）
       const state = await this._verifyOrderPayment(orderId)
       return { ok: state === 'paid', state }

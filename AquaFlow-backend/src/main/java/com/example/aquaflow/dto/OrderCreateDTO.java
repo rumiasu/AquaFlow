@@ -50,6 +50,9 @@ public class OrderCreateDTO {
     @Min(value = 1, message = "不支持的支付方式")
     @Max(value = 3, message = "不支持的支付方式")
     private Integer paymentMethod;
+    @Min(1) @Max(2) private Integer ticketFeePaymentMethod;
+    @jakarta.validation.constraints.DecimalMin("0") private BigDecimal ticketFeeQuoteAmount;
+    @jakarta.validation.constraints.DecimalMin("0") private BigDecimal ticketDeliveryCreditQuote;
     private String receiverName;
     private String receiverPhone;
     private String guardInfo;

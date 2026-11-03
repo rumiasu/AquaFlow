@@ -108,6 +108,36 @@ class BusinessClockIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("今日同时刻比较：结算站、取消与退款口径，昨天未来时段和今日未来记录不混入")
+    void dashboardComparisonUsesSameTimeAndSettlementScopeWithoutPretendingNetReceipts() {
+        CLOCK.set(Instant.parse("2099-04-01T00:30:00Z")); // Shanghai 08:30
+        long owner = createStation("同时刻归属站"), receiver = createStation("同时刻结算站");
+        long manager = createStaff("同时刻站长", "STATION_MANAGER", receiver, 1);
+        long customer = createCustomer("同时刻客户", "same-clock-customer");
+        long address = createAddress(customer, "同时间地址");
+        long product = createProduct("同时刻水", 1, "10.00", "0.00", 0, "0.00");
+        // Metrics deliberately retain refunded order amount, and exclude cancelled orders.
+        String[] times = {"2099-04-01 08:00:00", "2099-04-01 08:10:00", "2099-04-01 08:30:00",
+                "2099-03-31 08:00:00", "2099-03-31 08:30:00", "2099-03-31 20:00:00"};
+        int[] statuses = {4, 5, 4, 4, 4, 4};
+        for (int i = 0; i < times.length; i++) {
+            long id = createOrderCrossStation(customer, address, owner, receiver, product, statuses[i], i == 0 ? 3 : 2, 1, "10.00", "0.00", "10.00");
+            jdbc.update("update orders set settle_station_id=?, create_time=? where id=?", receiver, times[i], id);
+        }
+        // Owned here but settled elsewhere must never increase this station's numbers.
+        long away = createOrderCrossStation(customer, address, receiver, owner, product, 4, 2, 1, "90.00", "0.00", "90.00");
+        jdbc.update("update orders set settle_station_id=?,create_time='2099-04-01 08:00:00' where id=?", owner, away);
+        Api result = get("/api/dashboard/report?range=today", staffToken(manager, "STATION_MANAGER", receiver));
+        assertEquals(0, result.code(), result.toString());
+        assertEquals(2, result.data().path("summary").path("orderCount").asInt());
+        assertEquals(10, result.data().path("summary").path("grossAmount").decimalValue().intValueExact());
+        assertEquals(1, result.data().path("compare").path("orderCount").path("previous").asInt());
+        assertEquals("08:30", result.data().path("asOfText").asText());
+        assertEquals("持平", result.data().path("compare").path("grossAmount").path("deltaText").asText());
+        assertEquals(true, result.data().path("orderAmountNote").asText().contains("不扣售后退款"));
+    }
+
+    @Test
     @DisplayName("现金单账期锚点跟着注入时钟走：3/31 下单 → 4/30 到期；拨到 4/1 → 5/30")
     void receivableDueDateAnchorFollowsInjectedClock() {
         long station = createStation("时钟账期站");

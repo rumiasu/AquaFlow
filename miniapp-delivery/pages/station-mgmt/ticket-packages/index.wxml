@@ -155,5 +155,13 @@
       <view class="picker-footer"><button class="af-action af-action--cancel b3-on-close-product-picker af-action--form" bindtap="onCloseProductPicker" hover-class="af-action--pressed">取消</button><button class="af-action af-action--secondary b3-on-confirm-product" bindtap="onConfirmProduct" disabled="{{productsLoading || productLoadError || !pendingProductId || saving}}" hover-class="af-action--pressed">确认选择</button></view>
     </view>
   </page-container>
+  <view class="card">
+    <view class="card-title">档位赠一次配送费抵扣</view>
+    <view class="hint">默认关闭。选定档位每次成功购票赠一次权益，多份合购也只赠一次；须使用该次购买的水票，只抵一次配送费，不抵楼层费。已发权益不随设置改变。</view>
+    <view class="hint" wx:if="{{deliveryOffersLoading}}">正在核对档位…</view>
+    <view class="hint warning" wx:elif="{{deliveryOffersError}}">{{deliveryOffersError}}<button class="af-action af-action--quiet" bindtap="loadDeliveryOffers"><text class="af-action__face">重新核对</text></button></view>
+    <view class="hint" wx:elif="{{!deliveryOffers.length}}">先保存生效的商品套餐或统一折扣档，再配置赠送。</view>
+    <view class="row" wx:for="{{deliveryOffers}}" wx:key="index"><view class="row-main"><text>{{item.label}}</text><text class="hint">{{item.enabled ? '赠一次配送费抵扣' : '不赠送'}}</text></view><button class="af-action af-action--quiet" data-index="{{index}}" disabled="{{deliveryOfferSaving || saving}}" bindtap="onToggleDeliveryOffer"><text class="af-action__face">{{item.enabled ? '关闭' : '开启'}}</text></button></view>
+  </view>
 </view>
 <business-dialog id="business-dialog" />

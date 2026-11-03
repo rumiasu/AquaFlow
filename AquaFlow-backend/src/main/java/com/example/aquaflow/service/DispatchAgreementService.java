@@ -20,6 +20,8 @@ public class DispatchAgreementService {
     private final BarrelLedgerService barrels;
     private final BarrelBusinessPolicy policy;
     private final AuditLogService audit;
+    private final TicketPaymentService ticketPayments;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Transactional public void prepare(Orders order,Long target) {
         if (!policy.isEnabled()) return;
         Map<String,Object> existing=mapper.lock(order.getId());
@@ -31,10 +33,13 @@ public class DispatchAgreementService {
         int qty=0; List<String> items=new ArrayList<>();
         for (BarrelRightReservation r:barrels.orderRights(order.getId())) { qty+=r.getPickupQty(); if(r.getPickupQty()>0) items.add("商品 "+r.getProductId()+"："+r.getPickupQty()+" 个同型空桶"); }
         // 2026-11-01: zero-value consumed gifts are valid; missing consumption evidence is not a zero quote.
-        if (Integer.valueOf(PayMethod.TICKET).equals(order.getPaymentMethod()) && mapper.ticketConsumptionCount(order.getId())==0)
+        var split=ticketPayments.get(order.getId());
+        if (Integer.valueOf(PayMethod.TICKET).equals(order.getPaymentMethod()) && mapper.ticketConsumptionCount(order.getId())==0
+                && (split==null || !ticketPayments.cod(order) || !"HELD".equals(split.state())))
             throw new BusinessException("水票消费记录尚未核实，请先核对原订单付款后再外派");
         BigDecimal service=order.getPaymentMethod()==PayMethod.TICKET?mapper.ticketActual(order.getId()):nz(order.getWaterAmount());
-        service=nz(service).add(nz(order.getDeliveryFee())).add(nz(order.getFloorFee()));
+        if(split!=null)service=jdbc.queryForObject("select coalesce(sum(quantity*unit_price),0) from order_ticket_hold where order_id=? and state in ('HELD','CONSUMED')",BigDecimal.class,order.getId());
+        service=nz(service).add(nz(order.getDeliveryFee())).add(nz(order.getFloorFee())).subtract(split==null?BigDecimal.ZERO:split.credit());
         if (mapper.insert(order.getId(),order.getStationId(),target,service,qty,"RETURN_EMPTY",BigDecimal.ZERO,String.join("；",items),AuthContext.getUserId(),"先按实收消费费用报价；净领桶由归属站向履约站补同型空桶，押金不外派")!=1) throw new BusinessException("外包协议未保存");
     }
     @Transactional public void quote(Long orderId,DispatchQuoteDTO dto) {

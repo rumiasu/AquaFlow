@@ -44,6 +44,7 @@ class CancelRequestIntegrationTest extends AbstractIntegrationTest {
         // 水票余额 10 张：支付与退款都以它为准，便于一眼看出"票有没有真的退回来"
         // ⚠️ 参数顺序是 (客户, 水站, 商品)。历史上这里写反过，只因本站与商品的 id 恰好都是 1 才没暴露。
         createTicketAccount(customer, station, product, 10);
+        createBarrelAsset(customer,station,product,2,"60");createBarrelLot("CANCEL-EXISTING-RIGHTS",customer,station,product,"30",2,2);
     }
 
     private String mgrToken() {

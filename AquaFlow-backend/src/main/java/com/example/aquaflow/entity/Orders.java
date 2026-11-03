@@ -130,6 +130,17 @@ public class Orders {
 
     /** 支付方式: 1 微信支付 2 现金(货到付款) 3 水票（水票视同已付） */
     private Integer paymentMethod;
+    private transient Integer ticketFeePaymentMethod;
+    private transient BigDecimal ticketCashAmount;
+    private transient BigDecimal ticketDeliveryCredit;
+    private transient String ticketWaterState;
+    public BigDecimal getCollectAmount(){return ticketCashAmount==null?totalAmount:ticketCashAmount;}
+    public String getTicketPaymentHint(){
+        if(ticketCashAmount==null)return null;
+        String fact="HELD".equals(ticketWaterState)?"水票已预留，未扣减":"REFUNDED".equals(ticketWaterState)?"本单水票已按原批次回补":"CANCELLED".equals(ticketWaterState)?"本单水票占用已释放或回补":"本单水费已使用水票";
+        return fact+"；其他费用 ¥"+ticketCashAmount+"，收退款以原流水为准"+(ticketDeliveryCredit!=null && ticketDeliveryCredit.signum()>0?"；含本次一次配送抵扣 ¥"+ticketDeliveryCredit+"，不抵楼层费":"");
+    }
+
 
     /** 支付状态: 0 未支付 1 待收款 2 已付款 3 已退款 4 已取消 */
     private Integer paymentStatus;
@@ -170,8 +181,8 @@ public class Orders {
      */
     public Boolean getNeedCollect() {
         return paymentMethod != null
-                && Integer.valueOf(PayMethod.CASH).equals(paymentMethod)
-                && paymentStatus != PaymentStatus.PAID;
+                && (Integer.valueOf(PayMethod.CASH).equals(paymentMethod) || Integer.valueOf(PayMethod.CASH).equals(ticketFeePaymentMethod))
+                && (Integer.valueOf(PaymentStatus.UNPAID).equals(paymentStatus) || Integer.valueOf(PaymentStatus.PENDING).equals(paymentStatus));
     }
 
     // ============ 订单状态 / 支付方式文案：由后端统一计算并输出 ============
@@ -186,7 +197,7 @@ public class Orders {
 
     /** 支付方式中文文案（全系统唯一来源） */
     public String getPayMethodText() {
-        return PayMethod.textOf(paymentMethod);
+        return ticketCashAmount!=null ? "水票抵水费"+(ticketCashAmount.signum()>0?" + "+PayMethod.textOf(ticketFeePaymentMethod)+"付其他费用":"") : PayMethod.textOf(paymentMethod);
     }
 
     // ============ 可执行操作：业务规则由后端判定，前端不再自行推导 ============
@@ -260,7 +271,7 @@ public class Orders {
             default: break;
         }
         if (paymentMethod != null) {
-            if (paymentMethod == PayMethod.TICKET) return "水票支付，下单即视同已付";
+            if (paymentMethod == PayMethod.TICKET) return ticketCashAmount==null ? "请核对原水票订单" : "水票仅抵水费；其余应付 ¥"+ticketCashAmount+(Integer.valueOf(PayMethod.CASH).equals(ticketFeePaymentMethod)?"，送达时收取":"，请完成原单付款");
             if (paymentMethod == PayMethod.CASH)   return "货到付款，配送员送达时收款";
             if (paymentMethod == PayMethod.WECHAT) {
                 return Boolean.TRUE.equals(selfPayAllowed)

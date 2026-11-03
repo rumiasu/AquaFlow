@@ -108,6 +108,11 @@ class OrderSettleStationIntegrationTest extends AbstractIntegrationTest {
     }
 
     private BigDecimal dashboardGross(String token) {
+        // Real HTTP/SQL order timestamps advance after the initially frozen clock. Read afterward.
+        // The column is second-precision; +1ms stays within its day even at 23:59:59.
+        var last = jdbc.queryForObject("select max(create_time) from orders", java.time.LocalDateTime.class);
+        if (last != null && !last.isBefore(TestBusinessClock.now()))
+            TestBusinessClock.freezeAt(last.plusNanos(1_000_000));
         Api r = get("/api/dashboard/report?range=today", token);
         assertEquals(0, r.code(), "站长看板应可读: " + r);
         return r.data().path("summary").path("grossAmount").decimalValue();

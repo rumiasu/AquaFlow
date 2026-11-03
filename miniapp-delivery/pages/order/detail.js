@@ -461,7 +461,7 @@ Page({
           // 事实卡金额行（2026-10-07 #19 R4）：金额只做定长格式化，口径是后端 totalAmount；
           // 收款章的文案是后端 payStateText，章的配色（need/paid/plain）由后端投影
           // needCollect / payState 选出 —— 与完成配送页 _moneyView 同一套判据，前端不自推。
-          amountText: moneyText(order.totalAmount) || '金额待核实',
+          amountText: moneyText(order.needCollect ? order.collectAmount : order.totalAmount) || '金额待核实',
           payChipClass: order.needCollect ? 'need' : (order.payState === 'PAID' ? 'paid' : 'plain'),
           // 备货情况（契约 C4）：出发前/上门前用一句话说清"这单备齐了没、还缺哪些商品"。
           // 与金额、状态文案一样取自后端投影（stockPrep），前端不拿 inventory.quantity 自己推算。
@@ -566,13 +566,13 @@ Page({
   onConfirmCollection() {
     return this._runOrderAction('onConfirmCollection', async ctx => {
       const content = collectionPrompt(this.data.order)
-      const amount = moneyText(this.data.order.totalAmount)
+      const amount = moneyText(this.data.order.collectAmount == null ? this.data.order.totalAmount : this.data.order.collectAmount)
       if (!content) { wx.showToast({ title: '收款金额待核实，请刷新订单后确认', icon: 'none' }); return }
       const answer = await this._actionDialog(ctx, {
         title: '确认收款', content, confirmText: '确认收款', confirmColor: '#1264D6'
       })
       if (!answer.confirm || !ctx.current()) return
-      if (moneyText(this.data.order.totalAmount) !== amount) {
+      if (moneyText(this.data.order.collectAmount == null ? this.data.order.totalAmount : this.data.order.collectAmount) !== amount) {
         wx.showToast({ title: '收款金额已变化，请重新核对后确认', icon: 'none' }); return
       }
       if (!await this._actionWrite(ctx, () => confirmCollection(ctx.id))) return
@@ -1020,7 +1020,7 @@ Page({
         // 2026-09-18：后端下的时间统一 ISO-8601，前端只做展示切分（见文件头 formatTime）
         timeText: formatTime(p.createTime),
         note: p.note || '',
-        canRefund: Number(p.status) === PAY_STATUS_PAID
+        canRefund: p.canRefundComponents === true || Number(p.status) === PAY_STATUS_PAID
       }))
       if (!current()) return
       this.setData({ payments: list, canRefundPayment: true, paymentsState: 'ready' })
@@ -1078,14 +1078,15 @@ Page({
         const confirmation = {}
         if (selected.expectedRefundAmount != null) {
           const amount = Number(selected.expectedRefundAmount)
-          if (!Number.isFinite(amount) || amount <= 0) {
+          if (!Number.isFinite(amount) || amount < 0) {
             showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '重新核实', content: '退款金额无效，请重新预览并确认', showCancel: false }); return
           }
           confirmation.expectedRefundAmount = selected.expectedRefundAmount
         } else if (selected.confirmationRequired === true) {
           showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '重新核实', content: '未取得确认金额，请重新预览并确认', showCancel: false }); return
         }
-        if (res.data.expectedTicketQty != null) confirmation.expectedTicketQty = res.data.expectedTicketQty
+        if (selected.expectedTicketQty != null) confirmation.expectedTicketQty = selected.expectedTicketQty
+        else if (res.data.expectedTicketQty != null) confirmation.expectedTicketQty = res.data.expectedTicketQty
         if (res.data.expectedTicketAmount != null) confirmation.expectedTicketAmount = res.data.expectedTicketAmount
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: selected.label, content: res.data.notice, confirmText: '实际退款', success: (r) => {
           if (r.confirm) this.doRefundPayment(paymentId, selected.scope, confirmation)

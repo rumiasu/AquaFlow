@@ -40,7 +40,7 @@ public interface DashboardMapper {
             + "sum(case when status = 5 then 1 else 0 end) as cancelledOrders, "
             + "coalesce(sum(case when status != 5 then total_amount else 0 end), 0) as grossAmount, "
             + "coalesce(sum(case when payment_status = 2 then total_amount else 0 end), 0) as paidAmount, "
-            + "coalesce(sum(case when payment_status = 1 and status != 5 then total_amount else 0 end), 0) as pendingAmount, "
+            + "coalesce(sum(case when payment_status = 1 and status != 5 then coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=orders.id),total_amount) else 0 end), 0) as pendingAmount, "
             + "count(distinct customer_id) as activeCustomers, "
             + "coalesce(sum(case when status != 5 then quantity else 0 end), 0) as totalQuantity "
             + "from orders where " + RANGE)

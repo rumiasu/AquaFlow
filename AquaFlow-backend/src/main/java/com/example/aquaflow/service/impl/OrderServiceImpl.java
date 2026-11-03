@@ -42,6 +42,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private TicketTierService ticketTierService;
+    @Autowired private com.example.aquaflow.service.TicketPaymentService ticketPayments;
     @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderPurchases;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
@@ -722,12 +723,22 @@ public class OrderServiceImpl implements OrderService {
         // 与 quote 侧同源 —— 都由 DeliveryFeeUtil 产出，前端不得自造文案。
         warnings.addAll(feeResult.getWarnings());
 
-        // ⚠️ 水票支付**不在这里扣票**（2026-09-18 试过并撤回）：水票的扣减发生在客户端下单后
-        // 那次支付请求里（{@code PaymentServiceImpl.createPayment} 的 TICKET 分支 → {@code deductTickets}）。
-        // 把它挪进下单事务会让"客户还没买票/票不够"直接变成**下单失败** —— 而现有流程（客户端先下单、
-        // 再扣票；票不足时客户端提示充值）与多张既有用例都按两步走。扣票成功的那一刻
-        // {@code payment_status} 会被置 2，订单随即自动进入站长/配送员视野（判据见 OrderMapper 的两张列表），
-        // 所以"没扣票的水票单不进站长端"是**由判据本身保证**的，不需要在下单时抢着扣。
+        // Reserve source lots, never consume on creation. Required cash must still actually arrive.
+        if (Integer.valueOf(PayMethod.TICKET).equals(dto.getPaymentMethod())) {
+            var split=ticketPayments.prepare(orders,dto.getTicketFeePaymentMethod(),dto.getTicketFeeQuoteAmount(),dto.getTicketDeliveryCreditQuote());
+            if(split.cashDue().signum()>0) {
+                if(Integer.valueOf(PayMethod.CASH).equals(split.cashMethod())) {
+                    if(!paymentService.canUseOfflinePayment(dto.getCustomerId(),stationId))throw new BusinessException("当前客户暂不支持服务费货到付款");
+                    orders.setDueDate(receivableService.resolveDueDate(dto.getCustomerId(),stationId,PayMethod.CASH));
+                    orderMapper.updateTicketDueDate(orders.getId(),orders.getDueDate());
+                } else if(!Boolean.TRUE.equals(((java.util.Map<?,?>)paymentService.channelCapabilities(dto.getCustomerId()).get("wechatPay")).get("enabled"))) {
+                    throw new BusinessException("服务费线上渠道暂不可用，请选择已获授权的货到付款");
+                }
+            }
+            orders.setTotalAmount(orders.getWaterAmount().add(split.cashDue()));
+            // Pure tickets have no remaining cash to collect; same payment orchestration, no second ledger.
+            if(split.cashDue().signum()==0 && "staff".equals(AuthContext.getUserType()) || Integer.valueOf(PayMethod.CASH).equals(split.cashMethod()))paymentService.createPayment(orders.getId(),orders.getCustomerId(),null,null,null,null,PayMethod.TICKET,null,null,"水票抵水费，服务费为零");
+        }
 
         Map<String, Object> detail = new HashMap<>();
         detail.put("orderId", orders.getId());
@@ -779,6 +790,9 @@ public class OrderServiceImpl implements OrderService {
         sb.append(customerId).append('|').append(stationId).append('|')
                 .append(dto.getAddressId()).append('|')
                 .append(dto.getPaymentMethod()).append('|')
+                .append(dto.getTicketFeePaymentMethod()).append('|')
+                .append(dto.getTicketFeeQuoteAmount()).append('|')
+                .append(dto.getTicketDeliveryCreditQuote()).append('|')
                 .append(dto.getSource()).append('|')
                 .append(nz(dto.getReceiverName())).append('|')
                 .append(nz(dto.getReceiverPhone())).append('|')

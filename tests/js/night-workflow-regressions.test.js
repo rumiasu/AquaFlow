@@ -23,32 +23,20 @@ async function main() {
     assert.throws(()=>renderElements(parseWxml('<view wx:if="{{broken +}}"></view>'),{}),/Unexpected/)
     assert.equal(renderElements(parseWxml('<view wx:if="{{count === 0}}"></view>'),{count:0}).length,1)
   })
-  await test('approved compensation executes once through handle and refreshes instead of calling execute',async()=>{
-    const t=exception();await t.page.onApproveSuggested(event(41))
-    assert.equal(t.writes.length,1);assert(t.writes[0][0].endsWith('/handle'));assert.equal(t.writes[0][1].refundTicketQty,2)
-    assert.equal(t.refreshes(),1);assert.equal(t.dialogs.length,0);assert(t.page.data.actionNotice.includes('补偿已执行'))
+  await test('disabled compensation never reads a suggestion or writes funds',async()=>{
+    const t=exception();await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,0);assert.equal(t.reads(),0);assert.equal(t.dialogs.length,1);assert(t.dialogs[0].content.includes('客户资产'))
   })
-  await test('lost successful response reconciles original terminal record without repeating compensation',async()=>{
-    const t=exception({write:async()=>{throw Error('network lost')}});await t.page.onApproveSuggested(event(41))
-    assert.equal(t.writes.length,1);assert.equal(t.reads(),2);assert.equal(t.page.data.uncertainId,null)
-    assert(t.page.data.actionNotice.includes('原记录显示'));assert.equal(t.refreshes(),1)
-    await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,1)
+  await test('network outcomes cannot start a disabled compensation',async()=>{
+    const t=exception({write:async()=>{throw Error('offline')}});await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,0);assert.equal(t.refreshes(),0)
   })
-  await test('another manager advancing the case refreshes after a definite rejection without executing again',async()=>{
-    const t=exception({write:async()=>{throw Object.assign(Error('该异常已被处理'),{businessRejected:true})}})
-    await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,1);assert.equal(t.refreshes(),1)
-    assert(t.page.data.actionNotice.includes('未获通过'));assert.equal(t.page.data.uncertainId,null)
+  await test('repeat legacy approval callbacks cannot grant tickets',async()=>{
+    const t=exception();await t.page.onApproveSuggested(event(41));await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,0);assert.equal(t.reads(),0)
   })
-  await test('unavailable original read keeps explicit read-only recovery and cannot dispatch execute',async()=>{
-    let reads=0
-    const t=exception({read:async()=>{if(++reads>1)throw Error('offline');return {data:{id:41,status:'STAFF_RECORDED',suggestedTicketQty:2,adjustProductId:9}}},write:async()=>{throw Error('unknown')}})
-    await t.page.onApproveSuggested(event(41));assert.equal(t.page.data.uncertainId,41)
-    await t.page.onVerifyHandling();assert.equal(t.writes.length,1);assert(t.page.data.actionNotice.includes('勿再次补偿'))
+  await test('missing original detail cannot cause fallback compensation',async()=>{
+    const t=exception({read:async()=>{throw Error('offline')}});await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,0);assert.equal(t.reads(),0)
   })
-  await test('double approval and a receipt after hide do not issue another write or update a hidden page',async()=>{
-    const d=deferred(),t=exception({write:()=>d.promise});const first=t.page.onApproveSuggested(event(41))
-    await new Promise(r=>setImmediate(r));await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,1)
-    t.page.onHide();d.resolve({code:0});await first;assert.equal(t.refreshes(),0);assert.equal(t.wx.__calls.toast.length,0)
+  await test('hidden page cannot present or dispatch a legacy compensation',async()=>{
+    const t=exception();t.page.onHide();await t.page.onApproveSuggested(event(41));assert.equal(t.writes.length,0);assert.equal(t.dialogs.length,0);assert.equal(t.wx.__calls.toast.length,0)
   })
   await test('no-compensation terminal state uses backend result and completed progress',async()=>{
     const page=loadPage('miniapp-user/pages/exception/list/list.js',{app:actor(),wx:createWx()})

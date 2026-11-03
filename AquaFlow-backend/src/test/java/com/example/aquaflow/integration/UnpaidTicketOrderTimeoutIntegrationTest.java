@@ -60,9 +60,9 @@ class UnpaidTicketOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
     }
 
     @ParameterizedTest @ValueSource(booleans={false,true})
-    void zeroTicketOrderReleasesInventoryAndBarrelCapacityEvenWithoutPaymentRequest(boolean failedPaymentAttempt) {
-        seed(0);long order=place(3,"unpaid-ticket-expiry",true);
-        if(failedPaymentAttempt)assertEquals(1,pay(order).code(),"Insufficient tickets must roll back the payment request");
+    void unpaidReservedTicketOrderReleasesInventoryAndBarrelCapacityWithoutPaymentRequest(boolean failedPaymentAttempt) {
+        seed(1);long order=place(3,"unpaid-ticket-expiry",true);
+        if(failedPaymentAttempt)assertEquals(1,post("/api/payments",token,"{\"orderId\":"+order+",\"paymentMethod\":2}").code(),"Changing the original channel must not consume held tickets");
         assertEquals(1,reserved(order));assertEquals(2,ledger.availableRights(customer,station,water));
         assertEquals(0,intOf("select count(*) from payment_record where order_id=?",order));
         System.out.println("TICKET_TIMEOUT_BEFORE order="+order+" reserved="+reserved(order)+" availableRights="+ledger.availableRights(customer,station,water));
@@ -70,7 +70,7 @@ class UnpaidTicketOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
         assertEquals(5,intOf("select status from orders where id=?",order));
         assertEquals(4,intOf("select payment_status from orders where id=?",order));
         assertEquals(0,reserved(order));assertEquals(3,ledger.availableRights(customer,station,water));
-        assertEquals(0,tickets());unchangedAssets();
+        assertEquals(1,tickets());unchangedAssets();
         assertEquals(0,intOf("select count(*) from payment_record where order_id=?",order),"Never invent a refund for an unpaid order");
         assertEquals(0,sweeper.sweepOnce());assertEquals(1,pay(order).code(),"Late payment cannot revive the cancelled order");
         assertEquals(0,reserved(order));unchangedAssets();
@@ -86,13 +86,13 @@ class UnpaidTicketOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
         payments.refundOrder(paid,"Ticket timeout regression: customer cancellation");
         assertEquals(2,tickets());assertEquals(0,reserved(paid));
         assertThrows(com.example.aquaflow.exception.BusinessException.class,()->payments.refundOrder(paid,"Repeated cancellation"));
-        assertEquals(2,tickets());assertEquals(1,intOf("select count(*) from payment_record where order_id=? and amount<0",paid));
+        assertEquals(2,tickets());assertEquals(1,intOf("select count(*) from ticket_record where order_id=? and increase_qty=1 and source='退款'",paid));
         assertEquals(0,sweeper.sweepOnce());unchangedAssets();
     }
 
     @ParameterizedTest @ValueSource(ints={1,2})
     void activePaymentEvidenceIsNeverGuessedToBeUnpaid(int paymentStatus) {
-        seed(0);long order=place(3,"ticket-active-evidence",true);
+        seed(1);long order=place(3,"ticket-active-evidence",true);
         createPaymentRecord(order,customer,station,"8.00",3,paymentStatus);
         assertEquals(0,sweeper.sweepOnce());
         assertFalse(payments.cancelTimedOutWechatOrder(order,30));
@@ -107,6 +107,7 @@ class UnpaidTicketOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
         address=createAddress(customer,"Nonbarrel ticket expiry address");
         water=createProduct("Ticket bottle water",2,"2.00","0.00",1,"1.00");
         createInventoryFull(station,water,20,1,"1.00");
+        createTicketAccount(customer,station,water,1);
         token=customerToken(customer);
         long order=place(3,"nonbarrel-ticket-expiry",true);
         assertEquals(0,intOf("select count(*) from barrel_right_reservation where owner_type='ORDER' and owner_id=?",order));
@@ -114,18 +115,18 @@ class UnpaidTicketOrderTimeoutIntegrationTest extends AbstractIntegrationTest {
         assertEquals(1,reserved(order));
         assertEquals(1,sweeper.sweepOnce(),"The general prepaid timeout must cover nonbarrel ticket orders too");
         assertEquals(5,intOf("select status from orders where id=?",order));assertEquals(0,reserved(order));
-        assertEquals(0,sweeper.sweepOnce());assertEquals(0,tickets());
+        assertEquals(0,sweeper.sweepOnce());assertEquals(1,tickets());
         assertEquals(20,intOf("select quantity from inventory where station_id=? and product_id=?",station,water));
         assertEquals(0,intOf("select count(*) from payment_record where order_id=?",order));
     }
 
     @Test void existingFifteenMinuteBarrelExpiryStillCoversNewTicketOrders() {
-        seed(0);long order=place(3,"ticket-barrel-fifteen-minute",true);
+        seed(1);long order=place(3,"ticket-barrel-fifteen-minute",true);
         assertTrue(waiting.unpaidExpired(15).contains(order),"New-model barrel orders already have a separate timeout path");
         barrelExpiry.expire(order);
         assertEquals(5,intOf("select status from orders where id=?",order));assertEquals(0,reserved(order));
         assertEquals(3,ledger.availableRights(customer,station,water));assertEquals(0,sweeper.sweepOnce());
-        assertEquals(0,tickets());unchangedAssets();
+        assertEquals(1,tickets());unchangedAssets();
     }
 
     @ParameterizedTest @ValueSource(booleans={false,true})

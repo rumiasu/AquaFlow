@@ -173,7 +173,7 @@
   <view class="money-card {{needCollect ? '' : 'lv2-money-standalone'}}" wx:if="{{orderInfo}}">
     <view class="money-line" wx:if="{{moneyMode === 'collect'}}">
       <text class="money-label">本单尚应收</text>
-      <text class="money-amount">{{orderInfo.totalAmount === null || orderInfo.totalAmount === undefined || orderInfo.totalAmount === '' ? '金额待核实' : '¥' + orderInfo.totalAmount}}</text>
+      <text class="money-amount">{{(orderInfo.paymentMethod === 3 ? orderInfo.collectAmount : orderInfo.totalAmount) === null || (orderInfo.paymentMethod === 3 ? orderInfo.collectAmount : orderInfo.totalAmount) === undefined || (orderInfo.paymentMethod === 3 ? orderInfo.collectAmount : orderInfo.totalAmount) === '' ? '金额待核实' : '¥' + (orderInfo.paymentMethod === 3 ? orderInfo.collectAmount : orderInfo.totalAmount)}}</text>
     </view>
     <block wx:else>
       <view class="money-head">

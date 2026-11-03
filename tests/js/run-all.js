@@ -15,6 +15,8 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'order-copy-card-separation.test.js', name: '客户订单与桶押金入口文案、异常独立订单卡片' },
+  { file: 'ticket-service-fee-ui.test.js', name: '水票服务费、单次配送权益和分项退款' },
   { file: 'account-history-entry.test.js', name: '两端低频历史申请入口、只读视图和身份隔离' },
   { file: 'self-payroll-history.test.js', name: '本人历史收益日期、工资单游标分页与只读明细、身份隔离' },
   { file: 'night-workflow-regressions.test.js', name: '补偿单次编排、未知结果核对、画像刷新与无需补偿结案' },

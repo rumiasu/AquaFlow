@@ -20,6 +20,14 @@ import java.math.BigDecimal;
  * </ol>
  */
 public interface TicketLotService {
+    java.util.Set<Long> previewSourcePayments(Long customer, Long station, Long product, int quantity);
+    int availableQuantity(Long customer, Long station, Long product);
+    void assertAvailable(Long customer, Long station, Long product, int quantity);
+    void reserveForOrder(Long customer, Long station, Long product, Long order, int quantity);
+    void consumeOrderReservation(Long customer, Long station, Long order);
+    void releaseOrderReservation(Long customer, Long station, Long order);
+    void refundOrderReservation(Long customer, Long station, Long order);
+
     /** 仅退有购票原款凭据且仍未使用的本批票，人工赠票不换现金。 */
     ConsumeResult consumePurchasedBalance(Long customerId,Long stationId,Long productId,Long paymentId);
 

@@ -219,7 +219,7 @@ Page({
         return {
           ...o,
           customerNotePreview: employeeCustomerNotePreview(o),
-          amountText: moneyText(o.totalAmount) || '金额待核实',
+          amountText: moneyText(o.needCollect && o.paymentMethod === 3 ? o.collectAmount : o.totalAmount) || '金额待核实',
           // 「已付 / 需收 ¥X」：判据只用后端投影 —— needCollect（现金且还没收到钱）
           // 与 payState（钱到底到没到账），**不按 payment_status 的 1/2/3 自己写映射表**（AGENTS §6）。
           payLabel: o.needCollect ? '需收' : (o.payState === 'PAID' ? '已付' : '未收'),

@@ -60,6 +60,8 @@ public interface TicketAccountMapper {
             "ta.product_id as productId, " +
             "ta.station_id as stationId, " +
             "ta.remain_quantity as remainQuantity, " +
+            "coalesce((select sum(h.quantity) from order_ticket_hold h join ticket_lot l on l.id=h.lot_id where l.customer_id=ta.customer_id and l.station_id=ta.station_id and l.product_id=ta.product_id and h.state='HELD'),0) as reservedQuantity, " +
+            "greatest(0,ta.remain_quantity-coalesce((select sum(h.quantity) from order_ticket_hold h join ticket_lot l on l.id=h.lot_id where l.customer_id=ta.customer_id and l.station_id=ta.station_id and l.product_id=ta.product_id and h.state='HELD'),0)) as availableQuantity, " +
             "ta.right_amount as rightAmount, " +
             "ta.update_time as updateTime, " +
             "p.name as productName, " +

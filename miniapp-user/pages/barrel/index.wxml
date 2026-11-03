@@ -52,7 +52,7 @@
     </view>
 
     <view class="rights-actions" wx:if="{{summary.independentRights}}">
-      <button class="af-action af-action--primary rights-purchase" bindtap="onPurchaseRights"><icon name="wallet" size="22px" color="#FFFFFF" /><text>交桶押金</text></button>
+      <button class="af-action af-action--primary rights-purchase" bindtap="onPurchaseRights"><icon name="wallet" size="22px" color="#FFFFFF" /><text>单独交桶押金</text></button>
       <text class="rights-purchase-note">不含水费</text>
     </view>
 

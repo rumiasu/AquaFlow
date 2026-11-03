@@ -45,11 +45,12 @@ class BarrelAvailabilityIntegrationTest extends AbstractIntegrationTest {
         createInventoryFull(station, prodB, 100, 1, "18.00");
         customer = createCustomer("Alice", "openid-alice");
         addr = createAddress(customer, "某小区1号");
+        createCustomerStationConfig(customer,station,1);createTicketAccount(customer,station,prodA,100);createTicketAccount(customer,station,prodB,100);
     }
 
     private Api order(String key, long productId, int qty) {
         String body = "{\"addressId\":" + addr + ",\"stationId\":" + station
-                + ",\"paymentMethod\":3,\"idempotencyKey\":\"" + key + "\","
+                + ",\"paymentMethod\":3,\"ticketFeePaymentMethod\":2,\"idempotencyKey\":\"" + key + "\","
                 + "\"items\":[{\"productId\":" + productId + ",\"quantity\":" + qty + "}]}";
         return post("/api/orders/create", customerToken(customer), body);
     }

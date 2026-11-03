@@ -27,6 +27,7 @@ import java.util.List;
 @RequestMapping("/api/ticket-packages")
 @Slf4j
 public class TicketPackageController {
+    @Autowired private com.example.aquaflow.service.TicketDeliveryBenefitService deliveryBenefits;
 
     @Autowired
     private TicketPackageMapper ticketPackageMapper;
@@ -55,7 +56,15 @@ public class TicketPackageController {
     public Result<List<java.util.Map<String, Object>>> listForCustomer(@RequestParam Long stationId,
                                                                       @RequestParam Long productId,
                                                                       @RequestParam(defaultValue = "false") boolean includeRetail) {
-        return Result.success(ticketTierService.customerTiers(stationId, productId, includeRetail));
+        var tiers=ticketTierService.customerTiers(stationId, productId, includeRetail);
+        for(var tier:tiers) {
+            String kind=String.valueOf(tier.get("source"));
+            Object key="CUSTOM".equals(kind)?tier.get("packageId"):tier.get("qty");
+            boolean benefit=key instanceof Number && deliveryBenefits.enabled(stationId,productId,kind,((Number)key).longValue());
+            tier.put("deliveryFeeOnce",benefit);
+            tier.put("serviceFeeNotice",benefit?"水票仅抵水费；本次购买此档赠一次本商品配送费抵扣，不抵楼层费，每笔购票只赠一次":"水票仅抵水费，配送费和楼层费另付");
+        }
+        return Result.success(tiers);
     }
 
     /** 站长查本站某商品的全部**定制**档位（含已下架）。统一折扣档走 /api/ticket-discounts。 */

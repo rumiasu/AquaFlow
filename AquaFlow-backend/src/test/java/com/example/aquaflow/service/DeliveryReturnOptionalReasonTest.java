@@ -137,6 +137,7 @@ class DeliveryReturnOptionalReasonTest {
                     ReflectionTestUtils.setField(service, field.getName(), dependency);
                 }
             }
+            when(((TicketPaymentService)dependencies.get(TicketPaymentService.class)).cod(any())).thenAnswer(call -> Integer.valueOf(PayMethod.CASH).equals(((Orders)call.getArgument(0)).getPaymentMethod()));
             orders = (OrderMapper) dependencies.get(OrderMapper.class);
             ledger = (BarrelLedgerService) dependencies.get(BarrelLedgerService.class);
             payments = (PaymentService) dependencies.get(PaymentService.class);

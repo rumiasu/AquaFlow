@@ -19,6 +19,7 @@ public class ConsumptionRefundService {
     @Autowired private OrderBarrelPurchaseService orderPurchases;
     @Autowired private ConsumptionRefundMapper receipts;
     @Autowired private PaymentRecordMapper payments;
+    @Autowired private TicketPaymentService ticketPayments;
     @Autowired private OrderMapper orders;
     @Autowired private UnusedTicketRefundService unusedTickets;
     @Autowired private ApprovedBarrelReturnService approvedReturns;
@@ -29,6 +30,8 @@ public class ConsumptionRefundService {
     @Autowired @Lazy private PaymentService paymentService;
     @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
     public boolean usesIndependentRules(Long paymentId) {
+        PaymentRecord check=payments.getById(paymentId);
+        if(check!=null && check.getOrderId()!=null && ticketPayments.get(check.getOrderId())!=null)return true;
         if(policy.isEnabled())return true;
         if(!policy.hasSchema())return false;
         PaymentRecord p=payments.getById(paymentId);
@@ -49,6 +52,7 @@ public class ConsumptionRefundService {
         Orders order=receipts.lockOrder(original.getOrderId());
         if (order==null || !Objects.equals(StationUtil.settleStation(order),AuthContext.requireStationId())) throw new BusinessException("仅本单结算站可退消费费用");
         original=receipts.lockPayment(paymentId);
+        if(ticketPayments.get(order.getId())!=null) { refundSplit(order,original,scope,note,expectedTicketQty,expectedRefundAmount);return; }
         if (!Integer.valueOf(PaymentStatus.PAID).equals(original.getStatus())) throw new BusinessException("该笔消费已退款或尚未实际收款");
         boolean combined=orderPurchases.hasPurchase(order.getId());
         if(combined && expectedRefundAmount==null)
@@ -114,6 +118,7 @@ public class ConsumptionRefundService {
         }
         if(p.getOrderId()==null)return Map.of("notice","资产押金须走退桶申请，服务款退款须核实原款", "scopes",List.of(Map.of("scope","SERVICE","label","核实原服务款退款")));
         Orders order=orders.getById(p.getOrderId());
+        if(ticketPayments.get(order.getId())!=null)return previewSplit(order,p);
         Map<String,Object> prior=receipts.refunded(paymentId);
         if(p.getPaymentMethod()==PayMethod.TICKET)return Map.of("notice","水票整笔回补，不折现金，不撤桶权益", "scopes",List.of(Map.of("scope","WATER","label","整笔回补水票")));
         if(OrderStatus.isCancellable(order.getStatus())) {
@@ -127,6 +132,58 @@ public class ConsumptionRefundService {
         if(fee.signum()>0)choices.add(Map.of("scope","SERVICE","label","退配送与楼层费 ¥"+fee,"expectedRefundAmount",fee,"confirmationRequired",orderPurchases.hasPurchase(order.getId())));
         if(water.signum()>0 && fee.signum()>0)choices.add(Map.of("scope","ALL_CONSUMPTION","label","退全部剩余消费款 ¥"+water.add(fee),"expectedRefundAmount",water.add(fee),"confirmationRequired",orderPurchases.hasPurchase(order.getId())));
         return Map.of("notice","不撤桶权益、不退押金；现金须核实实际交付金额，金额变化须重新预览确认；微信须原渠道成功退款后才可登记", "scopes",choices);
+    }
+    private Map<String,Object> currentSplitRefunds(Long payment) {
+        BigDecimal delivery=BigDecimal.ZERO,floor=BigDecimal.ZERO;
+        for(var row:receipts.refundRowsForUpdate(payment)) { delivery=delivery.add(decimal(row.get("deliveryFee")));floor=floor.add(decimal(row.get("floorFee"))); }
+        return Map.of("deliveryFee",delivery,"floorFee",floor);
+    }
+    private Map<String,Object> previewSplit(Orders order,PaymentRecord original) {
+        var split=ticketPayments.get(order.getId());
+        BigDecimal refunded=decimal(receipts.refunded(original.getId()).get("deliveryFee")).add(decimal(receipts.refunded(original.getId()).get("floorFee")));
+        BigDecimal cash=original.getStatus()==PaymentStatus.PAID?split.cashDue().subtract(split.deposit()).subtract(refunded):BigDecimal.ZERO;
+        int qty=ticketPayments.refundableQty(order.getId());List<Map<String,Object>> scopes=new ArrayList<>();
+        boolean cancel=OrderStatus.isCancellable(order.getStatus());
+        if(cancel)scopes.add(Map.of("scope","ALL_CONSUMPTION","label","取消原单：释放或回补水票，实际退服务费 ¥"+cash,"expectedRefundAmount",cash,"expectedTicketQty",qty,"confirmationRequired",true));
+        else {
+            if(qty>0)scopes.add(Map.of("scope","WATER","label","按原批次回补 "+qty+" 张水票，不退水费现金","expectedRefundAmount",BigDecimal.ZERO,"expectedTicketQty",qty,"confirmationRequired",true));
+            if(cash.signum()>0)scopes.add(Map.of("scope","SERVICE","label","实际退服务费 ¥"+cash,"expectedRefundAmount",cash,"expectedTicketQty",0,"confirmationRequired",true));
+            if(qty>0 && cash.signum()>0)scopes.add(Map.of("scope","ALL_CONSUMPTION","label","回补 "+qty+" 张水票，实际退服务费 ¥"+cash,"expectedRefundAmount",cash,"expectedTicketQty",qty,"confirmationRequired",true));
+        }
+        return Map.of("notice","水票按原批次退回，不折现金；仅退实际收取的服务费。已用配送优惠不折现金、不恢复。现金退款须已实际交付。桶押金仍走退桶。","scopes",scopes);
+    }
+    private void refundSplit(Orders order,PaymentRecord original,String scope,String note,Integer expectedQty,BigDecimal expectedCash) {
+        if(note==null || note.isBlank())throw new BusinessException("请填写本次退款核对原因");
+        if(OrderStatus.isCancellable(order.getStatus())) { paymentService.refundOrder(order.getId(),note,expectedCash);return; }
+        if(order.getStatus()!=OrderStatus.DELIVERED && order.getStatus()!=OrderStatus.COMPLETED)throw new BusinessException("请核对原订单履约状态");
+        if(original.getStatus()!=PaymentStatus.PAID && original.getStatus()!=PaymentStatus.PENDING)throw new BusinessException("原款已终止，不能重复退款");
+        var split=ticketPayments.getForUpdate(order.getId());boolean water=!"SERVICE".equals(scope),service=!"WATER".equals(scope);
+        int qty=water?ticketPayments.refundableQty(order.getId()):0;
+        var prior=currentSplitRefunds(original.getId());
+        BigDecimal delivery=service && original.getStatus()==PaymentStatus.PAID?split.delivery().subtract(split.credit()).subtract(decimal(prior.get("deliveryFee"))):BigDecimal.ZERO;
+        BigDecimal floor=service && original.getStatus()==PaymentStatus.PAID?split.floor().subtract(decimal(prior.get("floorFee"))):BigDecimal.ZERO;
+        BigDecimal cash=delivery.add(floor);
+        if(qty==0 && cash.signum()==0)throw new BusinessException("所选水票或服务费已退完，不能重复退款");
+        if(expectedQty==null || expectedQty!=qty || expectedCash==null || expectedCash.compareTo(cash)!=0)
+            throw new BusinessException("退款水票数量或实际金额已变化，请重新预览并确认；本次未退");
+        if(cash.signum()>0) {
+            mockPolicy.requireRefund(original);
+            PaymentRecord refund=new PaymentRecord();refund.setOrderId(order.getId());refund.setCustomerId(order.getCustomerId());
+            refund.setStationId(original.getPaymentMethod()==PayMethod.CASH?AuthContext.requireStationId():original.getStationId());refund.setPaymentMethod(original.getPaymentMethod());
+            refund.setAmount(cash.negate());refund.setWaterAmount(BigDecimal.ZERO);refund.setBarrelDeposit(BigDecimal.ZERO);refund.setDeliveryFee(delivery.negate());refund.setFloorFee(floor.negate());
+            refund.setStatus(PaymentStatus.REFUNDED);refund.setOperatorId(AuthContext.getUserId());String memo="水票单实际服务费退款；"+note;refund.setNote(memo.substring(0,Math.min(200,memo.length())));refund.setCreateTime(LocalDateTime.now());refund.setUpdateTime(LocalDateTime.now());
+            mockPolicy.markRefund(original,refund);payments.insert(refund);
+            if(receipts.record(original.getId(),refund.getId(),order.getId(),scope,BigDecimal.ZERO,delivery,floor,AuthContext.getUserId(),note)!=1)throw new BusinessException("服务费退款凭据未保存");
+        }
+        if(qty>0)ticketPayments.refundWater(order);
+        boolean noWater=ticketPayments.refundableQty(order.getId())==0;
+        BigDecimal totalRefunded=decimal(prior.get("deliveryFee")).add(decimal(prior.get("floorFee"))).add(cash);
+        if(noWater && totalRefunded.compareTo(split.cashDue())==0) {
+            payments.updateStatusTo(original.getId(),PaymentStatus.REFUNDED,PaymentStatus.PAID);
+            orders.updatePaymentStatusIf(order.getId(),PaymentStatus.PAID,PaymentStatus.REFUNDED);
+        }
+        orders.appendSpecialNote(order.getId(),"[分项消费退款] 回补 "+qty+" 张水票；实际服务费 "+cash+" 元；"+note);
+        recoveries.preserveFullRefund(order.getId());
     }
     private static BigDecimal nz(BigDecimal n) { return n==null?BigDecimal.ZERO:n; }
     private static BigDecimal decimal(Object n) { return n==null?BigDecimal.ZERO:new BigDecimal(n.toString()); }

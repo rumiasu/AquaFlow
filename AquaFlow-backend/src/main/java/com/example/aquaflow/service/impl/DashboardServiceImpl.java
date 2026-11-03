@@ -24,7 +24,7 @@ import java.util.Map;
  *
  * <p>设计要点：</p>
  * <ul>
- *   <li><b>环比自动对齐</b>：查 today 就比昨天，查 7d 就比上一个 7 天 —— 同长度周期才有可比性。</li>
+ *   <li><b>环比自动对齐</b>：查 today 只比昨日同一时刻，查 7d 就比上一个 7 天 —— 同长度周期才有可比性。</li>
  *   <li><b>趋势补零</b>：没有订单的日期也要补 0，否则折线图的横轴会"跳日"，视觉上误判趋势。</li>
  *   <li><b>文案与涨跌方向由后端派生</b>（deltaText / deltaDir），前端只渲染，避免各端各写一套判断。</li>
  *   <li>所有数值在服务端做除零保护，前端不会拿到 NaN/Infinity。</li>
@@ -59,7 +59,7 @@ public class DashboardServiceImpl implements DashboardService {
         switch (range == null ? "" : range) {
             case "today":
                 start = todayStart;
-                end = todayStart.plusDays(1);
+                end = now;
                 prevStart = start.minusDays(1);
                 label = "今日";
                 rangeKey = "today";
@@ -81,20 +81,27 @@ public class DashboardServiceImpl implements DashboardService {
                 break;
         }
 
+        LocalDateTime prevEnd = "today".equals(rangeKey) ? now.minusDays(1) : start;
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("range", rangeKey);
         result.put("label", label);
         result.put("startText", start.format(DAY_FULL));
         result.put("endText", now.format(DAY_FULL));
+        result.put("asOfText", now.format(DateTimeFormatter.ofPattern("HH:mm")));
+        result.put("comparisonNote", "today".equals(rangeKey)
+                ? "截至 " + now.format(DateTimeFormatter.ofPattern("HH:mm")) + " · 对比昨日同一时刻"
+                : "对比上一完整周期（本期含今日）");
+        result.put("orderAmountNote", "订单金额按订单创建时间、结算站统计未取消订单的金额；"
+                + "不是实收净额，不扣售后退款。时间按上海时区。" );
 
         // ==================== 汇总 + 环比 ====================
         Map<String, Object> cur = dashboardMapper.summary(stationId, start, end);
-        Map<String, Object> prev = dashboardMapper.summary(stationId, prevStart, start);
+        Map<String, Object> prev = dashboardMapper.summary(stationId, prevStart, prevEnd);
         int newCustomers = dashboardMapper.countNewCustomers(stationId, start, end);
-        int prevNewCustomers = dashboardMapper.countNewCustomers(stationId, prevStart, start);
+        int prevNewCustomers = dashboardMapper.countNewCustomers(stationId, prevStart, prevEnd);
 
         Map<String, Object> barrelCur = toBarrelFlow(dashboardMapper.barrelFlow(stationId, start, end));
-        Map<String, Object> barrelPrev = toBarrelFlow(dashboardMapper.barrelFlow(stationId, prevStart, start));
+        Map<String, Object> barrelPrev = toBarrelFlow(dashboardMapper.barrelFlow(stationId, prevStart, prevEnd));
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("orderCount", num(cur.get("orderCount")));
@@ -158,11 +165,16 @@ public class DashboardServiceImpl implements DashboardService {
         compare.put("barrelsIn", deltaCount(num(barrelCur.get("in")), num(barrelPrev.get("in")), "个", false));
         // 取消率上升是坏事 → inverted=true
         compare.put("cancelledOrders", deltaCount(num(cur.get("cancelledOrders")), num(prev.get("cancelledOrders")), "单", true));
+        if (dec(prev.get("grossAmount")).signum() == 0) {
+            String period = "today".equals(rangeKey) ? "昨日同期" : "上期";
+            compare.get("grossAmount").put("deltaText", period
+                    + (num(prev.get("orderCount")) == 0 ? "暂无记录" : "为 0"));
+        }
         result.put("compare", compare);
 
         // ==================== 按天趋势（补零，保证横轴连续） ====================
         List<Map<String, Object>> trend = fillTrend(
-                dashboardMapper.dailyTrend(stationId, start, end), start.toLocalDate(), end.toLocalDate());
+                dashboardMapper.dailyTrend(stationId, start, end), start.toLocalDate(), todayStart.toLocalDate().plusDays(1));
         result.put("trend", trend);
         result.put("trendMax", trend.stream().mapToInt(t -> (int) num(t.get("orders"))).max().orElse(0));
         result.put("trendAmountMax", trend.stream().map(t -> dec(t.get("amount")))
@@ -247,21 +259,21 @@ public class DashboardServiceImpl implements DashboardService {
         m.put("previous", prev);
         m.put("unit", "元");
         int cmp = cur.compareTo(prev);
+        if (prev.signum() == 0) {
+            m.put("deltaText", "上期为 0");
+            m.put("deltaDir", cmp > 0 ? "up" : cmp < 0 ? "down" : "flat");
+            m.put("good", null);
+            return m;
+        }
         if (cmp == 0) {
             m.put("deltaText", "持平");
             m.put("deltaDir", "flat");
             m.put("good", null);
             return m;
         }
-        if (prev.compareTo(BigDecimal.ZERO) == 0) {
-            m.put("deltaText", "新增");
-            m.put("deltaDir", "up");
-            m.put("good", true);
-            return m;
-        }
         long pct = cur.subtract(prev).abs()
                 .multiply(BigDecimal.valueOf(100))
-                .divide(prev, 0, RoundingMode.HALF_UP).longValue();
+                .divide(prev.abs(), 0, RoundingMode.HALF_UP).longValue();
         m.put("deltaPct", pct);
         m.put("deltaText", (cmp > 0 ? "+" : "-") + pct + "%");
         m.put("deltaDir", cmp > 0 ? "up" : "down");

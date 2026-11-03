@@ -160,7 +160,7 @@ function fingerprint(intent) {
     intent.customerId == null ? '' : intent.customerId,
     intent.stationId == null ? '' : intent.stationId,
     intent.addressId == null ? '' : intent.addressId,
-    intent.paymentMethod == null ? '' : intent.paymentMethod,
+    intent.paymentMethod == null ? '' : String(intent.paymentMethod) + (intent.ticketFeePaymentMethod == null ? '' : ':fee' + intent.ticketFeePaymentMethod),
     items
   ].join('|')
 }

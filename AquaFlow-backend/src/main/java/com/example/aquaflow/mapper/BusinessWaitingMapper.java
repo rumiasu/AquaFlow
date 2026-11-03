@@ -25,7 +25,7 @@ public interface BusinessWaitingMapper {
     int WAITING_LIMIT = 200;
     String STOCK_FROM = " from orders o join inventory_reservation r on r.order_id=o.id and r.status=1"
             + " where coalesce(o.delivery_station_id,o.station_id)=#{station} and o.status in (1,2)"
-            + " and (o.payment_status=2 or o.payment_method=2) and r.need_qty>r.reserved_qty";
+            + " and (o.payment_status=2 or o.payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2 and tp.state='HELD')) and r.need_qty>r.reserved_qty";
     String RETURNS_FROM = " from barrel_return_detail d join barrel_record r on r.id=d.record_id"
             + " where r.station_id=#{station} and d.station_id=r.station_id and r.type=2"
             + " and ((d.status='APPLIED' and r.create_time<date_sub(now(),interval 2 hour)) or d.status='RECEIVED')";
@@ -39,7 +39,7 @@ public interface BusinessWaitingMapper {
             + " or (d.target_station_id=#{station} and d.target_barrel_confirmed_by is null)))"
             + " or (d.barrel_disputed=1 and ((d.source_station_id=#{station} and d.resolution_proposed_by is null)"
             + " or (d.target_station_id=#{station} and d.resolution_proposed_by is not null))))";
-    @Select("select distinct o.id from orders o join barrel_right_reservation r on r.owner_type='ORDER' and r.owner_id=o.id where o.status=1 and o.payment_status=0 and o.payment_method<>2 and o.create_time<date_sub(now(),interval #{minutes} minute) and not exists(select 1 from payment_record p where p.order_id=o.id and p.status in (1,2)) order by o.id limit 100")
+    @Select("select distinct o.id from orders o join barrel_right_reservation r on r.owner_type='ORDER' and r.owner_id=o.id where o.status=1 and o.payment_status in (0,1) and o.payment_method<>2 and not exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2) and o.create_time<date_sub(now(),interval #{minutes} minute) and not exists(select 1 from payment_record p where p.order_id=o.id and p.status in (1,2)) order by o.id limit 100")
     List<Long> unpaidExpired(int minutes);
     @Select("select count(*) from payment_record where order_id=#{order} and status in (1,2)") int hasActivePayment(Long order);
     // 2026-10-03：orders 以 id 编号，没有 order_no 列；旧查询连空列表也报 500。

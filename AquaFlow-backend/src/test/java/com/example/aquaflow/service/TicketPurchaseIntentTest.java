@@ -47,7 +47,7 @@ class TicketPurchaseIntentTest {
         var mapper = mock(PaymentRecordMapper.class);
         var catalog = mock(ProductMapper.class);
         when(mapper.getByCustomerAndIdempotencyKeyForUpdate(7L, "lost-response")).thenReturn(p);
-        var service = new TicketAccountServiceImpl();
+        var service = new TicketAccountServiceImpl(); ReflectionTestUtils.setField(service,"deliveryBenefits",mock(TicketDeliveryBenefitService.class));
         ReflectionTestUtils.setField(service, "paymentRecordMapper", mapper);
         ReflectionTestUtils.setField(service, "productMapper", catalog);
         ReflectionTestUtils.setField(service, "purchaseFenceService", mock(TicketPurchaseFenceService.class));
@@ -100,7 +100,7 @@ class TicketPurchaseIntentTest {
     }
 
     @Test void lookupHidesOtherPaymentKindsAndDoesNotCreateOrConfirmMoney() {
-        var mapper = mock(PaymentRecordMapper.class); var service = new TicketAccountServiceImpl();
+        var mapper = mock(PaymentRecordMapper.class); var service = new TicketAccountServiceImpl(); ReflectionTestUtils.setField(service,"deliveryBenefits",mock(TicketDeliveryBenefitService.class));
         ReflectionTestUtils.setField(service, "paymentRecordMapper", mapper);
         var orderPayment = original(null, null); orderPayment.setOrderId(11L);
         when(mapper.getByCustomerAndIdempotencyKey(7L, "order")).thenReturn(orderPayment);
@@ -130,7 +130,7 @@ class TicketPurchaseIntentTest {
         var selected = new com.example.aquaflow.entity.Inventory(); selected.setEnabled(1); selected.setTicketPrice(new BigDecimal("8.00"));
         when(inventory.getByStationAndProduct(1L, 5L)).thenReturn(selected);
         when(tiers.usesCustomTicket(product, selected)).thenReturn(true);
-        var service = new TicketAccountServiceImpl();
+        var service = new TicketAccountServiceImpl(); ReflectionTestUtils.setField(service,"deliveryBenefits",mock(TicketDeliveryBenefitService.class));
         ReflectionTestUtils.setField(service,"mockPolicy",mock(com.example.aquaflow.payment.MockPaymentPolicy.class));
         ReflectionTestUtils.setField(service, "paymentRecordMapper", mapper);
         ReflectionTestUtils.setField(service, "productMapper", catalog);

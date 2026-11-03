@@ -23,7 +23,7 @@ test('WB-05 order count 3 / amount 120 switch uses the selected values and title
   assert.deepEqual(t.page.data.trendChart.values, [3, 0])
   t.page.onMetricChange(event('amount'))
   assert.deepEqual(t.page.data.trendChart.values, [120, 0]); assert.equal(t.page.data.trendChart.max, 120)
-  assert(t.page.data.trendTitle.includes('营业额')); assert.equal(t.draws.at(-1).metric, 'amount')
+  assert(t.page.data.trendTitle.includes('订单金额')); assert.equal(t.draws.at(-1).metric, 'amount')
   t.page.onMetricChange(event('orders'))
   assert.deepEqual(t.page.data.trendChart.values, [3, 0]); assert(t.page.data.trendTitle.includes('订单量'))
 })
@@ -32,7 +32,7 @@ test('a new range preserves selected metric while replacing values from the new 
   await t.page.loadData(); t.page.onMetricChange(event('amount'))
   await t.page.onRangeChange(event('30d')); await new Promise(setImmediate)
   assert.equal(t.page.data.range, '30d'); assert.deepEqual(t.page.data.trendChart.values, [999, 0])
-  assert.equal(t.page.data.trendMetric, 'amount'); assert(t.page.data.trendTitle.includes('近30天营业额'))
+  assert.equal(t.page.data.trendMetric, 'amount'); assert(t.page.data.trendTitle.includes('近30天订单金额'))
 })
 test('zero amount remains zero instead of falling back to order count', async () => {
   const t = fixture(async () => ok(report('7d', 3, 0))); await t.page.loadData()
@@ -68,6 +68,61 @@ test('old range response finishing last cannot change the latest report or metri
   const first = t.page.loadData(); t.page.setData({ range: '30d', trendMetric: 'amount' }); await t.page.loadData()
   resolve(ok(report('7d'))); await first
   assert.deepEqual(t.page.data.trendChart.values, [999, 0]); assert(t.page.data.trendTitle.includes('近30天'))
+})
+test('successful zero amount with orders never becomes an empty comforting state', async () => {
+  const t = fixture(async () => ok(report('today', 3, 0))); await t.page.loadData()
+  assert.equal(t.page.data.report.hasData, true)
+  assert.equal(t.page.data.report.metricCards[1].label, '订单金额')
+  assert.equal(t.page.data.report.metricCards[1].valueText, '¥0.00')
+})
+test('successful empty today and historical ranges receive different quiet empty copy', async () => {
+  const t = fixture(async range => ok(report(range, 0, 0)))
+  t.page.setData({ range: 'today' }); await t.page.loadData()
+  assert.equal(t.page.data.report.hasData, false)
+  assert.equal(t.page.data.report.emptyTitle, '截至当前暂无订单')
+  assert(t.page.data.report.emptyCare.includes('喝口水'))
+  t.page.setData({ range: '7d' }); await t.page.loadData()
+  assert(t.page.data.report.emptyTitle.includes('所选周期'))
+})
+test('failed or incomplete report keeps retry state and never produces a comforting zero', async () => {
+  for (const response of [{ code: 1, message: '读取失败' }, ok({ summary: { orderCount: 0 } })]) {
+    const t = fixture(async () => response); await t.page.loadData()
+    assert.equal(t.page.data.report, null); assert(t.page.data.error); assert.equal(t.page.data.loading, false)
+  }
+})
+test('same-time and real zero baseline wording is passed through without client percentages', async () => {
+  const r = report('today', 2, 5)
+  r.comparisonNote = '截至 08:30 · 对比昨日同一时刻'
+  r.compare = { grossAmount: { previous: 0, unit: '元', deltaText: '昨日同期为 0', deltaDir: 'flat' } }
+  const t = fixture(async () => ok(r)); await t.page.loadData()
+  assert.equal(t.page.data.report.comparisonNote, r.comparisonNote)
+  assert.equal(t.page.data.report.previousLabel, '昨日同期')
+  assert.equal(t.page.data.report.metricCards[1].deltaText, '昨日同期为 0')
+})
+test('quiet icons stay inside confirmed-empty conditions and reuse registered line icons', () => {
+  const fs = require('node:fs'), path = require('node:path'), root = path.resolve(__dirname, '../..')
+  for (const relative of ['miniapp-delivery/pages/home/index.wxml', 'miniapp-delivery/pages/station-mgmt/orders/index.wxml']) {
+    const source = fs.readFileSync(path.join(root, relative), 'utf8')
+    const empties = [...source.matchAll(/<view class="(?:empty-state|empty)" wx:if="([^"]+)">([\s\S]*?)<\/view>/g)]
+    assert(empties.length > 0)
+    for (const [, condition, body] of empties) {
+      assert(condition.includes('!loading'))
+      assert(condition.includes('readReady.') || condition.includes('!listError'))
+      assert(body.includes('<icon name="order"'))
+      assert(body.includes('care-note'))
+    }
+    const config = JSON.parse(fs.readFileSync(path.join(root, relative.replace('.wxml', '.json')), 'utf8'))
+    assert(config.usingComponents.icon.endsWith('components/Icon/index'))
+  }
+})
+test('real mine template shows caring copy only for confirmed manager zero orders, never failed reads or delivery role', () => {
+  const fs = require('node:fs'), path = require('node:path'), { parseWxml, renderElements } = require('./wxml-tree')
+  const source = fs.readFileSync(path.resolve(__dirname, '../../miniapp-delivery/pages/mine/index.wxml'), 'utf8')
+  const page = loadPage('miniapp-delivery/pages/mine/index.js')
+  const tree = parseWxml(source), base = { ...page.data, userInfo: {}, displayImageErrors: {}, isLogin: true, canAccessBusiness: true, isManager: true, managerStatsLoading: false, managerStatsError: '', todayProfit: { orderCount: 0, readFailed: false }, risk: {} }
+  const visible = extra => renderElements(tree, { ...base, ...extra }, { includeText: true }).some(n => n.text && n.text.includes('今日暂无订单，趁空喝口水吧。'))
+  assert.equal(visible({}), true)
+  for (const extra of [{ managerStatsLoading: true }, { managerStatsError: '失败' }, { todayProfit: { orderCount: 0, readFailed: true } }, { todayProfit: { orderCount: 1, readFailed: false } }, { isManager: false }]) assert.equal(visible(extra), false)
 })
 ;(async () => {
   let failed = 0

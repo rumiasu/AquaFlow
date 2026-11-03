@@ -123,21 +123,16 @@ test('D34 ignore is single flight, requires reason, and cancel writes nothing', 
   const second = t.p.onIgnore(tap(1)); t.modals[1].success({ confirm: true, content: '核对无异常' }); t.modals[1].success({ confirm: true, content: '重复回调' }); await second
   assert.equal(t.calls.length, 1); assert.equal(t.calls[0][1].managerNote, '核对无异常')
 })
-test('D34 approval has one confirmation with real destination and only the transactional handle command', async () => {
-  const t = exceptions(); const pending = t.p.onApproveSuggested(tap(1)); await turn(); assert.equal(t.modals.length, 1)
-  const modal = t.modals[0]; assert(modal.details.some(row => row.value.includes('增加押金账户余额'))); assert.equal(modal.initialValue, '')
-  modal.success({ confirm: true, content: '已核对' }); await pending
-  assert.equal(t.calls.length, 1); assert(t.calls[0][0].endsWith('/handle'))
+test('D34 legacy approval now only explains the disabled feature without writing', async () => {
+  const t=exceptions();await t.p.onApproveSuggested(tap(1));assert.equal(t.calls.length,0);assert.equal(t.modals.length,1);assert(t.modals[0].content.includes('客户资产'));assert.equal(t.modals[0].showCancel,false)
 })
-test('D34 note draft is scoped to the original exception and late confirmations cannot write', async () => {
-  const t = exceptions(); t.p._exceptionApprovalKey = JSON.stringify([t.p.exceptionContext(), '1']); t.p._exceptionApprovalNote = '属于第一单'
-  const pending = t.p.onApproveSuggested(tap(2)); await turn(); assert.equal(t.modals[0].initialValue, '')
-  t.p.onHide(); t.modals[0].success({ confirm: true, content: '迟到' }); await pending; assert.equal(t.calls.length, 0)
+test('D34 hidden legacy approval cannot reuse an earlier reason or write', async () => {
+  const t=exceptions();t.p._exceptionApprovalNote='旧说明';t.p.onHide();await t.p.onApproveSuggested(tap(2));assert.equal(t.calls.length,0);assert.equal(t.modals.length,0)
 })
 test('D34 v1 unsupported editable fallback cancels and cannot send a business command', async () => {
   const calls = []
   const t = mount('station-mgmt/exceptions', { 'utils/request': { get: async () => ({ data: { suggestedCashAmount: 10 } }), post: async (...args) => calls.push(args) } })
-  t.p.load = () => {}; await t.p.onApproveSuggested(tap(1)); assert.equal(calls.length, 0); assert.equal(t.wx.__calls.modal.length, 0)
+  t.p.load = () => {}; await t.p.onApproveSuggested(tap(1)); assert.equal(calls.length, 0); assert.equal(t.wx.__calls.modal.length, 1)
 })
 function inter() {
   const modals = [], calls = [], app = actor(); app.circular = app

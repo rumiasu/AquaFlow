@@ -202,21 +202,17 @@ class PaidBeforeDispatchIntegrationTest extends AbstractIntegrationTest {
         assertTrue(inList("/api/delivery/orders/station-pending", tokenMgr, order),
                 "扣票成功后自动进站长待分配");
 
-        // 票不够：下单能成（与「先下单、再扣票」的既有流程一致），但扣不动 → 永远进不了站长视野
+        // Insufficient tickets cannot be reserved: reject creation, keep balance and no ghost delivery task.
         long before = longOf("SELECT COUNT(*) FROM orders WHERE station_id=?", station);
-        assertEquals(0, place(ticketGoods, 3, "paid-ticket-short", 10 /* 只剩 4 张票 */).code(),
-                "下单本身不查票：先把单建出来，扣票发生在客户支付那一步");
-        long shortOrder = orderIdOf("paid-ticket-short");
-        assertEquals(before + 1, longOf("SELECT COUNT(*) FROM orders WHERE station_id=?", station),
-                "没票也能先把单建出来（既有流程如此），扣票在这一步之后");
-        Api shortPaid = post("/api/payments", cus, "{\"orderId\":" + shortOrder + ",\"paymentMethod\":3}");
-        assertNotEquals(0, shortPaid.code(), "票不足时扣票必须失败");
-        assertEquals(1, intOf("SELECT payment_status FROM orders WHERE id=?", shortOrder),
-                "扣票失败 → 仍是待收款");
-        assertFalse(inList("/api/delivery/orders/station-pending", tokenMgr, shortOrder),
-                "票没扣成功的单永远不进站长视野（这就是「没收到钱就不派单」在水票上的形态）");
-        assertEquals(4, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=? AND station_id=? AND product_id=?",
-                customer, station, ticketGoods), "扣票失败不得动票");
+        Api shortage=place(ticketGoods,3,"paid-ticket-short",10);
+        assertEquals(1,shortage.code(),shortage.toString());
+        assertEquals(before,longOf("SELECT COUNT(*) FROM orders WHERE station_id=?",station));
+        assertEquals(4,intOf("select remain_quantity from ticket_account where customer_id=? and product_id=?",customer,ticketGoods));
+        Api preview=post("/api/payments/quote",cus,"{\"stationId\":"+station+",\"addressId\":"+address+",\"paymentMethod\":3,\"items\":[{\"productId\":"+ticketGoods+",\"quantity\":10}]}");
+        assertEquals(0,preview.code(),preview.toString());assertFalse(preview.data().path("ticketPay").path("fullyCovered").asBoolean());
+        assertEquals("INSUFFICIENT",preview.data().path("ticketPay").path("reason").asText());
+        assertEquals(0,intOf("select count(*) from order_ticket_hold where state='HELD' and product_id=?",ticketGoods));
+
     }
 
     /** 该订单是否出现在某个列表端点返回的数组里。 */

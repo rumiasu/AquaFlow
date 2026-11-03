@@ -45,7 +45,7 @@ class PaymentFlowIntegrationTest extends AbstractIntegrationTest {
 
     private long createOrderViaApi(int paymentMethod, int qty) {
         String body = "{\"addressId\":" + addr + ",\"stationId\":" + station
-                + ",\"paymentMethod\":" + paymentMethod + ",\"idempotencyKey\":\"" + UUID.randomUUID() + "\","
+                + ",\"paymentMethod\":" + paymentMethod + (paymentMethod==3?",\"ticketFeePaymentMethod\":2":"") + ",\"idempotencyKey\":\"" + UUID.randomUUID() + "\","
                 + "\"items\":[{\"productId\":" + product + ",\"quantity\":" + qty + "}]}";
         Api res = post("/api/orders/create", customerToken(customer), body);
         assertTrue(res.isSuccess(), "下单应成功，实际=" + res);
@@ -137,13 +137,17 @@ class PaymentFlowIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("水票：下单支付原子扣票；重复支付不重复扣票")
     void ticketPayment_deductsAtomicallyAndIdempotently() {
-        seed(false);
+        seed(true);
         createTicketAccount(customer, station, product, 10);
         long order = createOrderViaApi(3 /* 水票 */, 2);
 
         Api pay = post("/api/payments", customerToken(customer),
                 "{\"orderId\":" + order + ",\"paymentMethod\":3}");
-        assertTrue(pay.isSuccess(), "水票支付应成功，实际=" + pay);
+        assertTrue(pay.isSuccess(), "水票原单应返回真实服务费收款，实际=" + pay);
+        assertEquals(1,pay.data().path("status").asInt(),"票不能替代押金现金");
+        assertEquals(10,intOf("select remain_quantity from ticket_account where customer_id=?",customer));
+        Api collected=put("/api/payments/"+pay.data().path("id").asLong()+"/cash-confirm",staffToken(mgr,"STATION_MANAGER",station),null);
+        assertTrue(collected.isSuccess(),collected.message());
 
         assertEquals(8, intOf("SELECT remain_quantity FROM ticket_account "
                         + "WHERE customer_id=? AND product_id=? AND station_id=?", customer, product, station),
@@ -153,8 +157,7 @@ class PaymentFlowIntegrationTest extends AbstractIntegrationTest {
                         + "WHERE order_id=? AND product_id=? AND decrease_qty>0", order, product),
                 "应产生一条消费流水");
 
-        // 水票是唯一「下单即已付」的方式，它绕过 confirmPayment，因此入账押金必须在这里自己补。
-        // 漏了这一步的后果是：客户用票付了 60 元押金，押金账户却是 0，退桶时退不出钱。
+        // 旧桶账fixture的押金必须真收现金后才入账，水票自身只结清水费。
         BigDecimal ticketDeposit = decimalOf("SELECT IFNULL(balance,0) FROM customer_deposit_account "
                 + "WHERE customer_id=? AND station_id=?", customer, station);
         assertEquals(0, ticketDeposit.compareTo(new BigDecimal("60.00")),

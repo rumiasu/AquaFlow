@@ -115,20 +115,13 @@ class AlertRoutingIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("补偿执行成功 = 运营告警（钱/票动过了要留痕）")
+    @DisplayName("补偿已停用：不得伪造执行成功运营告警")
     void successfulCompensationRaisesOperationAlert() {
-        seed();
-        long exId = seedPendingException(stationA);
-
-        Api res = post("/api/manager/exceptions/" + exId + "/handle", tokenA(),
-                "{\"action\":\"APPROVE\",\"refundCashAmount\":10.00}");
-        assertTrue(res.isSuccess(), "批准补偿应成功，实际=" + res);
-
-        assertEquals(1, opAlerts(), "应产生 1 条运营告警");
-        assertTrue(jdbc.queryForObject("SELECT title FROM alert_log WHERE alert_type='OPERATION'", String.class)
-                        .contains("补偿已执行"),
-                "标题应说明补偿已执行");
-        assertEquals(0, sysAlerts(), "成功路径不该产生系统告警");
+        seed();long exId=seedPendingException(stationA);
+        Api res=post("/api/manager/exceptions/"+exId+"/handle",tokenA(),"{\"action\":\"APPROVE\",\"refundCashAmount\":10}");
+        assertFalse(res.isSuccess());assertTrue(res.message().contains("停用"));
+        assertEquals(0,opAlerts());assertEquals(0,sysAlerts());
+        assertEquals("STAFF_RECORDED",jdbc.queryForObject("SELECT status FROM order_barrel_exception WHERE id=?",String.class,exId));
     }
 
     @Test
@@ -207,25 +200,12 @@ class AlertRoutingIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("补偿失败：投系统告警，且业务回滚不得把这条告警带走")
+    @DisplayName("补偿已停用属于业务拒绝，不虚构系统故障")
     void compensationFailureAlertsAdminEvenThoughBusinessRollsBack() {
-        seed();
-        long exId = seedPendingException(stationA);
-
-        // 退水票但没给商品 → 补偿做不到（见 BarrelExceptionFlow 的同类用例）
-        Api res = post("/api/manager/exceptions/" + exId + "/handle", tokenA(),
-                "{\"action\":\"APPROVE\",\"refundTicketQty\":2}");
-        assertFalse(res.isSuccess(), "缺商品应被拒，实际=" + res);
-
-        // 业务确实回滚了
-        assertEquals("STAFF_RECORDED", jdbc.queryForObject(
-                "SELECT status FROM order_barrel_exception WHERE id=?", String.class, exId), "异常单应退回未处置");
-
-        // 但告警必须留下来（独立事务）——这正是"业务一炸、告警也跟着消失"那个坑的反例
-        assertEquals(1, sysAlerts(), "补偿失败必须留下系统告警，且不被回滚带走");
-        assertTrue(jdbc.queryForObject("SELECT title FROM alert_log WHERE alert_type='SYSTEM'", String.class)
-                        .contains("补偿执行失败"),
-                "标题应指向补偿失败");
-        assertEquals(0, opAlerts(), "失败的补偿不能留下'已执行'的运营告警");
+        seed();long exId=seedPendingException(stationA);
+        Api res=post("/api/manager/exceptions/"+exId+"/handle",tokenA(),"{\"action\":\"APPROVE\",\"refundTicketQty\":2}");
+        assertFalse(res.isSuccess());assertTrue(res.message().contains("停用"));
+        assertEquals(0,opAlerts());assertEquals(0,sysAlerts());
+        assertEquals("STAFF_RECORDED",jdbc.queryForObject("SELECT status FROM order_barrel_exception WHERE id=?",String.class,exId));
     }
 }

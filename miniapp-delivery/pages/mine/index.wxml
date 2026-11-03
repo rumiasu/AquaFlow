@@ -115,6 +115,7 @@
         <text class="stats-label">回桶数</text><text class="stats-link">全部记录 ›</text>
       </view>
     </view>
+    <view class="stats-care" wx:if="{{isManager && !managerStatsLoading && !managerStatsError && todayProfit && !todayProfit.readFailed && todayProfit.orderCount === 0}}"><icon name="order" size="22px" color="#637083" /><text>今日暂无订单，趁空喝口水吧。</text></view>
     <!-- Hide only verified zero counts. Unknown and failed reads stay actionable. -->
     <view class="mine-risk-summary" wx:if="{{isManager && (managerStatsLoading || risk.barrelExceptionFailed || risk.owedCustomerFailed || risk.barrelExceptionCount !== 0 || risk.owedCustomerCount !== 0)}}">
       <view class="mine-risk-entry" bindtap="onGoBarrelException" wx:if="{{managerStatsLoading || risk.barrelExceptionFailed || risk.barrelExceptionCount !== 0}}">

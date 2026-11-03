@@ -371,7 +371,10 @@ class DeliveryFeePoolVisibilityIntegrationTest extends AbstractIntegrationTest {
                         receivables.data().path("outstandingAmount").decimalValue()),
                 "应收台账按归属站统计到本站单的待收款（水 50 + 押金 30 + 运费 5 + 楼层 16）");
 
-        // (b) 按履约站统计的看板（coalesce(delivery_station_id, station_id)）也必须统计到同一张单
+        // Same-time dashboards exclude future records: place this raw fixture before a stable cutoff.
+        TestBusinessClock.freezeAt(TestBusinessClock.today().atTime(12, 0));
+        jdbc.update("UPDATE orders SET create_time=? WHERE id=?", TestBusinessClock.now().minusMinutes(1), orderId);
+        // (b) 按结算站统计的看板也必须统计到同一张单。
         Api dashboard = get("/api/dashboard/report?range=today", ownerToken);
         assertEquals(0, dashboard.code(), "看板: " + dashboard);
         assertEquals(0, new BigDecimal("101.00").compareTo(

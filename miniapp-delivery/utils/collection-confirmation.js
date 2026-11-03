@@ -15,7 +15,7 @@ function moneyText(value) {
 }
 
 function collectionPrompt(order) {
-  const amount = moneyText(order && order.totalAmount)
+  const amount = moneyText(order && (order.paymentMethod === 3 ? order.collectAmount : order.totalAmount))
   if (!amount) return null
   return '订单 #' + order.id + '，确认实际已收到 ' + amount + '？\n此操作只登记已收款，不会向客户扣款。确认后记为已付款；已送达订单将完成。请勿再次向客户收取这笔钱。'
 }
@@ -23,7 +23,7 @@ function collectionPrompt(order) {
 function canConfirmCash(order, user = {}) {
   const same = (a, b) => a != null && b != null && String(a) === String(b)
   const o = order || {}, station = o.deliveryStationId == null ? o.stationId : o.deliveryStationId
-  return !!(o.needCollect && o.paymentMethod === 2 && (o.paymentStatus === 0 || o.paymentStatus === 1)
+  return !!(o.needCollect && (o.paymentMethod === 2 || o.paymentMethod === 3 && o.ticketFeePaymentMethod === 2) && (o.paymentStatus === 0 || o.paymentStatus === 1)
     && (o.status === 2 || o.status === 3) && same(station, user.stationId)
     && (user.role === 'STATION_MANAGER' || user.role === 'manager'
       || ((user.role === 'DELIVERY' || user.role === 'delivery') && same(o.deliveryStaffId, user.staffId))))

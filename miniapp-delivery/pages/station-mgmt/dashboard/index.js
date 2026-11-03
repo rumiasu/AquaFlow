@@ -115,7 +115,7 @@ Page({
     }
     r.metricCards = [
       mk('orderCount', '订单数', String(Number(s.orderCount) || 0)),
-      mk('grossAmount', '营业额', '¥' + r.grossAmountText),
+      mk('grossAmount', '订单金额', '¥' + r.grossAmountText),
       // [2026-09-27 产品裁定 1.b，正本 docs/design/32] 标签原为「已收款」——
       // 站长读它 = "本站收到了多少钱"，而这格的算法是"**已付款订单**的金额合计"
       // （payment_status = 2），两者在没有外派、也没有预售时数值相同，所以一直没被看出来。
@@ -154,6 +154,10 @@ Page({
     // 「欠桶客户 TOP」与待收款横幅服务，一并删除。后端响应里仍有这两个字段（不改后端），
     // 前端不再读它 —— 别为了"看起来没浪费"又把它们渲染出来。
     r.hasData = Number(s.orderCount) > 0
+    r.comparisonNote = r.comparisonNote || '对比上一周期'
+    r.previousLabel = r.range === 'today' ? '昨日同期' : '上期'
+    r.emptyTitle = r.range === 'today' ? '截至当前暂无订单' : '所选周期内暂无订单'
+    r.emptyCare = r.range === 'today' ? '趁空喝口水，留意新的订单。' : '换个时间范围看看，也记得休息一下。'
     return r
   },
 
@@ -185,7 +189,7 @@ Page({
       const values = trend.map(t => metric === 'amount' ? Number(t.amount) || 0 : Number(t.orders) || 0)
       const max = Math.max(1, ...values)
       this.setData({
-        trendTitle: report.label + (metric === 'amount' ? '营业额趋势' : '订单量趋势'),
+        trendTitle: report.label + (metric === 'amount' ? '订单金额趋势' : '订单量趋势'),
         trendChart: { labels: trend.map(t => t.label), values, max },
         metricSwitchable: true
       }, () => this.drawTrend())

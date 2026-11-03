@@ -27,7 +27,7 @@ const simulationAllowed = (channel, session = captureSession()) => {
 
 /** Common preflight for order, tickets and independent rights. No client field can mark money as received. */
 const withOnlinePayment = (body, send, hint = {}) => {
-  if (Number(body.paymentMethod) !== 1) return Promise.resolve(send())
+  if (Number(body.paymentMethod) !== 1 && !(Number(body.paymentMethod) === 3 && Number(body.ticketFeePaymentMethod) === 1)) return Promise.resolve(send())
   if (hint.simulatedWechatPay === true && isReleaseEnv()) return Promise.reject(new Error('当前版本不可使用模拟付款'))
   return readOnlineChannel().then(channel => {
     if (hint.simulatedWechatPay === true && !channel.simulated) throw new Error('付款方式已变化，请重新确认')

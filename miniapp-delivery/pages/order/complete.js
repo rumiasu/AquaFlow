@@ -781,7 +781,8 @@ Page({
     })
     if (needCollect) {
       // 现金未收时**不许**写成"订单已结清"（契约 C2）：账户上这单还是待收款。
-      const amountText = orderInfo && orderInfo.totalAmount != null ? ` ¥${orderInfo.totalAmount}` : ''
+      const collectAmount = orderInfo && (orderInfo.paymentMethod === 3 ? orderInfo.collectAmount : orderInfo.totalAmount)
+      const amountText = collectAmount != null ? ` ¥${collectAmount}` : ''
       s += collected ? `✓ 已收款${amountText}` : `⚠ 已送达，待收款${amountText}`
       s += '\n'
       if (orderInfo && orderInfo.depositAmount > 0) s += `含押金 ¥${orderInfo.depositAmount}\n`

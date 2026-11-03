@@ -33,11 +33,12 @@ class OrderCreationIntegrationTest extends AbstractIntegrationTest {
         createInventoryFull(station, product, 10, 1, "18.00");
         customer = createCustomer("Alice", "openid-alice");
         addr = createAddress(customer, "某小区1号");
+        createCustomerStationConfig(customer,station,1);createTicketAccount(customer,station,product,1000);
     }
 
     private Api createOrderApi(String idemKey, int qty) {
         String body = "{\"addressId\":" + addr + ",\"stationId\":" + station
-                + ",\"paymentMethod\":3,\"idempotencyKey\":\"" + idemKey + "\","
+                + ",\"paymentMethod\":3,\"ticketFeePaymentMethod\":2,\"idempotencyKey\":\"" + idemKey + "\","
                 + "\"items\":[{\"productId\":" + product + ",\"quantity\":" + qty + "}]}";
         return post("/api/orders/create", customerToken(customer), body);
     }
@@ -167,7 +168,7 @@ class OrderCreationIntegrationTest extends AbstractIntegrationTest {
         seed();
 
         Api res = post("/api/orders/create", customerToken(customer),
-                "{\"addressId\":" + addr + ",\"stationId\":" + station + ",\"paymentMethod\":3,"
+                "{\"addressId\":" + addr + ",\"stationId\":" + station + ",\"paymentMethod\":3,\"ticketFeePaymentMethod\":2,"
                         + "\"items\":[{\"productId\":" + product + ",\"quantity\":1}]}");
 
         assertTrue(!res.isSuccess(), "缺键必须被拒（否则服务端每次生成新键 = 无幂等），实际=" + res);
@@ -182,11 +183,12 @@ class OrderCreationIntegrationTest extends AbstractIntegrationTest {
         seed();
         long otherCustomer = createCustomer("Bob", "openid-bob");
         long otherAddr = createAddress(otherCustomer, "某小区2号");
+        createCustomerStationConfig(otherCustomer,station,1);createTicketAccount(otherCustomer,station,product,1000);
 
         Api alice = createOrderApi("idem-shared-key", 1);
 
         Api bob = post("/api/orders/create", customerToken(otherCustomer),
-                "{\"addressId\":" + otherAddr + ",\"stationId\":" + station + ",\"paymentMethod\":3,"
+                "{\"addressId\":" + otherAddr + ",\"stationId\":" + station + ",\"paymentMethod\":3,\"ticketFeePaymentMethod\":2,"
                         + "\"idempotencyKey\":\"idem-shared-key\","
                         + "\"items\":[{\"productId\":" + product + ",\"quantity\":1}]}");
 
@@ -232,7 +234,7 @@ class OrderCreationIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, intOf("SELECT COUNT(*) FROM orders"), "needConfirm 阶段不得建单");
 
         Api confirmed = post("/api/orders/create", customerToken(customer),
-                "{\"addressId\":" + addr + ",\"stationId\":" + station + ",\"paymentMethod\":3,"
+                "{\"addressId\":" + addr + ",\"stationId\":" + station + ",\"paymentMethod\":3,\"ticketFeePaymentMethod\":2,"
                         + "\"idempotencyKey\":\"idem-shortage\",\"confirmShortage\":true,"
                         + "\"items\":[{\"productId\":" + product + ",\"quantity\":2}]}");
 

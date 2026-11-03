@@ -130,7 +130,7 @@ public class ManagerOrderAssistController {
         }
         // 与顾客端 quote / 下单走同一个实现，不在此内联任何金额算法
         return Result.success(paymentService.quote(customerId, stationId, dto.getPaymentMethod(),
-                itemMaps, dto.getAddressId()));
+                itemMaps, dto.getAddressId(),dto.getTicketFeePaymentMethod()));
     }
 
     /**

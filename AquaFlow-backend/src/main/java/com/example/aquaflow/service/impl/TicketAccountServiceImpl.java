@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 
 @Service
 public class TicketAccountServiceImpl implements TicketAccountService {
+    @Autowired private com.example.aquaflow.service.TicketDeliveryBenefitService deliveryBenefits;
     @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
@@ -220,6 +221,7 @@ public class TicketAccountServiceImpl implements TicketAccountService {
             if (account == null) {
                 throw new BusinessException("该客户在本站无此商品的水票账户，无法扣减");
             }
+            ticketLotService.assertAvailable(customerId,stationId,productId,qty);
             int affected = ticketAccountMapper.decrementQuantity(account.getId(), qty);
             if (affected == 0) {
                 throw new BusinessException("水票余额不足，无法扣减");
@@ -428,6 +430,7 @@ public class TicketAccountServiceImpl implements TicketAccountService {
             // 文案会原样出现在客户端 toast 上，要说清"为什么不能用票"而不是笼统的余额不足
             throw new BusinessException("当前水站水票余额不足，请先补充水票库存");
         }
+        ticketLotService.assertAvailable(customerId,stationId,productId,qty);
         int affected = ticketAccountMapper.decrementQuantity(account.getId(), qty);
         if (affected == 0) {
             throw new BusinessException("水票余额不足，请先购买水票后再试");
@@ -674,6 +677,8 @@ public class TicketAccountServiceImpl implements TicketAccountService {
             log.warn("[v33] 在线购票并发重复提交被唯一键拦截: customerId={}, idempotencyKey={}", customerId, key);
             throw new BusinessException("该笔购买已提交，请勿重复提交");
         }
+
+        deliveryBenefits.snapshotPurchase(record,packageId,unifiedQty);
 
         // 水票入账由 PaymentServiceImpl.confirmPayment 在支付确认成功后执行。
         // ⚠️ 它的乐观锁（CAS PENDING→PAID）只保证**单条流水**只入账一次，管不住"重复流水"——

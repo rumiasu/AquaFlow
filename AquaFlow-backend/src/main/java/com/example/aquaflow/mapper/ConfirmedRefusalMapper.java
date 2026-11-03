@@ -23,10 +23,10 @@ public interface ConfirmedRefusalMapper {
     int frozenForProduct(@Param("customer") Long customer,@Param("station") Long station,@Param("product") Long product);
     @Select("select distinct r.customer_id as customerId from customer_refusal_case r left join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.asset_station_id=#{station} and r.asset_freeze_confirmed=1 and coalesce(x.asset_freeze_released,0)=0 and o.payment_status=1 and o.status<>5")
     List<Map<String,Object>> frozenCustomers(@Param("station") Long station);
-    @Select("select r.*,o.total_amount as debtAmount,o.payment_status as paymentStatus,o.status as orderStatus,coalesce(x.judgment_revoked,0) as judgmentRevoked,coalesce(x.asset_freeze_released,0) as assetFreezeReleased,coalesce(x.version,0) as version from customer_refusal_case r left join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.asset_station_id=#{station} or r.debt_station_id=#{station} order by r.create_time desc limit 200")
+    @Select("select r.*,coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=o.id),o.total_amount) as debtAmount,o.payment_status as paymentStatus,o.status as orderStatus,coalesce(x.judgment_revoked,0) as judgmentRevoked,coalesce(x.asset_freeze_released,0) as assetFreezeReleased,coalesce(x.version,0) as version from customer_refusal_case r left join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.asset_station_id=#{station} or r.debt_station_id=#{station} order by r.create_time desc limit 200")
     List<Map<String,Object>> list(@Param("station") Long station);
     /** 当前事项同时保留实际限制及本站仍可执行的纠错动作；已结历史另可遍历/编号定位。 */
-    @Select("<script>select r.*,o.total_amount as debtAmount,o.payment_status as paymentStatus,o.status as orderStatus,"
+    @Select("<script>select r.*,coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=o.id),o.total_amount) as debtAmount,o.payment_status as paymentStatus,o.status as orderStatus,"
             + "coalesce(x.judgment_revoked,0) as judgmentRevoked,coalesce(x.asset_freeze_released,0) as assetFreezeReleased,"
             + "coalesce(x.version,0) as version from customer_refusal_case r left join orders o on o.id=r.order_id"
             + " left join customer_refusal_resolution x on x.order_id=r.order_id"

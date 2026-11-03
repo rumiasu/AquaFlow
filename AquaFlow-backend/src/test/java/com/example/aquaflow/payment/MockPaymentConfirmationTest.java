@@ -26,6 +26,8 @@ class MockPaymentConfirmationTest {
         ReflectionTestUtils.setField(service,"ticketAccountService",tickets);ReflectionTestUtils.setField(service,"mockPolicy",policy);
         ReflectionTestUtils.setField(service,"mockAdapter",new MockWechatPaymentAdapter(policy));ReflectionTestUtils.setField(service,"mockWechatPay",true);
         ReflectionTestUtils.setField(service,"confirmedRefusals",mock(ConfirmedRefusalService.class));
+        ReflectionTestUtils.setField(service,"deliveryBenefits",mock(TicketDeliveryBenefitService.class));
+        ReflectionTestUtils.setField(service,"ticketPayments",new TicketPaymentService(mock(org.springframework.jdbc.core.JdbcTemplate.class),mock(TicketLotService.class),mock(TicketDeliveryBenefitService.class),mock(OrderItemMapper.class)));
         doNothing().when(service).applyDepositOnPaid(anyLong());
         payment=new PaymentRecord();payment.setId(12L);payment.setOrderId(90L);payment.setCustomerId(7L);payment.setStationId(1L);
         payment.setPaymentMethod(1);payment.setStatus(1);payment.setAmount(new BigDecimal("40.00"));

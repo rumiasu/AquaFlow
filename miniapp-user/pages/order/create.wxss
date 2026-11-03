@@ -1792,3 +1792,8 @@
 
 /* 恢复信息较长时可滚动，保留底栏主操作。 */
 .submit-unknown,.order-navigation-error { max-height:30vh; overflow-y:auto; }
+
+.ticket-fee-section .method-desc { display:block; margin:8px 0; font-size:14px; line-height:22px; white-space:normal; overflow-wrap:anywhere; }
+.ticket-fee-methods { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.ticket-fee-methods .af-choice { width:100%; margin:0; }
+.ticket-fee-methods .af-choice__face { min-height:44px; white-space:normal; overflow-wrap:anywhere; font-size:15px; line-height:22px; }

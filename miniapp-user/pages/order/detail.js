@@ -299,6 +299,7 @@ Page({
       customerId: getCustomerId(),
       amount: order.totalAmount != null ? order.totalAmount : order.amount,
       paymentMethod: order.paymentMethod || 1,
+      ticketFeePaymentMethod: order.ticketFeePaymentMethod,
       waterAmount: 0,
       barrelDeposit: 0,
       extraDepositBuckets: 0,

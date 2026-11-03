@@ -13,6 +13,12 @@ public interface OrderMapper {
 
     // 2026-10-24：update_time 会被补收款/备注改写；只用送达凭据定日期。
     // COMPLETE 覆盖零回桶和非桶订单，type=8 兼容尚无该审计事件的桶流水；无凭据保持未知。
+    String TICKET_FIELDS = "(select t.cash_method from order_ticket_payment t where t.order_id=o.id) as ticketFeePaymentMethod, "
+            + "(select t.cash_due from order_ticket_payment t where t.order_id=o.id) as ticketCashAmount, "
+            + "(select t.delivery_credit from order_ticket_payment t where t.order_id=o.id) as ticketDeliveryCredit, "
+            + "(select t.state from order_ticket_payment t where t.order_id=o.id) as ticketWaterState, ";
+    @Update("update orders set due_date=#{dueDate} where id=#{id}")
+    int updateTicketDueDate(@Param("id") Long id,@Param("dueDate") java.time.LocalDate dueDate);
     String DELIVERY_EVENT_TIME = "coalesce(completed.delivery_time,barrels.delivery_time)";
     // audit_log 没有 target 联合索引；每类凭据先聚合一次，不能为每张订单反复相关扫描。
     String DELIVERY_EVENT_JOINS = " left join (select target,min(create_time) as delivery_time from audit_log "
@@ -24,7 +30,7 @@ public interface OrderMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void save(Orders orders);
 
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, a.name as addressName, a.phone as addressPhone, " +
             "a.lat as addressLat, a.lng as addressLng " +
             "from orders o " +
@@ -340,7 +346,7 @@ public interface OrderMapper {
      *
      * @param staffScope <b>[2026-09-27 产品裁定]</b> 为 true 时追加「还没收到钱、且订单还活着的单不进站长 /
      *                   配送员视野」那道闸门
-     *                   （{@code payment_status = 2 或 payment_method = 2 或 status in (3,4,5)}）。
+     *                   （{@code payment_status = 2 或 (payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=orders.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED'))) 或 status in (3,4,5)}）。
      *                   产品原话：「2. 不应该，减少杂乱度，规整一下，所以不应该」——
      *                   问的是「未付款的微信单要不要出现在站长的订单列表里」。
      *                   ⚠️ 第三个条件是**历史**（已送达/已完成/已取消）：微信单取消后
@@ -390,7 +396,7 @@ public interface OrderMapper {
      *       水票的扣减发生在客户端下单后那次支付请求里，扣成功即置 2，于是它和微信支付成功
      *       完全同一条线（不要为了"水票下单即算已付"在下单时抢着扣票：那会让票不够的客户
      *       <b>连单都下不出来</b>，而现有流程是"先下单、再扣票"）。</li>
-     *   <li>{@code payment_method = 2}（现金 = 货到付款）—— <b>钱要当面收，不能等付了才派人</b>，
+     *   <li>{@code (payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=orders.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED')))}（现金 = 货到付款）—— <b>钱要当面收，不能等付了才派人</b>，
      *       所以它必须在钱没到时就进视野。它的安全性由**下单闸门**保证：客户没在本站开通
      *       货到付款时，{@code OrderServiceImpl.createOrder} 直接拒单，所以"现金单"本身
      *       就等价于"允许货到付款的客户"。</li>
@@ -411,7 +417,7 @@ public interface OrderMapper {
     // 楼层/电梯按 LEFT JOIN 补（address 已经是 left join，不会漏行，也不用新增 join）——
     // 「本站未分配」列表是站长分派的依据，他要一眼看出哪些单要爬楼、有没有电梯，
     // 否则只能凭记忆分派（三态语义见 Orders#addressFloor 的注释：null ≠ 0）。
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
             "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator " +
@@ -422,7 +428,7 @@ public interface OrderMapper {
             "and o.status = 1 " +
             "and o.delivery_staff_id IS NULL " +
             // 已收款，或货到付款（现金）：没收到钱的单不进站长/配送员的视野
-            "and (o.payment_status = 2 or o.payment_method = 2) " +
+            "and (o.payment_status = 2 or (o.payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED')))) " +
             "order by o.create_time asc")
     List<Orders> listPendingByStationId(@Param("stationId") Long stationId);
 
@@ -436,7 +442,7 @@ public interface OrderMapper {
      * 但每轮仍占满名额，后面的无流水订单永远无法释放预留。取消事务里仍要再查一次活跃流水，
      * 防住候选查询后到加锁前新建支付请求的竞态。</p>
      */
-    @Select("select o.id from orders o where o.payment_method in (1, 3) and o.payment_status in (0, 1) and o.status = 1 " +
+    @Select("select o.id from orders o where o.payment_method in (1, 3) and not exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2) and o.payment_status in (0, 1) and o.status = 1 " +
             "and o.create_time < date_sub(now(), interval #{minutes} minute) " +
             "and not exists (select 1 from payment_record p where p.order_id = o.id and p.status in (1, 2)) " +
             "order by o.id limit #{limit}")
@@ -453,7 +459,7 @@ public interface OrderMapper {
      * 调用方**必须**先过 {@code CustomerProfileMask.maskIfCrossStation} 再出网 ——
      * 这几行全是别站的客户，画像不能下发。状态只取 1/2/3/4（已取消的不算"接了多少单"）。</p>
      */
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, " +
             "(select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
             "from orders o " +
@@ -477,19 +483,19 @@ public interface OrderMapper {
      * 该客户在本站**逾期未结的现金单**张数与金额（v48 的「欠款即停」判据）。
      *
      * <p>判据只用现有列现算（不发明新规则）：{@code payment_status = 1}（待收款，钱还没到手）
-     * 且 {@code status <> 5}（未取消）且 {@code payment_method = 2}（现金）且
+     * 且 {@code status <> 5}（未取消）且 {@code (payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=orders.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED')))}（现金）且
      * {@code due_date < curdate()}（账期已过）。{@code due_date} 是下单时按客户账期快照的
      * （{@code ReceivableService.resolveDueDate}），**只有现金单才有**，所以这里再加一个
      * {@code due_date is not null} 只是把语义写明，不改变结果集。</p>
      */
     @Select("select count(*) from orders where customer_id = #{customerId} and station_id = #{stationId} "
-            + "and status <> 5 and payment_status = 1 and payment_method = 2 "
+            + "and status <> 5 and payment_status = 1 and (payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=orders.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED'))) "
             + "and due_date is not null and due_date < curdate()")
     int countOverdueCashOrders(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
     /** 见 {@link #countOverdueCashOrders}：同一判据的金额合计（给站长在开通弹窗里看到"欠了多少"）。 */
-    @Select("select coalesce(sum(total_amount), 0) from orders where customer_id = #{customerId} and station_id = #{stationId} "
-            + "and status <> 5 and payment_status = 1 and payment_method = 2 "
+    @Select("select coalesce(sum(coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=orders.id),total_amount)), 0) from orders where customer_id = #{customerId} and station_id = #{stationId} "
+            + "and status <> 5 and payment_status = 1 and (payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=orders.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED'))) "
             + "and due_date is not null and due_date < curdate()")
     java.math.BigDecimal sumOverdueCashAmount(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
@@ -505,7 +511,7 @@ public interface OrderMapper {
             + "coalesce(max(case when due_date is not null and due_date < curdate() "
             + "                  then datediff(curdate(), due_date) else 0 end), 0) as maxOverdueDays "
             + "from orders where station_id = #{stationId} and status <> 5 "
-            + "and payment_status = 1 and payment_method = 2 "
+            + "and payment_status = 1 and (payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=orders.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED'))) "
             + "group by customer_id")
     List<java.util.Map<String, Object>> creditSummaryByStation(@Param("stationId") Long stationId);
 
@@ -516,7 +522,7 @@ public interface OrderMapper {
      */
     @Select("select coalesce(max(datediff(curdate(), due_date)), 0) from orders "
             + "where customer_id = #{customerId} and station_id = #{stationId} "
-            + "and status <> 5 and payment_status = 1 and payment_method = 2 "
+            + "and status <> 5 and payment_status = 1 and (payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=orders.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED'))) "
             + "and due_date is not null and due_date < curdate()")
     int maxOverdueDaysForCredit(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
@@ -525,7 +531,7 @@ public interface OrderMapper {
      *
      * <p>两个口径都必须与"可赊额度"对齐，否则会自己把自己判成超额度：</p>
      * <ul>
-     *   <li>只算 {@code payment_method = 2}（现金/赊账）：微信未付单与水票未付单不是赊账，
+     *   <li>只算 {@code (payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=orders.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED')))}（现金/赊账）：微信未付单与水票未付单不是赊账，
      *       它们收不到钱根本不会进配送流程；</li>
      *   <li>只算 {@code water_amount}：<b>押金不算</b> —— 押金是客户资产（可退）、由他手上的桶担保，
      *       把它算进"欠款"会凭空放大敞口。这与 {@code EnterpriseIdentityService} 的大额口径同源
@@ -535,7 +541,7 @@ public interface OrderMapper {
      * 而额度只按水费算 —— 于是"按额度上限买 20 桶水"会被判成超额度（1000 &gt; 400）。</p>
      */
     @Select("select coalesce(sum(water_amount), 0) from orders where customer_id = #{customerId} and station_id = #{stationId} "
-            + "and status <> 5 and payment_status = 1 and payment_method = 2")
+            + "and status <> 5 and payment_status = 1 and (payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=orders.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED')))")
     java.math.BigDecimal sumOutstandingCredit(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
     /**
@@ -592,7 +598,7 @@ public interface OrderMapper {
     // ⚠️ itemSummary / itemKindCount 的 case 与 util/BarrelScope 同源（product.category：
     //    1 桶装水 / 2 瓶装水 / 3 饮水器），改一处要改两处；group_concat 的
     //    group_concat_max_len（默认 1024 字节）截断风险与别名约定见 listPendingByStationId 上方注释。
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
             "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail, a.name as addressName, a.phone as addressPhone, " +
@@ -603,10 +609,10 @@ public interface OrderMapper {
             "where o.delivery_staff_id = #{staffId} and o.status = #{status} " +
             "and exists (select 1 from staff s where s.id=#{staffId} and s.status=1 " +
             "and s.station_id=coalesce(o.delivery_station_id,o.station_id)) " +
-            "and (o.payment_status=2 or o.payment_method=2 or o.status in (3,4,5))")
+            "and (o.payment_status=2 or (o.payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED'))) or o.status in (3,4,5))")
     List<Orders> listByDeliveryStaffId(@Param("staffId") Long staffId, @Param("status") Integer status);
 
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
@@ -618,7 +624,7 @@ public interface OrderMapper {
     // ⚠️ 补 itemSummary / itemKindCount（2026-09-27）：这是「待收款」页签的取数，
     //    原先只给 firstProductName，前端只好回落成「第一款 × 件数」——混合单会漏商品。
     //    单位判据与 listPendingByStationId 同源（product.category：1 桶/2 瓶/3 台/其余件）。
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
             "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail " +
@@ -632,7 +638,7 @@ public interface OrderMapper {
 
     // 「今日完成」：itemSummary / itemKindCount 见 listPendingByStationId 上方的单位与截断说明；
     // 楼层/电梯照抄 listByDeliveryStaffId —— 配送员回到站里复盘/补录时同样要知道这单上没上楼。
-    @Select("select o.*, " + DELIVERY_EVENT_TIME + " as deliveryTime, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " " + DELIVERY_EVENT_TIME + " as deliveryTime, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
             "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator " +
@@ -653,7 +659,7 @@ public interface OrderMapper {
     int countDeliveryTimeUnverified(@Param("staffId") Long staffId);
 
     // 2026-10-24：原筛选配送中(2)会漏已送达且混入未交付订单；零回桶同样是一次真实交付。
-    @Select("select o.*, " + DELIVERY_EVENT_TIME + " as deliveryTime, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " " + DELIVERY_EVENT_TIME + " as deliveryTime, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
@@ -663,7 +669,7 @@ public interface OrderMapper {
             "order by deliveryTime desc, o.id desc")
     List<Orders> listBarrelRecords(@Param("staffId") Long staffId);
 
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='STAFF' order by t.id desc limit 1) as transferPendingKind, " +
             // [2026-09-29 清单2] sub_kind 同源下发：kind='STAFF' 下还分 退回站长/转让/取消申请，
@@ -695,7 +701,7 @@ public interface OrderMapper {
      * @param subKinds 见 {@code constant/PendingItem.STAFF_TRANSFER_SUB_KINDS} /
      *                 {@code PendingItem.SUB_CANCEL_REQUEST}（两者互补，新增子类时必须归类）
      */
-    @Select("<script>select o.*, c.name as customerName, c.phone as customerPhone, " +
+    @Select("<script>select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, " +
             "(select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
             "from orders o " +
@@ -709,7 +715,7 @@ public interface OrderMapper {
     List<Orders> listStaffRequestsBySubKinds(@Param("stationId") Long stationId,
                                             @Param("subKinds") List<String> subKinds);
 
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
@@ -729,7 +735,7 @@ public interface OrderMapper {
      * 只能提交取消申请等待站长决策；此查询即该队列。与「站内」队列（复用
      * {@link #listTransferredOrders}，kind='STAFF'）并列，构成站长端审批页的两个页签。</p>
      */
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
@@ -747,7 +753,7 @@ public interface OrderMapper {
     // 要看本站取消单请走订单列表接口；不要再按"异常"这个名字把本方法加回来。
     // 回归：ManagerOrderControllerRemovedIntegrationTest 断言该路径返回 404。
 
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
@@ -769,7 +775,7 @@ public interface OrderMapper {
     // 一旦被调用，轻则报参数缺失，重则被"顺手补上参数"后变成跨站订单+客户手机号泄露。
     // 站内搜索请一律用下面的 searchByKeywordAndStation。
 
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
@@ -820,7 +826,7 @@ public interface OrderMapper {
     //    与别名 oi2/p2 的约定见 listPendingByStationId 上方注释。
     // 楼层/电梯同样按 LEFT JOIN 补（address 已经是 left join，不会漏行）——「待分配」列表里
     // 站长要一眼看出哪些单要爬楼，否则分派时只能凭记忆。
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, c.customer_type as customerType, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, c.customer_type as customerType, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
             "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator, " +
@@ -840,7 +846,7 @@ public interface OrderMapper {
             "and (o.status = 1 OR (o.status=2 AND exists (select 1 from order_transfer t " +
             "where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED' and t.sub_kind='DIRECTED_RETURN'))) " +
             // 与 listPendingByStationId 同一道推送闸门：已收款 或 货到付款（现金）
-            "and (o.payment_status = 2 or o.payment_method = 2) " +
+            "and (o.payment_status = 2 or (o.payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED')))) " +
             "and (o.delivery_staff_id IS NULL OR exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
             "and (o.special_note IS NULL OR INSTR(o.special_note, '外派') = 0 OR o.delivery_station_id = #{stationId} " +
             "     OR exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED')) " +
@@ -859,7 +865,7 @@ public interface OrderMapper {
      * {@code group_concat_max_len}（默认 1024 字节）的静默截断风险与别名 oi2/p2 的约定
      * 见 {@link #listPendingByStationId} 上方注释。</p>
      */
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "(select group_concat(concat(oi2.product_name_snapshot, ' ', oi2.quantity, case p2.category when 1 then '桶' when 2 then '瓶' when 3 then '台' else '件' end) order by oi2.id separator '，') from order_item oi2 left join product p2 on p2.id = oi2.product_id where oi2.order_id = o.id) as itemSummary, " +
             "(select count(*) from order_item oi2 where oi2.order_id = o.id) as itemKindCount, " +
             "a.detail as addressDetail, a.floor as addressFloor, a.has_elevator as addressHasElevator, " +
@@ -871,7 +877,7 @@ public interface OrderMapper {
             "and o.status = 1 " +
             "and exists (select 1 from staff s where s.id=#{staffId} and s.status=1 " +
             "and s.station_id=coalesce(o.delivery_station_id,o.station_id)) " +
-            "and (o.payment_status=2 or o.payment_method=2) " +
+            "and (o.payment_status=2 or (o.payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED')))) " +
             // [AQ-015] 排除已发起指定退回（转单中）的单，改由 order_transfer 判定
             "and not exists (select 1 from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED') " +
             "order by o.create_time asc")
@@ -881,7 +887,7 @@ public interface OrderMapper {
      * 抢单池列表：delivery_station_id IS NULL 的待外派订单
      * 排除自己水站的订单（不能抢自己的单）
      */
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
@@ -897,7 +903,7 @@ public interface OrderMapper {
      * 特殊标记包含 [外派] 且 delivery_station_id IS NULL（在池中）
      * 或已被其他站抢单（delivery_station_id != null 且 != station_id）
      */
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail " +
             "from orders o " +
             "left join customer c on o.customer_id = c.id " +
@@ -911,7 +917,7 @@ public interface OrderMapper {
     /**
      * 原归属站视角：被指定水站退回、等待站长同意的订单
      */
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
             "(select t.id from order_transfer t where t.order_id=o.id and t.status='PENDING' and t.kind='DIRECTED' and t.sub_kind='DIRECTED_RETURN' order by t.id desc limit 1) as transferPendingRequestId, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
@@ -928,7 +934,7 @@ public interface OrderMapper {
     /**
      * 目标水站视角：本水站被指定为履约站、但归属站为其他水站的订单（他站外派给我）
      */
-    @Select("select o.*, c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
+    @Select("select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone, (select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName, " +
             "a.detail as addressDetail, " +
             "(select t.kind from order_transfer t where t.order_id=o.id and t.status='PENDING' order by t.id desc limit 1) as transferPendingKind " +
             "from orders o " +
@@ -957,7 +963,7 @@ public interface OrderMapper {
     @Select("select count(*) from orders o " +
             "where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} " +
             "and o.status in (1, 2, 3) " +
-            "and o.payment_method = 2 " +
+            "and (o.payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED'))) " +
             "and o.payment_status != 2")
     int countUncollected(@Param("stationId") Long stationId);
 

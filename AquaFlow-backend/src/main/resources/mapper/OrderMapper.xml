@@ -79,7 +79,11 @@
     </select>
 
     <sql id="orderListQuery">
-        select o.*, c.name as customerName, c.phone as customerPhone,
+        select o.*,
+        (select tp.cash_method from order_ticket_payment tp where tp.order_id=o.id) as ticketFeePaymentMethod,
+        (select tp.cash_due from order_ticket_payment tp where tp.order_id=o.id) as ticketCashAmount,
+        (select tp.delivery_credit from order_ticket_payment tp where tp.order_id=o.id) as ticketDeliveryCredit,
+        (select tp.state from order_ticket_payment tp where tp.order_id=o.id) as ticketWaterState, c.name as customerName, c.phone as customerPhone,
                a.detail as addressDetail, a.name as addressName, a.phone as addressPhone,
                a.lat as addressLat, a.lng as addressLng,
                (select oi.product_name_snapshot from order_item oi where oi.order_id = o.id order by oi.id limit 1) as firstProductName,
@@ -146,7 +150,7 @@
                  否则他在「我的订单」里找不到刚下的单，也就无从继续付款 —— 那会变成"钱收不到"。
             -->
             <if test="staffScope != null and staffScope">
-                and (o.payment_status = 2 or o.payment_method = 2 or o.status in (3, 4, 5))
+                and (o.payment_status = 2 or (o.payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED'))) or o.status in (3, 4, 5))
             </if>
         </where>
         order by o.create_time desc

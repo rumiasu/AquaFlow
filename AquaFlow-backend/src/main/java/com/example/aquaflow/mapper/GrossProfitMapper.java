@@ -119,8 +119,8 @@ public interface GrossProfitMapper {
     @Select("select count(*) as orderCount, "
             // [2026-09-20] 金额只算**非水票单**：票单的配送费 / 楼层费已被票抵掉，钱在购票时收过了
             // （见 ticketPurchaseRevenueByProduct），算进来就是重复。单数仍是全部单（票单也是单）。
-            + "       round(coalesce(sum(case when o.payment_method <> 3 and " + SERVICE_RETAINED + " then o.delivery_fee else 0 end), 0), 2) as deliveryFee, "
-            + "       round(coalesce(sum(case when o.payment_method <> 3 and " + SERVICE_RETAINED + " then o.floor_fee else 0 end), 0), 2) as floorFee "
+            + "       round(coalesce(sum(case when exists(select 1 from order_ticket_payment tp where tp.order_id=o.id) then greatest(0,coalesce((select sum(p.delivery_fee) from payment_record p where p.order_id=o.id and p.status in (2,3) and p.payment_method in (1,2)),0)) when o.payment_method <> 3 and " + SERVICE_RETAINED + " then o.delivery_fee else 0 end), 0), 2) as deliveryFee, "
+            + "       round(coalesce(sum(case when exists(select 1 from order_ticket_payment tp where tp.order_id=o.id) then greatest(0,coalesce((select sum(p.floor_fee) from payment_record p where p.order_id=o.id and p.status in (2,3) and p.payment_method in (1,2)),0)) when o.payment_method <> 3 and " + SERVICE_RETAINED + " then o.floor_fee else 0 end), 0), 2) as floorFee "
             + "  from orders o "
             + " where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "   and o.status <> 5 "

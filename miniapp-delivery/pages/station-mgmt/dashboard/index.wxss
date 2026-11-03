@@ -31,7 +31,7 @@
   margin-bottom: 20rpx;
   box-shadow: var(--shadow-sm);
 }
-.section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
+.section-head { display: flex; flex-wrap: wrap; gap: 12rpx; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
 .section-title {
   font-size: 28rpx;
   font-weight: 600;
@@ -246,3 +246,8 @@ button.af-entry::after { border:0; }
 .metric-label { line-height:1.6; }
 .range-bar { flex-wrap:wrap; gap:8px; }
 .range-bar > .af-choice { flex:1 1 100px; min-width:0; }
+
+/* Small line icon and quiet copy only after a successful empty read. */
+.care-empty { display:flex; flex-direction:column; align-items:center; gap:12rpx; padding:24rpx 8rpx; text-align:center; }
+.care-title { font-size:28rpx; color:var(--text-secondary); line-height:1.6; }
+.care-note { font-size:24rpx; color:var(--text-secondary); line-height:1.6; }

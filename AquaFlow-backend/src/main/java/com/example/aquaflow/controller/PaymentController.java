@@ -165,7 +165,7 @@ public class PaymentController {
             return m;
         }).collect(Collectors.toList());
         return Result.success(paymentService.quote(customerId, dto.getStationId(), dto.getPaymentMethod(), itemMaps,
-                dto.getAddressId()));
+                dto.getAddressId(),dto.getTicketFeePaymentMethod()));
     }
 
     /** 创建支付记录（金额/新增桶数一律以服务端重算为准） */

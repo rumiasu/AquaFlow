@@ -61,7 +61,7 @@ class StationAssetBackfillIntegrationTest extends AbstractIntegrationTest {
     }
 
     private BigDecimal balance() {
-        return decimalOf("SELECT IFNULL(balance,0) FROM customer_deposit_account WHERE customer_id=? AND station_id=?",
+        return decimalOf("SELECT COALESCE(SUM(balance),0) FROM customer_deposit_account WHERE customer_id=? AND station_id=?",
                 customer, station);
     }
 
@@ -71,44 +71,15 @@ class StationAssetBackfillIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("站长补录 5 个桶权益：写进批次真相源，客户随即能申请退桶")
+    @DisplayName("旧异常补偿不能绕过正式资产调整流程新增桶权益")
     void backfilledRights_landInLotAndBecomeReturnable() {
         seed();
-        long order = createOrderFull(customer, addr, station, product,
-                2, 2, 2, "20.00", "30.00", "50.00", false, 5);
-        long exId = seedStaffRecordedException(order);
-
-        Api res = post("/api/manager/exceptions/" + exId + "/handle", mgrToken(),
-                "{\"action\":\"APPROVE\",\"adjustAssetQty\":5,\"adjustProductId\":" + product
-                        + ",\"managerNote\":\"历史补录：老客户手上有5个桶\"}");
-        assertTrue(res.isSuccess(), "补录应成功，实际=" + res);
-
-        // ① 权益必须落在批次上（修复前恒为 0：purchaseBarrels 只写 asset.quantity，绕过 lot）
-        assertEquals(5, intOf("SELECT IFNULL(SUM(remain_qty),0) FROM customer_barrel_lot "
-                        + "WHERE customer_id=? AND station_id=? AND product_id=? AND status=1",
-                customer, station, product), "补录后批次应有 5 个剩余权益");
-
-        // ② 汇总表与批次必须一致（对账 E3a / 恒等式前提）
-        assertEquals(5, intOf("SELECT quantity FROM customer_barrel_asset "
-                        + "WHERE customer_id=? AND station_id=? AND product_id=?",
-                customer, station, product), "asset.quantity 必须等于 Σlot.remain_qty");
-
-        // ③ 来源被正确标注为「人工补录 + 单价推断」，退款端据此可要求二次确认
-        assertEquals(3, intOf("SELECT source_type FROM customer_barrel_lot "
-                        + "WHERE customer_id=? AND station_id=? AND product_id=?",
-                customer, station, product), "批次来源应为 3=人工补录");
-        assertEquals(1, intOf("SELECT is_migrated FROM customer_barrel_lot "
-                        + "WHERE customer_id=? AND station_id=? AND product_id=?",
-                customer, station, product), "未传押金时单价为推断值，应标记 is_migrated=1");
-        assertEquals(0, decimalOf("SELECT unit_price FROM customer_barrel_lot "
-                        + "WHERE customer_id=? AND station_id=? AND product_id=?",
-                customer, station, product).compareTo(new BigDecimal("30.00")),
-                "单价应回退到商品当前押金 30.00（不能是 0，否则将来退桶退 ¥0）");
-
-        // ④ 关键断言：客户能申请退桶。修复前 rightQty=0 → 这里被「可退权益不足」拒绝。
-        Api apply = post("/api/barrels/return", customerToken(customer),
-                "{\"stationId\":" + station + ",\"productId\":" + product + ",\"quantity\":5}");
-        assertTrue(apply.isSuccess(), "补录后客户应能申请退桶，实际=" + apply);
+        long order=createOrderFull(customer,addr,station,product,2,2,2,"20.00","30.00","50.00",false,5);
+        long exId=seedStaffRecordedException(order);
+        int before=intOf("SELECT COUNT(*) FROM customer_barrel_lot WHERE customer_id=?",customer);
+        Api res=post("/api/manager/exceptions/"+exId+"/handle",mgrToken(),"{\"action\":\"APPROVE\",\"adjustAssetQty\":5,\"adjustProductId\":"+product+",\"managerNote\":\"历史核对\"}");
+        assertFalse(res.isSuccess());assertTrue(res.message().contains("停用"));
+        assertEquals(before,intOf("SELECT COUNT(*) FROM customer_barrel_lot WHERE customer_id=?",customer));
     }
 
     @Test
@@ -152,7 +123,7 @@ class StationAssetBackfillIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("异常补偿退现金：用 9=人工补录押金（增加），不再误用方向相反的 7")
+    @DisplayName("停用后的历史已批准补偿也不能执行或增加押金")
     void compensationCash_creditsDepositAsIncrease() {
         seed();
         long order = createOrderFull(customer, addr, station, product,
@@ -163,14 +134,11 @@ class StationAssetBackfillIntegrationTest extends AbstractIntegrationTest {
                 order, customer, station, 3, 2, 1, "RETURN_SHORT", "PARTIAL", "APPROVE",
                 new BigDecimal("50.00"), "MANAGER_APPROVED");
 
-        Api res = post("/api/manager/exceptions/" + exId + "/execute", mgrToken(), "{}");
-        assertTrue(res.isSuccess(), "执行补偿应成功，实际=" + res);
-
-        assertEquals(0, balance().compareTo(new BigDecimal("50.00")), "押金余额应增加 50");
-        assertEquals(0, decimalOf("SELECT amount FROM deposit_record "
-                        + "WHERE customer_id=? AND station_id=? AND type=9", customer, station)
-                        .compareTo(new BigDecimal("50.00")),
-                "9 类流水应为正数（余额增加）；type 7 是扣减，方向相反，不能再用于补入");
-        assertEquals(0, balance().compareTo(flowSum()), "对账等式1：余额必须等于流水合计");
+        BigDecimal before=balance();
+        Api res=post("/api/manager/exceptions/"+exId+"/execute",mgrToken(),"{}");
+        assertFalse(res.isSuccess());assertTrue(res.message().contains("停用"));
+        assertEquals(0,before.compareTo(balance()));
+        assertEquals(0,intOf("SELECT COUNT(*) FROM deposit_record WHERE customer_id=? AND type=9",customer));
+        assertEquals("MANAGER_APPROVED",jdbc.queryForObject("SELECT status FROM order_barrel_exception WHERE id=?",String.class,exId));
     }
 }

@@ -836,3 +836,20 @@ quoted 新路径让旧后端明确拒绝，不会把 token 当未知字段忽略
 员工端 `/api/delivery/earnings/payrolls` 每页20张，`beforeId` 可省略，提供时必须为正整数；响应 `payrolls`、`hasMore`、`nextBeforeId`，只按登录员工及严格递减的id分页。初次收益响应仍提供首批工资单；后续页使用首批最后id。客户端不能用时间或offset替代游标。
 
 `/api/delivery/earnings/payrolls/{id}` 返回本人 `payroll` 和 `items`。单据不属于本人或不存在均业务拒绝，顾客角色不能访问两接口。身份及站别均不接受客户端覆盖，不执行结算、发薪或退款。原收益接口的 `from`/`to` 仍按含结束日口径查询，可用于历史期间。
+
+### 水票服务费与档位配送权益（v90）
+
+| 方法 | 路径 | 权限与用途 |
+| --- | --- | --- |
+| `GET` | `/api/manager/ticket-delivery-offers` | 站长读取本站可配置的生效商品档位与统一折扣档；无配置默认关闭 |
+| `PUT` | `/api/manager/ticket-delivery-offers` | 站长仅配置本站实际档位，body为kind(CUSTOM/UNIFIED)、tierKey、productId(统一档为0)、enabled；不追溯改变已发权益 |
+
+订单报价与创建新增 `ticketFeePaymentMethod`（1当前线上渠道 / 2已授权货到付款）；创建可带 `ticketFeeQuoteAmount`、`ticketDeliveryCreditQuote`，服务端重算并在变化时拒绝。水票只能全额抵对应水费，不支持部分票补水费；配送、楼层、历史押金现金分项独立，独立桶押金仍走既有规则。报价返回ticketFeeMethods、ticketFeeAmount、ticketDeliveryCredit，ticketPay.payableAmount为实际余款。
+
+新订单的order_ticket_payment保存分项，order_ticket_hold保存原批次占用。payment_record仅记录实际余款（零余款为零元非现金水票凭据），一单仍只有一条活跃收款凭据。订单needCollect/collectAmount及ticketFeePaymentMethod均为服务端投影。未付线上服务费不安排配送，货到服务费可先配送但整单不伪记已付款。
+
+退款预览scope同时给expectedTicketQty与expectedRefundAmount；纯票回补的现金金额为0，不能视作非法。回补原批次票与实际服务费退款分开留痕。档位一次配送权益绑定实际购票凭据和实际用票批次，只抵一次配送费，不抵楼层费；交付前取消释放，已交付用过的权益不恢复、不折现金。
+
+### 2026-11-03 看板今日同时刻比较
+
+`GET /api/dashboard/report?range=today` 使用同一次上海业务时间：当前日零点到当前时刻，与昨日零点到昨日同一时刻比较，窗口左闭右开。新增 `asOfText`（HH:mm）、`comparisonNote`、`orderAmountNote`；`summary.grossAmount` 仍为按创建时间和结算站统计的未取消订单金额，不是实收净额，不减售后退款。`compare.grossAmount` 上期金额0时不返回百分比：已有订单显示“昨日同期为 0”，无订单显示“昨日同期暂无记录”。近7/30天维持既有日历窗口，上期完整周期，本期含尚未结束的今日。

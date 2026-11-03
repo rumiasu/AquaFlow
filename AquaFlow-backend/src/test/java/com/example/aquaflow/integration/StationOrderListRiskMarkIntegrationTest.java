@@ -103,6 +103,10 @@ class StationOrderListRiskMarkIntegrationTest extends AbstractScenarioTest {
     @DisplayName("没有赊账的行也要**明确**下发 NORMAL 与 0，不能让前端去猜缺字段是什么意思")
     void rowsWithoutCreditStillCarryExplicitNormal() {
         World w = openStation("标记站C");
+        // 先按真实现金配送链取得已付款桶权益，后续水票只抵水费，不伪付押金。
+        assertEquals(0,placeOrder(w,"mk-existing-barrel",CASH,1).code());
+        long first=orderIdOf("mk-existing-barrel");assertEquals(0,assignOrder(w,first).code());assertEquals(0,acceptOrder(w,first).code());
+        assertEquals(0,completeDelivery(w,first,1,0,true,null).code());
         // 水票单：下单 → 扣票支付 → 已付，于是它既进站长视野、又不属于赊账
         createTicketAccount(w.customerId(), w.stationId(), w.productId(), 10);
         assertEquals(0, placeOrder(w, "mk-c1", TICKET, 1).code(), "水票下单应成功");

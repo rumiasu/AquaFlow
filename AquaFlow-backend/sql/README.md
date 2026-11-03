@@ -229,6 +229,7 @@ SOURCE seed_platform_pulisi_185.sql;
 | 72 | `migration_v87_inventory_cost_snapshots.sql` | 库存和出入库流水可空成本快照；当前启动守卫要求列存在。含非幂等 ALTER，仅对确认缺失列逐条执行，先核准目标并备份；未知历史成本保留 NULL，不重跑整套、不填 0。 |
 | 73 | `migration_v88_dispatch_offer_version.sql` | 外派报价轮次版本；已有协议表先核对列定义并备份，缺列时安装。新后端有只读启动守卫；不改历史金额或自动接受报价。 |
 | 74 | `migration_v89_case_handling_action.sql` | 非财务核实结案与顾客可见反馈回复的追加记录，先核目标与表定义、备份，再安装结构和配套后端，最后更新两端。既有财务/桶票记录不变，云端未执行。 |
+| 75 | `migration_v90_ticket_service_payment.sql` | 水票服务费组合凭据、按批次票预留与一次配送费权益。先核目标并备份，安装增量结构后更新后端与两端；无历史实款改写或演示数据重导。 |
 
 ## 历史迁移演进（脚本已删除，结论保留）
 
@@ -508,3 +509,7 @@ ALTER TABLE inventory ADD COLUMN image_object_name_override VARCHAR(512) DEFAULT
 `migration_v89_case_handling_action.sql` 仅新建追加式处理记录表 case_handling_action，不改现有反馈、订单、钱、桶或水票。已有库须先核对实际目标并保留可恢复备份，执行 `deployment/limited-trial/schema-preflight-v89-readonly.sql`。表不存在才运行本增量；表已存在时核对列、InnoDB、两个唯一索引，结构不同停止核查，不能通过重跑CREATE假称修复。
 
 先准备结构，再将配套后端全部实例更新，最后更新顾客/员工两端。缺表时新办理接口明确拒绝；旧后端无新路径，小程序不假成功。创建表不会修改原反馈或将异常自动结案。多个已有关系站各有自己的回复及结案记录，客户本人可查看各站回复；站长不能借匿名反馈获取客户身份。本轮未执行云端迁移或发布。
+
+- 水票服务费v90只读预检：`precheck_v90_ticket_service_payment.sql`；核对目标、v89表、现有v90结构和活跃原款唯一键后，执行`migration_v90_ticket_service_payment.sql`（仅四张新表，无清库/演示导入），再执行`verify_v90_ticket_service_payment.sql`，要求安装4表、异常分项/hold为0。完成后才更新后端，再更新两端；未在云库执行。
+
+- 若SQL控制台一次只执行一条语句，v90使用以下四个单条文件，按顺序逐个执行：`migration_v90_01_order_ticket_payment.sql`、`migration_v90_02_order_ticket_hold.sql`、`migration_v90_03_ticket_delivery_offer.sql`、`migration_v90_04_ticket_delivery_benefit.sql`。它们与上面的v90主迁移完全相同，只需选择一种执行方式；之后统一运行只读核验文件。

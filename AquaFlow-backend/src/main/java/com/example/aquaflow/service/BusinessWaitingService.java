@@ -17,6 +17,7 @@ public class BusinessWaitingService {
     @Autowired private BarrelLedgerService barrelLedger;
     @Autowired private ConsumptionRefundMapper locks;
     @Autowired private PaymentService payments;
+    @Autowired private TicketPaymentService ticketPayments;
     @Autowired @Lazy private BusinessWaitingService proxy;
     @Value("${aquaflow.barrel.unpaid-timeout-minutes:15}") private int minutes;
     @Value("${aquaflow.barrel.maintenance-enabled:true}") private boolean maintenance;
@@ -31,6 +32,7 @@ public class BusinessWaitingService {
     @Transactional public void expire(Long id) {
         if (!policy.isEnabled()) return;
         Orders order=locks.lockOrder(id);
+        if(order!=null && ticketPayments.get(id)!=null) { payments.cancelTimedOutWechatOrder(id,minutes);return; }
         if (order==null || order.getStatus()!=1 || order.getPaymentStatus()!=0 || order.getPaymentMethod()==2
                 || order.getCreateTime().isAfter(java.time.LocalDateTime.now().minusMinutes(minutes)) || mapper.hasActivePayment(id)>0) return;
         payments.refundOrder(id,"未付订单超过预留时间，自动取消并释放库存、权益占用；独立已付押金不退");

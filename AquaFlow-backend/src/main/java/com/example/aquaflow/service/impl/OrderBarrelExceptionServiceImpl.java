@@ -38,6 +38,7 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     @Autowired private com.example.aquaflow.service.RecordDisplayNameService displayNames;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.ConfirmedRefusalService confirmedRefusals;
+    @Autowired private com.example.aquaflow.service.TicketPaymentService ticketPayments;
 
     @Autowired
     private OrderBarrelExceptionMapper exceptionMapper;
@@ -335,9 +336,17 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         }
 
         String action = input.getAction() != null ? input.getAction() : "IGNORE";
+        if (!"IGNORE".equals(action))
+            throw new BusinessException("自动建议补偿已停用，请通过核实结案或客户资产调整办理");
+        if (input.getManagerNote() == null || input.getManagerNote().isBlank())
+            throw new BusinessException("处理说明不能为空");
+        if ((input.getRefundTicketQty() != null && input.getRefundTicketQty() != 0)
+                || (input.getRefundCashAmount() != null && input.getRefundCashAmount().signum() != 0)
+                || (input.getAdjustAssetQty() != null && input.getAdjustAssetQty() != 0))
+            throw new BusinessException("此入口不允许调整票、款或桶资产");
 
         // 记录站长决策（CAS：仅 STAFF_RECORDED → 决策态可写）
-        String nextStatus = "IGNORE".equals(action) ? "IGNORED" : "MANAGER_APPROVED";
+        String nextStatus = "IGNORED";
         int decided = exceptionMapper.updateDecisionIf(ex.getId(), "STAFF_RECORDED", action,
                 input.getRefundTicketQty(), input.getRefundCashAmount(),
                 input.getAdjustAssetQty(), input.getAdjustProductId(),
@@ -346,26 +355,10 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
             throw new BusinessException("该异常已被处理，请刷新后重试");
         }
 
-        // 如果是APPROVE或MODIFY，直接执行补偿（此时状态已是MANAGER_APPROVED）
-        if ("APPROVE".equals(action) || "MODIFY".equals(action)) {
-            try {
-                executeCompensation(ex.getId());
-            } catch (RuntimeException e) {
-                // [2026-09-16] 补偿执行失败属于**系统故障**（对账/账目出了问题，站长修不了），
-                // 投给系统管理员；然后照旧抛出去让事务回滚，异常单退回可重试。
-                // 告警走独立事务（AlertService 内部 REQUIRES_NEW），不会被这次回滚带走。
-                alertService.systemFault("OrderBarrelException",
-                        "桶异常补偿执行失败：exceptionId=" + ex.getId(),
-                        "action=" + action + "，原因=" + e.getMessage(),
-                        "ORDER_BARREL_EXCEPTION", ex.getId());
-                throw e;
-            }
-        } else if ("IGNORE".equals(action)) {
-            alertService.stationFault(ex.getStationId(), "INFO", "OrderBarrelException",
-                    "桶异常已忽略：exceptionId=" + ex.getId(),
-                    "站长选择忽略，未做任何补偿。备注=" + input.getManagerNote(),
-                    "ORDER_BARREL_EXCEPTION", ex.getId());
-        }
+        alertService.stationFault(ex.getStationId(), "INFO", "OrderBarrelException",
+                "桶异常已忽略：exceptionId=" + ex.getId(),
+                "站长选择忽略，未做任何补偿。备注=" + input.getManagerNote(),
+                "ORDER_BARREL_EXCEPTION", ex.getId());
 
         log.info("[OrderBarrelException] 站长处理异常: exceptionId={}, action={}", exceptionId, action);
     }
@@ -373,107 +366,7 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void executeCompensation(Long exceptionId) {
-        OrderBarrelException ex = exceptionMapper.getById(exceptionId);
-        if (ex == null) {
-            throw new BusinessException("异常记录不存在: " + exceptionId);
-        }
-
-        // AQ-010: 终态守卫 — 已执行(EXECUTED)的异常拒绝重复执行（配合 handleException 的守卫，杜绝重复刷补偿）
-        // [2026-09-13] 改为 CAS：把「读到的状态」当作 expected，affected=0 即已被并发推进，直接拒绝。
-        if (!"MANAGER_APPROVED".equals(ex.getStatus()) && !"EXECUTING".equals(ex.getStatus())) {
-            throw new BusinessException("异常状态不允许执行: " + ex.getStatus());
-        }
-        int claimed = exceptionMapper.updateStatusIf(ex.getId(), ex.getStatus(), "EXECUTING");
-        if (claimed == 0) {
-            throw new BusinessException("该异常已由其他操作执行或状态已变更，请刷新后重试");
-        }
-        ex.setStatus("EXECUTING");
-
-        {
-            Long customerId = ex.getCustomerId();
-            Long stationId = ex.getStationId();
-
-            // AQ-010: 基于站长配置的补偿参数执行，而非依赖 managerAction 文本枚举。
-            // 前端统一下发 APPROVE/MODIFY，旧代码按 REFUND_TICKET/REFUND_CASH 等枚举匹配导致补偿永不执行。
-            boolean compensated = false;
-
-            // 1. 退水票：增加客户水票账户余额
-            if (ex.getRefundTicketQty() != null && ex.getRefundTicketQty() > 0) {
-                if (ex.getAdjustProductId() != null) {
-                    ticketAccountService.addTicket(customerId, ex.getAdjustProductId(), ex.getRefundTicketQty(), stationId);
-                    compensated = true;
-                    log.info("[OrderBarrelException] 执行退水票: exceptionId={}, productId={}, qty={}",
-                            ex.getId(), ex.getAdjustProductId(), ex.getRefundTicketQty());
-                } else {
-                    // [2026-09-16 修复] 原来这里只 log.warn，然后照样把异常标成 EXECUTED ——
-                    // 站长以为票退了，客户账户上一张都没多（与"静默丢字段"同一类坑）。
-                    // 补偿要求了却做不到，必须失败回滚、让他补全重试。
-                    throw new BusinessException("退水票必须指定商品（adjustProductId 不能为空）");
-                }
-            }
-
-            // 2. 退现金 / 减免押金：退还到客户押金账户（余额增加）
-            //    [2026-09-13 修复] 旧实现用 type=7「异常补偿退押金」+ 直写 increaseBalance，
-            //    但 7 在 DepositType.isDecrease 里是【扣减】——同一个类型出现两种相反方向。
-            //    现改为：走押金唯一入口（账户+流水成对写），类型用 9「人工补录押金（增加）」。
-            if (ex.getRefundCashAmount() != null && ex.getRefundCashAmount().compareTo(BigDecimal.ZERO) > 0) {
-                DepositRecord dr = new DepositRecord();
-                dr.setCustomerId(customerId);
-                dr.setStationId(stationId);
-                dr.setType(DepositType.MANUAL_GRANT); // 9 人工补录押金（余额增加）
-                dr.setAmount(ex.getRefundCashAmount()); // 正值：方向由 type 决定
-                dr.setNote("桶异常补偿退现金: exceptionId=" + ex.getId());
-                dr.setOperatorId(AuthContext.getUserId());
-                depositRecordService.add(dr, stationId);
-                compensated = true;
-                log.info("[OrderBarrelException] 执行退现金: exceptionId={}, amount={}", ex.getId(), ex.getRefundCashAmount());
-            }
-
-            // 3. 调整桶资产
-            if (ex.getAdjustAssetQty() != null && ex.getAdjustAssetQty() != 0) {
-                if (ex.getAdjustProductId() == null) {
-                    throw new BusinessException("调整桶资产必须指定产品ID");
-                }
-                List<BarrelAssetService.BarrelReturnItem> items = new ArrayList<>();
-                BarrelAssetService.BarrelReturnItem item = new BarrelAssetService.BarrelReturnItem();
-                item.setProductId(ex.getAdjustProductId());
-                item.setQty(Math.abs(ex.getAdjustAssetQty()));
-                item.setRefundAmount(BigDecimal.ZERO); // 纯资产调整不涉及押金
-                if (ex.getAdjustAssetQty() > 0) {
-                    // 增加资产
-                    List<BarrelAssetService.BarrelPurchaseItem> purchaseItems = new ArrayList<>();
-                    BarrelAssetService.BarrelPurchaseItem pItem = new BarrelAssetService.BarrelPurchaseItem();
-                    pItem.setProductId(ex.getAdjustProductId());
-                    pItem.setQty(ex.getAdjustAssetQty());
-                    pItem.setDepositAmount(BigDecimal.ZERO);
-                    purchaseItems.add(pItem);
-                    barrelAssetService.purchaseBarrels(ex.getCustomerId(), ex.getStationId(), purchaseItems, AuthContext.getUserId());
-                } else {
-                    // 减少资产
-                    items.add(new BarrelAssetService.BarrelReturnItem(ex.getAdjustProductId(), Math.abs(ex.getAdjustAssetQty()), BigDecimal.ZERO));
-                    barrelAssetService.returnBarrels(ex.getCustomerId(), ex.getStationId(), items, AuthContext.getUserId());
-                }
-                compensated = true;
-                log.info("[OrderBarrelException] 执行调整桶资产: exceptionId={}, qty={}", ex.getId(), ex.getAdjustAssetQty());
-            }
-
-            // 收尾：EXECUTING → EXECUTED（CAS，affected=0 说明状态被并发改动，必须失败而不是静默继续）
-            if (exceptionMapper.updateStatusIf(ex.getId(), "EXECUTING", "EXECUTED") == 0) {
-                throw new BusinessException("异常执行状态已变更，本次补偿已回滚，请刷新后重试");
-            }
-            ex.setStatus("EXECUTED");
-            ex.setExecutedAt(LocalDateTime.now());
-
-            log.info("[OrderBarrelException] 补偿执行完成: exceptionId={}, compensated={}", ex.getId(), compensated);
-
-            // [2026-09-16] 补偿落账成功 → 运营告警给站长（"钱/票已经动过了"是需要站内留痕与对账的动作）
-            alertService.stationFault(ex.getStationId(), "INFO", "OrderBarrelException",
-                    "桶异常补偿已执行：exceptionId=" + ex.getId(),
-                    "退水票=" + (ex.getRefundTicketQty() == null ? 0 : ex.getRefundTicketQty())
-                            + " 张，退现金=¥" + (ex.getRefundCashAmount() == null ? "0" : ex.getRefundCashAmount())
-                            + "，调整桶资产=" + (ex.getAdjustAssetQty() == null ? 0 : ex.getAdjustAssetQty()),
-                    "ORDER_BARREL_EXCEPTION", ex.getId());
-        }
+        throw new BusinessException("自动建议补偿已停用，不能执行；请核对原订单、客户资产及实际还桶，再按依据办理");
     }
 
     /**
@@ -529,7 +422,7 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         Long operatorId = AuthContext.getUserId();
 
         // ---- ① 核销应收 ----
-        if (barrelPolicy.isEnabled()) {
+        if (barrelPolicy.isEnabled() || ticketPayments.get(order.getId())!=null) {
             confirmedRefusals.record(order,ex.getId(),note);
             orderMapper.appendSpecialNote(order.getId(),"[确认拒付] 欠款保留、关闭线下付款、冻结退押金资格；"+note);
             return;
@@ -665,29 +558,8 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
     // ==================== 补偿建议生成 ====================
 
     private CompensationSuggestion generateSuggestion(String category, int diffQty, Long stationId) {
-        CompensationSuggestion suggestion = new CompensationSuggestion();
-        
-        // 获取站点配置
-        Map<String, Object> config = stationConfigService.getConfig(stationId);
-        List<String> priority = (List<String>) config.getOrDefault("compensationPriority", 
-                List.of("REFUND_TICKET", "REFUND_CASH", "WAIVE_DEPOSIT"));
-        
-        int absDiff = Math.abs(diffQty);
-        int remaining = absDiff;
-        
-        for (String type : priority) {
-            if (remaining <= 0) break;
-            
-            if ("REFUND_TICKET".equals(type)) {
-                suggestion.setTicketQty(Math.min(remaining, remaining)); // 简化：每桶1张水票
-                remaining -= suggestion.getTicketQty();
-            } else if ("REFUND_CASH".equals(type) && remaining > 0) {
-                suggestion.setCashAmount(BigDecimal.valueOf(remaining * 30)); // 假设每桶押金30元
-                remaining = 0;
-            }
-        }
-        
-        return suggestion;
+        // 2026-11-03: barrel discrepancies never imply a financial award.
+        return new CompensationSuggestion();
     }
 
     // ==================== 内部类 ====================

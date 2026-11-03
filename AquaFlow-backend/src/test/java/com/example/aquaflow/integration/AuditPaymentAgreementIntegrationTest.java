@@ -100,7 +100,7 @@ class AuditPaymentAgreementIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test void missingConsumptionEvidenceCannotFreezeAZeroOffer() {
-        seed(true);long id=order(3,1,false);jdbc.update("update orders set payment_status=2 where id=?",id);
+        seed(true);createTicketAccount(customer,a,product,10);long id=order(3,1,false);jdbc.update("update orders set payment_status=2 where id=?",id);
         assertEquals(1,post("/api/delivery/orders/transfer/"+id+"/outsource",ta,"{\"targetStationId\":"+b+",\"riskAcknowledged\":true}").code());
         assertEquals(0,longOf("select count(*) from dispatch_agreement where order_id=?",id));
         assertEquals(a,longOf("select delivery_station_id from orders where id=?",id));

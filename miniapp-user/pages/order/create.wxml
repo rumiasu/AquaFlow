@@ -135,11 +135,21 @@
       </view>
     </view>
 
+    <view class="section ticket-fee-section" wx:if="{{isTicketPay && ticketPay && ticketPay.fullyCovered}}">
+      <view class="section-title">水票仅抵水费</view>
+      <text class="method-desc">{{ticketPay.hint}}</text>
+      <text class="method-desc" wx:if="{{ticketDeliveryCredit > 0}}">本次抵配送费 ¥{{ticketDeliveryCreditText}} · 楼层费另收</text>
+      <view class="ticket-fee-methods" wx:if="{{ticketFeeAmount > 0}}">
+        <view class="section-title">其余费用付款方式</view>
+        <button wx:for="{{ticketFeeMethods}}" wx:key="id" class="af-choice {{ticketFeePaymentMethod === item.id ? 'af-choice--selected' : ''}}" disabled="{{!item.enabled || submitting || quoteLoading}}" data-id="{{item.id}}" bindtap="onPickTicketFeeMethod"><text class="af-choice__face">{{item.name}}{{ticketFeePaymentMethod === item.id ? ' · 已选' : ''}}</text></button>
+      </view>
+    </view>
+
     <!-- 配送计费提示（v35）：起送量未达 / 超范围 / 楼层未填等。
          ⚠️ 计费文案一律由后端下发（DeliveryFeeUtil 产出），前端不自造 ——
          前后端各写一套必然对不上。 -->
     <!-- 水票不足提示（后端下发结论，前端只展示）。
-         它必须说清"不支持票 + 现金/微信混合支付、票不会被扣"，否则客户会以为可以补差价。
+         水票不足时不部分抵扣，补齐水票或改选整单付款方式，否则客户会以为可以补差价。
          [2026-09-27 走查 C03] 结论下面再加**下一步的两个动作**，而不是只留一句结论：
            ① 「去买水票」——只在 `reason === 'INSUFFICIENT'`（余额不够）时出现；
               **商品根本不能用票时补票没用**，把人引去买票是错的（走查原文的硬要求）。
@@ -434,12 +444,13 @@
         </view>
       </scroll-view>
       <view class="detail-sheet-footer">
-        <!-- 水票支付且整单能被票结清：明细里各项之和 = 票抵扣 + 需付，合计显示"本次需付"（=0）。
+        <!-- 水票抵水费；合计展示服务端重算的实际余款，配送优惠只抵一次配送费。
              票不足时"本次需付"就是订单全额（本单用不了票），上方已有警示结论说明原因。 -->
         <view class="detail-total-row ticket-cover-row" wx:if="{{ticketCoverText}}">
           <text class="detail-total-label">{{ticketCoverText}}</text>
-          <text class="detail-total-value">已抵扣</text>
+          <text class="detail-total-value">抵水费</text>
         </view>
+        <view class="detail-total-row" wx:if="{{isTicketPay && ticketDeliveryCredit > 0}}"><text class="detail-total-label">本次配送费抵扣</text><text class="detail-total-value">−¥{{ticketDeliveryCreditText}}</text></view>
         <view class="detail-total-row">
           <text class="detail-total-label">{{isTicketPay ? payableAmountLabel : '合计'}}</text>
           <text class="detail-total-value">{{quoteReady ? '¥' + payableAmountText : '待核实'}}</text>
@@ -519,6 +530,7 @@
             <text class="fee-label">楼层费</text>
             <text class="fee-value">¥{{floorFeeText}}</text>
           </view>
+          <view class="fee-row" wx:if="{{isTicketPay && ticketDeliveryCredit > 0}}"><text class="fee-label">本次配送费抵扣</text><text class="fee-value">−¥{{ticketDeliveryCreditText}}</text></view>
           <view class="fee-row total">
             <text class="fee-label total">{{payableAmountLabel}}</text>
             <text class="fee-value total">¥{{payableAmountText}}</text>

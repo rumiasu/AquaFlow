@@ -239,6 +239,7 @@ public interface PaymentService {
      * 由本方法统一判定，实体 {@code Orders.getCanRepay()} 只负责取投影结果。</p>
      */
     boolean canSelfPay(Orders order);
+    Map<String,Object> quote(Long customerId,Long stationId,Integer paymentMethod,List<Map<String,Object>> items,Long addressId,Integer ticketFeePaymentMethod);
 
     /** 顾客取自登录态；只读渠道能力不创建原款、不改变资产。 */
     Map<String,Object> channelCapabilities(Long customerId);

@@ -274,8 +274,8 @@ class BarrelExceptionFlowIntegrationTest extends AbstractIntegrationTest {
         assertEquals("STAFF_RECORDED", statusOf(exId), "新异常应停在「配送员已录入」，等站长处置");
         assertEquals(2, intOf("SELECT delivery_qty FROM order_barrel_exception WHERE id=?", exId), "应收 2");
         assertEquals(0, intOf("SELECT return_qty FROM order_barrel_exception WHERE id=?", exId), "实收 0");
-        assertEquals(2, intOf("SELECT suggested_ticket_qty FROM order_barrel_exception WHERE id=?", exId),
-                "默认补偿优先级第一档是退水票，建议 2 张");
+        assertEquals(0, intOf("SELECT suggested_ticket_qty FROM order_barrel_exception WHERE id=?", exId),
+                "欠桶不自动产生票款补偿");
 
         assertEquals(2, over(), "欠桶同步 +2（送出 2 − 收回 0 − 新购 0）");
 
@@ -301,54 +301,25 @@ class BarrelExceptionFlowIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("站长 APPROVE 退现金：押金入账、流水留痕、异常置已执行，对账仍全 0")
+    @DisplayName("旧现金补偿入口停用：不改变异常状态、押金或流水")
     void approveRefundsCashAndKeepsReconciliationBalanced() {
-        seed();
-        firstOrderBuysTwoBarrels();
-        deliverShortByTwo();
-        long exId = onlyExceptionId();
-
-        Api res = handle(exId, "{\"action\":\"APPROVE\",\"refundCashAmount\":30.00,\"managerNote\":\"少回2桶，补30\"}");
-        assertTrue(res.isSuccess(), "站长批准应成功，实际=" + res);
-
-        assertEquals("EXECUTED", statusOf(exId), "APPROVE 会在同一次调用里执行补偿");
-        assertEquals(1, intOf("SELECT COUNT(*) FROM order_barrel_exception WHERE id=? AND executed_at IS NOT NULL",
-                exId), "应记录执行时间");
-        assertEquals(0, depositBalance().compareTo(new BigDecimal("90.00")),
-                "押金 60（首单）+ 30（补偿）应 = 90.00");
-        assertEquals(1, manualGrantRecords(), "应有一条「人工补录押金(9)」流水");
-        assertEquals(0, decimalOf("SELECT amount FROM deposit_record WHERE customer_id=? AND type=9", customer)
-                        .compareTo(new BigDecimal("30.00")), "流水金额应为正值 30.00（方向由类型决定）");
-
-        Api rec = get("/api/manager/reconciliation", mgrToken());
-        assertTrue(rec.isSuccess(), "对账应成功，实际=" + rec);
-        assertEquals(0, rec.data().path("totalDiff").asInt(), "补偿动账后对账必须仍无差异：" + rec.data());
-        assertEquals(0, rec.data().path("checks").path("SE1_depositAccount").asInt(),
-                "SE1：押金余额必须等于流水合计（补偿走的是押金唯一入口）");
-        assertEquals(0, rec.data().path("checks").path("SE5_physicalConservation").asInt(),
-                "SE5：占用必须与物理流水自洽（本用例的权益来自真实配送流程）");
+        seed(); firstOrderBuysTwoBarrels(); deliverShortByTwo();
+        long exId=onlyExceptionId(); BigDecimal before=depositBalance();
+        Api res=handle(exId,"{\"action\":\"APPROVE\",\"refundCashAmount\":30,\"managerNote\":\"核实\"}");
+        assertFalse(res.isSuccess()); assertTrue(res.message().contains("停用"));
+        assertEquals("STAFF_RECORDED",statusOf(exId));
+        assertEquals(0,before.compareTo(depositBalance())); assertEquals(0,manualGrantRecords());
     }
 
     @Test
-    @DisplayName("补偿不可重复刷：重复 handle / execute 都被拒，押金不再增加")
+    @DisplayName("补偿停用不可绕过：重复handle和execute均拒绝且不动账")
     void repeatHandleAndExecuteAreRejected() {
-        seed();
-        firstOrderBuysTwoBarrels();
-        deliverShortByTwo();
-        long exId = onlyExceptionId();
-
-        assertTrue(handle(exId, "{\"action\":\"APPROVE\",\"refundCashAmount\":30.00}").isSuccess(), "首次批准应成功");
-
-        Api again = handle(exId, "{\"action\":\"APPROVE\",\"refundCashAmount\":30.00}");
-        assertFalse(again.isSuccess(), "同一条异常不得被处理两次，实际=" + again);
-
-        Api exec = post("/api/manager/exceptions/" + exId + "/execute", mgrToken(), null);
-        assertFalse(exec.isSuccess(), "已执行(EXECUTED)的异常不得重复执行，实际=" + exec);
-        assertTrue(exec.message() != null && exec.message().contains("不允许执行"),
-                "拒绝原因应指向状态不允许执行，实际=" + exec.message());
-
-        assertEquals(0, depositBalance().compareTo(new BigDecimal("90.00")), "押金只能补一次，不得翻倍");
-        assertEquals(1, manualGrantRecords(), "补录流水也只能有一条");
+        seed(); firstOrderBuysTwoBarrels(); deliverShortByTwo();
+        long exId=onlyExceptionId(); BigDecimal before=depositBalance();
+        for(int i=0;i<2;i++)assertFalse(handle(exId,"{\"action\":\"APPROVE\",\"refundCashAmount\":30}").isSuccess());
+        Api exec=post("/api/manager/exceptions/"+exId+"/execute",mgrToken(),null);
+        assertFalse(exec.isSuccess());assertTrue(exec.message().contains("停用"));
+        assertEquals("STAFF_RECORDED",statusOf(exId));assertEquals(0,before.compareTo(depositBalance()));assertEquals(0,manualGrantRecords());
     }
 
     @Test
@@ -396,31 +367,16 @@ class BarrelExceptionFlowIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("退水票必须有商品：缺 adjustProductId 时拒绝并回滚，补全后水票到账")
+    @DisplayName("即使补齐商品与说明也不能通过旧补偿入口加票")
     void refundTicketsRequiresProductThenCreditsAccount() {
-        seed();
-        firstOrderBuysTwoBarrels();
-        deliverShortByTwo();
-        long exId = onlyExceptionId();
-
-        // 只给数量、不给商品 → 补偿做不到。旧实现只 log.warn 就照样标 EXECUTED（站长以为退了票），
-        // 现在必须失败回滚，让站长补全重试。
-        Api bad = handle(exId, "{\"action\":\"APPROVE\",\"refundTicketQty\":2}");
-        assertFalse(bad.isSuccess(), "缺 adjustProductId 应被拒，实际=" + bad);
-        assertTrue(bad.message() != null && bad.message().contains("adjustProductId"),
-                "拒绝原因应指明缺商品，实际=" + bad.message());
-        assertEquals("STAFF_RECORDED", statusOf(exId), "被拒后异常必须回滚到未处置，可重试");
-        assertEquals(0, intOf("SELECT COUNT(*) FROM ticket_record WHERE customer_id=?", customer), "被拒不得留流水");
-
-        Api ok = handle(exId, "{\"action\":\"APPROVE\",\"refundTicketQty\":2,\"adjustProductId\":" + product + "}");
-        assertTrue(ok.isSuccess(), "补全商品后应成功，实际=" + ok);
-
-        assertEquals("EXECUTED", statusOf(exId), "应置已执行");
-        assertEquals(2, intOf("SELECT remain_quantity FROM ticket_account "
-                        + "WHERE customer_id=? AND product_id=? AND station_id=?", customer, product, station),
-                "水票账户应 +2（无账户时自动建账）");
-        assertEquals(2, intOf("SELECT increase_qty FROM ticket_record WHERE customer_id=? AND product_id=?",
-                customer, product), "水票流水应记增加 2");
-        assertEquals(2, over(), "退水票不改变欠桶（欠的是桶，不是票）");
+        seed(); firstOrderBuysTwoBarrels(); deliverShortByTwo();
+        long exId=onlyExceptionId(); BigDecimal before=depositBalance();
+        for(String action:java.util.List.of("APPROVE","MODIFY")) {
+            Api result=handle(exId,"{\"action\":\""+action+"\",\"refundTicketQty\":2,\"adjustProductId\":"+product+",\"managerNote\":\"核实\"}");
+            assertFalse(result.isSuccess());assertTrue(result.message().contains("停用"));
+        }
+        assertEquals("STAFF_RECORDED",statusOf(exId));
+        assertEquals(0,intOf("SELECT COUNT(*) FROM ticket_record WHERE customer_id=?",customer));
+        assertEquals(2,over());
     }
 }

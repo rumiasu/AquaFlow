@@ -384,13 +384,16 @@ public class InterStationSettlementServiceImpl implements InterStationSettlement
         Long to = row != null && row.getToStationId() != null ? row.getToStationId() : longOf(live.get("settleStationId"));
         if (agreed!=null && row==null) {
             BigDecimal transfer = agreed;
-            if (Objects.equals(PayMethod.CASH, paymentMethod)
-                    && Objects.equals(longOf(live.get("payStationId")), longOf(live.get("settleStationId")))) {
+            if ((Objects.equals(PayMethod.CASH, paymentMethod) || live.get("ticketSplitOrderId")!=null)
+                    && Objects.equals(longOf(live.get(live.get("ticketSplitOrderId")!=null?"cashStationId":"payStationId")), longOf(live.get("settleStationId")))) {
                 transfer = agreed.subtract(dec(live.get("customerReceivedAmount")));
                 from = transfer.signum() < 0 ? longOf(live.get("settleStationId")) : longOf(live.get("ownerStationId"));
                 to = transfer.signum() < 0 ? longOf(live.get("ownerStationId")) : longOf(live.get("settleStationId"));
             }
             out.put("amount", transfer.abs()); out.put("unitPrice", null);
+        }
+        if(agreed==null && row==null && live.get("ticketSplitOrderId")!=null && Objects.equals(longOf(live.get("cashStationId")),longOf(live.get("settleStationId")))) {
+            out.put("amount",amount.subtract(dec(live.get("customerReceivedAmount"))).max(BigDecimal.ZERO));
         }
         out.put("fromStationId", from); out.put("toStationId", to);
         return out;

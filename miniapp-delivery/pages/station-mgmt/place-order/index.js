@@ -15,6 +15,17 @@ function ownerKey() {
   const app = getApp(), u = app.globalData.userInfo || {}
   return JSON.stringify([app._loginGeneration || 0, u.staffId || u.id, u.role, u.stationId])
 }
+function requestActor() {
+  const u = getApp().globalData.userInfo || {}
+  return [u.staffId || u.id || '', u.stationId || '', u.role || ''].join(':')
+}
+function requestStorageKey() { return 'staffOrderRequest.v1:' + requestActor() }
+function validOriginal(body, station) {
+  const positive = n => Number.isSafeInteger(n) && n > 0
+  return body && positive(body.customerId) && positive(body.addressId) && body.stationId === station
+    && [1, 2, 3].includes(body.paymentMethod) && typeof body.idempotencyKey === 'string' && body.idempotencyKey.length <= 64 && !!body.idempotencyKey.trim()
+    && Array.isArray(body.items) && body.items.length > 0 && body.items.every(i => i && positive(i.productId) && positive(i.quantity))
+}
 function referencePrice(price) {
   const validType = typeof price === 'number' || typeof price === 'string'
   return validType && String(price).trim() !== '' && Number.isFinite(Number(price)) ? '参考价 ¥' + price : '参考价待核实'
@@ -75,7 +86,7 @@ Page({
     loading: true, customerError: '', productError: '', addressError: '', stationError: '', productsLoading: false, addressesLoading: false,
     quoting: false,
     submitting: false,
-    unknownOrder: false
+    unknownOrder: false, orderRecoveryError: '', orderRecoverySummary: ''
   },
 
   /**
@@ -91,6 +102,7 @@ Page({
   },
 
   onShow() {
+    this._hidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
@@ -103,7 +115,7 @@ Page({
       wx.showToast({ title: '未识别到所属水站', icon: 'none' })
       return
     }
-    if (this._pageOwner && owner !== this._pageOwner && this._originalOrderRequest) {
+    if (this._pageOwner && requestActor() !== this._requestActor && this._originalOrderRequest) {
       this._quoteSeq = (this._quoteSeq || 0) + 1
       this.setData({ stationError: '办理身份已变化，请返回原身份核对原下单请求。', unknownOrder: true })
       return
@@ -113,7 +125,9 @@ Page({
       this.setData({ step: 1, customer: null, addresses: [], addressId: null, addressText: '', products: [], productOptions: [], selectedProductId: '', activeProduct: null, cartLines: [], totalQty: 0, quote: null, methods: [], selectedMethod: null, presetApplied: true })
     }
     this._pageOwner = owner
-    this.setData({ stationId, stationError: '' })
+    this.setData({ stationId, stationError: '', submitting: false })
+    this.restoreOriginalOrder()
+    if (this.data.unknownOrder) { this.setData({ loading: false, productsLoading: false }); return }
     this.loadCustomers()
     this.loadProducts()
   },
@@ -185,6 +199,39 @@ Page({
     const customer = this.data.customers.find(c => c.id === id)
     if (!customer) return
     this.pickCustomer(customer)
+  },
+
+  onHide() { this._hidden = true; this._quoteSeq = (this._quoteSeq || 0) + 1 },
+  onUnload() { this.onHide() },
+  restoreOriginalOrder() {
+    try {
+      const saved = wx.getStorageSync(requestStorageKey())
+      if (saved == null || saved === '') return
+      if (saved.version !== 1 || saved.actor !== requestActor() || !validOriginal(saved.body, this.data.stationId)) throw Error('原下单凭据不完整，请联系本站核对原订单，暂不发送新单')
+      this._originalOrderRequest = JSON.parse(JSON.stringify(saved.body)); this._requestActor = saved.actor
+      this.idempotencyKey = saved.body.idempotencyKey
+      this.setData({ unknownOrder: true, orderRecoveryError: '有一笔原下单结果待核实；仅重试原客户、商品及付款方式，不会新建另一笔意图。', orderRecoverySummary: this.originalOrderSummary(saved.body) })
+    } catch (error) { this.setData({ unknownOrder: true, orderRecoveryError: error.message || '原下单凭据未读取，请重试核对' }) }
+  },
+  originalOrderSummary(body) { return '客户 #' + body.customerId + '；' + body.items.map(i => '商品 #' + i.productId + ' ×' + i.quantity).join('；') },
+  persistOriginalOrder(body) {
+    if (!validOriginal(body, this.data.stationId)) throw Error('原下单内容未能完整核实，本次尚未发送')
+    const key = requestStorageKey(), actor = requestActor(), old = wx.getStorageSync(key)
+    if (old != null && old !== '' && (old.version !== 1 || old.actor !== actor || JSON.stringify(old.body) !== JSON.stringify(body))) {
+      if (old.version === 1 && old.actor === actor && validOriginal(old.body, this.data.stationId)) {
+        this._originalOrderRequest = JSON.parse(JSON.stringify(old.body)); this.idempotencyKey = old.body.idempotencyKey; this._requestActor = actor
+        this.setData({ unknownOrder: true, orderRecoverySummary: this.originalOrderSummary(old.body) })
+      } else this._originalOrderRequest = null
+      throw Error('本身份还有一笔原提交待核实，暂不发送新的订单')
+    }
+    const saved = { version: 1, actor, body: JSON.parse(JSON.stringify(body)) }
+    wx.setStorageSync(key, saved)
+    if (JSON.stringify(wx.getStorageSync(key)) !== JSON.stringify(saved)) throw Error('原下单凭据未能完整保存，请重试；本次尚未发送')
+    this._requestActor = actor
+    this.setData({ orderRecoverySummary: this.originalOrderSummary(body) })
+  },
+  clearOriginalOrderStorage() {
+    try { wx.removeStorageSync(requestStorageKey()) } catch (_) { /* 原请求仍可幂等核对，不能因此新建。 */ }
   },
 
   /**
@@ -330,6 +377,7 @@ Page({
         // 首次试算没有已选方式时先探一个值：真正的选项与默认值由响应里的
         // methods / defaultMethod 决定（前端不自带映射表）
         paymentMethod: selectedMethod || 2,
+        ticketFeePaymentMethod: selectedMethod === 3 ? this.data.ticketFeePaymentMethod : undefined,
         addressId,
         items: cartLines.map(l => ({ productId: l.productId, quantity: l.quantity }))
       }
@@ -348,7 +396,7 @@ Page({
       const methods = Array.isArray(d.methods) ? d.methods : []
       const stillOk = methods.some(m => m.id === this.data.selectedMethod && m.enabled !== false)
       const nextMethod = stillOk ? this.data.selectedMethod : (d.defaultMethod || (methods[0] && methods[0].id))
-      this.setData({ quote: d, methods, selectedMethod: nextMethod })
+      this.setData({ quote: d, methods, selectedMethod: nextMethod, ticketFeePaymentMethod: d.ticketFeePaymentMethod })
     } catch (err) {
       if (seq === this._quoteSeq) wx.showToast({ title: err.message || '试算失败', icon: 'none' })
     } finally {
@@ -357,6 +405,12 @@ Page({
   },
 
   /** 换支付方式要重新试算：水票/现金的押金与可用性口径不同，金额可能变。 */
+  onPickTicketFeeMethod(e) {
+    if (this.data.submitting || this.data.unknownOrder) return
+    const id = Number(e.currentTarget.dataset.id)
+    if (!((this.data.quote && this.data.quote.ticketFeeMethods) || []).some(m => m.id === id && m.enabled)) return
+    this.setData({ ticketFeePaymentMethod: id }, () => this.onQuote())
+  },
   onPickMethod(e) {
     if (this.data.submitting || this.data.unknownOrder) return
     const id = Number(e.currentTarget.dataset.id)
@@ -396,7 +450,13 @@ Page({
   async doCreate(confirmShortage) {
     if (this.data.submitting) return
     if (this._pageOwner && ownerKey() !== this._pageOwner) return
-    const { customer, addressId, cartLines, selectedMethod, stationId } = this.data
+    const replayingUnknown = this.data.unknownOrder === true
+    const retained = replayingUnknown && this._originalOrderRequest
+    if (replayingUnknown && !retained) { this.restoreOriginalOrder(); return }
+    const requestOwner = ownerKey()
+    const { customer, addressId, cartLines, selectedMethod, stationId } = retained
+      ? { customer: { id: retained.customerId }, addressId: retained.addressId, cartLines: retained.items, selectedMethod: retained.paymentMethod, stationId: retained.stationId }
+      : this.data
     // 幂等键在"一次提交动作"内保持稳定：缺货确认后重提必须复用同一个键，
     // 否则"第一次其实建成功了、只是响应丢了"会变成两单。
     if (!this.idempotencyKey) {
@@ -406,11 +466,15 @@ Page({
 
     this.setData({ submitting: true })
     try {
-      const fresh = {
+      const fresh = retained || {
         customerId: customer.id,
         addressId,
         stationId,
         paymentMethod: selectedMethod,
+        ticketFeePaymentMethod: selectedMethod === 3 ? this.data.ticketFeePaymentMethod : undefined,
+        ...(selectedMethod === 3 ? { ticketFeePaymentMethod: this.data.ticketFeePaymentMethod,
+          ticketFeeQuoteAmount: this.data.quote && this.data.quote.ticketFeeAmount,
+          ticketDeliveryCreditQuote: this.data.quote && this.data.quote.ticketDeliveryCredit } : {}),
         source: SOURCE_PHONE,
         idempotencyKey: this.idempotencyKey,
         items: cartLines.map(l => ({ productId: l.productId, quantity: l.quantity })),
@@ -419,19 +483,23 @@ Page({
       if (!this._originalOrderRequest || this._originalOrderRequest.idempotencyKey !== this.idempotencyKey) {
         if (fresh.barrelPurchases.length && !this.data.barrelPurchaseConfirmed) return
         this._originalOrderRequest = fresh
+        this._requestActor = requestActor()
       }
       const original = this._originalOrderRequest
       if (original.customerId !== fresh.customerId || original.addressId !== fresh.addressId || original.stationId !== fresh.stationId
-        || original.paymentMethod !== fresh.paymentMethod || JSON.stringify(original.items) !== JSON.stringify(fresh.items))
+        || original.paymentMethod !== fresh.paymentMethod || original.ticketFeePaymentMethod !== fresh.ticketFeePaymentMethod || JSON.stringify(original.items) !== JSON.stringify(fresh.items))
         throw Error('原下单结果尚待核实，请恢复原客户、地址、商品和支付方式后重试原请求')
       const body = JSON.parse(JSON.stringify(original))
       if (confirmShortage) body.confirmShortage = true
 
+      this.persistOriginalOrder(body)
+      this._originalOrderRequest = JSON.parse(JSON.stringify(body))
       const res = await post(ORDER_CREATE_PATH, body)
-      if (this._pageOwner && ownerKey() !== this._pageOwner) { this.setData({ unknownOrder: true }); return }
+      if (this._hidden || ownerKey() !== requestOwner) { this.setData({ unknownOrder: true }); return }
       const d = res.data || {}
 
       if (d.needConfirm) {
+        this.clearOriginalOrderStorage()
         const lines = (d.shortages || [])
           .map(s => (s.productName || ('商品' + s.productId)) + ' 需 ' + s.requested + '，库存 ' + s.stock)
           .join('\n')
@@ -453,7 +521,8 @@ Page({
         return
       }
       const warnings = Array.isArray(d.warnings) ? d.warnings : []
-      this.setData({ unknownOrder: false })
+      this.clearOriginalOrderStorage()
+      this.setData({ unknownOrder: false, orderRecoveryError: '' })
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '查看订单',
         title: '下单成功',
         content: '订单号 ' + d.orderId + (warnings.length ? '\n\n' + warnings.join('\n') : ''),
@@ -463,9 +532,13 @@ Page({
         }
       })
     } catch (err) {
-      if (this._pageOwner && ownerKey() !== this._pageOwner) { this.setData({ unknownOrder: !!this._originalOrderRequest }); return }
-      if (err && err.businessRejected) this._originalOrderRequest = null
+      if (this._hidden || ownerKey() !== requestOwner) { this.setData({ unknownOrder: !!this._originalOrderRequest }); return }
+      const diagnostic = err && (err.originalMessage || err.message)
+      const definitelyRejected = !replayingUnknown && err && err.businessRejected === true
+        && typeof diagnostic === 'string' && diagnostic.trim() && !/(幂等|已提交过|重复提交|重复请求|请求摘要|内容不同)/.test(diagnostic)
+      if (definitelyRejected) { this.clearOriginalOrderStorage(); this._originalOrderRequest = null; this.idempotencyKey = null }
       this.setData({ unknownOrder: !!this._originalOrderRequest })
+      if (definitelyRejected && selectedMethod === 3) this.setData({ submitting: false }, () => this.onQuote())
       wx.showToast({ title: err.message || '下单失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })

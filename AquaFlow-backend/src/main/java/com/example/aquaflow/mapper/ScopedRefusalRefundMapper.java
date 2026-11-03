@@ -7,7 +7,7 @@ import java.util.*;
 /** C03范围和分次实退凭据；原案件及原款事实仍是授权/金额来源。 */
 @Mapper
 public interface ScopedRefusalRefundMapper {
-    @Select("select id,customer_id as originalCustomerId,station_id as originalStationId,total_amount as debtAmount,payment_status as paymentStatus,status as orderStatus from orders where id=#{order} for update")
+    @Select("select id,customer_id as originalCustomerId,station_id as originalStationId,coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=orders.id),total_amount) as debtAmount,payment_status as paymentStatus,status as orderStatus from orders where id=#{order} for update")
     Map<String,Object> lockOrder(Long order);
     @Select("select product_id from orders where id=#{order} and product_id>0")
     List<Long> legacyProduct(Long order);
@@ -15,7 +15,7 @@ public interface ScopedRefusalRefundMapper {
     List<Map<String,Object>> legacyProductInfo(Long order);
     @Select("select coalesce(sum(o.water_amount),0) as outstanding,coalesce(sum(case when o.due_date<curdate() then o.total_amount else 0 end),0) as overdueAmount,coalesce(sum(o.due_date<curdate()),0) as overdueCount,coalesce(max(case when o.due_date<curdate() then datediff(curdate(),o.due_date) else 0 end),0) as overdueDays from orders o where o.customer_id=#{customer} and o.station_id=#{station} and o.status<>5 and o.payment_status=1 and o.payment_method=2 and not exists(select 1 from customer_refusal_case r left join customer_refusal_resolution x on x.order_id=r.order_id where r.order_id=o.id and (coalesce(x.judgment_revoked,0)=0 or r.asset_freeze_confirmed=1 and coalesce(x.asset_freeze_released,0)=0))")
     Map<String,Object> refundCredit(@Param("customer") Long customer,@Param("station") Long station);
-    @Select("select r.*,o.customer_id as originalCustomerId,o.station_id as originalStationId,o.total_amount as debtAmount,o.product_id as legacyProductId from customer_refusal_case r left join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.customer_id=#{customer} and r.asset_station_id=#{station} and r.asset_freeze_confirmed=1 and coalesce(x.asset_freeze_released,0)=0 and (o.id is null or o.payment_status=1 and o.status<>5) order by r.order_id")
+    @Select("select r.*,o.customer_id as originalCustomerId,o.station_id as originalStationId,coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=o.id),o.total_amount) as debtAmount,o.product_id as legacyProductId from customer_refusal_case r left join orders o on o.id=r.order_id left join customer_refusal_resolution x on x.order_id=r.order_id where r.customer_id=#{customer} and r.asset_station_id=#{station} and r.asset_freeze_confirmed=1 and coalesce(x.asset_freeze_released,0)=0 and (o.id is null or o.payment_status=1 and o.status<>5) order by r.order_id")
     List<Map<String,Object>> active(@Param("customer") Long customer,@Param("station") Long station);
     @Select("select product_id as productId,max(product_name_snapshot) as productName from order_item where order_id=#{order} group by product_id order by product_id")
     List<Map<String,Object>> products(Long order);

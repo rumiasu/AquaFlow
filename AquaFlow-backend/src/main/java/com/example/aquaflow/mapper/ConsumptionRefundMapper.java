@@ -11,6 +11,8 @@ public interface ConsumptionRefundMapper {
     @Select("select * from payment_record where id=#{id} for update") PaymentRecord lockPayment(Long id);
     @Select("select coalesce(sum(water_amount),0) as waterAmount,coalesce(sum(delivery_fee),0) as deliveryFee,coalesce(sum(floor_fee),0) as floorFee from consumption_refund where original_payment_id=#{id}")
     Map<String,Object> refunded(Long id);
+    @Select("select water_amount as waterAmount,delivery_fee as deliveryFee,floor_fee as floorFee from consumption_refund where original_payment_id=#{id} order by refund_payment_id for update")
+    List<Map<String,Object>> refundRowsForUpdate(Long id);
     /** 凭据只追加；原款行锁保护下，以退款流水主键合并最新提交和本事务写入。 */
     @Select("select refund_payment_id as receiptId,water_amount as waterAmount,delivery_fee as deliveryFee,floor_fee as floorFee from consumption_refund where original_payment_id=#{id}")
     List<Map<String,Object>> refundRows(Long id);

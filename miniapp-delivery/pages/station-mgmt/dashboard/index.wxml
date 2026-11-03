@@ -25,7 +25,7 @@
     <view class="section">
       <view class="section-head">
         <view class="section-title">{{report.label}}经营指标</view>
-        <text class="section-note">对比上一周期</text>
+        <text class="section-note">{{report.comparisonNote}}</text>
       </view>
       <view class="metric-grid">
         <view class="metric-card {{item.key === 'grossAmount' || item.key === 'paidAmount' ? 's-money-metric' : (item.key === 'barrelsIn' ? 's-physical-metric' : 's-neutral-metric')}}" wx:for="{{report.metricCards}}" wx:key="key">
@@ -37,7 +37,7 @@
             <text class="delta-arrow" wx:else>—</text>
             <text class="delta-text">{{item.deltaText}}</text>
           </view>
-          <text class="delta-prev">上期 {{item.previousText}}</text>
+          <text class="delta-prev">{{report.previousLabel}} {{item.previousText}}</text>
         </view>
       </view>
       <!--
@@ -46,6 +46,7 @@
         为什么这行非有不可：上面的「订单数 / 营业额」按营收归属统计，而订单列表按归属站，
         发生过外派后两个数就不一样；没有这行说明，站长只能猜哪个是错的。
       -->
+      <view class="scope-note" wx:if="{{report.orderAmountNote}}">{{report.orderAmountNote}}</view>
       <view class="scope-note" wx:if="{{report.scopeNote}}">{{report.scopeNote}}</view>
       <!--
         第二行同样是**服务端下发**的口径说明（report.paidAmountNote），配套上面「订单已付款」那一格。
@@ -58,7 +59,7 @@
 
     <!-- 空数据提示 -->
     <view class="section" wx:if="{{!report.hasData}}">
-      <view class="empty-tip">所选周期内暂无订单数据，换一个时间范围看看</view>
+      <view class="care-empty"><icon name="order" size="28px" color="#8391A2" /><text class="care-title">{{report.emptyTitle}}</text><text class="care-note">{{report.emptyCare}}</text></view>
     </view>
 
     <!-- 趋势图 -->

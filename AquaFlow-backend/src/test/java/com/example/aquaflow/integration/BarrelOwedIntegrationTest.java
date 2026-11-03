@@ -48,6 +48,7 @@ class BarrelOwedIntegrationTest extends AbstractIntegrationTest {
         customer = createCustomer("Alice", "openid-alice");
         addr = createAddress(customer, "某小区1号");
         mgr = createStaff("M1", "STATION_MANAGER", station, 1);
+        createCustomerStationConfig(customer,station,1);createTicketAccount(customer,station,product,100);
     }
 
     private String owedSince() {
@@ -64,7 +65,7 @@ class BarrelOwedIntegrationTest extends AbstractIntegrationTest {
 
     private Api createOrderApi(String idemKey, int qty) {
         String body = "{\"addressId\":" + addr + ",\"stationId\":" + station
-                + ",\"paymentMethod\":3,\"idempotencyKey\":\"" + idemKey + "\","
+                + ",\"paymentMethod\":3,\"ticketFeePaymentMethod\":2,\"idempotencyKey\":\"" + idemKey + "\","
                 + "\"items\":[{\"productId\":" + product + ",\"quantity\":" + qty + "}]}";
         return post("/api/orders/create", customerToken(customer), body);
     }

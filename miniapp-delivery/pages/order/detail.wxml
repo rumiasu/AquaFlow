@@ -21,6 +21,7 @@
        原整版蓝头降级为暖纸白卡：对象、单号、状态章、金额一屏读完（R1 详情页=暖纸白卡）。
        状态章 tint 底+实色字（R2）；金额与收款口径一律读后端投影
        （totalAmount / payStateText / needCollect，class 在 js 里算好，wxml 不做判断）。 -->
+  <view class="info-card" wx:if="{{order.ticketPaymentHint}}"><text>{{order.ticketPaymentHint}}</text></view>
   <view class="fact-card">
     <view class="fact-top">
       <text class="fact-name">{{order.receiverName || order.customerName}}</text>

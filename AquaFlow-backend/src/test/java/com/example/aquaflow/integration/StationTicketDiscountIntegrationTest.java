@@ -170,15 +170,14 @@ class StationTicketDiscountIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, intOf("SELECT COUNT(*) FROM ticket_account WHERE customer_id=? AND station_id=? "
                 + "AND product_id=?", customer, station, waterB), "B 水不该凭空有账户");
 
-        // 用 A 的票下 B 水的单：下单闸门放行（站里配了统一折扣），但**支付时必然失败**（B 账户没票）
+        // A款的票不能为B款预留；建单即拒绝不足票，不能借用另一个商品账户。
         Api madeB = post("/api/orders/create", cus,
                 "{\"addressId\":" + address + ",\"stationId\":" + station + ",\"paymentMethod\":3"
                         + ",\"idempotencyKey\":\"std-own-order-b\",\"items\":[{\"productId\":" + waterB
                         + ",\"quantity\":1}]}");
-        assertTrue(madeB.isSuccess(), "B 水下单应成功（票支付闸门看的是站里配没配折扣）: " + madeB);
-        long orderB = madeB.data().path("orderId").asLong();
-        assertNotEquals(0, post("/api/payments", cus, "{\"orderId\":" + orderB + ",\"paymentMethod\":3}").code(),
-                "A 水的票不能抵 B 水 —— 支付必须失败");
+        assertEquals(1,madeB.code(),madeB.toString());
+        assertEquals(0,intOf("select count(*) from orders where idempotency_key='std-own-order-b'"));
+        assertEquals(0,intOf("select count(*) from order_ticket_hold where product_id=?",waterB));
         assertEquals(10, intOf("SELECT remain_quantity FROM ticket_account WHERE customer_id=? AND station_id=? "
                 + "AND product_id=?", customer, station, waterA), "失败后 A 的票一张不少");
     }

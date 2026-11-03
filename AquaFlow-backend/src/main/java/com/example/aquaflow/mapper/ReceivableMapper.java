@@ -49,12 +49,12 @@ public interface ReceivableMapper {
      */
     @Select("select o.customer_id as customerId, c.name as customerName, "
             + "count(*) as orderCount, "
-            + "coalesce(sum(o.total_amount), 0) as outstandingAmount, "
+            + "coalesce(sum(coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=o.id),o.total_amount)), 0) as outstandingAmount, "
             + "sum(case when o.due_date is not null then 1 else 0 end) as creditOrderCount, "
             + "min(o.due_date) as earliestDueDate, "
             + "max(csc.due_days) as dueDays, "
             + "coalesce(sum(case when o.due_date is not null and o.due_date < curdate() "
-            + "                  then o.total_amount else 0 end), 0) as overdueAmount, "
+            + "                  then coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=o.id),o.total_amount) else 0 end), 0) as overdueAmount, "
             + "coalesce(sum(case when o.due_date is not null and o.due_date < curdate() "
             + "                  then 1 else 0 end), 0) as overdueOrderCount, "
             + "coalesce(max(case when o.due_date is not null and o.due_date < curdate() "
@@ -76,7 +76,7 @@ public interface ReceivableMapper {
      */
     @Select("<script>"
             + "select o.id as orderId, o.customer_id as customerId, o.create_time as createTime, "
-            + "       o.total_amount as totalAmount, o.payment_method as paymentMethod, "
+            + "       coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=o.id),o.total_amount) as totalAmount, o.payment_method as paymentMethod, "
             + "       o.payment_status as paymentStatus, o.settlement_status as settlementStatus, "
             + "       o.due_date as dueDate, o.status as status, o.source as source, "
             + "       case when o.due_date is not null and o.due_date &lt; curdate() "
@@ -102,7 +102,7 @@ public interface ReceivableMapper {
      * @return 不属于本站 / 不存在时为 null —— 调用方必须据此报错，不能当成功
      */
     @Select("select id, customer_id as customerId, status, payment_status as paymentStatus, "
-            + "       settlement_status as settlementStatus, total_amount as totalAmount, due_date as dueDate "
+            + "       settlement_status as settlementStatus, coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=orders.id),total_amount) as totalAmount, due_date as dueDate "
             + "from orders where id = #{orderId} "
             + "  and coalesce(settle_station_id, delivery_station_id, station_id) = #{stationId} for update")
     Map<String, Object> getForSettle(@Param("orderId") Long orderId, @Param("stationId") Long stationId);

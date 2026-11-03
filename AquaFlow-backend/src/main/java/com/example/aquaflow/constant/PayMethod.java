@@ -18,7 +18,7 @@ public class PayMethod {
     public static final int WECHAT = 1;
     /** 2 现金（货到付款） */
     public static final int CASH = 2;
-    /** 3 水票（下单即视同已付，无需现场收款） */
+    /** 3 水票（只抵水费，其他费用按订单分项付款） */
     public static final int TICKET = 3;
 
     /**
@@ -112,7 +112,7 @@ public class PayMethod {
         // 票不够的客户原本要提交后才被后端拦下，在选项上先说清"可以先去买票"能少一次来回
         // （购票入口：「我的 → 我的钱包与桶 → 水票」；票不足的弹窗里另有就近的「去买水票」按钮）。
         // ⚠️ 不写"多买多折"一类话术：本站折扣档为空时那就是假话（见 docs/design/26 §26.12.5）。
-        list.add(method(TICKET, true, "使用账户水票抵扣 · 票不足可先购买水票"));
+        list.add(method(TICKET, true, "水票仅抵对应水费 · 配送、楼层等费用另付"));
         return list;
     }
 
@@ -155,7 +155,7 @@ public class PayMethod {
         m.put("simulated", wechat && wechatPayEnabled);
         m.put("label", wechat
                 ? (wechatPayEnabled ? "模拟微信支付（点击即成功，仅联调期开启）" : "微信支付暂未开通")
-                : (Integer.valueOf(TICKET).equals(method) ? "水票支付（下单即视同已付）" : "现金支付（无在线渠道）"));
+                : (Integer.valueOf(TICKET).equals(method) ? "水票抵水费（其他费用另付）" : "现金支付（无在线渠道）"));
         return m;
     }
 

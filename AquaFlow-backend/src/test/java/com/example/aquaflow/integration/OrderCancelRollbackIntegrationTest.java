@@ -140,6 +140,7 @@ class OrderCancelRollbackIntegrationTest extends AbstractIntegrationTest {
     void cancelTicketPaidOrder_refundsTicket() {
         seed(false);
         createTicketAccount(customer, station, product, 10);
+        createBarrelAsset(customer,station,product,2,"60");createBarrelLot("PAID-CANCEL-EXISTING",customer,station,product,"30",2,2);
         long order = createOrderViaApi(3 /* 水票 */, 2);
 
         Api pay = post("/api/payments", customerToken(customer), "{\"orderId\":" + order + ",\"paymentMethod\":3}");

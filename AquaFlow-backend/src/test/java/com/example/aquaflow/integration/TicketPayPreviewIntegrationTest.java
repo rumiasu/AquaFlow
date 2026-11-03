@@ -11,25 +11,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * 结算页的**水票抵扣预览**（2026-09-19 第十批）。
- *
- * <p>产品口径：「水票支付时，水票支付方面就不显示计费了，<b>只计费除去水票的部分</b>」。
- * 前端靠 {@code quote.ticketPay} 渲染计费区，所以这里盯的是<b>那几个数字本身</b>。</p>
- *
- * <p><b>本类最要紧的一条口径</b>（我在实现时先想错过，所以专门钉住）：
- * 水票支付是<b>整单</b>结清 —— {@code createPayment} 在 {@code paymentMethod=3} 时扣票成功后
- * 直接置 PAID 并 {@code applyDepositOnPaid}，<b>水费、押金、配送费、楼层费全部随票一并结清</b>。
- * 所以"票够"时客户这次要付的是 <b>0</b>，<b>不是</b> {@code 合计 − 水费}（那会凭空多出一笔押金+配送费）。</p>
- *
- * <p>另一条同样要紧的：{@code totalAmount} 是**真实订单金额**，任何时候都不因展示而变 ——
- * 会变的是 {@code ticketPay.payableAmount}（展示值）。展示值若混进提交参数，就是"计价双轨"。</p>
- */
+/** 水票仅抵水费；其他费用另付，不支持部分票补水费。 */
 @DisplayName("水票支付 · 结算页抵扣预览")
 class TicketPayPreviewIntegrationTest extends AbstractIntegrationTest {
 
     @Test
-    @DisplayName("票够：payableAmount = 0（含水费/押金/配送费），而不是「合计 − 水费」")
+    @DisplayName("票够只抵水费，其他费用另付")
     void fullyCoveredMeansNothingToPay() {
         long station = createStation("预览足票站");
         long customer = createCustomer("预览足票客户", "tpp-full-openid");
@@ -44,7 +31,7 @@ class TicketPayPreviewIntegrationTest extends AbstractIntegrationTest {
         JsonNode d = quote(cus, station, address, water, 2, 3);
         JsonNode tp = d.path("ticketPay");
         assertFalse(tp.isNull() || tp.isMissingNode(), "水票支付必须下发抵扣预览: " + d);
-        assertTrue(tp.path("fullyCovered").asBoolean(), "10 张票 ≥ 2 桶，整单可被票结清");
+        assertTrue(tp.path("fullyCovered").asBoolean(), "10 张票 ≥ 2 桶，水费可用票结清");
         assertEquals(2, tp.path("needQty").asInt());
         assertEquals(2, tp.path("coverQty").asInt());
         assertEquals(0, tp.path("shortfallQty").asInt());
@@ -53,10 +40,10 @@ class TicketPayPreviewIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, new BigDecimal("96.00").compareTo(total), "前置：2 桶合计 36+60=96.00");
         assertEquals(0, new BigDecimal("36.00").compareTo(tp.path("coverAmount").decimalValue()),
                 "coverAmount 是被票抵掉的那部分**水费**（账目口径）");
-        // ★ 核心断言：这次要付 0，不是 96−36=60（押金与配送费随票一并结清）
-        assertEquals(0, BigDecimal.ZERO.compareTo(tp.path("payableAmount").decimalValue()),
-                "票够 → 本次需付 0（押金与配送费随票一并结清，不是「合计 − 水费」）");
-        assertTrue(tp.path("hint").asText("").contains("无需另行付款"), "文案要说清不用再付钱: " + tp.path("hint"));
+        // 新规则：票不支付押金或服务费；当前旧桶账fixture押金60另付。
+        assertEquals(0, new BigDecimal("60.00").compareTo(tp.path("payableAmount").decimalValue()),
+                "水票只抵水费，其他应付60元；没有获授权服务费渠道时明确阻断");
+        assertTrue(tp.path("hint").asText("").contains("水票仅抵水费"), "文案要说清水票只抵水费: " + tp.path("hint"));
 
         // ★ 真实订单金额**不能**因展示而变：前端拿 payableAmount 只渲染，提交金额仍由后端按订单重算
         assertEquals(0, new BigDecimal("96.00").compareTo(d.path("totalAmount").decimalValue()),
@@ -64,7 +51,7 @@ class TicketPayPreviewIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("票不够：整单用不了票 → payableAmount = 订单全额，且文案说清「不支持混合支付、票不会被扣」")
+    @DisplayName("票不够：不部分抵水费，选择整单付款或补齐水票")
     void shortfallFallsBackToFullAmount() {
         long station = createStation("预览缺票站");
         long customer = createCustomer("预览缺票客户", "tpp-short-openid");
@@ -86,7 +73,7 @@ class TicketPayPreviewIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, total.compareTo(tp.path("payableAmount").decimalValue()),
                 "票不够 → 本单用不了票，要付就是全额");
         String hint = tp.path("hint").asText("");
-        assertTrue(hint.contains("混合支付"), "必须说清不支持票 + 现金/微信混合支付: " + hint);
+        assertTrue(hint.contains("不支持部分水票抵水费"), "必须说清不支持部分票补水费: " + hint);
         assertTrue(hint.contains("仍留在你的账户"), "必须说清票不会被扣: " + hint);
 
         // 逐行提示仍在 warnings 里（与结构化数据同源），且**不能是 null 元素**（null 会进 JSON 数组）
@@ -121,7 +108,7 @@ class TicketPayPreviewIntegrationTest extends AbstractIntegrationTest {
         JsonNode d = quote(cus, station, address, water, 2, 3);
         JsonNode tp = d.path("ticketPay");
         assertTrue(tp.path("fullyCovered").asBoolean(), "10 张票 ≥ 2 桶，应算全抵: " + tp);
-        assertEquals(0, BigDecimal.ZERO.compareTo(tp.path("payableAmount").decimalValue()));
+        assertEquals(0, new BigDecimal("60.00").compareTo(tp.path("payableAmount").decimalValue()));
 
         // 现金（货到付款）支付：结算页照旧逐项列水费/押金/配送费，**不该**出现水票抵扣预览
         JsonNode cash = quote(cus, station, address, water, 2, 2);

@@ -20,6 +20,8 @@
     <text>已送达，待确认收款</text>
   </view>
 
+  <view class="info-section" wx:if="{{order.ticketPaymentHint}}"><text class="pay-hint">{{order.ticketPaymentHint}}</text></view>
+
   <view class="action-section">
     <text class="load-error" wx:if="{{paymentError}}">{{paymentError}}</text>
     <button wx:if="{{paymentError}}" class="af-action af-action--quiet" bindtap="onRetry"><text class="af-action__face">查询原订单</text></button>
@@ -80,6 +82,8 @@
       <text class="label">楼层费</text>
       <text class="value">{{fee.floorFeeText === '待核实' ? '待核实' : '¥' + fee.floorFeeText}}</text>
     </view>
+    <view class="info-row" wx:if="{{order.ticketDeliveryCredit > 0}}"><text class="label">本次配送抵扣</text><text class="value">−¥{{order.ticketDeliveryCredit}}</text></view>
+    <view class="info-row" wx:if="{{order.ticketCashAmount !== null && order.ticketCashAmount !== undefined}}"><text class="label">原单其他费用</text><text class="value">¥{{order.ticketCashAmount}}</text></view>
     <view class="info-row fee-total">
       <text class="label">合计</text>
       <text class="value">{{fee.totalText === '待核实' ? '待核实' : '¥' + fee.totalText}}</text>

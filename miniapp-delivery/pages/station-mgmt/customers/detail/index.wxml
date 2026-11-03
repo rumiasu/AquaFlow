@@ -40,7 +40,7 @@
     -->
     <view class="section">
       <view class="link-row">
-        <view class="af-entry b3-on-place-order" bindtap="onPlaceOrder"><view class="af-entry__body">替客户下单</view><text class="af-entry__arrow" aria-hidden="true">›</text></view>
+        <view class="af-entry b3-on-place-order" bindtap="onPlaceOrder"><view class="af-entry__body">录入客户订单</view><text class="af-entry__arrow" aria-hidden="true">›</text></view>
       </view>
     </view>
 

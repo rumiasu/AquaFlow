@@ -1,7 +1,7 @@
 <page-meta page-style="{{showProductPicker ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <view class="intro-card">
-    <text class="title">单独办理桶押金</text>
+    <text class="title">单独交桶押金</text>
     <text class="tip">{{stationName || '水站名称待核实'}} · 押金由所选水站保管。</text>
   </view>
   <text class="error" wx:if="{{error}}">{{error}}</text>
@@ -53,7 +53,7 @@
     <text class="tip" wx:if="{{onlinePayHint}}">{{onlinePayHint}}</text>
     <button class="method-choice af-choice {{paymentMethod === 1 ? 'af-choice--selected' : ''}}" wx:if="{{onlinePayEnabled}}" data-method="1" bindtap="onMethod" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked || quoteLoading}}"><text class="af-choice__face">{{paymentMethod === 1 ? '已选：' : ''}}{{onlinePayLabel}}</text></button>
   </view>
-  <button class="af-action af-action--primary af-action--block af-action--final" bindtap="onPurchase" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked || !quote || quoteLoading || productsLoading || !productsLoaded || productsError || products.length === 0 || (paymentMethod === 1 && !onlinePayEnabled)}}" loading="{{busy}}">确认新的桶押金购买</button>
+  <button class="af-action af-action--primary af-action--block af-action--final" bindtap="onPurchase" disabled="{{busy || recoveryBusy || originalActive || safetyBlocked || !quote || quoteLoading || productsLoading || !productsLoaded || productsError || products.length === 0 || (paymentMethod === 1 && !onlinePayEnabled)}}" loading="{{busy}}">确认本次桶押金</button>
   <button class="af-action af-action--cancel" bindtap="onBack">{{fromOrder ? '返回继续订水' : '返回'}}</button>
   <view class="history">
     <button class="af-action af-action--quiet" bindtap="onToggleHistory"><text class="af-action__face">已有购买记录 {{purchases.length}} 笔 · {{showHistory ? '收起' : '展开'}}</text></button>

@@ -1,6 +1,6 @@
 const { showBusinessModal } = require('../../../utils/business-dialog')
 // 站长端「异常订单」：把**同一件事的两个面**放在一个页面里用页签切换 ——
-//   · 页签 1「桶异常单」= 待办清单（哪几单回桶有差异、系统建议补什么）；
+//   · 页签 1「桶异常单」= 待办清单（原单、应回与实回、资产及核实结案）；
 //   · 页签 2「处理留痕」= 处理流水（补偿已执行 / 异常被忽略 的告警记录）。
 //
 // [2026-09-19 合并] 原来这是两个页面（`barrel-exceptions` 与 `alerts`）。合并不是为省一个入口，
@@ -9,11 +9,8 @@ const { showBusinessModal } = require('../../../utils/business-dialog')
 // 同一件事拆成两张卡、两个页面，站长看到的是"两个都要点，但说的是一件事"。
 //
 // 四条口径（改这个页面时必须守住）：
-//   1. **处置入口按「A1」开放（2026-09-20 产品决定）**。这一条原来写的是"本页只读、一个按钮都没有 ——
-//      要不要在界面上开放是产品决定"；现在产品决定开放，但**范围被钉死在两个动作**：
-//      忽略（IGNORE）与 按系统建议补偿（APPROVE，明细只能等于后端下发的建议值）。
-//      **不开放**手工改判（MODIFY）/ 升级（ESCALATE），**不做批量、不做"一键补偿全部"** ——
-//      §8.17 那次事故就是"界面显示已补偿、账上一分没动"。
+//   1. 2026-11-03：错误自动建议补偿已停用；核对原单/资产/实际还桶或有理由结案。
+//      历史记录保留，不能通过旧处理函数新增票款，也不能将未退现金写成已退。
 //   2. **前端不做任何判定**：状态/类别的中文用服务端下发的 `statusText` / `categoryText`，
 //      "还等着处理"用服务端下发的 `pending` 布尔（不自带状态码表，也不比对中文文案）。
 //      告警级别同理，用后端下发的 level 只做配色与筛选。
@@ -136,16 +133,7 @@ Page({
    * 用 `allSettled` 而不是 `Promise.all`：两个页签是两件互不依赖的事，一边失败不该把另一边
    * 也打成空白（"加载失败"与"确实没有异常"必须区分得开，见 §8.22）。
    */
-  /* ===== 处置入口（2026-09-20 产品批准开放「A1」）=====
-   * 上面第 1 条口径原写"本页只读、一个按钮都没有 —— 要不要开放是产品决定"。
-   * 2026-09-20 产品决定：**按 A1 开放**，即只允许两个动作 ——
-   *   ① 忽略（IGNORE，一分钱不动）；② 按系统建议补偿（APPROVE，明细**只能等于**后端建议值）。
-   * 硬约束（改这里之前先读 design/20 §9.3）：
-   *   · **界面上不提供金额 / 数量输入框** —— 人手输入金额在本仓出过事故（§8.17 同族）；
-   *   · **一次事务**：确认列清处理说明与补偿，handle 内登记并执行，不追加 execute；
-   *   · **一次只处理一张单**（不做批量、不做"全部同意"）；
-   *   · **失败留在页面上可重试**，不用一闪而过的 toast；
-   *   · 仍不开放 MODIFY（手工改判）与 ESCALATE —— 那是 A2 的范围。 */
+  /* 核实处理逐单留理由，失败/结果未知保留原异常编号查询；不发补偿命令。 */
 
   /** 让站长填一句理由（必填）。返回 null = 取消或没填。 */
   askNote(title, placeholder, options = {}) {
@@ -185,76 +173,13 @@ Page({
     }
   },
 
-  /**
-   * ② 按系统建议补偿：读详情 → 确认明细 → 同一事务登记并执行 → 刷新。
-   * ⚠️ 提交的明细与后端下发的 `suggested*` **逐字相同**，前端不做任何算术。
-   */
+  /** 旧回调保留为明确拒绝，防止旧组件触发补偿。 */
   async onApproveSuggested(e) {
-    if (this._exceptionAction || this._exceptionsHidden) return
-    const action = { context: this.exceptionContext() }
-    this._exceptionAction = action
-    this.setData({ handling: true })
-    const current = () => this._exceptionAction === action && !this._exceptionsHidden && getApp().canAccessStationBusiness() && action.context === this.exceptionContext()
-    try {
-    const id = e.currentTarget.dataset.id
-    // 2026-10-28：说明只属于当前身份、当前异常单，不能带入下一张单。
-    const approvalKey = JSON.stringify([action.context, String(id)])
-    if (this._exceptionApprovalKey !== approvalKey) this._exceptionApprovalNote = ''
-    this._exceptionApprovalKey = approvalKey
-    let dto = null
-    try {
-      const res = await get(EXCEPTIONS + '/' + id)
-      dto = (res && res.data) || null
-    } catch (err) {
-      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '读取异常单失败', content: (err && err.message) || '请稍后重试', showCancel: false })
-      return
-    }
-    if (!dto || !current()) return
-    // 2026-11-02：办理会在同一事务内执行补偿；已终结的原记录只能核对，不能再发执行命令。
-    if (dto.status && dto.status !== 'STAFF_RECORDED') {
-      this.setData({ actionNotice: '原记录状态已变化，请按最新记录核对。', uncertainId: null })
-      await this.load()
-      return
-    }
+    if (this._exceptionsHidden || !getApp().canAccessStationBusiness()) return
+    showBusinessModal({ title: '补偿已停用', content: '请核对原订单、客户资产及实际还桶，再按依据办理。', showCancel: false })
+    },
 
-    const lines = []
-    if (dto.suggestedTicketQty) lines.push(`退水票 ${dto.suggestedTicketQty} 张`)
-    if (dto.suggestedCashAmount) lines.push(`增加押金账户余额 ¥${dto.suggestedCashAmount}（不交付现金）`)
-    if (!lines.length) {
-      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
-        title: '系统没有给出补偿建议',
-        content: '尚无可直接执行的补偿项。请先查看订单核实；如需办理资产调整，可从本页进入客户资产，按实际依据另行办理。本异常仍保留待处理。',
-        confirmText: '查看订单', cancelText: '返回', showCancel: true,
-        success: r => { if (r.confirm && current()) this.onOpenExceptionOrder({ currentTarget: { dataset: { id } } }) }
-      })
-      return
-    }
-
-    const note = await this.askNote('确认建议补偿', '处理说明（必填）', {
-      initialValue: this._exceptionApprovalNote || '', confirmText: '确认执行', confirmColor: '#BD3328',
-      description: '确认后将登记意见并执行以下补偿。金额与数量不可修改；纠正须另行办理资产调整。',
-      details: [{ label: '异常单', value: '#' + id }, ...lines.map(value => ({ label: '补偿去向', value }))]
-    })
-    if (note === null || !current()) return
-    this._exceptionApprovalNote = note
-
-    const handled = await this.submitHandle(id, {
-      action: 'APPROVE',
-      refundTicketQty: dto.suggestedTicketQty || null,
-      refundCashAmount: dto.suggestedCashAmount || null,
-      // 退水票必须带商品（后端的有意护栏）：用该单自己的商品，前端不猜
-      adjustProductId: dto.adjustProductId || null,
-      managerNote: note
-    }, null)
-    if (!handled || !current()) return
-    this.setData({ uncertainId: null, actionNotice: '补偿已执行，请以刷新后的办理记录为准。' })
-    wx.showToast({ title: '补偿已执行', icon: 'success' })
-    await this.load()
-    if (current()) this._exceptionApprovalNote = ''
-    } finally { if (this._exceptionAction === action) { this._exceptionAction = null; this.setData({ handling: false }) } }
-  },
-
-  /** 登记并由服务端事务执行补偿；返回 true 表示已收到成功，结果未知只读核对。 */
+  /** 带理由登记非财务处理；结果未知仅查询原异常。 */
   async submitHandle(id, body, okTitle) {
     const context = this.exceptionContext()
     const current = () => !this._exceptionsHidden && context === this.exceptionContext() && getApp().canAccessStationBusiness()
@@ -289,7 +214,7 @@ Page({
     }
   },
 
-  /** 保留原入口名供既有调用兼容；现在只核对原异常，补偿写入只由 /handle 编排。 */
+  /** 保留原入口名供既有调用兼容；现在只核对原异常；/handle亦禁止新增补偿。 */
   async executeCompensation(id) {
     if (this._exceptionsHidden || !getApp().canAccessStationBusiness()) return
     const context = this.exceptionContext()
@@ -363,12 +288,11 @@ Page({
         pending: !!r.pending,
         categoryText: r.categoryText,
         statusText: r.statusText,
-        // 差异：交付 N 桶、收回 M 桶 —— 少收的那部分就是这张单要处理的
-        qtyText: '送 ' + numText(r.deliveryQty) + ' / 回 ' + numText(r.returnQty)
+        // 回桶异常的deliveryQty保存应回值（已排除新领容量），不能再标成送出数。
+        qtyText: (String(r.category || '').startsWith('RETURN_') ? '应回 ' : '核对值 ') + numText(r.deliveryQty) + (String(r.category || '').startsWith('RETURN_') ? ' / 实回 ' : ' / 实际值 ') + numText(r.returnQty)
           + ' / 差 ' + numText(r.discrepancy),
         staffNote: r.staffNote || '',
         managerNote: r.managerNote || '',
-        suggestText: suggestText(r),
         timeText: dateTimeText(r.createdAt)
       }))
       const previous = reset ? [] : this.data.items
@@ -465,15 +389,7 @@ function errText(err, fallback) {
   return (err && err.message) || fallback
 }
 
-/** 服务端给的"建议补偿"（它自己不判断要不要补，只把当初算出来的数摆出来） */
-function suggestText(r) {
-  const parts = []
-  if (r.suggestedTicketQty) parts.push('水票 ' + r.suggestedTicketQty + ' 张')
-  if (r.suggestedCashAmount && Number(r.suggestedCashAmount) !== 0) {
-    parts.push('押金账户余额 +¥' + Number(r.suggestedCashAmount).toFixed(2))
-  }
-  return parts.length ? parts.join(' / ') : ''
-}
+
 
 function pad(n) {
   return n < 10 ? '0' + n : '' + n

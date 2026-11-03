@@ -13,6 +13,9 @@ import java.util.List;
  */
 @Mapper
 public interface TicketLotMapper {
+    @Update("update ticket_lot set remain_qty=remain_qty+#{quantity},status=1,update_time=NOW() where id=#{id} and status in (1,2) and remain_qty+#{quantity}<=qty")
+    int restoreReserved(@Param("id") Long id,@Param("quantity") int quantity);
+
     @Select("select * from ticket_lot where payment_record_id=#{payment} and source_type=1 and is_migrated=0 and status=1 and remain_qty>0 order by id for update")
     List<TicketLot> purchasedBalanceForUpdate(@Param("payment") Long payment);
     /** 汇总写入必须当前读，不能把并发入账前的 RR 快照写回账户。 */
@@ -44,7 +47,7 @@ public interface TicketLotMapper {
      * 与押金条/桶账的核销顺序保持同一套语义，避免"退票退的是哪一批"各处理解不同。</p>
      */
     @Select("select * from ticket_lot where customer_id = #{customerId} and station_id = #{stationId} "
-            + "and product_id = #{productId} and status = 1 and remain_qty > 0 order by id asc")
+            + "and product_id = #{productId} and status = 1 and remain_qty > 0 order by id asc for update")
     List<TicketLot> listUsableFifo(@Param("customerId") Long customerId,
                                    @Param("stationId") Long stationId,
                                    @Param("productId") Long productId);

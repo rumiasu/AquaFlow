@@ -36,13 +36,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeMap;
 
 @Service
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
+    @Autowired private com.example.aquaflow.service.TicketLotService ticketLotService;
+    @Autowired private com.example.aquaflow.service.TicketDeliveryBenefitService deliveryBenefits;
     @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
     @Autowired private com.example.aquaflow.payment.MockWechatPaymentAdapter mockAdapter;
     @Autowired private com.example.aquaflow.mapper.ConsumptionRefundMapper paymentLocks;
+    @Autowired private com.example.aquaflow.service.TicketPaymentService ticketPayments;
     @Autowired private com.example.aquaflow.service.ConfirmedRefusalService confirmedRefusals;
     @Autowired private com.example.aquaflow.service.IndependentBarrelService independentBarrelService;
     @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderPurchases;
@@ -228,6 +233,16 @@ public class PaymentServiceImpl implements PaymentService {
             if (!Objects.equals(paymentMethod,current.getPaymentMethod()))
                 throw new BusinessException("付款方式与下单确认不一致，请回到原订单按已确认方式付款");
             requireNewPurchaseDebtClear(current);
+            if(Objects.equals(current.getPaymentMethod(),PayMethod.TICKET)) {
+                if(ticketPayments.get(orderId)==null) {
+                    // Past paid test/history facts are read back, never charged or ticketed again.
+                    PaymentRecord original=paymentRecordMapper.getByOrderId(orderId);
+                    if(original!=null && original.getStatus()==PaymentStatus.PAID && original.getPaymentMethod()==PayMethod.TICKET
+                            && current.getPaymentStatus()==PaymentStatus.PAID)return original;
+                    ticketPayments.prepare(current,null,null,null);
+                }
+                return createSplitPayment(current,note);
+            }
         }
 
         // 2026-10-08：原来订单流水附带购票数量会在确认时凭空加票；命中重放前也须拒绝混入购买意图。
@@ -353,6 +368,29 @@ public class PaymentServiceImpl implements PaymentService {
         return record.isSimulated() ? confirmMockChannelIfApplicable(record.getId()) : record;
     }
 
+    private PaymentRecord createSplitPayment(Orders order,String note) {
+        var split=ticketPayments.get(order.getId());
+        if("CANCELLED".equals(split.state()))throw new BusinessException("水票原单已终止，不能重新支付");
+        Integer method=split.cashDue().signum()>0?split.cashMethod():PayMethod.TICKET;
+        if(Objects.equals(method,PayMethod.WECHAT))mockPolicy.requireSelf(order.getCustomerId());
+        PaymentRecord existing=paymentRecordMapper.getByOrderId(order.getId());
+        if(existing!=null && (existing.getStatus()==PaymentStatus.PAID || existing.getStatus()==PaymentStatus.PENDING)) {
+            ticketPayments.validateRecord(order,existing);
+            return existing.isSimulated() && existing.getStatus()==PaymentStatus.PENDING?confirmMockChannelIfApplicable(existing.getId()):existing;
+        }
+        PaymentRecord record=new PaymentRecord();record.setOrderId(order.getId());record.setCustomerId(order.getCustomerId());
+        record.setStationId(StationUtil.settleStation(order));record.setPaymentMethod(method);
+        record.setAmount(split.cashDue());record.setWaterAmount(BigDecimal.ZERO);record.setBarrelDeposit(split.deposit());
+        record.setDeliveryFee(split.delivery().subtract(split.credit()));record.setFloorFee(split.floor());
+        record.setNote(note);record.setCreateTime(LocalDateTime.now());record.setUpdateTime(LocalDateTime.now());
+        record.setStatus(split.cashDue().signum()==0?PaymentStatus.PAID:PaymentStatus.PENDING);mockPolicy.prepare(record);
+        paymentRecordMapper.insert(record);
+        if(record.getStatus()==PaymentStatus.PAID) {
+            ticketPayments.paid(order);orderMapper.markPaidIfCollectable(order.getId());applyDepositOnPaid(order.getId());
+        }
+        return record.isSimulated()?confirmMockChannelIfApplicable(record.getId()):record;
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void confirmPayment(Long paymentId) {
@@ -366,8 +404,7 @@ public class PaymentServiceImpl implements PaymentService {
             if(current==null || current.getStatus()==OrderStatus.CANCELLED || current.getPaymentStatus()==PaymentStatus.REFUNDED || current.getPaymentStatus()==PaymentStatus.CANCELLED)
                 throw new BusinessException("订单已经取消或退款，不能再确认收款");
             // Do not let a pre-fix mismatched pending record become a new paid fact; retain it for reconciliation.
-            if (!Objects.equals(record.getPaymentMethod(),current.getPaymentMethod()))
-                throw new BusinessException("原流水付款方式与订单不一致，请核对原款，不能确认收款");
+            ticketPayments.validateRecord(current,record);
             requireNewPurchaseDebtClear(current);
         }
         // 订单→流水的固定锁序；锁后重读，不能让等待中的请求使用旧 PENDING 快照。
@@ -378,11 +415,9 @@ public class PaymentServiceImpl implements PaymentService {
             if (!record.isSimulated()) throw new BusinessException("原款没有模拟渠道凭据，不能模拟确认");
             if (record.getOrderId() != null) {
                 Orders current = orderMapper.getById(record.getOrderId());
-                if (current == null || !Objects.equals(current.getCustomerId(), record.getCustomerId())
-                        || !Objects.equals(current.getPaymentMethod(), PayMethod.WECHAT)
-                        || current.getTotalAmount() == null || record.getAmount() == null
-                        || current.getTotalAmount().compareTo(record.getAmount()) != 0)
-                    throw new BusinessException("原订单归属、方式或金额不一致，不能确认付款");
+                if (current == null || !Objects.equals(current.getCustomerId(), record.getCustomerId()))
+                    throw new BusinessException("原订单归属不一致，不能确认付款");
+                ticketPayments.validateRecord(current,record);
             }
         }
         if (record.getStatus() != PaymentStatus.PENDING) {
@@ -421,9 +456,11 @@ public class PaymentServiceImpl implements PaymentService {
             // 批次单价必须是 8.00；用站级单张价记，退票时就会多退给客户钱。
             ticketAccountService.creditPurchasedTickets(record.getCustomerId(), record.getTicketWaterTypeId(),
                     record.getTicketQty(), record.getStationId(), record.getId(), record.getAmount());
+            deliveryBenefits.activatePurchase(record);
         }
 
         if (record.getOrderId() != null) {
+            ticketPayments.paid(orderMapper.getById(record.getOrderId()));
             // 确认收款 = 收钱 → 0/1 任一状态都前进到 已付款(2)；水票创建时已是 2，此处 affected=0 属幂等
             int marked = orderMapper.markPaidIfCollectable(record.getOrderId());
             if (record.isSimulated() && marked != 1)
@@ -555,9 +592,20 @@ public class PaymentServiceImpl implements PaymentService {
         if (orderId == null) {
             return;
         }
-        com.example.aquaflow.entity.Orders order = orderMapper.getById(orderId);
+        com.example.aquaflow.entity.Orders order = paymentLocks.lockOrder(orderId);
         if (order == null) {
             throw new BusinessException("订单不存在");
+        }
+        var split=ticketPayments.get(orderId);
+        if(split!=null) {
+            if(!ticketPayments.cod(order) || order.getStatus()==OrderStatus.CANCELLED || order.getPaymentStatus()==PaymentStatus.REFUNDED || order.getPaymentStatus()==PaymentStatus.CANCELLED)throw new BusinessException("本单不能现场收取服务费");
+            PaymentRecord original=createSplitPayment(order,note);
+            ticketPayments.validateRecord(order,original);
+            if(original.getStatus()==PaymentStatus.PENDING) {
+                if(paymentRecordMapper.confirmPendingToPaid(orderId,StationUtil.settleStation(order),note,AuthContext.getUserId())!=1)throw new BusinessException("原服务费收款状态已变化");
+                ticketPayments.paid(order);
+            }
+            return;
         }
         // 幂等：已有 PAID 流水则跳过，不重复记账（#27）
         if (hasPaidRecord(orderId)) {
@@ -684,16 +732,9 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void lockTicketPayment(Long orderId, Long customerId, Long productId, int qty, Integer orderStationId) {
-        // #26: 直接调用原子扣减，检查返回值判断是否成功
-        TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, productId, orderStationId != null ? Long.valueOf(orderStationId) : null);
-        if (account == null) {
-            throw new BusinessException("该客户还没有此商品的水票账户，无法扣减");
-        }
-        int affected = ticketAccountMapper.decrementQuantity(account.getId(), qty);
-        if (affected == 0) {
-            throw new BusinessException("水票余额不足，请先购买水票后再试");
-        }
+        ticketLotService.reserveForOrder(customerId,orderStationId==null?null:Long.valueOf(orderStationId),productId,orderId,qty);
     }
 
     /**
@@ -736,7 +777,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void requireNewPurchaseDebtClear(Orders order) {
-        boolean collectingExisting = Objects.equals(order.getPaymentMethod(), PayMethod.CASH)
+        boolean collectingExisting = (Objects.equals(order.getPaymentMethod(), PayMethod.CASH) || ticketPayments.cod(order))
                 && Objects.equals(order.getPaymentStatus(), PaymentStatus.PENDING)
                 && (Objects.equals(order.getStatus(), OrderStatus.DELIVERED)
                     || Objects.equals(order.getStatus(), OrderStatus.COMPLETED));
@@ -755,6 +796,8 @@ public class PaymentServiceImpl implements PaymentService {
                     || Objects.equals(current.getPaymentStatus(), PaymentStatus.PENDING))
                 || current.getCreateTime() == null
                 || !current.getCreateTime().isBefore(paymentRecordMapper.timeoutCutoff(timeoutMinutes))) return false;
+        // 已获授权的服务费货到单不按线上付款超时取消。
+        if (ticketPayments.cod(current)) return false;
         // 已发起渠道请求不能猜作未付款；保留原款等待核实，而非超时伪造退款。
         if (!paymentRecordMapper.activeByOrderForUpdate(orderId).isEmpty()) return false;
         String reason = Objects.equals(current.getPaymentMethod(), PayMethod.TICKET)
@@ -792,6 +835,13 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException(OrderStatus.notCancellableReason(currentStatus));
         }
 
+        var split=ticketPayments.get(orderId);
+        if(split!=null) {
+            PaymentRecord paid=paymentRecordMapper.getByOrderId(orderId);
+            if(paid!=null && paid.getStatus()==PaymentStatus.PAID && Objects.equals(paid.getPaymentMethod(),PayMethod.CASH) && paid.getAmount().signum()>0
+                && (expectedRefundAmount==null || expectedRefundAmount.compareTo(paid.getAmount())!=0))
+                throw new BusinessException("取消须明确确认实际退还的服务费金额，请重新预览本单退款");
+        }
         Long customerId = order.getCustomerId();
         // ===== 站别口径（跨站外派单必须分清，混用会真丢钱）=====
         // 这里退的是**客户的资产**：预收押金、水票。它们在收款时一律记【归属站】(ownerStation)，
@@ -969,6 +1019,8 @@ public class PaymentServiceImpl implements PaymentService {
         if (record == null) throw new BusinessException("支付记录不存在");
         if (record.getOrderId()!=null && orderPurchases.hasPurchase(record.getOrderId()))
             throw new BusinessException("合单款须按消费退款或押金退还凭据处理，不能整笔退款并保留容量");
+        if(record.getOrderId()!=null && ticketPayments.get(record.getOrderId())!=null)
+            throw new BusinessException("本单水费由水票支付，服务费另收；请重新预览并选择分项退款");
         // #32: 校验当前状态，只有PAID才能退款
         if (record.getOrderId() == null && independentBarrelService.isPurchasePayment(paymentId)) {
             throw new BusinessException("桶押金须走权益退还申请，不能通过消费退款保留可用权益");
@@ -1061,6 +1113,7 @@ public class PaymentServiceImpl implements PaymentService {
      * @param ticketReason 退款事由，仅用于日志
      */
     private void restoreTicketsForOrder(Orders order, Long orderId, String ticketReason) {
+        if(ticketPayments.get(orderId)!=null) { ticketPayments.cancel(order); return; }
         Long customerId = order.getCustomerId();
         Long ownerStation = ownerStation(order);
         List<OrderItem> refundItems = orderItemMapper.listByOrderId(orderId);
@@ -1124,6 +1177,9 @@ public class PaymentServiceImpl implements PaymentService {
         refundRecord.setBarrelDeposit(negate(original.getBarrelDeposit()));
         refundRecord.setExcessBarrels(original.getExcessBarrels() != null ? -original.getExcessBarrels() : 0);
         refundRecord.setPaymentMethod(original.getPaymentMethod());
+        if(original.getOrderId()!=null && ticketPayments.get(original.getOrderId())!=null) {
+            refundRecord.setDeliveryFee(negate(original.getDeliveryFee()));refundRecord.setFloorFee(negate(original.getFloorFee()));
+        }
         refundRecord.setStatus(PaymentStatus.REFUNDED);
         if (original.isSimulated()) mockPolicy.markRefund(original, refundRecord);
         refundRecord.setNote(truncateNote(refundNote));
@@ -1206,7 +1262,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public List<PaymentRecord> listByOrderId(Long orderId) {
-        return paymentRecordMapper.listByOrderId(orderId);
+        var rows=paymentRecordMapper.listByOrderId(orderId);
+        if(ticketPayments.get(orderId)!=null)for(var row:rows)row.setCanRefundComponents(row.getStatus()==PaymentStatus.PAID || row.getStatus()==PaymentStatus.PENDING && ticketPayments.refundableQty(orderId)>0);
+        return rows;
     }
 
     @Override
@@ -1229,6 +1287,10 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public Map<String, Object> quote(Long customerId, Long stationId, Integer paymentMethod,
                                      List<Map<String, Object>> items, Long addressId) {
+        return quote(customerId,stationId,paymentMethod,items,addressId,null);
+    }
+    @Override
+    public Map<String,Object> quote(Long customerId,Long stationId,Integer paymentMethod,List<Map<String,Object>> items,Long addressId,Integer ticketFeePaymentMethod) {
         Map<String, Object> result = new HashMap<>();
         boolean mockWechatPay = mockPolicy.allows(customerId);
 
@@ -1418,6 +1480,26 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("ticketPay", payByTicket
                 ? ticketPayPreview(ticketLines, ticketTotalQty, ticketCoveredAmount, totalAmount)
                 : null);
+        if(payByTicket) {
+            @SuppressWarnings("unchecked") Map<String,Object> preview=(Map<String,Object>)result.get("ticketPay");
+            Map<Long,Integer> quantities=new TreeMap<>();for(var item:items)quantities.merge(Long.valueOf(item.get("productId").toString()),Integer.valueOf(item.get("quantity").toString()),Integer::sum);
+            BigDecimal credit=Boolean.TRUE.equals(preview.get("fullyCovered"))?ticketPayments.previewCredit(customerId,stationId,quantities,fee.getDeliveryFee()):BigDecimal.ZERO;
+            BigDecimal cash=fee.getFeeTotal().subtract(credit).add(totalExtraDeposit);
+            result.put("ticketDeliveryCredit",credit);result.put("ticketFeeAmount",cash);
+            result.put("totalAmount",totalAmount.subtract(credit));
+            var feeMethods=methods.stream().filter(m -> !Integer.valueOf(PayMethod.TICKET).equals(m.get("id"))).toList();
+            result.put("ticketFeeMethods",feeMethods);
+            Integer chosen=ticketFeePaymentMethod;
+            if(chosen==null) { if(mockWechatPay)chosen=PayMethod.WECHAT;else if(allowOffline)chosen=PayMethod.CASH; }
+            result.put("ticketFeePaymentMethod",chosen);
+            if(Boolean.TRUE.equals(preview.get("fullyCovered"))) {
+                preview.put("payableAmount",cash);preview.put("deliveryCredit",credit);
+                preview.put("hint","水票仅抵水费；"+(credit.signum()>0?"本次用购票档位权益抵一次配送费，楼层费另收；":"")+"其余应付 ¥"+cash);
+                if(cash.signum()>0 && !(Objects.equals(chosen,PayMethod.WECHAT)&&mockWechatPay || Objects.equals(chosen,PayMethod.CASH)&&allowOffline)) {
+                    result.put("blocked",true);result.put("blockReason","水票只抵水费；请先开通其余费用的付款方式或联系水站");
+                }
+            }
+        }
         if (payByTicket && !purchasePlan.isEmpty()) {
             @SuppressWarnings("unchecked") Map<String,Object> preview=(Map<String,Object>)result.get("ticketPay");
             preview.put("fullyCovered",false);
@@ -1488,7 +1570,7 @@ public class PaymentServiceImpl implements PaymentService {
         boolean usable = ticketTierService.usesCustomTicket(product, inv)
                 || (BarrelScope.isBarrel(product)
                     && ticketAccountService.unifiedDiscountConfigured(stationId));
-        int balance = usable ? ticketAccountService.balanceOf(customerId, product.getId(), stationId) : 0;
+        int balance = usable ? ticketLotService.availableQuantity(customerId, stationId, product.getId()) : 0;
         boolean covered = usable && balance >= qty;
         return new TicketLine(name, qty, usable, balance, covered);
     }
@@ -1508,31 +1590,7 @@ public class PaymentServiceImpl implements PaymentService {
         return null;   // 票够：不必打扰客户
     }
 
-    /**
-     * 水票抵扣预览（结算页据此把计费区改成"只计费除去水票的部分"）。
-     *
-     * <p><b>⚠️ 先把"票到底结清了什么"说清楚</b>（这一条决定了字段口径，别想当然）：
-     * 水票支付是把**整单**置为已付 —— {@code createPayment} 在 {@code paymentMethod=3} 时
-     * 扣票成功后直接 {@code status=PAID} + {@code markPaidIfCollectable} + {@code applyDepositOnPaid}，
-     * 也就是<b>水费、押金、配送费、楼层费全部随票一并结清</b>，客户在门口不再掏钱。
-     * 所以"票够"时客户这次要付的是 <b>0</b>，而不是 {@code 合计 − 水费}。</p>
-     *
-     * <p>字段（前端不得自造同义字段）：</p>
-     * <ul>
-     *   <li>{@code needQty} —— 本单需要几张票（= 需要走票的行数量合计）；</li>
-     *   <li>{@code coverQty} —— 按唯一判据选出的账户实际能覆盖几件。**不够就是整单用不了票**
-     *       （{@code consumeTicket} 要求账户余额 ≥ 本行数量，不存在"先抵一部分"）；</li>
-     *   <li>{@code fullyCovered} —— 整单能否全部用票结清；</li>
-     *   <li>{@code coverAmount} —— 被票覆盖那部分对应的**水费**（账目口径的展示值）；</li>
-     *   <li>{@code payableAmount} —— <b>客户这次实际要付的钱</b>：能全抵 → {@code 0}；
-     *       抵不掉 → 订单全额（因为本单根本用不了票，得改选别的支付方式全额付）；</li>
-     *   <li>{@code title} / {@code hint} —— 弹窗标题与一句可读结论（都由后端下发）。
-     *       抵不掉时**必须区分两种情况**：某商品<b>根本不能用票</b>（补票也没用，只能改选）
-     *       与<b>票不够</b>（补票或者改选）。两者混成一句话会把客户引到错的动作上。
-     *       另外必须说清"**当前不支持票 + 现金/微信混合支付**，票不会被扣、留在账户里下次用" ——
-     *       否则客户会以为可以补差价，或者以为票已经被扣掉了。</li>
-     * </ul>
-     */
+    /** Water-only all-or-none ticket preview. Service cash and one-time delivery credit are added above. */
     private Map<String, Object> ticketPayPreview(List<TicketLine> lines,
                                                  int totalQty, BigDecimal coveredAmount, BigDecimal totalAmount) {
         int coveredQty = 0;
@@ -1558,7 +1616,7 @@ public class PaymentServiceImpl implements PaymentService {
         String hint;
         if (fullyCovered) {
             title = "水票支付";
-            hint = "本单全部由水票结清（含水费、押金与配送费），无需另行付款";
+            hint = "水票仅抵本单对应水费，配送、楼层等费用另付";
         } else if (unavailableName != null) {
             title = "暂不能用票支付";
             hint = "「" + unavailableName + "」不能用票支付（本站没有为它开通水票，也没有可用的统一折扣），"
@@ -1566,7 +1624,7 @@ public class PaymentServiceImpl implements PaymentService {
         } else {
             title = "水票不足";
             hint = "水票不足以覆盖本单：需要 " + totalQty + " 张、手上只够抵 " + coveredQty
-                    + " 件，还差 " + shortfallQty + " 张。当前不支持「水票 + 现金/微信」混合支付，"
+                    + " 件，还差 " + shortfallQty + " 张。暂不支持部分水票抵水费，"
                     + "请改选支付方式，或先补齐水票再下单（票不会被扣，仍留在你的账户里）";
         }
 
@@ -1643,6 +1701,12 @@ public class PaymentServiceImpl implements PaymentService {
         String state = order.getPayState();
         if (!("UNPAID".equals(state) || "PENDING".equals(state) || "CANCELLED".equals(state))) {
             return false;
+        }
+        ticketPayments.project(order);
+        var split=ticketPayments.get(order.getId());
+        if(split!=null) {
+            boolean online=split.cashDue().signum()>0 && Objects.equals(split.cashMethod(),PayMethod.WECHAT) && mockPolicy.allows(order.getCustomerId()) && !Set.of("REFUNDED","CANCELLED").contains(split.state());
+            order.setSelfPaySimulated(online);return online || split.cashDue().signum()==0 && "HELD".equals(split.state());
         }
         Integer method = order.getPaymentMethod();
         if (method == null) {

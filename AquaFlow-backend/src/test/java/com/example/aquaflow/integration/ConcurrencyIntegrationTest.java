@@ -32,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @DisplayName("Phase B · 并发一致性（接单/收款/退桶/支付防重）")
 class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
+    @org.springframework.beans.factory.annotation.Autowired com.example.aquaflow.service.TicketPaymentService ticketPayments;
+    @org.springframework.beans.factory.annotation.Autowired com.example.aquaflow.mapper.OrderMapper orderMapper;
 
     private long station;
     private long product;
@@ -154,6 +156,8 @@ class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
                 "40.00", "30.00", "70.00", false, 2);
         createOrderItemFull(order, product, "桶装水18.9L", 2, 2, "20.00", "0.00");
         createTicketAccount(customer, station, product, 10);
+        createCustomerStationConfig(customer,station,1);
+        ticketPayments.prepare(orderMapper.getById(order),2,null,null);
 
         String token = customerToken(customer);
         List<Api> results = fireTogether(List.of(
@@ -167,7 +171,7 @@ class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
         for (Api r : results) {
             assertEquals(paymentId, r.data().path("id").asLong(), "不能把两笔不同流水当作幂等成功");
             assertEquals(order, r.data().path("orderId").asLong(), "返回原单流水");
-            assertEquals(2, r.data().path("status").asInt(), "扣票成功后两个响应均是原已付款结果");
+            assertEquals(1, r.data().path("status").asInt(), "押金余款未实收，两个响应均是同一待收原款");
         }
         for (Api r : results) {
             if (!r.isSuccess()) {
@@ -175,6 +179,8 @@ class ConcurrencyIntegrationTest extends AbstractIntegrationTest {
             }
         }
 
+        assertEquals(10,intOf("select remain_quantity from ticket_account where customer_id=?",customer),"余款实收前不消费预留票");
+        Api actual=put("/api/payments/"+paymentId+"/cash-confirm",mgrToken(),null);assertTrue(actual.isSuccess(),actual.message());
         // ② 只产生一条支付流水（数据库唯一键 uk_payment_active_order 兜底）
         assertEquals(1, intOf("SELECT COUNT(*) FROM payment_record WHERE order_id=?", order),
                 "同一订单只应有一条支付流水");

@@ -3,7 +3,7 @@ const { jumpToSettingSection } = require('../../../utils/settings-sections')
 // ⚠️ 直接用 utils/request，不引 api/station-mgmt.js 与 config/api.js：
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
 // 路径常量写在本文件里，理由同上。
-const { get, post, del } = require('../../../utils/request')
+const { get, post, put, del } = require('../../../utils/request')
 
 const PACKAGES_MANAGE = '/api/ticket-packages/manage'
 const PACKAGES = '/api/ticket-packages'
@@ -62,10 +62,34 @@ Page({
     editingTierId: null, editorCollapsed: false, editorExpanded: false, presetsExpanded: false,
     form: { qty: '', price: '', discount: '', title: '', sort: '' },
     saving: false,
-    ticketReadinessText: '', ticketReadinessError: ''
+    ticketReadinessText: '', ticketReadinessError: '', deliveryOffers: [], deliveryOffersError: '', deliveryOffersLoading: false, deliveryOfferSaving: false
   },
 
+  async loadDeliveryOffers() {
+    const context = this.readContext(), seq = this._deliveryOffersSeq = (this._deliveryOffersSeq || 0) + 1
+    this.setData({ deliveryOffersLoading: true, deliveryOffers: [], deliveryOffersError: '' })
+    try {
+      const result = await get('/api/manager/ticket-delivery-offers')
+      if (seq !== this._deliveryOffersSeq || !this.isReadCurrent(context)) return
+      if (!result || result.code !== 0 || !Array.isArray(result.data)) throw Error('配送费档位未核实')
+      this.setData({ deliveryOffers: result.data })
+    } catch (error) {
+      if (seq === this._deliveryOffersSeq && this.isReadCurrent(context)) this.setData({ deliveryOffersError: error.message || '配送费档位未读取，请重试' })
+    } finally { if (seq === this._deliveryOffersSeq && this.isReadCurrent(context)) this.setData({ deliveryOffersLoading: false }) }
+  },
+  async onToggleDeliveryOffer(e) {
+    if (this.data.deliveryOfferSaving || this.data.deliveryOffersLoading) return
+    const row = this.data.deliveryOffers[Number(e.currentTarget.dataset.index)], context = this.readContext()
+    if (!row || !this.isReadCurrent(context)) return
+    this.setData({ deliveryOfferSaving: true })
+    try {
+      await put('/api/manager/ticket-delivery-offers', { kind: row.kind, tierKey: row.tierKey, productId: row.productId, enabled: !row.enabled })
+      if (this.isReadCurrent(context)) await this.loadDeliveryOffers()
+    } catch (error) { if (this.isReadCurrent(context)) wx.showToast({ title: error.message || '设置未保存，请重新核对', icon: 'none' }) }
+    finally { if (this.isReadCurrent(context)) this.setData({ deliveryOfferSaving: false }) }
+  },
   async refreshTicketReadiness() {
+    this.loadDeliveryOffers()
     const context = this.readContext(), seq = this._ticketGuideSeq = (this._ticketGuideSeq || 0) + 1
     try {
       const response = await get('/api/manager/setup-guide')
@@ -155,7 +179,7 @@ Page({
     this._hidden = true
     this._readEpoch = (this._readEpoch || 0) + 1
     this.onCloseProductPicker()
-    this.setData({ loading: false, productsLoading: false })
+    this.setData({ loading: false, productsLoading: false, deliveryOffers: [], deliveryOffersLoading: false, deliveryOfferSaving: false })
   },
   onUnload() { this.onHide(); this._unloaded = true },
 

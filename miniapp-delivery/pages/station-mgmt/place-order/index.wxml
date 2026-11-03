@@ -1,10 +1,11 @@
 <!-- 代客下单（站长）：电话/口头订单当场录入。规格见 docs/design/20 §5。
      金额一律由服务端试算下发，本页只展示（wxml 里不做任何算术）。 -->
 <view class="page">
-  <view class="work-head"><text class="work-title">替客户下单</text><text class="work-desc">{{step === 1 ? '1 选客户 → 2 选地址 → 3 核对订单' : (step === 2 ? '已选客户 · 接下来选择收货地址' : '核对商品、费用与支付方式后确认下单')}}</text></view>
+  <view class="work-head"><text class="work-title">录入客户订单</text><text class="work-desc">{{step === 1 ? '1 选客户 → 2 选地址 → 3 核对订单' : (step === 2 ? '已选客户 · 接下来选择收货地址' : '核对商品、费用与支付方式后确认下单')}}</text></view>
 
   <view class="ui-state" wx:if="{{stationError}}"><text class="ui-state-copy">{{stationError}}</text><button size="mini" bindtap="onBackCustomers" class="af-entry b3-on-back-customers" hover-class="af-action--pressed"><view class="af-entry__body">返回客户列表</view><text class="af-entry__arrow" aria-hidden="true">›</text></button></view>
   <block wx:if="{{!stationError}}">
+  <block wx:if="{{!unknownOrder}}">
   <!-- 已选摘要：让站长在滚动到下半屏时仍知道"这单是给谁的、送到哪" -->
   <view class="summary" wx:if="{{customer}}">
     <view class="summary-line">
@@ -109,8 +110,10 @@
       <view class="fee-line"><text>押金</text><text>¥{{quote.depositAmount}}</text></view>
       <view class="fee-line" wx:if="{{quote.deliveryFee}}"><text>配送费</text><text>¥{{quote.deliveryFee}}</text></view>
       <view class="fee-line" wx:if="{{quote.floorFee}}"><text>楼层费</text><text>¥{{quote.floorFee}}</text></view>
+      <view class="fee-line" wx:if="{{selectedMethod === 3 && quote.ticketDeliveryCredit > 0}}"><text>本次配送抵扣</text><text>−¥{{quote.ticketDeliveryCredit}}</text></view>
       <view class="fee-line fee-total"><text>合计</text><text>¥{{quote.totalAmount}}</text></view>
 
+      <view class="fee-line fee-total" wx:if="{{selectedMethod === 3 && quote.ticketPay && quote.ticketPay.fullyCovered}}"><text>本次另付</text><text>¥{{quote.ticketFeeAmount}}</text></view>
       <view class="warn" wx:for="{{quote.warnings}}" wx:key="*this">· {{item}}</view>
       <view class="blocked" wx:if="{{quote.blocked}}">不满足本站配送条件：{{quote.blockReason}}</view>
 
@@ -123,6 +126,12 @@
       </view>
     </view>
 
+  <view class="card ticket-fee-section" wx:if="{{!unknownOrder && !stationError && selectedMethod === 3 && quote && quote.ticketPay && quote.ticketPay.fullyCovered}}">
+    <view class="card-title">水票抵水费，其他费用另付</view><text>{{quote.ticketPay.hint}}</text>
+    <view class="ticket-fee-methods" wx:if="{{quote.ticketFeeAmount > 0}}"><button wx:for="{{quote.ticketFeeMethods}}" wx:key="id" class="af-choice {{ticketFeePaymentMethod === item.id ? 'af-choice--selected' : ''}}" data-id="{{item.id}}" disabled="{{!item.enabled || submitting || quoting}}" bindtap="onPickTicketFeeMethod"><text class="af-choice__face">{{item.name}}{{ticketFeePaymentMethod === item.id ? ' · 已选' : ''}}</text></button></view>
+    <text wx:if="{{ticketFeePaymentMethod === 1 && quote.ticketFeeAmount > 0}}">记录订单后，由客户在原订单支付其他费用；未支付前不安排配送。</text>
+  </view>
+
     <view class="card" wx:if="{{quote}}">
       <view class="af-action af-action--primary b3-on-submit af-action--grow af-action--final af-action--block" bindtap="onSubmit">
         {{submitting ? '提交中…' : '确认下单'}}
@@ -131,8 +140,12 @@
     </view>
   </block>
 
+  </block>
+  <view class="ui-state" wx:if="{{orderRecoverySummary && unknownOrder}}"><text class="ui-state-copy">{{orderRecoverySummary}}</text></view>
+  <view class="ui-state" wx:if="{{orderRecoveryError}}"><text class="ui-state-copy">{{orderRecoveryError}}</text></view>
   <button wx:if="{{unknownOrder}}" bindtap="onRetryOriginal" disabled="{{submitting}}" class="af-action af-action--quiet b3-on-retry-original" hover-class="af-action--pressed"><view class="af-action__face">核实原下单请求</view></button>
   </block>
+
 
 </view>
 <business-dialog id="business-dialog" />

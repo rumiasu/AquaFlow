@@ -143,8 +143,10 @@
     <view class="empty-state" wx:if="{{!loading && readReady.assigned && assignedOrders.length === 0 && readReady.transfers && incomingTransfers.length === 0}}">
       <!-- [2026-09-26] 配送员看不到"本站还没派出去的单"（产品裁定：未分配的不该出现在配送员面前），
            所以空态要说清"等站长派单"，否则他会以为自己今天真的没活干。 -->
+      <icon name="order" size="28px" color="#8391A2" />
       <text class="empty-text" wx:if="{{onlyAssigned}}">还没有派给你的单，等站长分配</text>
       <text class="empty-text" wx:else>暂无待配送订单</text>
+      <text class="care-note">趁空喝口水，留意新的安排。</text>
     </view>
   </view>
 
@@ -185,7 +187,9 @@
       </view>
     </view>
     <view class="empty-state" wx:if="{{!loading && readReady.delivering && deliveringOrders.length === 0}}">
+      <icon name="order" size="28px" color="#8391A2" />
       <text class="empty-text">暂无配送中订单</text>
+      <text class="care-note">空下来记得喝口水、歇一会儿。</text>
     </view>
   </view>
 
@@ -224,7 +228,9 @@
       </view>
     </view>
     <view class="empty-state" wx:if="{{!loading && readReady.completed && completedOrders.length === 0}}">
+      <icon name="order" size="28px" color="#8391A2" />
       <text class="empty-text">今日暂无已送达订单</text>
+      <text class="care-note">按安排慢慢来，出门注意安全。</text>
     </view>
   </view>
 

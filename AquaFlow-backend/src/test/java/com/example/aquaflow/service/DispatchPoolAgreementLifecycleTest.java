@@ -51,7 +51,7 @@ class DispatchPoolAgreementLifecycleTest {
         when(policy.isEnabled()).thenReturn(true);
         Map<String,Object> quote = Map.of("status", "OFFERED", "service_amount", new BigDecimal("42.50"), "barrel_mode", "RETURN_EMPTY", "barrel_amount", BigDecimal.ZERO);
         when(mapper.lock(1L)).thenReturn(quote); when(mapper.route(1L, null)).thenReturn(1);
-        DispatchAgreementService service = new DispatchAgreementService(mapper, mock(ConsumptionRefundMapper.class), mock(BarrelLedgerService.class), policy, mock(AuditLogService.class));
+        DispatchAgreementService service = new DispatchAgreementService(mapper, mock(ConsumptionRefundMapper.class), mock(BarrelLedgerService.class), policy, mock(AuditLogService.class), mock(TicketPaymentService.class), mock(org.springframework.jdbc.core.JdbcTemplate.class));
         Orders order = new Orders(); order.setId(1L); order.setStationId(8L);
         service.prepare(order, null);
         verify(mapper).lock(1L);
@@ -64,7 +64,7 @@ class DispatchPoolAgreementLifecycleTest {
         BarrelBusinessPolicy policy = mock(BarrelBusinessPolicy.class);
         when(policy.isEnabled()).thenReturn(true); when(policy.hasSchema()).thenReturn(true);
         when(mapper.lock(1L)).thenReturn(null);
-        DispatchAgreementService service = new DispatchAgreementService(mapper, mock(ConsumptionRefundMapper.class), mock(BarrelLedgerService.class), policy, mock(AuditLogService.class));
+        DispatchAgreementService service = new DispatchAgreementService(mapper, mock(ConsumptionRefundMapper.class), mock(BarrelLedgerService.class), policy, mock(AuditLogService.class), mock(TicketPaymentService.class), mock(org.springframework.jdbc.core.JdbcTemplate.class));
         Orders order = new Orders(); order.setId(1L); order.setStationId(8L);
         assertThrows(BusinessException.class, () -> service.accepted(order, 9L));
         verify(mapper, never()).accept(any(), any(), any());

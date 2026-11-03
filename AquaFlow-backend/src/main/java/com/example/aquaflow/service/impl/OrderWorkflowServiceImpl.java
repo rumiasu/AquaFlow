@@ -60,6 +60,7 @@ import java.util.Set;
 @Service
 @Slf4j
 public class OrderWorkflowServiceImpl implements OrderWorkflowService {
+    @Autowired private com.example.aquaflow.service.TicketPaymentService ticketPayments;
     @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderBarrelPurchases;
     @Autowired private com.example.aquaflow.service.DispatchAgreementService dispatchAgreements;
 
@@ -166,7 +167,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (Integer.valueOf(PaymentStatus.PAID).equals(order.getPaymentStatus())) {
             return true;
         }
-        return Integer.valueOf(PayMethod.CASH).equals(order.getPaymentMethod());
+        return ticketPayments.cod(order);
     }
 
     /** 强制当前水站非空（未绑站直接拒绝，fail-closed），并严格比对履约站 */
@@ -395,7 +396,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             checkDeliverySelf(order);
         }
         // 仅现金(货到付款)订单需配送员现场确认收款；微信(线上回调)与水票(已扣减)不在此处理
-        if (order.getPaymentMethod() == null || !Integer.valueOf(PayMethod.CASH).equals(order.getPaymentMethod())) {
+        if (!ticketPayments.cod(order)) {
             throw new BusinessException("仅现金(货到付款)订单可确认收款");
         }
         int cur = order.getStatus() != null ? order.getStatus() : 0;
@@ -616,7 +617,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         // 配送员点"完成"绝不能是付款动作。否则未付款的微信单 / 未扣票的水票单会被白送。
         Integer pm = order.getPaymentMethod();
         boolean paid = paymentService.hasPaidRecord(orderId);
-        boolean isCashOnDelivery = pm == null || Integer.valueOf(PayMethod.CASH).equals(pm);
+        boolean isCashOnDelivery = pm == null || ticketPayments.cod(order);
         boolean collected = params != null && Boolean.TRUE.equals(params.get("collected"));
 
         // 微信(1) / 水票(3)：必须有 PAID 流水才能完成，否则直接拒绝。
@@ -730,6 +731,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (markPaid) {
             paymentService.applyDepositOnPaid(orderId);
         }
+
+        ticketPayments.delivered(order);
 
         // 纯数据字段回写（回桶数 / 欠桶数 / 差异说明 / 异常单号），不含状态
         orderMapper.updateDeliveryOutcome(orderId, returnBucketQty, owed, discrepancyNote, exceptionId);

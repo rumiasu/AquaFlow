@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 /** 有购票原款凭据的剩余批次退出；赠票、推断价、无来源回补批次走人工裁决。 */
 @Service
 public class UnusedTicketRefundService {
+    @Autowired private TicketDeliveryBenefitService deliveryBenefits;
     @Autowired private PaymentRecordMapper payments;
     @Autowired private ConsumptionRefundMapper locks;
     @Autowired private TicketLotService lots;
@@ -38,6 +39,7 @@ public class UnusedTicketRefundService {
         if (!Integer.valueOf(PaymentStatus.PAID).equals(p.getStatus()) || receipts.exists(paymentId)>0) throw new BusinessException("本批未付款或已办理退票");
         mockPolicy.requireRefund(p);
         TicketLotService.ConsumeResult consumed=lots.consumePurchasedBalance(p.getCustomerId(),p.getStationId(),p.getTicketWaterTypeId(),paymentId);
+        deliveryBenefits.revokeOnUnusedTicketExit(paymentId);
         BigDecimal amount=(consumed.getQuantity()==p.getTicketQty()?p.getAmount():consumed.getTotalAmount().min(p.getAmount())).setScale(2,java.math.RoundingMode.HALF_UP);
         if(consumed.getQuantity()!=expectedQty || amount.compareTo(expectedAmount)!=0)
             throw new BusinessException("水票余额或退款金额已变化，请刷新后重新确认；本次未扣票未登记退款");

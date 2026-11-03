@@ -85,6 +85,7 @@
             <text class="ticket-name">{{item.productName || item.waterTypeName}}</text>
             <!-- 票账户按商品展示，不推断通用票。 -->
             <text class="ticket-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
+            <text class="ticket-spec" wx:if="{{item.reservedQuantity > 0}}">可用 {{item.availableQuantity}} 张 · 原订单预留 {{item.reservedQuantity}} 张，取消未交付订单后释放</text>
             <text class="ticket-expire" wx:if="{{item.expireTime}}">有效期至 {{item.expireTime}}</text>
           </view>
           <view class="ticket-quantity">
@@ -147,7 +148,7 @@
              · UNIFIED = 站级统一折扣按**这款水自己的价**折算出来的档位。
            总价与均价全部用服务端下发的值，这里不做 price/qty 的算术。 -->
       <block wx:if="{{buyPackages.length}}">
-        <text class="modal-label">选择水票套餐</text>
+        <text class="modal-label">选择水票套餐</text><text class="pkg-sub">水票仅抵对应商品水费，配送费、楼层费另收。</text>
         <view class="pkg-list">
           <view
             class="pkg-item {{buyForm.selectedTierKey === item.selectionKey ? 'active' : ''}}"
@@ -159,7 +160,7 @@
           >
             <text class="pkg-title">{{item.title || item.qty + ' 张'}}<text class="pkg-selected" wx:if="{{buyForm.selectedTierKey === item.selectionKey}}"> · 已选</text></text>
             <text class="pkg-price">¥{{item.price}}</text>
-            <text class="pkg-sub">每份 {{item.qty}} 张 · ¥{{item.unitPrice}}/张</text>
+            <text class="pkg-sub">每份 {{item.qty}} 张 · ¥{{item.unitPrice}}/张</text><text class="pkg-sub" wx:if="{{item.deliveryFeeOnce}}">本次购票赠一次配送费抵扣，使用本批水票时可用；不抵楼层费。</text>
           </view>
         </view>
       </block>

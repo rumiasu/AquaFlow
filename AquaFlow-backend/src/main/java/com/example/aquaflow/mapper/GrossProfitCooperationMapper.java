@@ -13,7 +13,7 @@ public interface GrossProfitCooperationMapper {
             + "coalesce(sum(case when da.target_station_id=#{stationId} then da.service_amount else 0 end),0) as agreedReceiveAmount, "
             + "coalesce(sum(case when da.source_station_id=#{stationId} then "
             + "(case when o.payment_method=3 then coalesce((select sum(tr.decrease_qty*tr.unit_price) from ticket_record tr where tr.order_id=o.id and tr.decrease_qty>0),0) else o.water_amount end) "
-            + "+o.delivery_fee+o.floor_fee-da.service_amount else 0 end),0) as quoteDifferenceAmount "
+            + "+o.delivery_fee+o.floor_fee-coalesce((select tp.delivery_credit from order_ticket_payment tp where tp.order_id=o.id),0)-da.service_amount else 0 end),0) as quoteDifferenceAmount "
             + "from dispatch_agreement da join orders o on o.id=da.order_id "
             + "where da.status in ('ACCEPTED','BARREL_CLOSED') and (da.source_station_id=#{stationId} or da.target_station_id=#{stationId}) and " + PERIOD)
     Map<String,Object> agreements(@Param("stationId") Long stationId, @Param("start") LocalDateTime start, @Param("endExclusive") LocalDateTime endExclusive);

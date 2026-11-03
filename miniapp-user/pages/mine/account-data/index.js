@@ -18,12 +18,25 @@ function clearIntent(actor, payload) {
   try { const existing = readIntent(actor); if (existing.state !== 'saved' || JSON.stringify(existing.payload) !== JSON.stringify(payload)) return false; wx.removeStorageSync(intentKey(actor)); return readIntent(actor).state === 'empty' } catch (_) { return false }
 }
 Page({
+  onLoad(query) { if (query && query.view === 'records') { this.setData({ recordsOnly: true }); if (wx.setNavigationBarTitle) wx.setNavigationBarTitle({ title: '申请记录' }) } },
+  onHistoryLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
+  async loadRecordsOnly() {
+    this._session = captureSession(); this._hidden = false; this._epoch = (this._epoch || 0) + 1
+    const epoch = this._epoch
+    const recordsNeedLogin = !(this._session.loggedIn && this._session.customerId)
+    this.setData({ items: [], detail: null, check: null, nextBeforeId: null, options: null, recordsNeedLogin, error: recordsNeedLogin ? '请先登录后查看本人申请记录。' : '', loading: !recordsNeedLogin })
+    if (recordsNeedLogin) return
+    try { await this.loadList(false, epoch) }
+    catch (_) { if (this.current(epoch)) this.setData({ error: '申请记录暂时无法加载，请重试。' }) }
+    finally { if (this.current(epoch)) this.setData({ loading: false }) }
+  },
   onTab(e) { const tab = e.currentTarget.dataset.tab; if (tab === 'apply' || tab === 'records') { if (tab !== this.data.tab && wx.hideKeyboard) wx.hideKeyboard({}); this.setData({ tab }) } },
   onToggleDetails() { this.setData({detailsExpanded:!this.data.detailsExpanded}) },
   data: {
     tab: 'apply', isClosure: false, detailsExpanded:false, checkError:'', options: null, loading: false, error: '', items: [], nextBeforeId: null, selectedIndex: -1,
     selectedLabel: '请选择请求类型', note: '', submitting: false, pending: false, intentBlocked: false, draftAvailable: false, draftNotice: '', submitNotice: '', detail: null, check: null },
   onShow() {
+    if (this.data.recordsOnly) return this.loadRecordsOnly()
     if (this._unloaded) return
     if (this._session && !isCurrentSession(this._session)) {
       this._submission = null; this._submissionFlight = null; this._draftGuard = null; this._draftToken = null
@@ -44,6 +57,7 @@ Page({
   onUnload() { this._unloaded = true; this._epoch = (this._epoch || 0) + 1 },
   current(epoch) { return !this._unloaded && !this._hidden && epoch === this._epoch && isCurrentSession(this._session) },
   async load() {
+    if (this.data.recordsOnly) return this.loadRecordsOnly()
     const epoch = this._epoch
     const needLogin = !this._session || !this._session.loggedIn || !this._session.customerId
     this.setData({ needLogin })
@@ -159,6 +173,7 @@ Page({
   },
   onNote(e) { if (!this._hidden && !this._unloaded && !this.data.pending && !this.data.submitting) this.setData({ note: e.detail.value }, () => { this.updateLeaveWarning(); this.saveDraft() }) },
   async onSubmit() {
+    if (this.data.recordsOnly) return
     if (!this.current(this._epoch) || this.data.submitting || this.data.intentBlocked || this.data.loading || !this.data.options || !this.data.options.intakeEnabled) return
     const type = this.data.options.requestTypes[this.data.selectedIndex]
     if (!this._submission && !type) { wx.showToast({ title: '请选择请求类型', icon: 'none' }); return }

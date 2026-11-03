@@ -11,9 +11,9 @@ function render(route, state) {
 const labels = nodes => nodes.map(n => n.text).filter(Boolean)
 const urls = nodes => nodes.map(n => n.attrs['data-url']).filter(Boolean)
 const mine = render('mine/index', { isLogin: true, userInfo: {}, isCompany: false })
-for (const url of ['/pages/payment/records', '/pages/address/list', '/pages/template/index', '/pages/mine/asset-claims/index', '/pages/service/index', '/pages/mine/account-data/index']) assert(urls(mine).includes(url), url)
+for (const url of ['/pages/payment/records', '/pages/address/list', '/pages/template/index', '/pages/mine/asset-claims/index', '/pages/service/index']) assert(urls(mine).includes(url), url)
 assert.equal(urls(mine).filter(url => url === '/pages/deposit/records/index').length, 1)
-assert(labels(mine).includes('个人信息与账号申请'))
+assert(!labels(mine).includes('个人信息与账号申请'))
 assert(!urls(mine).includes('/pages/mine/company'))
 assert(urls(render('mine/index', { isLogin: true, userInfo: {}, isCompany: true })).includes('/pages/mine/company'))
 const guest = urls(render('mine/index', { isLogin: false, userInfo: {} }))
@@ -32,4 +32,5 @@ assert(!labels(refund).includes('匿名提交')); assert(labels(refund).join(' '
 for (const file of ['miniapp-user/pages/mine/index.wxss', 'miniapp-user/pages/service/index.wxss']) {
   const css = read(file); assert(!css.includes('\ufeff')); assert(/min-height:\s*(?:44px|88rpx)/.test(css))
 }
+assert(!read('miniapp-user/pages/mine/index.wxml').includes('/pages/mine/account-data/index'))
 console.log('AQUAFLOW_SUITE_OK 1')

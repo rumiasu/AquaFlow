@@ -1,8 +1,11 @@
+const accountHistory = require('../../utils/account-history-entry')
 Page({
+  ...accountHistory,
   data: {
     version: ''
   },
 
+  onShow() { return this.refreshAccountHistory() },
   onLoad() {
     try { const info = wx.getAccountInfoSync && wx.getAccountInfoSync(); this.setData({ version: info && info.miniProgram && info.miniProgram.version || '' }) } catch (_) { this.setData({ version: '' }) }
   },

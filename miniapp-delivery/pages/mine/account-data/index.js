@@ -48,12 +48,25 @@ function isCurrentSession(session) {
   return !!session && session.app === now.app && session.generation === now.generation && session.identity === now.identity
 }
 Page({
+  onLoad(query) { if (query && query.view === 'records') { this.setData({ recordsOnly: true }); if (wx.setNavigationBarTitle) wx.setNavigationBarTitle({ title: '申请记录' }) } },
+  onHistoryLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
+  async loadRecordsOnly() {
+    this._session = captureSession(); this._hidden = false; this._epoch = (this._epoch || 0) + 1
+    const epoch = this._epoch
+    const recordsNeedLogin = !(getApp().globalData.isLogin && getApp().globalData.userInfo && getApp().globalData.userInfo.staffId)
+    this.setData({ items: [], detail: null, check: null, nextBeforeId: null, options: null, recordsNeedLogin, error: recordsNeedLogin ? '请先登录后查看本人申请记录。' : '', loading: !recordsNeedLogin })
+    if (recordsNeedLogin) return
+    try { await this.loadList(false, epoch) }
+    catch (_) { if (this.current(epoch)) this.setData({ error: '申请记录暂时无法加载，请重试。' }) }
+    finally { if (this.current(epoch)) this.setData({ loading: false }) }
+  },
   onSetView(e) { const view = e.currentTarget.dataset.view; if (view === 'apply' || view === 'records') this.setData({ activeView: view }) },
   onToggleDetails() { this.setData({detailsExpanded:!this.data.detailsExpanded}) },
   data: {
     activeView:'apply', detailsExpanded:false, checkError:'', options: null, loading: false, error: '', items: [], nextBeforeId: null, selectedIndex: -1,
     selectedLabel: '请选择请求类型', note: '', submitting: false, pending: false, originalUnavailable: false, submitNotice: '', detail: null, check: null },
   onShow() {
+    if (this.data.recordsOnly) return this.loadRecordsOnly()
     if (this._unloaded) return
     if (this._session && !isCurrentSession(this._session)) {
       if (this._requestSlot) { this._requestSlot.pages.delete(this); this._requestSlot.submission = null; this._requestSlot.flight = null; this._requestSlot.marker.pending = false }
@@ -80,6 +93,7 @@ Page({
   },
   current(epoch) { return !this._unloaded && !this._hidden && epoch === this._epoch && isCurrentSession(this._session) },
   async load() {
+    if (this.data.recordsOnly) return this.loadRecordsOnly()
     const epoch = this._epoch
     this.setData({ loading: true, error: '', options: null, items: [], detail: null, check: null, checkError: '' })
     try {
@@ -116,6 +130,7 @@ Page({
   },
   onNote(e) { if (!this.data.pending && !this.data.submitting) { this.setData({ note: e.detail.value }); this.updateLeaveWarning() } },
   async onSubmit() {
+    if (this.data.recordsOnly) return
     if (!this.current(this._epoch) || this.data.submitting || !this.data.options || !this.data.options.intakeEnabled) return
     const slot = this._requestSlot, session = this._session
     if (!slot || slot.flight) return

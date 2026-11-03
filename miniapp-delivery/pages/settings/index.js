@@ -1,3 +1,4 @@
+const accountHistory = require('../../utils/account-history-entry')
 const { showBusinessModal } = require('../../utils/business-dialog')
 // 设置页
 const app = getApp()
@@ -14,6 +15,7 @@ const {
 } = require('../../utils/pending-reminder')
 
 Page({
+  ...accountHistory,
   data: {
     staffId: '',
     stationName: '',
@@ -43,6 +45,7 @@ Page({
   },
 
   onShow() {
+    this.refreshAccountHistory()
     this.loadSettings()
   },
 

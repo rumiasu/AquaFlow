@@ -61,5 +61,11 @@
   <view class="version-info">
     <text class="version-text">水站员工端 · {{versionText}}</text>
   </view>
+<view class="section" wx:if="{{hasAccountHistory || accountHistoryLoading || accountHistoryError}}">
+    <button wx:if="{{hasAccountHistory}}" class="af-action af-action--quiet" bindtap="onOpenAccountHistory"><text class="af-action__face">申请记录</text></button>
+    <text wx:if="{{accountHistoryLoading}}">正在查询申请记录…</text>
+    <text wx:if="{{accountHistoryError}}">{{accountHistoryError}}</text>
+    <button wx:if="{{accountHistoryError}}" class="af-action af-action--quiet" bindtap="onRetryAccountHistory"><text class="af-action__face">重新查询</text></button>
+  </view>
 </view>
 <business-dialog id="business-dialog" />

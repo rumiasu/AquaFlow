@@ -7,7 +7,8 @@ const page = 'miniapp-delivery/pages/mine/account-data/index'
 const wxml = read(page + '.wxml'), tree = parseWxml(wxml)
 const config = JSON.parse(read(page + '.json'))
 assert.equal(config.navigationBarTitleText, '个人信息与账号申请')
-assert(read('miniapp-delivery/pages/mine/index.wxml').includes('个人信息与账号申请'))
+assert(!read('miniapp-delivery/pages/mine/index.wxml').includes('个人信息与账号申请'))
+assert(read('miniapp-delivery/pages/settings/index.wxml').includes('onOpenAccountHistory'))
 function view(patch = {}) { return renderElements(tree, { activeView: 'apply', detailsExpanded: false, error: '', originalUnavailable: false, loading: false, items: [], nextBeforeId: null, check: null, checkError: '', ...patch }, { includeText: true }) }
 function has(nodes, handler) { return nodes.some(n => n.attrs && n.attrs.bindtap === handler) }
 const closed = view({ options: { intakeEnabled: false, closureCheckSupported: false } })

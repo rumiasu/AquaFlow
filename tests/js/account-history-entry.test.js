@@ -1,0 +1,27 @@
+const assert = require('assert')
+const fs = require('fs'), path = require('path')
+const {loadPage,createWx,createApp,armWatchdog,ROOT} = require('./harness')
+const {parseWxml,renderElements} = require('./wxml-tree')
+const done=armWatchdog(),tick=()=>new Promise(r=>setImmediate(r))
+let passed=0
+async function test(name,fn){await fn();passed++;console.log('PASS '+name)}
+function setup(root,read=async()=>({data:{items:[]}}),records=false){
+ delete require.cache[require.resolve(path.join(ROOT,root,'utils/account-history-entry.js'))]
+ const app=createApp({_loginGeneration:1,globalData:{isLogin:true,customerId:7,accessToken:'synthetic-account-history',userInfo:{staffId:7,role:'DELIVERY',stationId:1}}}),wx=createWx();let reads=0,writes=0,options=0
+ const api={mine:async()=>{reads++;return read()},options:async()=>{options++;throw Error('must not read options')},submit:async()=>{writes++;throw Error('must not write')}}
+ const low=root==='miniapp-user'?'pages/mine/about.js':'pages/settings/index.js'
+ const page=loadPage(root+'/'+(records?'pages/mine/account-data/index.js':low),{app,wx,stubs:{'api/account-data-requests':api}})
+ if(records)page.onLoad({view:'records'})
+ return {app,wx,page,reads:()=>reads,writes:()=>writes,options:()=>options}
+}
+async function main(){for(const root of ['miniapp-user','miniapp-delivery']){
+ await test(root+' existing history opens only the read-only route',async()=>{const t=setup(root,async()=>({data:{items:[{id:1}]}}));await t.page.refreshAccountHistory();assert(t.page.data.hasAccountHistory);t.page.onOpenAccountHistory();assert(t.wx.__calls.nav[0].url.endsWith('?view=records'));assert.equal(t.reads(),1)})
+ await test(root+' empty history hides entry, failures show retry and recover',async()=>{let fail=false;const t=setup(root,async()=>{if(fail)throw Error('offline');return {data:{items:[]}}});await t.page.refreshAccountHistory();assert.equal(t.page.data.hasAccountHistory,false);assert.equal(t.page.data.accountHistoryError,'');fail=true;await t.page.refreshAccountHistory();assert(t.page.data.accountHistoryError);fail=false;await t.page.onRetryAccountHistory();assert.equal(t.page.data.accountHistoryError,'')})
+ await test(root+' return refreshes and old response cannot overwrite newer',async()=>{let resolve,n=0;const t=setup(root,()=>++n===1?new Promise(r=>resolve=r):Promise.resolve({data:{items:[]}}));const old=t.page.refreshAccountHistory();t.page.onHide();t.page.onShow();await tick();resolve({data:{items:[{id:1}]}});await old;assert.equal(t.page.data.hasAccountHistory,false);assert.equal(t.reads(),2)})
+ await test(root+' logout and changed identity reject late history and navigation',async()=>{let resolve;const t=setup(root,()=>new Promise(r=>resolve=r));const old=t.page.refreshAccountHistory();t.app.globalData.customerId=8;t.app.globalData.userInfo.staffId=8;t.app._loginGeneration++;resolve({data:{items:[{id:1}]}});await old;assert.equal(t.page.data.hasAccountHistory,false);t.page.onOpenAccountHistory();assert.equal(t.wx.__calls.nav.length,0);t.app.globalData.isLogin=false;await t.page.refreshAccountHistory();assert.equal(t.reads(),1)})
+ await test(root+' history page reads records without options or a write',async()=>{const t=setup(root,async()=>({data:{items:[{id:1,requestTypeText:'资料查询申请',statusText:'已登记'}]}}),true);await t.page.onShow();await t.page.onSubmit();assert.equal(t.options(),0);assert.equal(t.writes(),0);assert.equal(t.page.data.items.length,1);const nodes=renderElements(parseWxml(fs.readFileSync(path.join(ROOT,root,'pages/mine/account-data/index.wxml'),'utf8')),t.page.data);assert(!nodes.some(n=>n.tag==='textarea'||n.tag==='picker'||n.attrs.bindtap==='onSubmit'));assert(nodes.some(n=>n.attrs.bindtap==='onDetail'))})
+ await test(root+' read-only failure retries, return clears old details, hide discards late rows',async()=>{let fail=true,resolve;const t=setup(root,async()=>{if(fail)throw Error('offline');return {data:{items:[]}}},true);await t.page.onShow();assert(t.page.data.error);fail=false;await t.page.load();assert.equal(t.page.data.error,'');t.page.data.detail={request:{note:'old'}};await t.page.onShow();assert.equal(t.page.data.detail,null);const u=setup(root,()=>new Promise(r=>resolve=r),true);const pending=u.page.onShow();u.page.onHide();resolve({data:{items:[{id:9}]}});await pending;assert.equal(u.page.data.items.length,0)})
+ await test(root+' read-only rows from a prior login cannot replace the new account',async()=>{let resolve,n=0;const t=setup(root,()=>++n===1?new Promise(r=>resolve=r):Promise.resolve({data:{items:[{id:8}]}}),true);const old=t.page.onShow();t.app.globalData.customerId=8;t.app.globalData.userInfo.staffId=8;t.app._loginGeneration++;await t.page.onShow();resolve({data:{items:[{id:7}]}});await old;assert.equal(t.page.data.items[0].id,8);t.app.globalData.isLogin=false;await t.page.onShow();assert.equal(t.reads(),2);assert.equal(t.page.data.items.length,0);assert(t.page.data.recordsNeedLogin)})
+ await test(root+' mine menu removed while ordinary profile navigation stays',async()=>{const template=fs.readFileSync(path.join(ROOT,root,'pages/mine/index.wxml'),'utf8');assert(!template.includes('个人信息与账号申请'));assert(!template.includes('account-data/index'));assert(template.includes('onEditProfile'));const page=loadPage(root+'/pages/mine/index.js',{app:createApp(),wx:createWx()});page.onEditProfile();assert.equal(page.__wx.__calls.nav.at(-1).url,'/pages/mine/edit')})
+ }done();console.log('AQUAFLOW_SUITE_OK '+passed)}
+main().catch(e=>{done();console.error(e);process.exitCode=1})

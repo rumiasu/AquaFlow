@@ -1,4 +1,25 @@
 <view class="page b2-page b2-d03 af2-page lv2-page lv2-account">
+<block wx:if="{{recordsOnly}}">
+  <view class="card">
+    <text class="title">申请记录</text>
+    <text class="body">仅查看已登记的本人申请，不会办理新的申请。</text>
+    <text wx:if="{{loading}}">正在查询…</text>
+    <text class="error" wx:if="{{error}}">{{error}}</text>
+    <button wx:if="{{error && !recordsNeedLogin}}" bindtap="onRetry" disabled="{{loading}}" class="af-action af-action--quiet"><text class="af-action__face">重新查询</text></button>
+    <button wx:if="{{recordsNeedLogin}}" bindtap="onHistoryLogin" class="af-action af-action--quiet"><text class="af-action__face">去登录</text></button>
+    <text wx:if="{{!loading && !error && items.length === 0}}">暂无登记记录。</text>
+    <view wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="onDetail" class="record af-entry"><text>{{item.requestTypeText}} · {{item.statusText}} ›</text></view>
+    <button wx:if="{{nextBeforeId}}" bindtap="onMore" disabled="{{loading}}" class="af-action af-action--quiet"><text class="af-action__face">更多记录</text></button>
+  </view>
+  <view id="request-detail" class="card" wx:if="{{detail}}">
+    <text class="title">{{detail.request.requestTypeText}}</text><text>{{detail.request.statusText}}</text>
+    <text class="body">{{detail.request.note}}</text><text class="body">{{detail.request.notice}}</text>
+    <text class="body" wx:if="{{detail.checkNotice}}">{{detail.checkNotice}}</text>
+    <text class="body" wx:if="{{detail.closureCheck}}">{{detail.closureCheck.message}}</text>
+  </view>
+</block>
+<block wx:else>
+
   <view class="view-tabs"><button data-view="apply" bindtap="onSetView" class="af-choice b2-choice {{activeView === 'apply' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeView === 'apply'}}">✓</text>申请办理</view></button><button data-view="records" bindtap="onSetView" class="af-choice b2-choice {{activeView === 'records' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeView === 'records'}}">✓</text>申请记录</view></button></view>
   <view class="card">
     <view class="lv2-title-row"><view class="af2-icon-tile lv2-neutral-tile"><icon name="user" size="24px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text>申请办理范围</text></view>
@@ -43,5 +64,6 @@
     <text class="body" wx:if="{{detail.closureCheck}}">{{detail.closureCheck.message}}</text>
     <view wx:for="{{detail.closureCheck.blockingItems}}" wx:key="index"><text class="body">{{item.stationName}}：{{item.label}}</text></view>
   </view>
+</block>
 </view>
 <business-dialog id="business-dialog" />

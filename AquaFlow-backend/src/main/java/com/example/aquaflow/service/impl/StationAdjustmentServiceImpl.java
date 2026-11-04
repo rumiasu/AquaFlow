@@ -9,6 +9,8 @@ import com.example.aquaflow.entity.DepositRecord;
 import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.entity.StationAdjustment;
 import com.example.aquaflow.entity.TicketAccount;
+import com.example.aquaflow.entity.TicketLot;
+import com.example.aquaflow.entity.TicketRecord;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.BarrelRecordMapper;
 import com.example.aquaflow.mapper.CustomerDepositAccountMapper;
@@ -17,12 +19,17 @@ import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.mapper.InventoryMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.mapper.StationAdjustmentMapper;
+import com.example.aquaflow.mapper.TicketAccountMapper;
+import com.example.aquaflow.mapper.TicketHoldMapper;
+import com.example.aquaflow.mapper.TicketLotMapper;
+import com.example.aquaflow.mapper.TicketRecordMapper;
 import com.example.aquaflow.service.AuditLogService;
 import com.example.aquaflow.service.BarrelLedgerService;
 import com.example.aquaflow.service.DepositRecordService;
 import com.example.aquaflow.service.StationAdjustmentService;
 import com.example.aquaflow.service.TicketAccountService;
 import com.example.aquaflow.util.AuthContext;
+import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.PriceUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,6 +79,10 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
     @Autowired private AuditLogService auditLogService;
     @Autowired private CustomerMapper customerMapper;
     @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private TicketAccountMapper ticketAccountMapper;
+    @Autowired private TicketHoldMapper ticketHoldMapper;
+    @Autowired private TicketLotMapper ticketLotMapper;
+    @Autowired private TicketRecordMapper ticketRecordMapper;
 
     /* ==================== 试算 ==================== */
 
@@ -80,6 +91,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
                                        Integer qty, BigDecimal amount, BigDecimal unitPrice) {
         // 试算与创建共用本站绑定资格；先验权，再读取快照或试算批次。
         validateCustomer(customerId, requireMyStation());
+        validateProduct(adjustType, productId, requireMyStation());
         Snapshot before = snapshot(customerId, adjustType, productId);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("adjustType", adjustType);
@@ -140,6 +152,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
                     amount, unitPrice, reason, evidence, reverses);
             return existing;
         }
+        validateProduct(adjustType, productId, stationId);
 
         StationAdjustment a = new StationAdjustment();
         a.setStationId(stationId);
@@ -194,6 +207,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
             throw new BusinessException("调整单当前状态不可执行：" + a.getStatus());
         }
         validateCustomer(a.getCustomerId(), stationId);
+        validateProduct(a.getAdjustType(), a.getProductId(), stationId);
 
         // 1) 先算前后快照（只读）
         Snapshot before = snapshot(a.getCustomerId(), a.getAdjustType(), a.getProductId());
@@ -336,6 +350,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         if (!"EFFECTIVE".equals(src.getStatus()) || src.getReversedBy() != null) {
             throw new BusinessException("仅已生效的调整单可撤销，当前状态：" + src.getStatus());
         }
+        requireExactReversal(src);
 
         StationAdjustment rev = createInternal(src.getCustomerId(), mirrorType(src.getAdjustType()),
                 src.getProductId(), mirrorQty(src), src.getAmount(), src.getUnitPrice(),
@@ -353,6 +368,54 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
                 "reversedBy=" + rev.getId() + ",reason=" + reason, null);
         rev.setStatus("EFFECTIVE");
         return rev;
+    }
+
+    /**
+     * 镜像数量不等于冲回原资产：跨价 FIFO 会扣掉他批价值，当前价补入也无法恢复原款来源。
+     * 2026-11-04：缺批次分摊凭据的反向必须先核实；已成功的幂等重放在调用本方法前返回。
+     */
+    private void requireExactReversal(StationAdjustment source) {
+        if (AdjustType.BARREL_GRANT.equals(source.getAdjustType())
+                || AdjustType.BARREL_REVOKE.equals(source.getAdjustType())
+                || AdjustType.TICKET_DEDUCT.equals(source.getAdjustType())) {
+            throw new BusinessException("原调整缺少可精确恢复的批次明细，不能自动撤销；请核实原资产后办理调整");
+        }
+        if (!AdjustType.TICKET_GRANT.equals(source.getAdjustType())) return;
+
+        Long customer = source.getCustomerId();
+        Long station = source.getStationId();
+        Long product = source.getProductId();
+        String unavailable = "原补票批次已使用、被占用或不符合原批次撤销条件，请先核实原资产";
+        // 和预留/扣票使用相同账户锁，当前读批次与预留；锁保留至反向单的 FIFO 扣减完成。
+        if (source.getQty() == null || source.getQty() <= 0
+                || ticketAccountMapper.lockAccount(customer, station, product) == null) {
+            throw new BusinessException(unavailable);
+        }
+        Map<Long, Integer> held = new HashMap<>();
+        for (Map<String, Object> row : ticketHoldMapper.heldForAccount(customer, station, product)) {
+            held.merge(((Number) row.get("lot_id")).longValue(),
+                    ((Number) row.get("quantity")).intValue(), Integer::sum);
+        }
+        List<TicketLot> lots = ticketLotMapper.listUsableFifo(customer, station, product);
+        List<TicketRecord> records = ticketRecordMapper.listByCustomerAndProduct(customer, product, station)
+                .stream().filter(r -> Objects.equals(source.getId(), r.getAdjustmentId())).toList();
+        if (records.size() != 1) throw new BusinessException(unavailable);
+        TicketRecord original = records.get(0);
+        TicketLot next = lots.stream().filter(l -> l.getRemainQty() != null
+                && l.getRemainQty() > held.getOrDefault(l.getId(), 0)).findFirst().orElse(null);
+        if (next == null || !Objects.equals(customer, original.getCustomerId())
+                || !Objects.equals(station, original.getStationId()) || !Objects.equals(product, original.getProductId())
+                || !Objects.equals(source.getQty(), original.getIncreaseQty())
+                || !Integer.valueOf(0).equals(original.getDecreaseQty())
+                || !Objects.equals(original.getTicketLotId(), next.getId())
+                || !Objects.equals(source.getQty(), next.getQty())
+                || !Objects.equals(source.getQty(), next.getRemainQty())
+                || held.getOrDefault(next.getId(), 0) != 0
+                || !Integer.valueOf(TicketLot.SourceType.MANUAL).equals(next.getSourceType())
+                || original.getUnitPrice() == null || next.getUnitPrice() == null
+                || original.getUnitPrice().compareTo(next.getUnitPrice()) != 0) {
+            throw new BusinessException(unavailable);
+        }
     }
 
     /** 保留既有响应字段，客户信息只能随本站调整单在服务层补齐。 */
@@ -504,6 +567,23 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         }
         if (customerStationConfigMapper.getByCustomerAndStation(customerId, stationId) == null) {
             throw new BusinessException("该客户不属于本水站，无法调整其资产");
+        }
+    }
+
+    /** 历史资产不要求商品仍在售，但不能将他站私有商品或非循环商品写进本站桶/押金账。 */
+    private void validateProduct(String adjustType, Long productId, Long stationId) {
+        if (!AdjustType.isValid(adjustType)) throw new BusinessException("不支持的调整类型：" + adjustType);
+        if (productId == null) {
+            if (AdjustType.requiresProduct(adjustType)) throw new BusinessException("该调整类型必须指定商品");
+            return;
+        }
+        Product product = productMapper.getById(productId);
+        if (product == null || (product.getOwnerStationId() != null
+                && !Objects.equals(stationId, product.getOwnerStationId()))) {
+            throw new BusinessException("商品不存在或不属于本水站可用商品");
+        }
+        if ((AdjustType.isBarrel(adjustType) || AdjustType.isDeposit(adjustType)) && !BarrelScope.isBarrel(product)) {
+            throw new BusinessException("桶权益、欠桶和商品押金只能调整桶装水商品");
         }
     }
 

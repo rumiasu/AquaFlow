@@ -16,12 +16,19 @@ public interface StationDeliveryConfigMapper {
     @Select("select * from station_delivery_config where station_id = #{stationId}")
     StationDeliveryConfig getByStationId(@Param("stationId") Long stationId);
 
+    /** 锁父行以串行化同一站的配置保存，配置尚未创建时也有效。 */
+    @Select("select id from station where id = #{stationId} for update")
+    Long lockStation(@Param("stationId") Long stationId);
+
+    /** 必须当前读，避免 REPEATABLE READ 在等待父行锁后仍取到旧快照。 */
+    @Select("select * from station_delivery_config where station_id = #{stationId} for update")
+    StationDeliveryConfig getByStationIdForUpdate(@Param("stationId") Long stationId);
+
     /**
      * 保存站级配置（有则更新、无则插入）。
      *
-     * <p>用 {@code on duplicate key update} 而不是"先查再决定 insert/update"：
-     * 后者在并发两个保存请求下会双双查不到、双双 insert，撞主键报错或留下两行。
-     * 本仓对 upsert 有明文约定（AGENTS §8.2：`SELECT FOR UPDATE` 对不存在的行不加锁）。</p>
+     * <p>唯一生产调用方 {@code StationDeliveryConfigService.save} 必须先在同一事务锁父行并比较快照。
+     * upsert 只处理实际持久化，不承担并发编辑校验；仅靠不存在配置行的间隙锁无法提供该编辑语义。</p>
      *
      * <p>⚠️ 四个金额列用 {@code IFNULL(..., 0.00)} 兜住，<b>不要改回裸 {@code #{minOrderFee}}</b>：
      * 它们是 {@code NOT NULL DEFAULT 0.00}，而 SQL 里的 {@code DEFAULT} <b>只在「该列没出现在

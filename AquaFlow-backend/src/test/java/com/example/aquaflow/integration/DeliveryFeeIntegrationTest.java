@@ -35,7 +35,7 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
         String cus = customerToken(customer);
 
         // 基础运费 3 元；无电梯每超一层 2 元（免费层 1）
-        Api saved = put("/api/manager/delivery-config", mgr,
+        Api saved = saveDeliveryConfig(mgr,
                 "{\"baseDeliveryFee\":3.00,\"floorFeePerLevel\":2.00,\"floorFreeLevel\":1}");
         assertEquals(0, saved.code(), "站长保存计费配置: " + saved);
 
@@ -84,7 +84,7 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
         String customerAuth = customerToken(customer);
         assertTrue(quote(customerAuth, station, address, product, 2).code() != 0);
         assertTrue(order(customerAuth, station, address, product, 2).code() != 0);
-        assertEquals(0, put("/api/manager/delivery-config", staffToken(manager, "STATION_MANAGER", station), "{\"baseDeliveryFee\":0}").code());
+        assertEquals(0, saveDeliveryConfig(staffToken(manager, "STATION_MANAGER", station), "{\"baseDeliveryFee\":0}").code());
         Api created = order(customerAuth, station, address, product, 2);
         assertEquals(0, created.code(), "下单: " + created);
         long orderId = created.data().path("orderId").asLong();
@@ -104,7 +104,7 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
         String mgr = staffToken(ids[4], "STATION_MANAGER", station);
         String cus = customerToken(customer);
 
-        assertEquals(0, put("/api/manager/delivery-config", mgr,
+        assertEquals(0, saveDeliveryConfig(mgr,
                 "{\"minOrderBuckets\":5,\"minOrderMode\":\"REJECT\"}").code());
 
         // 只买 2 桶，未达 5 桶起送量
@@ -132,7 +132,7 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
         String cus = customerToken(customer);
 
         // 半径 1 公里 + 超范围拒单
-        assertEquals(0, put("/api/manager/delivery-config", mgr,
+        assertEquals(0, saveDeliveryConfig(mgr,
                 "{\"deliveryRadiusM\":1000,\"overRadiusMode\":\"REJECT\"}").code());
 
         // seedConfiguredStation 里：站点 (39.9000,116.4000)，地址 (39.9000,116.4200) ≈ 1.7 公里 → 超范围
@@ -156,7 +156,7 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
         String mgr = staffToken(ids[4], "STATION_MANAGER", station);
         String cus = customerToken(ids[1]);
 
-        assertEquals(0, put("/api/manager/delivery-config", mgr,
+        assertEquals(0, saveDeliveryConfig(mgr,
                 "{\"deliveryRadiusM\":1000,\"overRadiusMode\":\"REJECT\",\"floorFeePerLevel\":2.00}").code());
 
         Api quote = post("/api/payments/quote", cus,
@@ -184,7 +184,7 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
                 .compareTo(BigDecimal.ZERO), "未配置时费用为 0");
 
         // 负值归零 + 非法模式回落 WARN + 请求体里的 stationId 被忽略
-        Api saved = put("/api/manager/delivery-config", mgr,
+        Api saved = saveDeliveryConfig(mgr,
                 "{\"stationId\":" + otherStation + ",\"baseDeliveryFee\":-99.00,"
                         + "\"minOrderMode\":\"DELETE_EVERYTHING\",\"floorFeePerLevel\":-1,\"floorFreeLevel\":-3}");
         assertEquals(0, saved.code(), "保存: " + saved);
@@ -208,7 +208,7 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
     void savedUnlimitedAmountsAndWarnModeRemainUsableAfterListingNonBarrelProducts() {
         long[] ids=seedConfiguredStation(); long station=ids[0],customer=ids[1],address=ids[2],barrel=ids[3];
         String manager=staffToken(ids[4],"STATION_MANAGER",station),token=customerToken(customer);
-        assertEquals(0,put("/api/manager/delivery-config",manager,"{\"minOrderBuckets\":2,\"minOrderAmount\":null,\"minOrderMode\":\"WARN\",\"freeDeliveryBuckets\":3,\"freeDeliveryAmount\":null,\"baseDeliveryFee\":3.00}").code());
+        assertEquals(0,saveDeliveryConfig(manager,"{\"minOrderBuckets\":2,\"minOrderAmount\":null,\"minOrderMode\":\"WARN\",\"freeDeliveryBuckets\":3,\"freeDeliveryAmount\":null,\"baseDeliveryFee\":3.00}").code());
         long bottle=createProduct("合成非桶装",2,"10.00","0.00",0,"0.00"); createInventoryFull(station,bottle,100,0,"0.00");
         Api barrelQuote=quote(token,station,address,barrel,1); assertTrue(barrelQuote.isSuccess()); assertFalse(barrelQuote.data().path("blocked").asBoolean());
         Api bottleQuote=quote(token,station,address,bottle,1); assertTrue(bottleQuote.isSuccess()); assertFalse(bottleQuote.data().path("blocked").asBoolean());
@@ -227,10 +227,10 @@ class DeliveryFeeIntegrationTest extends AbstractIntegrationTest {
         long[] ids=seedConfiguredStation(); long station=ids[0],customer=ids[1],address=ids[2],barrel=ids[3];
         String manager=staffToken(ids[4],"STATION_MANAGER",station),token=customerToken(customer);
         long bottle=createProduct("合成瓶装",2,"10.00","0.00",0,"0.00");createInventoryFull(station,bottle,100,0,"0.00");
-        assertTrue(put("/api/manager/delivery-config",manager,"{\"minOrderBuckets\":2,\"minOrderMode\":\"REJECT\",\"freeDeliveryBuckets\":3,\"baseDeliveryFee\":3.00}").isSuccess());
+        assertTrue(saveDeliveryConfig(manager,"{\"minOrderBuckets\":2,\"minOrderMode\":\"REJECT\",\"freeDeliveryBuckets\":3,\"baseDeliveryFee\":3.00}").isSuccess());
         assertTrue(quote(token,station,address,barrel,1).data().path("blocked").asBoolean());
         assertFalse(quote(token,station,address,bottle,1).data().path("blocked").asBoolean());
-        assertTrue(put("/api/manager/delivery-config",manager,"{\"minOrderBuckets\":2,\"minOrderAmount\":0,\"minOrderMode\":\"REJECT\",\"freeDeliveryBuckets\":3,\"freeDeliveryAmount\":0,\"baseDeliveryFee\":3.00}").isSuccess());
+        assertTrue(saveDeliveryConfig(manager,"{\"minOrderBuckets\":2,\"minOrderAmount\":0,\"minOrderMode\":\"REJECT\",\"freeDeliveryBuckets\":3,\"freeDeliveryAmount\":0,\"baseDeliveryFee\":3.00}").isSuccess());
         Api zero=quote(token,station,address,bottle,1);assertTrue(zero.isSuccess());assertFalse(zero.data().path("blocked").asBoolean());
         assertEquals(0,BigDecimal.ZERO.compareTo(new BigDecimal(zero.data().path("deliveryFee").asText())));
         var guidance=get("/api/manager/delivery-config",manager);assertEquals(0,guidance.data().path("guidance").path("requiredAmountFields").size());

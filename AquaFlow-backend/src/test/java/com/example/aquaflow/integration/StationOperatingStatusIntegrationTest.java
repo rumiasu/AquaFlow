@@ -147,7 +147,7 @@ class StationOperatingStatusIntegrationTest extends AbstractIntegrationTest {
                 "0531-00000000", "待上线站地址", station);
         long water = createProduct("待上线站的水", 1, "12.00", "50.00", 0, "0.00");
         createInventoryFull(station, water, 100, 0, "0.00");
-        assertEquals(0, put("/api/manager/delivery-config", mgr,
+        assertEquals(0, saveDeliveryConfig(mgr,
                 "{\"baseDeliveryFee\":0,\"minOrderMode\":\"WARN\"}").code(), "保存一次计费配置");
 
         // ⑤' **建议项（P1）不该挡住转正**（2026-09-24 产品裁定："水票不该强制"）。

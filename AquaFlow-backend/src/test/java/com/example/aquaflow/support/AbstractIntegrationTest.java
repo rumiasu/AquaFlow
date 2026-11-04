@@ -240,6 +240,19 @@ public abstract class AbstractIntegrationTest {
         return exchange("PUT", path, token, body);
     }
 
+    /** 普通配置夹具也走真实的读后编辑契约；并发用例须自行持有旧快照，不能使用此助手。 */
+    protected Api saveDeliveryConfig(String token, String body) {
+        Api before = get("/api/manager/delivery-config", token);
+        org.junit.jupiter.api.Assertions.assertEquals(0, before.code(), "加载配送配置失败: " + before);
+        try {
+            var payload = (com.fasterxml.jackson.databind.node.ObjectNode) om.readTree(body);
+            payload.put("expectedSnapshot", before.data().path("snapshot").asText());
+            return put("/api/manager/delivery-config", token, payload.toString());
+        } catch (java.io.IOException error) {
+            throw new IllegalArgumentException("无效的配送配置测试数据", error);
+        }
+    }
+
     protected Api delete(String path, String token) {
         return exchange("DELETE", path, token, null);
     }

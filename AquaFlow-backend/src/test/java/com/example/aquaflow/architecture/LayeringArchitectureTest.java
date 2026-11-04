@@ -118,6 +118,8 @@ class LayeringArchitectureTest {
      * {@code CrossStationDispatchController} 三个薄壳，只读取数一律下沉到
      * {@code service/DeliveryConsoleService} —— 新类<b>零 Mapper 字段</b>，
      * 于是本类从集合里消失、字段总数 68 → 62。基线按规矩<b>只减</b>，已同步删掉这一行。</p>
+     * <p>[2026-11-04] 配送计费保存下沉到带事务的 StationDeliveryConfigService，
+     * ManagerDeliveryConfigController 不再注入 Mapper，字段上限同步减少一处。</p>
      *
      * <p>只许减不许增。</p>
      */
@@ -127,7 +129,7 @@ class LayeringArchitectureTest {
             "DeliveryEarningController", "DepositRecordController", "DevLoginController",
             "FeedbackController", "FileManageController", "ManagerAlertController",
             "ManagerBarrelLossController", "ManagerCustomerPrivilegeController",
-            "ManagerDeliveryConfigController", "ManagerExceptionController", "ManagerGrossProfitController",
+            "ManagerExceptionController", "ManagerGrossProfitController",
             "ManagerOrderAssistController", "ManagerPayrollController", "ManagerPendingSummaryController",
             "ManagerReceivableController", "ManagerStationStatusController", "ManagerTodoController",
             "NoticeController", "OrderController", "OrderImageController", "PaymentController",
@@ -136,15 +138,15 @@ class LayeringArchitectureTest {
             "TicketRecordController");
 
     /**
-     * {@code BASELINE_MAPPER_FIELDS} 里所有 Mapper 字段声明的总数（2026-10-01 实测 68 处；
-     * 2026-09-30 F-18 拆分后实测 <b>62</b>）。与 {@link #BASELINE_TX_ANNOTATIONS} 同理：
+     * {@code BASELINE_MAPPER_FIELDS} 里所有 Mapper 字段声明的总数上限。
+     * 与 {@link #BASELINE_TX_ANNOTATIONS} 同理：
      * 防止"从 A 挪几处到 B"、或"同一个类里再多注入几处"之后类集合没变。
      * 口径是<b>匹配到的声明处数</b>（同一行声明多个字段只算 1 处，本仓无此写法）。
      */
-    private static final int BASELINE_MAPPER_FIELDS_COUNT = 62;
+    private static final int BASELINE_MAPPER_FIELDS_COUNT = 61;
 
     /**
-     * 基线：直接调用 Mapper <b>写方法</b>的 Controller（15 个，2026-09-29 第二批下沉后由 17 减到 15）。
+     * 基线：直接调用 Mapper <b>写方法</b>的 Controller。
      * 只许减不许增。
      *
      * <p>[2026-10-01，F-12] 集合没变，但判据换掉了：写方法不再靠名字猜（见
@@ -153,7 +155,7 @@ class LayeringArchitectureTest {
     private static final Set<String> BASELINE_WRITE_CALLS = Set.of(
             "CompanyInfoController", "CustomerNotificationController",
             "DevLoginController", "FeedbackController", "FileManageController",
-            "ManagerCustomerPrivilegeController", "ManagerDeliveryConfigController",
+            "ManagerCustomerPrivilegeController",
             "ManagerGrossProfitController", "ManagerPayrollController", "ManagerStationStatusController",
             "NoticeController", "StaffController", "StationController", "StationTicketDiscountController",
             "TicketPackageController");

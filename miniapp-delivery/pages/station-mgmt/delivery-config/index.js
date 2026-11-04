@@ -137,7 +137,7 @@ function deliveryConfigReadbackMatches(form, payload, enabled) {
   const zeroMatchesNull = new Set(['deliveryRadiusM', 'baseDeliveryFee',
     'minOrderFee', 'remoteFee', 'floorFeePerLevel'])
   const number = value => value === '' || value == null ? null : Number(value)
-  return Object.keys(payload).every(field => {
+  return Object.keys(payload).filter(field => field !== 'expectedSnapshot').every(field => {
     let expected = payload[field], actual = form[field]
     if (THRESHOLD_FIELDS.includes(field) && enabled && enabled[field] === false) actual = null
     if (field === 'floorFreeLevel') {
@@ -168,7 +168,7 @@ Page({
   data: {
     ...initialModuleData(),
     loading: true, configReady: false, configError: '', setupError: '',
-    saving: false,
+    saving: false, configSnapshot: '', configConflict: false,
     activeSection: 'minOrder', expandedSection: 'minOrder', showRuleDetails: false,
     setupExpanded: false, setupRequiredText: '',
     sectionTabs: [{ key: 'minOrder', label: '起送条件' }, { key: 'range', label: '配送范围' },
@@ -335,21 +335,24 @@ Page({
     }
   },
 
-  async load() {
+  async load(options = {}) {
     if (this._unloaded) return
-    // 2026-10-26：onShow/下拉原先会覆盖未保存输入。仅保存后的核对读取允许替换草稿。
-    if (!this._readingSavedFee && this.data.configReady && this._feeOwner === staffSession().key
+    const replaceDraft = options.replaceDraft === true
+    // 2026-10-26：onShow/下拉原先会覆盖未保存输入；只允许保存后核对或明确确认重新读取时替换。
+    if (!this._readingSavedFee && !replaceDraft && this.data.configReady && this._feeOwner === staffSession().key
         && (this.data.hasUnsavedChanges || !this.data.configured)) {
       this.setData({ draftNotice: '当前输入已保留；请在底部保存后完成上线准备。' })
       this.syncFeeExitGuard()
       return
     }
     const context = this.captureLoad('_configVersion')
-    this.setData({ loading: true, configReady: false, configError: '' })
+    this.setData({ loading: true, configReady: false, configSnapshot: '', configError: '' })
     try {
       const res = await getDeliveryConfig()
       if (!this.isLoadCurrent('_configVersion', context)) return
       const d = res.data || {}
+      if (res.code != null && res.code !== 0) throw new Error(res.message || '配置加载失败')
+      if (typeof d.snapshot !== 'string' || !d.snapshot) throw new Error('计费规则尚未完整读取，请重新读取后再保存')
       const c = d.config || {}
       // 后端原样返回 null；编辑框用空串承载，另由明确的规则选项决定是否提交 null。
       const s = (v) => (v === null || v === undefined ? '' : String(v))
@@ -384,13 +387,14 @@ Page({
       const configured = d.configured === true
       this._feeOwner = context.key
       this.setData({
-        configReady: true, configured, form, savedForm: { ...form },
+        configReady: true, configSnapshot: d.snapshot, configConflict: false, saveError: '',
+        configured, form, savedForm: { ...form },
         thresholdEnabled, savedThresholdEnabled: { ...thresholdEnabled },
         ...buildRuleState(form, thresholdEnabled, configured, form, thresholdEnabled),
         guide,
         guideText: this.describeGuide(guide)
       }, () => {
-        if (!this._readingSavedFee) this.restoreFeeDraft()
+        if (!this._readingSavedFee && !replaceDraft) this.restoreFeeDraft()
         this.syncModeDescriptions(); this.measureFeeSaveBar(); this.syncFeeExitGuard()
       })
     } catch (err) {
@@ -399,6 +403,25 @@ Page({
     } finally {
       if (this.isLoadCurrent('_configVersion', context)) this.setData({ loading: false }, () => this.measureFeeSaveBar())
     }
+  },
+
+  /** 冲突后的显式恢复：先让站长确认替换输入，再同时换掉表单与其读取快照。 */
+  onReloadLatest() {
+    if (this.data.saving || this.data.loading) return
+    const context = staffSession()
+    const stillHere = () => !this._unloaded && context.app === getApp()
+      && context.generation === staffSession().generation && context.key === staffSession().key
+    showBusinessModal({ title: '重新读取计费规则',
+      content: '重新读取会替换本页未保存的输入，请先记录需要保留的修改。',
+      confirmText: '重新读取', cancelText: '保留输入', success: async res => {
+        if (!res.confirm || !stillHere()) return
+        const reading = this.load({ replaceDraft: true }), version = this._configVersion
+        await reading
+        if (stillHere() && version === this._configVersion && this.data.configReady && !this.data.configError) {
+          this.setData({ draftNotice: '已读取最新规则，请重新核对需要修改的内容。', completedSections: {} })
+          this.persistFeeDraft()
+        }
+      } })
   },
 
   /** 把后端下发的引导信息说成一句人话（wxml 不做拼接）。 */
@@ -460,6 +483,7 @@ Page({
     try {
       if (this.data.hasUnsavedChanges || !this.data.configured || this.data.saveError) {
         wx.setStorageSync(key, { owner: this._feeOwner, form: this.data.form, enabled: this.data.thresholdEnabled,
+          snapshot: this.data.configSnapshot,
           savedForm: this.data.savedForm, savedEnabled: this.data.savedThresholdEnabled,
           completed: this.data.completedSections, expanded: this.data.expandedSection })
       } else wx.removeStorageSync(key)
@@ -473,9 +497,13 @@ Page({
       if (!d || d.owner !== staffSession().key || !d.form || !d.enabled
           || !Object.keys(this.data.form).every(k => typeof d.form[k] === 'string')
           || !THRESHOLD_FIELDS.every(k => typeof d.enabled[k] === 'boolean')) return
-      const unchanged = JSON.stringify(d.savedForm) === JSON.stringify(this.data.savedForm)
+      // 2026-11-04：旧草稿不能借用刚读取的新快照，否则并发保存保护会被恢复草稿绕过。
+      const unchanged = !!d.snapshot && d.snapshot === this.data.configSnapshot
+        && JSON.stringify(d.savedForm) === JSON.stringify(this.data.savedForm)
         && JSON.stringify(d.savedEnabled) === JSON.stringify(this.data.savedThresholdEnabled)
       this.setData({ form: d.form, thresholdEnabled: d.enabled, completedSections: d.completed || {},
+        configSnapshot: d.snapshot || '', configConflict: !unchanged,
+        saveError: unchanged ? '' : '已保存规则有变化，请先记录本页修改，再重新读取后核对。',
         expandedSection: SECTION_ORDER.includes(d.expanded) ? d.expanded : 'minOrder',
         ...buildRuleState(d.form, d.enabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled),
         draftNotice: unchanged ? '已恢复上次未保存的输入，请核对后在底部保存。'
@@ -690,6 +718,12 @@ Page({
    */
   async onSave() {
     if (this.data.saving) return
+    if (this.data.loading || !this.data.configReady || !this.data.configSnapshot || this.data.configConflict
+        || this._feeOwner !== staffSession().key) {
+      this.setData({ saveError: this.data.configConflict
+        ? '已保存规则有变化，请重新读取后再保存。' : '请先重新读取计费规则，再核对并保存。' })
+      return
+    }
     const f = this.data.form
     const num = (v) => {
       if (v === '' || v === null || v === undefined) return null
@@ -714,7 +748,9 @@ Page({
       }
     }
 
+    // 2026-11-04：未配置页会保留默认值；保存必须携带最初读取的快照，不能覆盖另一会话新建的规则。
     const payload = {
+      expectedSnapshot: this.data.configSnapshot,
       minOrderBuckets: enabled.minOrderBuckets ? num(f.minOrderBuckets) : null,
       minOrderAmount: enabled.minOrderAmount ? num(f.minOrderAmount) : null,
       minOrderMode: f.minOrderMode,
@@ -763,7 +799,8 @@ Page({
         wx.showToast({ title: '已保存并核对', icon: 'success' })
       } else {
         const readbackKnown = this.data.configReady && this.data.configured
-        this.setData({ configReady: true, loading: false, configError: '', form: submittedForm, thresholdEnabled: submittedEnabled,
+        this.setData({ configReady: true, loading: false, configError: '', configConflict: true,
+          configSnapshot: payload.expectedSnapshot, form: submittedForm, thresholdEnabled: submittedEnabled,
           ...buildRuleState(submittedForm, submittedEnabled, this.data.configured, this.data.savedForm, this.data.savedThresholdEnabled) })
         this.setData({ hasUnsavedChanges: true, saveError: readbackKnown
           ? '保存请求已提交，但回读内容与本次修改不一致；当前输入已保留，请重新读取后核对。'
@@ -771,7 +808,8 @@ Page({
       }
     } catch (err) {
       if (!stillHere()) return
-      this.setData({ saveError: err.message || '保存失败，输入已保留，请核对后重试' })
+      this.setData({ saveError: err.message || '保存失败，输入已保留，请核对后重试',
+        configConflict: this.data.configConflict || !!(err.message && err.message.includes('已被其他会话修改')) })
       wx.showToast({ title: err.message || '保存失败', icon: 'none' })
     } finally {
       if (stillHere()) { this.setData({ saving: false }); this.persistFeeDraft(); this.syncFeeExitGuard() }

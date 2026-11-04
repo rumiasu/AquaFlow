@@ -20,14 +20,14 @@ function fixture(options = {}) {
       calls.push({ method: 'GET', url })
       if (url.includes('setup-guide')) return { code: 0, data: { items: [{ key: 'deliveryFee', label: '配送计费', level: 'P0', done: state.configured, route: '/pages/station-mgmt/delivery-config/index' }] } }
       if (state.readFail) throw Error('synthetic read failure')
-      return { code: 0, data: { config: { ...state.config }, configured: state.configured, guidance: state.guidance } }
+      return { code: 0, data: { config: { ...state.config }, configured: state.configured, guidance: state.guidance, snapshot: JSON.stringify([state.configured, state.config]) } }
     },
     put: async (url, body) => {
       calls.push({ method: 'PUT', url, body })
       if (state.putPending) return state.putPending
       if (state.putFail) throw Error('synthetic save failure')
       if (state.rejectCode) return { code: 1, message: 'synthetic rejected' }
-      if (!state.stale) { state.config = { ...body, floorFreeLevel: body.floorFreeLevel == null ? 1 : body.floorFreeLevel }; state.configured = true }
+      if (!state.stale) { const { expectedSnapshot, ...fields } = body; state.config = { ...fields, floorFreeLevel: body.floorFreeLevel == null ? 1 : body.floorFreeLevel }; state.configured = true }
       if (state.failReadAfterPut) state.readFail = true
       return { code: 0 }
     }

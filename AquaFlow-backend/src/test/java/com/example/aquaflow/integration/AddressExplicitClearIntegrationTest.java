@@ -131,7 +131,7 @@ class AddressExplicitClearIntegrationTest extends AbstractIntegrationTest {
     void clearedFloorChangesFutureQuoteButNotHistoricalOrder() {
         long station=createStation("合成报价站"),manager=createStaff("合成报价站长","STATION_MANAGER",station,1);
         long product=createProduct("合成报价水",1,"20.00","30.00",0,"0.00");createInventoryFull(station,product,100,0,"0.00");
-        assertTrue(put("/api/manager/delivery-config",staffToken(manager,"STATION_MANAGER",station),"{\"floorFeePerLevel\":2,\"floorFreeLevel\":1}").isSuccess());
+        assertTrue(saveDeliveryConfig(staffToken(manager,"STATION_MANAGER",station),"{\"floorFeePerLevel\":2,\"floorFreeLevel\":1}").isSuccess());
         String body="{\"stationId\":"+station+",\"addressId\":"+address+",\"paymentMethod\":1,\"items\":[{\"productId\":"+product+",\"quantity\":1}]}";
         Api before=post("/api/payments/quote",customerToken(customer),body);assertTrue(before.isSuccess(),before.toString());
         assertEquals(0,new BigDecimal("10").compareTo(new BigDecimal(before.data().path("floorFee").asText())));

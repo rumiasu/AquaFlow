@@ -41,6 +41,9 @@ public class BarrelRefundDTO {
     /** 处理备注（站长驳回原因等） */
     private String handleNote;
 
+    /** 仅status=2：员工核对同商品随单退还时明确选择的原配送实收流水，不代表再次收桶。 */
+    private Long deliveryReceiptId;
+
     /** 退款通道：{@link #CHANNEL_CASH} / {@link #CHANNEL_ONLINE}；不传 = CASH */
     private String refundChannel;
 

@@ -357,6 +357,7 @@ const API = {
   BARRELS_REFUND_UNDELIVERED: '/api/barrels/refund-undelivered',
   BARRELS_RETURN_APPROVE: (id) => `/api/barrels/records/${id}/approve`,
   BARRELS_RETURN_ARRANGEMENT: (id) => `/api/barrels/records/${id}/manager-arrangement`,
+  BARRELS_HANDOVER_EVIDENCE: (id) => `/api/barrels/records/${id}/handover-evidence`,
   MANAGER_BUSINESS_WAITING: '/api/manager/business-waiting',
   MANAGER_TICKET_EXIT_BATCHES: '/api/manager/ticket-exit-batches',
   MANAGER_REFUSAL_CASES: '/api/manager/refusal-cases',

@@ -148,6 +148,13 @@ public class BarrelController {
         return Result.success(approvedReturnService.refundEligibility(id,AuthContext.requireStationId(),scopedRefunds));
     }
 
+    /** 员工端归属站站长核对原申请对应的配送实收；只读，不登记交接或退款。 */
+    @RequireRole("STATION_MANAGER")
+    @GetMapping("/records/{id}/handover-evidence")
+    public Result<Map<String,Object>> handoverEvidence(@PathVariable Long id) {
+        return Result.success(approvedReturnService.handoverEvidence(id,AuthContext.requireStationId()));
+    }
+
     /** 归属站站长批准申请及独立上门费；批准本身不登记收到实物。 */
     @RequireRole({"STATION_MANAGER"})
     @PutMapping("/records/{id}/approve")
@@ -207,6 +214,11 @@ public class BarrelController {
         // 站别取登录态传入，文案「退桶记录不存在 / 无权处理他站退桶申请」一字未变
         Long operatorId = AuthContext.getUserId();
         try {
+            if(dto.getDeliveryReceiptId()!=null) {
+                if(!Integer.valueOf(2).equals(status))return Result.error("配送实收凭据仅用于核对退还交接，不能用于登记退款");
+                approvedReturnService.receiveFromDelivery(id,stationId,operatorId,dto.getDeliveryReceiptId(),handleNote);
+                return Result.success();
+            }
             if(dto.getPayoutRequestKey()!=null)return Result.success(approvedReturnService.recordCashPayout(id,stationId,operatorId,dto));
             if (dto.getCashDeliveryConfirmed() != null || dto.getExpectedRefundAmount() != null) {
                 if (!Integer.valueOf(3).equals(status) || !Boolean.TRUE.equals(dto.getCashDeliveryConfirmed())

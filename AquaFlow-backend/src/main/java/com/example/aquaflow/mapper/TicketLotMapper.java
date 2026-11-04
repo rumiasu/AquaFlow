@@ -52,6 +52,12 @@ public interface TicketLotMapper {
                                    @Param("stationId") Long stationId,
                                    @Param("productId") Long productId);
 
+    /** 调整单能力展示不应锁住客户水票账户或批次。 */
+    @Select("select * from ticket_lot where customer_id=#{customerId} and station_id=#{stationId} " +
+            "and product_id=#{productId} and status=1 and remain_qty>0 order by id")
+    List<TicketLot> listUsableFifoReadOnly(@Param("customerId") Long customerId,
+            @Param("stationId") Long stationId, @Param("productId") Long productId);
+
     /**
      * 扣减批次剩余张数（CAS）。
      *

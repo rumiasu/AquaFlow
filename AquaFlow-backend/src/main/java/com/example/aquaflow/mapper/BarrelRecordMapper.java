@@ -23,6 +23,10 @@ public interface BarrelRecordMapper {
     @Select("select * from barrel_record where id = #{id}")
     BarrelRecord getById(@Param("id") Long id);
 
+    /** 一张调整单唯一的桶流水；原批次凭据必须经此关联，不从备注推断。 */
+    @Select("select * from barrel_record where adjustment_id=#{adjustmentId}")
+    BarrelRecord getByAdjustmentId(@Param("adjustmentId") Long adjustmentId);
+
     // [2026-09-30 F-19] 已删除无守卫的 updateStatus(id, status, handleNote)：全仓零调用。
     // 原注释要求"只用于不需要前置状态保证的场景"，但那种场景**从来没有出现过** ——
     // 实际流转全部走下面的 CAS 三件套（confirmReceived / finishRefund / reject）。

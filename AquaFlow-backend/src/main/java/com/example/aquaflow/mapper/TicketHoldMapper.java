@@ -10,6 +10,9 @@ import org.apache.ibatis.annotations.*;
 public interface TicketHoldMapper {
     @Select("select h.* from order_ticket_hold h join ticket_lot l on l.id=h.lot_id where l.customer_id=#{customer} and l.station_id=#{station} and l.product_id=#{product} and h.state='HELD' order by h.id for update")
     List<Map<String,Object>> heldForAccount(@Param("customer") Long customer,@Param("station") Long station,@Param("product") Long product);
+    /** 与写侧口径相同的无锁能力展示。 */
+    @Select("select h.* from order_ticket_hold h join ticket_lot l on l.id=h.lot_id where l.customer_id=#{customer} and l.station_id=#{station} and l.product_id=#{product} and h.state='HELD' order by h.id")
+    List<Map<String,Object>> heldForAccountReadOnly(@Param("customer") Long customer,@Param("station") Long station,@Param("product") Long product);
     @Select("select * from order_ticket_hold where order_id=#{order} and product_id=#{product} order by lot_id for update")
     List<Map<String,Object>> forOrderProduct(@Param("order") Long order,@Param("product") Long product);
     @Select("select distinct product_id from order_ticket_hold where order_id=#{order} order by product_id")

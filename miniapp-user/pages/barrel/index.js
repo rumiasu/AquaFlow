@@ -702,6 +702,12 @@ Page({
     const record = this.data.records.find(r => r.id === Number(e.currentTarget.dataset.id))
     if (record && record.statusText) wx.navigateTo({ url: '/pages/service/index?refundType=BARREL_RETURN&refundId=' + record.id })
   },
+  onReturnCompanionOrder(e) {
+    if (this._arrangementHidden || this.data.refreshing || this.data.recordsFailed) return
+    const record = this.data.records.find(r => String(r.id) === String(e.currentTarget.dataset.id))
+    const id = record && record.returnDetail && returnDisplayId(record.returnDetail.companionOrderId)
+    if (id) wx.navigateTo({ url: '/pages/order/detail?id=' + encodeURIComponent(id) })
+  },
   async onReturnConfirm(e) {
     if (this.data.refreshing || this.data.recordsFailed) return
     // 2026-10-27：记录编号可能以字符串返回；严格比较数字会让可见确认按钮静默失效。

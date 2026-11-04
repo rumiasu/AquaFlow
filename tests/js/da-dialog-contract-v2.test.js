@@ -12,7 +12,7 @@ function makeDialog(wx) {
 async function main() {
   const wx = createWx(), app = createApp({ _loginGeneration: 1, globalData: { isLogin: true, userInfo: { staffId: 5, stationId: 1, role: 'STATION_MANAGER' } } }), writes = []
   const page = loadPage('miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.js', { wx, app, stubs: { 'api/station-mgmt': { reverseAdjustment: async (...args) => { writes.push(args); return { data: { id: 20, adjustNo: 'R20' } } } } } })
-  page.setData({ detail: { id: 9, adjustNo: 'A9', adjustTypeText: '补录', hasQty: true, qtyText: '+2', isEffective: true }, reverseClientToken: 'original-key' }); page.loadData = () => {}; page.onShow()
+  page.setData({ loading: false, detail: { id: 9, adjustNo: 'A9', adjustTypeText: '补录', hasQty: true, qtyText: '+2', isEffective: true, canReverse: true }, reverseClientToken: 'original-key' }); page.loadData = () => {}; page.onShow()
   global.getCurrentPages = () => [{}]
   page.onReverse(); await tick(); assert.equal(writes.length, 0); assert.equal(page._reversePrompt, null); assert.equal(wx.__calls.modal.length, 0)
   console.log('PASS D21 F native fallback cancels unsupported editable description without writing')

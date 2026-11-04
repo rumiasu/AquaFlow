@@ -99,6 +99,9 @@ function decorate(a) {
     executeTimeText: a.executeTime || '',
     isPending: a.status === 'PENDING',
     isEffective: a.status === 'EFFECTIVE',
+    canReverse: a.status === 'EFFECTIVE' && a.canReverse === true,
+    reverseUnavailableReason: a.status === 'EFFECTIVE' && a.canReverse !== true
+      ? (a.reverseUnavailableReason || '尚未取得撤销条件，请刷新原单后查看；需要时先核对原单及资产流水。') : '',
     // 仅用于配色，文案仍用后端下发的 statusText
     statusClass: a.status === 'PENDING' ? 'pending' : (a.status === 'EFFECTIVE' ? 'effective' : 'muted')
   })
@@ -117,6 +120,7 @@ Page({
     deniedText: '',
     executing: false,
     reversing: false,
+    reverseError: '',
     reverseClientToken: ''
   },
 
@@ -126,7 +130,7 @@ Page({
 
   onShow() {
     const wasHidden = this._hidden; this._hidden = false
-    if (this._session && !currentSession(this._session)) { this._session = captureSession(); this._reverseDraft = ''; this.updateReverseWarning(); this._loadSeq = (this._loadSeq || 0) + 1; this.setData({ id: null, detail: null, loading: false, executing: false, reversing: false, loadError: '账号或水站已变化，请返回列表重新选择。' }); return }
+    if (this._session && !currentSession(this._session)) { this._session = captureSession(); this._reverseDraft = ''; this.updateReverseWarning(); this._loadSeq = (this._loadSeq || 0) + 1; this.setData({ id: null, detail: null, loading: false, executing: false, reversing: false, reverseError: '', loadError: '账号或水站已变化，请返回列表重新选择。' }); return }
     if (wasHidden && this.data.id) return this.loadData()
   },
   onHide() { this._hidden = true; this._reversePrompt = null; this._executePrompt = null; this._loadSeq = (this._loadSeq || 0) + 1 },
@@ -181,18 +185,47 @@ Page({
       const res = await getAdjustment(this.data.id)
       if (seq !== this._loadSeq || !currentSession(session)) return
       if (res.code === 0 && res.data) {
-        this.setData({ detail: decorate(res.data) })
+        this.setData({ detail: decorate(res.data), reverseError: res.data.status === 'REVERSED' ? '' : this.data.reverseError })
       } else {
-        this.setData({ detail: null, loadError: res.message || '暂未读取到调整单，请重新核对' })
+        this.setData({ loadError: res.message || '暂未读取到调整单，请重新核对' })
         wx.showToast({ title: res.message || '调整单不存在', icon: 'none' })
       }
     } catch (err) {
       if (seq !== this._loadSeq || !currentSession(session)) return
-      this.setData({ detail: null, loadError: err.message || '调整单读取失败，请重试' })
+      this.setData({ loadError: err.message || '调整单读取失败，请重试' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
     } finally {
       if (seq === this._loadSeq && currentSession(session)) this.setData({ loading: false })
     }
+  },
+
+  /** 核实入口只读，不创建另一张调整单，也不把数量相反当作恢复原批次。 */
+  canVerify() {
+    return !this.data.denied && !this._hidden && !this._unloaded && this.data.detail
+      && this._session && currentSession(this._session)
+  },
+  onOpenCustomerAssets() {
+    if (!this.canVerify() || !this.data.detail.customerId) return
+    wx.navigateTo({ url: '/pages/station-mgmt/customers/detail/index?id=' + encodeURIComponent(this.data.detail.customerId) })
+  },
+  onCopyVerification() {
+    if (!this.canVerify()) return
+    const detail = this.data.detail
+    const lines = [
+      '资产调整核实：' + (detail.adjustNo || '编号未记录') + '（编号 ' + detail.id + '）',
+      '客户：' + detail.customerText,
+      '调整类型：' + (detail.adjustTypeText || '待核实'),
+      '最近读取状态：' + (detail.statusText || '待核实'),
+      detail.productId ? '商品：' + detail.productText : '',
+      detail.hasQty ? '数量：' + detail.qtyText : '',
+      detail.hasAmount ? '金额：¥' + detail.amountText : '',
+      '原调整原因：' + (detail.reason || '未填写'),
+      detail.reverseUnavailableReason ? '撤销条件：' + detail.reverseUnavailableReason : '',
+      this.data.reverseError ? '上次撤销提示：' + this.data.reverseError : '',
+      this.data.loadError ? '重新读取提示：' + this.data.loadError : '',
+      '请在本站核对原单、原批次与资产流水；请勿另建相反调整代替撤销。'
+    ]
+    wx.setClipboardData({ data: lines.filter(Boolean).join('\n') })
   },
 
   /** 撤销的单据 / 反向单互跳。用 redirectTo 而不是 navigateTo：两单互相引用，层层压栈迟早爆栈 */
@@ -213,7 +246,7 @@ Page({
     if (!detail || !detail.isPending || this.data.executing || this._executePrompt || this._hidden || this._unloaded) return
     const session = captureSession(), prompt = this._executePrompt = {}
     const what = detail.hasQty ? `数量 ${detail.qtyText}` : (detail.hasAmount ? `金额 ¥${detail.amountText}` : '数量或金额待核实')
-    showBusinessModal({ title: '执行调整单', content: `确定执行 ${detail.adjustNo}？\n类型：${detail.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产，事后只能通过「撤销」生成反向单。`, confirmText: '执行',
+    showBusinessModal({ title: '执行调整单', content: `确定执行 ${detail.adjustNo}？\n类型：${detail.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产。撤销需核对原始记录及当前资产条件，无法撤销时须核实原单和流水。`, confirmText: '执行',
       success: async res => {
         if (this._executePrompt !== prompt) return
         this._executePrompt = null
@@ -229,17 +262,17 @@ Page({
   /** 单次确认包括反向影响与必填原因；身份或页面变化后不发送。 */
   onReverse() {
     const detail = this.data.detail
-    if (!detail || this.data.reversing || this._reversePrompt || this._hidden || this._unloaded) return
+    if (!detail || detail.canReverse !== true || this.data.loading || this.data.loadError || this.data.reversing || this._reversePrompt || this._hidden || this._unloaded || (this._session && !currentSession(this._session))) return
     const session = captureSession(), prompt = this._reversePrompt = {}
     const what = detail.hasQty ? `数量 ${detail.qtyText}` : (detail.hasAmount ? `金额 ¥${detail.amountText}` : '数量或金额待核实')
     showBusinessModal({
       title: '确认撤销', editable: true, initialValue: this._reverseDraft || '',
-      description: `将撤销 ${detail.adjustNo}（${detail.adjustTypeText}，${what}），生成反向单并立即生效。请输入撤销原因；未提交的原因仅在本页保留。`,
+      description: `申请撤销 ${detail.adjustNo}（${detail.adjustTypeText}，${what}）。提交时会重新核对原始记录及当前资产条件，通过后生成反向单并生效。请输入撤销原因；未提交的原因仅在本页保留。`,
       placeholderText: '如：补录数量填错、重复补录', confirmText: '确认撤销', confirmColor: '#BD3328',
       success: r => {
         if (this._reversePrompt !== prompt) return
         this._reversePrompt = null
-        if (this._hidden || this._unloaded || !currentSession(session) || !this.data.detail || this.data.detail.id !== detail.id || this.data.reversing) return
+        if (this._hidden || this._unloaded || !currentSession(session) || !this.data.detail || this.data.detail.id !== detail.id || this.data.detail.canReverse !== true || this.data.loading || this.data.loadError || this.data.reversing) return
         if (typeof r.content === 'string') { this._reverseDraft = r.content; this.updateReverseWarning() }
         if (!r.confirm) return
         const reason = String(r.content || '').trim()
@@ -252,7 +285,7 @@ Page({
 
   async doReverse(reason) {
     const detail = this.data.detail
-    if (!detail || this.data.reversing) return
+    if (!detail || detail.canReverse !== true || this.data.loading || this.data.loadError || this.data.reversing || this._hidden || this._unloaded || (this._session && !currentSession(this._session))) return
     const session = captureSession()
     this.setData({ reversing: true })
     wx.showLoading({ title: '撤销中...' })
@@ -261,12 +294,15 @@ Page({
       if (this._hidden || this._unloaded || !currentSession(session)) return
       if (!res || !res.data || !res.data.id) throw Error('撤销结果尚未确认，请重新读取单据')
       this._reverseDraft = ''; this.updateReverseWarning()
+      this.setData({ reverseError: '' })
       const no = res && res.data && res.data.adjustNo ? res.data.adjustNo : ''
       wx.showToast({ title: no ? '已撤销，反向单 ' + no : '已撤销', icon: 'success' })
       this.loadData()
     } catch (err) {
       if (this._hidden || this._unloaded || !currentSession(session)) return
-      wx.showToast({ title: err.message || '撤销失败', icon: 'none', duration: 3000 })
+      const message = err.message || '撤销结果尚未确认，请重新读取原单及反向单后核实'
+      this.setData({ reverseError: message })
+      wx.showToast({ title: message, icon: 'none', duration: 3000 })
       // 失败常见原因是原单状态已被并发改变 → 重新拉一次让页面自愈
       this.loadData()
     } finally {

@@ -154,8 +154,10 @@
             <text class="record-summary">{{item.returnDetail.pickupModeText}} · 应交回 {{item.returnDetail.requiredBarrels}} 桶 · 取桶费 ¥{{item.returnDetail.pickupFee}}</text>
             <text class="record-summary">{{item.returnDetail.statusText}}</text>
             <text class="record-summary" wx:if="{{item.returnDetail.companionOrderId}}">关联送水单 #{{item.returnDetail.companionOrderId}}</text>
+            <text class="record-summary" wx:if="{{item.returnDetail.pickupMode === 'COMBINED' && item.returnDetail.requiredBarrels > 0 && (item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED')}}">同商品随单收桶由配送人员登记本次实际回桶总数，水站随后在原申请核对交接记录。已交回并登记的桶无需再交一次；如记录不符，请向水站核实原交接。</text>
             <text class="record-summary" wx:if="{{item.returnDetail.arrangementRequiresConfirmation && !item.returnDetail.customerConfirmationCurrent}}">水站提出了新的收桶安排，请核对后决定是否同意；也可更改或撤回申请。</text>
             <view class="record-actions">
+              <button class="af-action af-action--quiet" wx:if="{{item.returnDetail.companionOrderId}}" disabled="{{refreshing || recordsFailed}}" data-id="{{item.id}}" bindtap="onReturnCompanionOrder">查看关联送水单</button>
               <!-- 2026-10-27：旧记录刷新时处理器会拒绝确认，按钮也必须同步禁用。 -->
               <button class="af-action af-action--primary" wx:if="{{item.returnDetail.status === 'APPROVED' && item.returnDetail.customerConfirmationRequired !== false && !item.returnDetail.customerConfirmationCurrent}}" disabled="{{refreshing || recordsFailed}}" data-id="{{item.id}}" bindtap="onReturnConfirm">确认费用或新安排</button>
               <button class="af-action af-action--secondary" disabled="{{refreshing || recordsFailed}}" wx:if="{{item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED'}}" data-id="{{item.id}}" bindtap="onReturnArrangement">更改收桶安排</button>
@@ -253,6 +255,7 @@
       <view class="preview-storage" wx:if="{{preview && preview.storageQty > 0}}">
         <text>{{summary.independentRights ? '另有待领取或暂存容量' : '另有空桶寄存在水站'}} {{preview.storageQty}} 个；本次应交桶数量以批准安排为准</text>
       </view>
+      <view class="preview-hint" wx:if="{{summary.independentRights && previewReady && preview && !preview.blocked && preview.requiredBarrels != null}}"><text>本次预计需交回 {{preview.requiredBarrels}} 个实物桶；提交时按最新桶账核对，以原申请记录为准。</text></view>
 
       <view class="form-row">
         <text class="form-label">备注</text>

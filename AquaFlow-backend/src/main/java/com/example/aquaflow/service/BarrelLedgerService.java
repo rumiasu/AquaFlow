@@ -125,6 +125,12 @@ public class BarrelLedgerService {
                 || !Objects.equals(productId,reservation.getProductId()) || !Objects.equals(quantity,reservation.getQuantity())
                 || !"ACTIVE".equals(reservation.getStatus()) || reservation.getPendingQty()!=0 || reservation.getPendingPickupQty()!=0)
             throw new BusinessException("退还容量已变化，请核实原申请");
+        // 每份已交回待退的空闲容量只能保留给一个用途；单查over+本申请数量会让两个申请共用同一份。
+        long otherPickup=businessMapper.activeForUpdate(customerId,stationId,productId).stream()
+                .filter(active -> !Objects.equals(reservation.getId(),active.getId()))
+                .mapToLong(active -> (long)active.getPickupQty()-active.getPendingPickupQty()).sum();
+        if(otherPickup+quantity>-(long)lockedOverQty(customerId,stationId,productId))
+            throw new BusinessException("退还所需空闲容量已被其他订单或申请占用，请核实实际还桶后沿原申请继续");
         // 2026-11-04：收到桶后仍保留申请时 pickup_qty，会把刚退回但尚未退款的容量借给新订单。
         if(businessMapper.reserveReceivedReturn(reservation.getId(),recordId,quantity,reservation.getPickupQty())!=1)
             throw new BusinessException("退还容量已变化，本次交接未登记，请核实原申请");
@@ -772,6 +778,112 @@ public class BarrelLedgerService {
 
         result.setAmount(amount);
         result.setHasMigratedPrice(lots.stream().anyMatch(l -> Integer.valueOf(1).equals(l.getIsMigrated())));
+        return result;
+    }
+
+    /**
+     * 调整反向只作用于原流水的精确批次。2026-11-04：重跑 FIFO 会撤掉其他价格的权益，
+     * 按当前价新建批次也不能恢复原值；缺少凭据或原批次不足时整笔拒绝，不回退到其他批次。
+     */
+    @Transactional
+    public LotConsumption reverseAdjustmentLots(Long customer, Long station, Long product, int quantity,
+                                                List<BarrelRecordLot> proof, boolean restore) {
+        LotConsumption result = checkAdjustmentLots(customer, station, product, quantity, proof, restore, true);
+        for (LotConsumption.Detail detail : result.getDetails()) {
+            int affected = restore
+                    ? lotMapper.restoreWithinOriginalQuantity(detail.getLotId(), detail.getQty())
+                    : lotMapper.consume(detail.getLotId(), detail.getQty());
+            if (affected != 1) throw new BusinessException("原批次已变化，本次撤销未执行，请刷新核对");
+            if (!restore) lotMapper.markExhausted(detail.getLotId());
+        }
+        if (restore) {
+            CustomerBarrelAsset asset = assetMapper.getByCustomerAndProductForUpdate(customer, product, station);
+            if (asset == null || assetMapper.restoreAdjustment(asset.getId(), quantity, result.getAmount()) != 1) {
+                throw new BusinessException("原桶权益汇总已变化，本次撤销未执行，请核对资产流水");
+            }
+        } else {
+            decreaseRight(customer, station, product, quantity, result.getAmount());
+        }
+        return result;
+    }
+
+    /** 能力展示与写入共用校验；无锁预览不能创建 over 行或把资产试算变成写操作。 */
+    public LotConsumption previewAdjustmentReversal(Long customer, Long station, Long product, int quantity,
+                                                    List<BarrelRecordLot> proof, boolean restore) {
+        return checkAdjustmentLots(customer, station, product, quantity, proof, restore, false);
+    }
+
+    private LotConsumption checkAdjustmentLots(Long customer, Long station, Long product, int quantity,
+                                               List<BarrelRecordLot> proof, boolean restore, boolean locked) {
+        if (quantity <= 0 || proof == null || proof.isEmpty()) {
+            throw new BusinessException("原调整缺少完整批次凭据，请核对原单及资产流水");
+        }
+        // 同一 over 锁串行化分配与桶账；随后当前读批次（含耗尽批次）与预留，保持既有锁顺序。
+        int rights = locked ? lockRights(customer, station, product) : rightQty(customer, station, product);
+        List<BarrelRecordLot> ordered = new ArrayList<>(proof);
+        ordered.sort(Comparator.comparing(BarrelRecordLot::getLotId, Comparator.nullsFirst(Comparator.naturalOrder())));
+        Set<Long> seen = new HashSet<>();
+        LotConsumption result = new LotConsumption();
+        long total = 0;
+        BigDecimal amount = BigDecimal.ZERO;
+        for (BarrelRecordLot line : ordered) {
+            if (line.getLotId() == null || !seen.add(line.getLotId()) || line.getQty() == null
+                    || line.getQty() <= 0 || line.getUnitPrice() == null || line.getUnitPrice().signum() < 0
+                    || line.getAmount() == null || line.getAmount().compareTo(
+                    line.getUnitPrice().multiply(BigDecimal.valueOf(line.getQty()))) != 0) {
+                throw new BusinessException("原批次数量或金额凭据不完整，请核对原单及资产流水");
+            }
+            CustomerBarrelLot lot = locked ? lotMapper.getByIdForUpdate(line.getLotId()) : lotMapper.getById(line.getLotId());
+            if (lot == null || !Objects.equals(customer, lot.getCustomerId()) || !Objects.equals(station, lot.getStationId())
+                    || !Objects.equals(product, lot.getProductId()) || lot.getUnitPrice() == null
+                    || lot.getUnitPrice().compareTo(line.getUnitPrice()) != 0 || lot.getQty() == null
+                    || lot.getRemainQty() == null || lot.getRemainQty() < 0 || lot.getRemainQty() > lot.getQty()
+                    || !(Integer.valueOf(1).equals(lot.getStatus()) || Integer.valueOf(2).equals(lot.getStatus()))
+                    || (Integer.valueOf(2).equals(lot.getStatus()) && lot.getRemainQty() != 0)) {
+                throw new BusinessException("原批次归属、单价或状态不一致，请核对原单及资产流水");
+            }
+            int held = businessPolicy.hasSchema() ? (locked ? returnDetailMapper.heldLot(lot.getId())
+                    : returnDetailMapper.heldLotReadOnly(lot.getId())) : 0;
+            if (held < 0 || held > lot.getRemainQty()) throw new BusinessException("原批次占用与余额不一致，请核对退还申请");
+            if (restore) {
+                if ((long) lot.getRemainQty() + line.getQty() > lot.getQty()) {
+                    throw new BusinessException("恢复数量超过原批次上限，请核对是否已有补回记录");
+                }
+            } else {
+                if (!Integer.valueOf(1).equals(lot.getStatus()) || lot.getRemainQty() < line.getQty()) {
+                    throw new BusinessException("原批次已被使用，不能用其他批次代替撤销，请核对资产流水");
+                }
+                if (lot.getRemainQty() - held < line.getQty()) throw new BusinessException("原批次已被退还申请占用，请先核对原申请");
+            }
+            total += line.getQty();
+            amount = amount.add(line.getAmount());
+            result.getDetails().add(new LotConsumption.Detail(lot.getId(), line.getQty(), line.getUnitPrice(), line.getAmount()));
+            result.setHasMigratedPrice(result.isHasMigratedPrice() || Integer.valueOf(1).equals(lot.getIsMigrated()));
+        }
+        if (total != quantity) throw new BusinessException("原调整数量与批次凭据不一致，请核对原单");
+        if (!restore) {
+            if (locked) {
+                requireManualRevokeSafe(customer, station, product, quantity);
+            } else {
+                if ((long) rights + overQty(customer, station, product) - quantity < 0) {
+                    throw new BusinessException("撤销后客户实物桶数会为负，请核对交桶记录");
+                }
+                long busy = businessPolicy.hasSchema() ? (long) businessMapper.reserved(customer, station, product)
+                        + businessMapper.legacyOrderBusy(customer, station, product)
+                        + businessMapper.legacyReturnBusy(customer, station, product) : 0;
+                if (quantity > rights - busy) throw new BusinessException("原权益仍被配送或退还占用，请先核对原单");
+            }
+        }
+        CustomerBarrelAsset asset = locked ? assetMapper.getByCustomerAndProductForUpdate(customer, product, station)
+                : assetMapper.getByCustomerAndProduct(customer, product, station);
+        if (asset == null || asset.getQuantity() == null || asset.getRightAmount() == null
+                || asset.getQuantity() < 0 || asset.getRightAmount().signum() < 0
+                || (restore && ((long) asset.getQuantity() + quantity > Integer.MAX_VALUE
+                || asset.getRightAmount().add(amount).compareTo(new BigDecimal("99999999.99")) > 0))
+                || (!restore && (asset.getQuantity() < quantity || asset.getRightAmount().compareTo(amount) < 0))) {
+            throw new BusinessException("原批次与桶权益汇总不一致，请核对资产流水");
+        }
+        result.setAmount(amount);
         return result;
     }
 

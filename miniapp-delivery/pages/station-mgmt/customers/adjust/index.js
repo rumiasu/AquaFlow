@@ -184,7 +184,7 @@ Page({
     if (!item || !item.isPending || this.data.executing || this._executePrompt || this._hidden || this._unloaded) return
     const session = captureSession(), prompt = this._executePrompt = {}
     const what = item.hasQty ? `数量 ${item.qtyText}` : (item.hasAmount ? `金额 ¥${item.amountText}` : '数量或金额待核实')
-    showBusinessModal({ title: '执行调整单', content: `确定执行 ${item.adjustNo}？\n类型：${item.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产，事后只能通过「撤销」生成反向单，不能删除。`, confirmText: '执行',
+    showBusinessModal({ title: '执行调整单', content: `确定执行 ${item.adjustNo}？\n类型：${item.adjustTypeText}，${what}。\n执行后立即改写该客户在本站的资产。撤销需核对原始记录及当前资产条件，无法撤销时须核实原单和流水。`, confirmText: '执行',
       success: async res => {
         if (this._executePrompt !== prompt) return
         this._executePrompt = null

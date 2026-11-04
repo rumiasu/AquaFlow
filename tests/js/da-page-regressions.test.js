@@ -19,7 +19,7 @@ async function main(){
  }
  {
   const a=app(),wx=createWx(),dialogs=[],calls=[];const p=loadPage('miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.js',{app:a,wx,stubs:{'utils/business-dialog':{showBusinessModal:o=>dialogs.push(o)},'api/station-mgmt':{reverseAdjustment:async(...args)=>{calls.push(args);return ok({})},getAdjustment:async()=>ok({})}}})
-  p.setData({detail:{id:9,adjustNo:'A9',adjustTypeText:'补录',hasQty:true,qtyText:'2',isEffective:true},reverseClientToken:'original'});p.onShow();p.onReverse();p.onReverse();assert.equal(dialogs.length,1);assert.equal(dialogs[0].initialValue,'');assert(dialogs[0].description.includes('2'));dialogs[0].success({confirm:false});assert.equal(calls.length,0)
+  p.setData({loading:false,detail:{id:9,adjustNo:'A9',adjustTypeText:'补录',hasQty:true,qtyText:'2',isEffective:true,canReverse:true},reverseClientToken:'original'});p.onShow();p.onReverse();p.onReverse();assert.equal(dialogs.length,1);assert.equal(dialogs[0].initialValue,'');assert(dialogs[0].description.includes('2'));dialogs[0].success({confirm:false});assert.equal(calls.length,0)
   p.onReverse();const old=dialogs[1];p.onHide();old.success({confirm:true,content:'原因'});assert.equal(calls.length,0);p.onShow();p.onReverse();dialogs[2].success({confirm:true,content:'原因'});await tick();assert.equal(calls.length,1);assert.equal(calls[0][1],'原因');assert.equal(calls[0][2],'original')
   console.log('PASS reverse dialog cancellation, stale callback, single confirmation')
  }
@@ -35,7 +35,7 @@ async function main(){
  }
  {
   const a=app(),wx=createWx(),p=loadPage('miniapp-delivery/pages/station-mgmt/customers/adjust/detail/index.js',{app:a,wx,stubs:{'api/station-mgmt':{reverseAdjustment:async()=>ok(null)}}})
-  p.setData({detail:{id:9},reverseClientToken:'original'});p.loadData=()=>{};await p.doReverse('原因');assert(wx.__calls.toast.some(t=>t.title.includes('尚未确认')));assert(!wx.__calls.toast.some(t=>t.icon==='success'));console.log('PASS malformed reverse receipt is not presented as success')
+  p.setData({loading:false,detail:{id:9,canReverse:true},reverseClientToken:'original'});p.loadData=()=>{};await p.doReverse('原因');assert(wx.__calls.toast.some(t=>t.title.includes('尚未确认')));assert(!wx.__calls.toast.some(t=>t.icon==='success'));console.log('PASS malformed reverse receipt is not presented as success')
  }
  done();console.log('AQUAFLOW_SUITE_OK 6')
 }

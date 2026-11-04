@@ -3,9 +3,12 @@ package com.example.aquaflow.service;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.constant.PayMethod;
 import com.example.aquaflow.constant.PaymentStatus;
+import com.example.aquaflow.entity.BarrelRecord;
 import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.exception.BusinessException;
+import com.example.aquaflow.mapper.BarrelDeliveryReceiptMapper;
+import com.example.aquaflow.mapper.BarrelRecordMapper;
 import com.example.aquaflow.mapper.OrderItemMapper;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.service.impl.OrderWorkflowServiceImpl;
@@ -152,6 +155,14 @@ class DeliveryReturnOptionalReasonTest {
             OrderItem item = new OrderItem(); item.setId(501L); item.setProductId(10L); item.setQuantity(3);
             when(((OrderItemMapper) dependencies.get(OrderItemMapper.class)).listByOrderId(1L)).thenReturn(List.of(item));
             when(payments.hasPaidRecord(1L)).thenReturn(true);
+            // 配送来源依赖实物流水的生成主键；模拟正常持久化，继续检验原有差异原因和收款行为。
+            doAnswer(invocation -> {
+                BarrelRecord record = invocation.getArgument(0);
+                record.setId(800L);
+                return null;
+            }).when((BarrelRecordMapper) dependencies.get(BarrelRecordMapper.class)).insert(any(BarrelRecord.class));
+            when(((BarrelDeliveryReceiptMapper) dependencies.get(BarrelDeliveryReceiptMapper.class))
+                    .insertSource(800L, "ITEMIZED")).thenReturn(1);
             BarrelLedgerService.DeliveryOutcome outcome = new BarrelLedgerService.DeliveryOutcome();
             outcome.add(10L, 3, 1, 0, 0, 2);
             when(ledger.applyDelivery(eq(1L), eq(9L), eq(8L), anyMap(), eq(20L))).thenReturn(outcome);

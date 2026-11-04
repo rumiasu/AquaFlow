@@ -20,7 +20,8 @@ function receivableSession() {
       && ['STATION_MANAGER', 'manager', 'MANAGER'].includes(u.role) && app.canAccessStationBusiness()) }
 }
 const sameSession = (a, b) => a && b && a.app === b.app && a.generation === b.generation && a.identity === b.identity
-const canRegister = order => order && order.paymentStatus === 1 && order.settlementStatus === 1
+// 2026-11-04：待收状态不代表可收现金；只认服务端核对原款与票单余款渠道后的明确许可。
+const canRegister = order => order && order.canRegisterCash === true && order.paymentStatus === 1 && order.settlementStatus === 1
   && [1, 2, 3, 4].includes(order.status)
 function selectedReceivables(orders, customer) {
   const selected = (orders || []).filter(o => o.checked), rows = [], seen = new Map()
@@ -41,7 +42,8 @@ function selectedReceivables(orders, customer) {
     rows.push({ id, amountText: amountText(amount) })
   }
   return { rows, ids: rows.map(row => row.id), amountText: amountText(cents),
-    signature: JSON.stringify(selected.map(o => [o.orderId, o.customerId, o.totalAmount, o.paymentStatus, o.settlementStatus, o.status])) }
+    signature: JSON.stringify(selected.map(o => [o.orderId, o.customerId, o.totalAmount, o.paymentStatus, o.settlementStatus, o.status,
+      o.canRegisterCash, o.paymentMethod, o.ticketFeePaymentMethod, o.collectionMethodText, o.collectionBlockReason, o.collectionNextStep])) }
 }
 
 /**
@@ -86,7 +88,7 @@ Page({
     orders: [],
     ordersLoading: false,
     ordersError: '',
-    selectedCount: 0, selectedAmountText: '',
+    selectedCount: 0, selectedAmountText: '', allCashSelected: false,
     settling: false,
     // 账期编辑弹层
     termsVisible: false,
@@ -265,6 +267,10 @@ Page({
         createDateText: String(o.createTime || '').slice(0, 10),
         dueDateText: o.dueDate ? String(o.dueDate).slice(0, 10) : '',
         overdue: o.overdueDays > 0, checked: false,
+        cashSelectable: canRegister(o),
+        collectionMethodText: o.collectionMethodText || '收款方式待核实',
+        collectionBlockReason: canRegister(o) ? '' : o.collectionBlockReason || '现金登记资格尚未核实。',
+        collectionNextStep: o.collectionNextStep || '请重新加载明细并核对订单详情。',
         amountText: amountCents(o.totalAmount) === null ? '金额待核实' : amountText(amountCents(o.totalAmount))
       }))
       this._ordersReadSession = session
@@ -308,12 +314,14 @@ Page({
   updateSelection(orders) {
     this._settleRevision = (this._settleRevision || 0) + 1
     const selection = selectedReceivables(orders, this.data.customer)
+    const eligible = orders.filter(canRegister)
     this.setData({ orders, selectedCount: new Set(orders.filter(o => o.checked).map(o => String(o.orderId))).size,
+      allCashSelected: eligible.length > 0 && eligible.every(o => o.checked),
       selectedAmountText: selection.error ? '金额待核实' : selection.amountText })
   },
 
   onSelectAll() {
-    if (this.data.loadError || this.data.ordersError) return
+    if (this.data.loadError || this.data.ordersError || this.data.ordersLoading) return
     const orders = this.data.orders || []
     // 只要还有没勾的就全勾上，全勾了就全取消
     const all = orders.some(o => canRegister(o) && !o.checked)

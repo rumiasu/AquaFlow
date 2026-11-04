@@ -92,7 +92,7 @@
     <view class="card">
       <view class="row-between">
         <text class="card-title">待收明细（{{orders.length}} 单）</text>
-        <text class="link" wx:if="{{!ordersError && !loadError}}" bindtap="onSelectAll">{{selectedCount > 0 ? '取消全选' : '全选'}}</text>
+        <text class="link" wx:if="{{!ordersError && !loadError}}" bindtap="onSelectAll">{{selectedCount > 0 && allCashSelected ? '取消全选' : '全选可登记'}}</text>
       </view>
       <view class="empty" wx:if="{{ordersLoading}}">加载中…</view>
       <view class="load-error" wx:elif="{{ordersError}}">
@@ -103,7 +103,7 @@
       <view class="empty" wx:elif="{{!orders.length}}">没有待收订单。</view>
       <view class="row" wx:for="{{ordersError || loadError ? [] : orders}}" wx:key="orderId"
             bindtap="onOpenOrder" data-id="{{item.orderId}}">
-        <view class="check-target" catchtap="onToggleOrder" data-id="{{item.orderId}}" aria-role="checkbox" aria-checked="{{item.checked}}" aria-label="选择订单"><view class="check {{item.checked ? 'check-on' : ''}}"><text wx:if="{{item.checked}}">✓</text></view></view>
+        <view class="check-target" wx:if="{{item.cashSelectable}}" catchtap="onToggleOrder" data-id="{{item.orderId}}" aria-role="checkbox" aria-checked="{{item.checked}}" aria-label="选择现金登记订单"><view class="check {{item.checked ? 'check-on' : ''}}"><text wx:if="{{item.checked}}">✓</text></view></view>
         <view class="row-main">
           <text class="row-title">订单 #{{item.orderId}} · {{item.amountText}}</text>
           <text class="row-sub">
@@ -111,6 +111,10 @@
             <text wx:if="{{item.dueDateText}}"> · 应付 {{item.dueDateText}}</text>
             <text wx:else> · 无账期</text>
           </text>
+          <text class="collection-method">{{item.collectionMethodText}}</text>
+          <text class="collection-status {{item.cashSelectable ? 'collection-status--ready' : ''}}">{{item.cashSelectable ? '可登记现金' : '暂不可登记现金'}}</text>
+          <text class="row-sub" wx:if="{{item.collectionBlockReason}}">{{item.collectionBlockReason}}</text>
+          <text class="collection-next-step">{{item.collectionNextStep}}</text>
           <text class="row-danger" wx:if="{{item.overdue}}">已逾期 {{item.overdueDays}} 天</text>
         </view>
         <text class="order-detail-link">查看详情 ›</text>

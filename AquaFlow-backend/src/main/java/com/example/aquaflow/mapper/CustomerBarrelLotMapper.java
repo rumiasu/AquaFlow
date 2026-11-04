@@ -35,6 +35,14 @@ public interface CustomerBarrelLotMapper {
     @Select("select * from customer_barrel_lot where id = #{id}")
     CustomerBarrelLot getById(@Param("id") Long id);
 
+    /** 精确冲正也须读取已经耗尽的原批次，不能只看可用 FIFO 列表。 */
+    @Select("select * from customer_barrel_lot where id=#{id} for update")
+    CustomerBarrelLot getByIdForUpdate(@Param("id") Long id);
+
+    @Update("update customer_barrel_lot set remain_qty=remain_qty+#{quantity},status=1,update_time=NOW() " +
+            "where id=#{id} and status in (1,2) and remain_qty>=0 and remain_qty+#{quantity}<=qty")
+    int restoreWithinOriginalQuantity(@Param("id") Long id, @Param("quantity") int quantity);
+
     /**
      * 可核销批次，FIFO（先买的先终止）。
      * 不用 LIFO：那会优先退掉高价批次，损害水站。

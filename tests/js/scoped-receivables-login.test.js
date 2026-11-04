@@ -8,7 +8,7 @@ const copy = value => JSON.parse(JSON.stringify(value))
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r }); return { promise, resolve } }
 const event = id => ({ currentTarget: { dataset: { id } } })
 const row = (orderId, totalAmount, extra = {}) => ({ orderId, customerId: 7, totalAmount,
-  status: 3, paymentStatus: 1, settlementStatus: 1, ...extra })
+  status: 3, paymentStatus: 1, settlementStatus: 1, canRegisterCash: true, ...extra })
 const view = (file, data) => renderElements(parseWxml(fs.readFileSync(R + '/' + file, 'utf8')), data, { includeText: true })
 async function ledger(rows = [row(101, '0.10'), row(102, '0.20')]) {
   const wx = createWx(), calls = [], state = { rows, gate: null, fail: false, access: true,

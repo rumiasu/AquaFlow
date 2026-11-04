@@ -4,6 +4,8 @@ import com.example.aquaflow.constant.AdjustType;
 import com.example.aquaflow.constant.BarrelRecordType;
 import com.example.aquaflow.constant.DepositType;
 import com.example.aquaflow.entity.BarrelRecord;
+import com.example.aquaflow.entity.BarrelRecordLot;
+import com.example.aquaflow.entity.CustomerBarrelLot;
 import com.example.aquaflow.entity.CustomerDepositAccount;
 import com.example.aquaflow.entity.DepositRecord;
 import com.example.aquaflow.entity.Product;
@@ -13,6 +15,7 @@ import com.example.aquaflow.entity.TicketLot;
 import com.example.aquaflow.entity.TicketRecord;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.BarrelRecordMapper;
+import com.example.aquaflow.mapper.BarrelRecordLotMapper;
 import com.example.aquaflow.mapper.CustomerDepositAccountMapper;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.CustomerStationConfigMapper;
@@ -72,6 +75,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
     @Autowired private DepositRecordService depositRecordService;
     @Autowired private TicketAccountService ticketAccountService;
     @Autowired private BarrelRecordMapper barrelRecordMapper;
+    @Autowired private BarrelRecordLotMapper barrelRecordLotMapper;
     @Autowired private CustomerDepositAccountMapper depositAccountMapper;
     @Autowired private CustomerStationConfigMapper customerStationConfigMapper;
     @Autowired private InventoryMapper inventoryMapper;
@@ -237,23 +241,42 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         Long operatorId = AuthContext.getUserId();
         String note = "调整单 " + a.getAdjustNo() + "：" + a.getReason();
 
-        if (AdjustType.BARREL_GRANT.equals(type)) {
+        if (a.getReverses() != null && (AdjustType.BARREL_GRANT.equals(type) || AdjustType.BARREL_REVOKE.equals(type))) {
+            StationAdjustment source = adjustmentMapper.getByIdForUpdate(a.getReverses());
+            if (source == null || !Objects.equals(stationId, source.getStationId())
+                    || !Objects.equals(customerId, source.getCustomerId()) || !Objects.equals(productId, source.getProductId())
+                    || !Objects.equals(a.getQty(), source.getQty()) || !Objects.equals(type, mirrorType(source.getAdjustType()))
+                    || !"EFFECTIVE".equals(source.getStatus()) || source.getReversedBy() != null) {
+                throw new BusinessException("原调整与反向单不一致，请核对原单");
+            }
+            boolean restore = AdjustType.BARREL_GRANT.equals(type);
+            BarrelLedgerService.LotConsumption exact = barrelLedgerService.reverseAdjustmentLots(customerId, stationId,
+                    productId, a.getQty(), sourceBarrelDetails(source), restore);
+            Long record = writeBarrelRecord(a, stationId, restore ? BarrelRecordType.ADJUST_INCREASE : BarrelRecordType.ADJUST_DECREASE,
+                    a.getQty(), before.over, before.over, note + "（按原调整批次冲正 ¥" + exact.getAmount() + "）");
+            writeLotDetails(record, exact.getDetails());
+
+        } else if (AdjustType.BARREL_GRANT.equals(type)) {
             BigDecimal price = resolveUnitPrice(a, productId);
             boolean inferred = (a.getUnitPrice() == null || a.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0);
-            barrelLedgerService.createLot(customerId, stationId, productId, price, a.getQty(), null, operatorId,
+            barrelLedgerService.lockRights(customerId, stationId, productId);
+            CustomerBarrelLot lot = barrelLedgerService.createLot(customerId, stationId, productId, price, a.getQty(), null, operatorId,
                     BarrelLedgerService.LotOrigin.manual(inferred, note));
-            writeBarrelRecord(a, stationId, BarrelRecordType.ADJUST_INCREASE, a.getQty(),
+            Long record = writeBarrelRecord(a, stationId, BarrelRecordType.ADJUST_INCREASE, a.getQty(),
                     before.over, before.over, note);
+            writeLotDetails(record, List.of(new BarrelLedgerService.LotConsumption.Detail(lot.getId(), a.getQty(),
+                    lot.getUnitPrice(), lot.getUnitPrice().multiply(BigDecimal.valueOf(a.getQty())))));
 
         } else if (AdjustType.BARREL_REVOKE.equals(type)) {
             barrelLedgerService.requireManualRevokeSafe(customerId, stationId, productId, a.getQty());
             BarrelLedgerService.LotConsumption c = barrelLedgerService.consumeLots(
                     customerId, stationId, productId, a.getQty(), null, false);
             barrelLedgerService.decreaseRight(customerId, stationId, productId, a.getQty(), c.getAmount());
-            writeBarrelRecord(a, stationId, BarrelRecordType.ADJUST_DECREASE, a.getQty(),
+            Long record = writeBarrelRecord(a, stationId, BarrelRecordType.ADJUST_DECREASE, a.getQty(),
                     before.over, before.over,
                     note + "（按批次单价核销，合计 ¥" + c.getAmount()
                             + (c.isHasMigratedPrice() ? "，含历史推断单价批次" : "") + "）");
+            writeLotDetails(record, c.getDetails());
 
         } else if (AdjustType.OVER_ADJUST.equals(type)) {
             BarrelLedgerService.OverChange ch = barrelLedgerService.adjustOver(
@@ -287,7 +310,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
     }
 
     /** 人工调整流水：type=6 增加 / type=9 减少；adjustment_id 是幂等与「属于哪张单」的唯一凭据 */
-    private void writeBarrelRecord(StationAdjustment a, Long stationId, int recordType, int qty,
+    private Long writeBarrelRecord(StationAdjustment a, Long stationId, int recordType, int qty,
                                    Integer overBefore, Integer overAfter, String note) {
         BarrelRecord r = new BarrelRecord();
         r.setCustomerId(a.getCustomerId());
@@ -305,6 +328,36 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         r.setReturnedQty(0);
         r.setAdjustmentId(a.getId());
         barrelRecordMapper.insert(r);
+        if (r.getId() == null) throw new BusinessException("调整流水未保存，本次调整未生效");
+        return r.getId();
+    }
+
+    private void writeLotDetails(Long recordId, List<BarrelLedgerService.LotConsumption.Detail> details) {
+        for (BarrelLedgerService.LotConsumption.Detail detail : details) {
+            BarrelRecordLot row = new BarrelRecordLot();
+            row.setRecordId(recordId); row.setLotId(detail.getLotId()); row.setQty(detail.getQty());
+            row.setUnitPrice(detail.getUnitPrice()); row.setAmount(detail.getAmount());
+            if (barrelRecordLotMapper.insert(row) != 1) throw new BusinessException("原批次凭据未保存，本次调整未生效");
+        }
+    }
+
+    private List<BarrelRecordLot> sourceBarrelDetails(StationAdjustment source) {
+        BarrelRecord record = barrelRecordMapper.getByAdjustmentId(source.getId());
+        int expectedType = AdjustType.BARREL_GRANT.equals(source.getAdjustType())
+                ? BarrelRecordType.ADJUST_INCREASE : BarrelRecordType.ADJUST_DECREASE;
+        if (record == null || !Objects.equals(source.getId(), record.getAdjustmentId())
+                || !Objects.equals(source.getCustomerId(), record.getCustomerId())
+                || !Objects.equals(source.getStationId(), record.getStationId())
+                || !Objects.equals(source.getProductId(), record.getProductId())
+                || !Objects.equals(source.getQty(), record.getQuantity()) || !Integer.valueOf(expectedType).equals(record.getType())
+                || !Integer.valueOf(1).equals(record.getStatus()) || record.getRelatedOrderId() != null) {
+            throw new BusinessException("原调整缺少对应桶流水和批次凭据，请核对原单及资产流水");
+        }
+        List<BarrelRecordLot> details = barrelRecordLotMapper.listByRecordId(record.getId());
+        if (details.isEmpty() || details.stream().anyMatch(d -> !Objects.equals(record.getId(), d.getRecordId()))) {
+            throw new BusinessException("原调整缺少完整批次凭据，请核对原单及资产流水");
+        }
+        return details;
     }
 
     private BigDecimal resolveUnitPrice(StationAdjustment a, Long productId) {
@@ -350,7 +403,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         if (!"EFFECTIVE".equals(src.getStatus()) || src.getReversedBy() != null) {
             throw new BusinessException("仅已生效的调整单可撤销，当前状态：" + src.getStatus());
         }
-        requireExactReversal(src);
+        requireExactReversal(src, true);
 
         StationAdjustment rev = createInternal(src.getCustomerId(), mirrorType(src.getAdjustType()),
                 src.getProductId(), mirrorQty(src), src.getAmount(), src.getUnitPrice(),
@@ -374,11 +427,17 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
      * 镜像数量不等于冲回原资产：跨价 FIFO 会扣掉他批价值，当前价补入也无法恢复原款来源。
      * 2026-11-04：缺批次分摊凭据的反向必须先核实；已成功的幂等重放在调用本方法前返回。
      */
-    private void requireExactReversal(StationAdjustment source) {
+    private void requireExactReversal(StationAdjustment source, boolean locked) {
         if (AdjustType.BARREL_GRANT.equals(source.getAdjustType())
-                || AdjustType.BARREL_REVOKE.equals(source.getAdjustType())
-                || AdjustType.TICKET_DEDUCT.equals(source.getAdjustType())) {
-            throw new BusinessException("原调整缺少可精确恢复的批次明细，不能自动撤销；请核实原资产后办理调整");
+                || AdjustType.BARREL_REVOKE.equals(source.getAdjustType())) {
+            // 真正写入时由 reverseAdjustmentLots 在统一锁下复核；展示和预检只读，不补历史凭据。
+            barrelLedgerService.previewAdjustmentReversal(source.getCustomerId(), source.getStationId(), source.getProductId(),
+                    source.getQty() == null ? 0 : source.getQty(), sourceBarrelDetails(source),
+                    AdjustType.BARREL_REVOKE.equals(source.getAdjustType()));
+            return;
+        }
+        if (AdjustType.TICKET_DEDUCT.equals(source.getAdjustType())) {
+            throw new BusinessException("原扣票调整缺少可精确恢复的批次明细，不能自动撤销；请核对原单及资产流水");
         }
         if (!AdjustType.TICKET_GRANT.equals(source.getAdjustType())) return;
 
@@ -388,15 +447,18 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         String unavailable = "原补票批次已使用、被占用或不符合原批次撤销条件，请先核实原资产";
         // 和预留/扣票使用相同账户锁，当前读批次与预留；锁保留至反向单的 FIFO 扣减完成。
         if (source.getQty() == null || source.getQty() <= 0
-                || ticketAccountMapper.lockAccount(customer, station, product) == null) {
+                || (locked ? ticketAccountMapper.lockAccount(customer, station, product)
+                    : ticketAccountMapper.getByCustomerProductStation(customer, product, station)) == null) {
             throw new BusinessException(unavailable);
         }
         Map<Long, Integer> held = new HashMap<>();
-        for (Map<String, Object> row : ticketHoldMapper.heldForAccount(customer, station, product)) {
+        for (Map<String, Object> row : (locked ? ticketHoldMapper.heldForAccount(customer, station, product)
+                : ticketHoldMapper.heldForAccountReadOnly(customer, station, product))) {
             held.merge(((Number) row.get("lot_id")).longValue(),
                     ((Number) row.get("quantity")).intValue(), Integer::sum);
         }
-        List<TicketLot> lots = ticketLotMapper.listUsableFifo(customer, station, product);
+        List<TicketLot> lots = locked ? ticketLotMapper.listUsableFifo(customer, station, product)
+                : ticketLotMapper.listUsableFifoReadOnly(customer, station, product);
         List<TicketRecord> records = ticketRecordMapper.listByCustomerAndProduct(customer, product, station)
                 .stream().filter(r -> Objects.equals(source.getId(), r.getAdjustmentId())).toList();
         if (records.size() != 1) throw new BusinessException(unavailable);
@@ -457,7 +519,37 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         m.put("reversedBy", a.getReversedBy());
         m.put("executeTime", a.getExecuteTime());
         m.put("createTime", a.getCreateTime());
+        String reverseUnavailableReason = reverseUnavailableReason(a);
+        m.put("canReverse", reverseUnavailableReason == null);
+        m.put("reverseUnavailableReason", reverseUnavailableReason);
         return m;
+    }
+
+    /** 只读能力提示不能代替执行时的加锁重校验，也不得创建账户、over 或任何凭据。 */
+    private String reverseUnavailableReason(StationAdjustment source) {
+        if (!"EFFECTIVE".equals(source.getStatus()) || source.getReversedBy() != null) {
+            return "仅已生效且尚未撤销的调整单可以撤销";
+        }
+        try {
+            validateCustomer(source.getCustomerId(), source.getStationId());
+            validateProduct(source.getAdjustType(), source.getProductId(), source.getStationId());
+            requireExactReversal(source, false);
+            if (AdjustType.DEPOSIT_GRANT.equals(source.getAdjustType())) {
+                CustomerDepositAccount account = depositAccountMapper.getByCustomerAndStation(source.getCustomerId(), source.getStationId());
+                if (source.getAmount() == null || source.getAmount().signum() <= 0 || account == null
+                        || account.getBalance() == null || account.getBalance().compareTo(source.getAmount()) < 0) {
+                    return "当前押金余额不足以撤销原补录，请核对押金流水";
+                }
+            } else if (AdjustType.OVER_ADJUST.equals(source.getAdjustType())) {
+                if (source.getQty() == null || (long) barrelLedgerService.rightQty(source.getCustomerId(), source.getStationId(), source.getProductId())
+                        + barrelLedgerService.overQty(source.getCustomerId(), source.getStationId(), source.getProductId()) - source.getQty() < 0) {
+                    return "撤销后客户实物桶数会为负，请核对交桶记录";
+                }
+            }
+            return null;
+        } catch (BusinessException unavailable) {
+            return unavailable.getMessage();
+        }
     }
 
     private static String statusTextOf(String status) {

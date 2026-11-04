@@ -59,7 +59,7 @@ async function test(name, fn) {
       stubs: { 'utils/request': { get, post, put: async () => ({ data: {} }) } }
     })
     p.setData({ overview: { outstandingAmount: 70 }, customer: { customerId: 2, customerName: '乙', outstandingAmount: 20, dueDays: 7 },
-      orders: [{ orderId: 5, customerId: 2, totalAmount: 20, status: 3, paymentStatus: 1, settlementStatus: 1, checked: true }], selectedCount: 1 })
+      orders: [{ orderId: 5, customerId: 2, totalAmount: 20, status: 3, paymentStatus: 1, settlementStatus: 1, canRegisterCash: true, checked: true }], selectedCount: 1 })
     return p
   }
   function deferred() {
@@ -167,7 +167,7 @@ async function test(name, fn) {
     const oldLoad = p.loadOrders()
     await p.onSettle()
     assert.strictEqual(p.__wx.__calls.modal.filter(m => m.title === '核销完成').length, 0)
-    slow.resolve({ data: [{ orderId: 5, customerId: 2, totalAmount: 20, status: 3, paymentStatus: 1, settlementStatus: 1 }] })
+    slow.resolve({ data: [{ orderId: 5, customerId: 2, totalAmount: 20, status: 3, paymentStatus: 1, settlementStatus: 1, canRegisterCash: true }] })
     await oldLoad
     p.onToggleOrder({ currentTarget: { dataset: { id: 5 } } })
     await p.onSettle()

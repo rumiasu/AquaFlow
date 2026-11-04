@@ -259,6 +259,7 @@ const getAllBarrelRecords = () => {
 }
 // 站长只读原款退款资格；顾客端不能调用，不据此替代写入时的原渠道校验。
 const getBarrelRefundEligibility = (id) => get(API.BARREL_REFUND_ELIGIBILITY(id) + '?scopedRefunds=true')
+const getBarrelHandoverEvidence = (id) => get(API.BARRELS_HANDOVER_EVIDENCE(id))
 const approveBarrelReturn = (id, pickupFee, note, expectedVersion) => put(API.BARRELS_RETURN_APPROVE(id), { pickupFee, note, expectedVersion })
 // 仅归属站站长提出新安排；客户同意及服务费实收仍分开办理。
 const changeBarrelReturnArrangement = (id, body) => put(API.BARRELS_RETURN_ARRANGEMENT(id), body)
@@ -492,6 +493,7 @@ module.exports = {
   getInventoryRecords,
   getAllBarrelRecords,
   getBarrelRefundEligibility,
+  getBarrelHandoverEvidence,
   approveBarrelReturn,
   changeBarrelReturnArrangement,
   getReturnCompanionOrders,

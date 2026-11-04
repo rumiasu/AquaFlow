@@ -123,6 +123,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
     private BarrelRecordMapper barrelRecordMapper;
 
     @Autowired
+    private com.example.aquaflow.mapper.BarrelDeliveryReceiptMapper barrelDeliveryReceiptMapper;
+
+    @Autowired
     private CustomerNotificationMapper customerNotificationMapper;
 
     /* ==================================================================
@@ -485,6 +488,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         int returnBucketQty = 0;
         List<Map<String, Object>> itemReturns = null;
         Map<Long, Integer> returnedByProduct = new HashMap<>();
+        Map<Long,String> exactReturnInputs = new HashMap<>();
         List<OrderItem> orderItems = orderItemMapper.listByOrderId(orderId);
         Map<Long, Long> itemIdToProductId = new HashMap<>();
         if (orderItems != null) {
@@ -499,6 +503,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 Object ir = params.get("itemReturns");
                 if (ir instanceof List) {
                     itemReturns = normalizeReturnInputs(order, (List<?>) ir, orderItems);
+                    Set<Long> reportedItemIds = new java.util.HashSet<>();
                     for (Map<String, Object> item : itemReturns) {
                         Object actual = item.get("actual");
                         if (actual instanceof Number) {
@@ -511,7 +516,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                             Object oiId = item.get("orderItemId");
                             Long pid = null;
                             if (oiId instanceof Number) {
-                                pid = itemIdToProductId.get(((Number) oiId).longValue());
+                                Long itemId = ((Number) oiId).longValue();
+                                pid = itemIdToProductId.get(itemId);
+                                reportedItemIds.add(itemId);
                             }
                             // 单商品订单容错：即使前端没带 orderItemId 也能归位
                             if (pid == null && itemIdToProductId.size() == 1) {
@@ -521,8 +528,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                                 throw new BusinessException("回桶明细缺少有效的商品信息，请更新小程序后重试");
                             }
                             returnedByProduct.merge(pid, act, Integer::sum);
+                            exactReturnInputs.put(pid,"ITEMIZED");
                         }
                     }
+                    // 历史订单可能同商品分多行；漏报任一行时，已有实收仍入账，但不能作为完整来源分配给退还申请。
+                    itemIdToProductId.forEach((itemId, productId) -> {
+                        if (!reportedItemIds.contains(itemId)) exactReturnInputs.remove(productId);
+                    });
                 } else {
                     throw new BusinessException("回桶明细格式不正确，请重新填写");
                 }
@@ -533,6 +545,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 if (rb instanceof Number) {
                     returnBucketQty = returnQuantity(rb, "回收空桶数");
                     returnedByProduct = splitByItemRatio(orderItems, returnBucketQty);
+                    // 2026-11-04：多商品旧总数只是比例分摊，不能升级成逐商品实际交接凭据。
+                    if(itemIdToProductId.values().stream().distinct().count()==1)
+                        exactReturnInputs.put(itemIdToProductId.values().iterator().next(),"SINGLE_PRODUCT_TOTAL");
                 }
             }
         }
@@ -564,7 +579,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
 
         // 物理桶流水留痕（type=8 配送收发明细）：让对账能用流水反推占用，与「权益 + over」交叉验证
-        recordDeliveryBarrels(order, ledgerOutcome, staffId);
+        recordDeliveryBarrels(order, ledgerOutcome, staffId, exactReturnInputs);
 
         // 从 itemReturns 构建差异说明
         String discrepancyNote = null;
@@ -917,7 +932,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
      * 只有留下送出/收回的流水，对账的 E5 才能用流水反推占用，跟「权益 + over」交叉验证——
      * 这是发现"桶实际丢了但账上还在"的唯一办法。</p>
      */
-    private void recordDeliveryBarrels(Orders order, BarrelLedgerService.DeliveryOutcome outcome, Long staffId) {
+    private void recordDeliveryBarrels(Orders order, BarrelLedgerService.DeliveryOutcome outcome, Long staffId, Map<Long,String> exactInputs) {
         if (outcome == null || outcome.getLines() == null) return;
         Long customerId = order.getCustomerId();
         Long stationId = order.getStationId();
@@ -946,6 +961,9 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
             r.setOperatorId(staffId);
             r.setCreateTime(LocalDateTime.now());
             barrelRecordMapper.insert(r);
+            String inputKind=exactInputs.get(line.getProductId());
+            if(inputKind!=null && barrelDeliveryReceiptMapper.insertSource(r.getId(),inputKind)!=1)
+                throw new BusinessException("配送实收来源未保存，本次送达已回滚，请核实后重试");
         }
     }
 

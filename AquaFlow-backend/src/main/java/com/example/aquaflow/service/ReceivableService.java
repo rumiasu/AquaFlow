@@ -109,9 +109,83 @@ public class ReceivableService {
         return data;
     }
 
-    /** 待收款明细（可按客户 / 只看逾期）。 */
+    /** 待收款明细与现金登记指引；展示资格不替代写入时在锁内复核原款。 */
     public List<Map<String, Object>> orders(Long stationId, Long customerId, boolean onlyOverdue) {
-        return receivableMapper.listOrders(stationId, customerId, onlyOverdue);
+        List<Map<String, Object>> rows = receivableMapper.listOrders(stationId, customerId, onlyOverdue);
+        for (Map<String, Object> row : rows) {
+            CollectionGuidance guidance = collectionGuidance(row);
+            row.keySet().removeIf(key -> key.startsWith("collectionEvidence"));
+            row.put("canRegisterCash", guidance.allowed());
+            row.put("collectionMethodText", guidance.method());
+            row.put("collectionBlockReason", guidance.reason());
+            row.put("collectionNextStep", guidance.nextStep());
+        }
+        return rows;
+    }
+
+    private record CollectionGuidance(boolean allowed, String method, String reason, String nextStep) {}
+
+    /** 2026-11-04：待收状态曾让微信单也被前端全选；原渠道和票单余款必须一起核对。 */
+    private CollectionGuidance collectionGuidance(Map<String, Object> row) {
+        int orderMethod = asInt(row.get("paymentMethod"));
+        boolean split = row.get("collectionEvidenceSplitId") != null;
+        int method = split ? asInt(row.get("collectionEvidenceSplitMethod")) : orderMethod;
+        String methodText = split ? switch (method) {
+            case PayMethod.CASH -> "水票抵水费，附加费用现金到付";
+            case PayMethod.WECHAT -> "水票抵水费，附加费用微信支付";
+            default -> "水票付款，现金余款待核实";
+        } : switch (orderMethod) {
+            case PayMethod.CASH -> "现金（货到付款）";
+            case PayMethod.WECHAT -> "微信支付";
+            case PayMethod.TICKET -> "水票支付";
+            default -> "收款方式待核实";
+        };
+        String verify = "查看订单详情，核对原收款记录后再处理。";
+        if (asInt(row.get("paymentStatus")) != PaymentStatus.PENDING
+                || asInt(row.get("settlementStatus")) != 1
+                || !java.util.Set.of(OrderStatus.PENDING, OrderStatus.DELIVERING,
+                        OrderStatus.DELIVERED, OrderStatus.COMPLETED).contains(asInt(row.get("status")))) {
+            return new CollectionGuidance(false, methodText, "订单收款或核销状态已变化。", verify);
+        }
+        if (split && (orderMethod != PayMethod.TICKET
+                || !java.util.Objects.equals(asLong(row.get("collectionEvidenceSplitCustomer")), asLong(row.get("customerId")))
+                || !java.util.Objects.equals(asLong(row.get("collectionEvidenceSplitStation")), asLong(row.get("collectionEvidenceAssetStation"))))) {
+            return new CollectionGuidance(false, methodText, "水票附加费用与原订单不一致。", verify);
+        }
+        if (split && !java.util.Set.of("HELD", "CONSUMED", "REFUNDED").contains(
+                String.valueOf(row.get("collectionEvidenceSplitState")))) {
+            return new CollectionGuidance(false, methodText, "水票附加费用安排已终止或尚待核实。", verify);
+        }
+        if (row.get("totalAmount") == null || toDecimal(row.get("totalAmount")).signum() < 0) {
+            return new CollectionGuidance(false, methodText, "原应收金额待核实。", verify);
+        }
+        boolean closedCashRequest = false;
+        if (row.get("collectionEvidenceReceiptId") != null) {
+            // 已关闭的现金请求可按原现金约定另建收款；不能为展示便利复活它或改写历史。
+            closedCashRequest = method == PayMethod.CASH
+                    && asInt(row.get("collectionEvidenceReceiptMethod")) == PayMethod.CASH
+                    && asInt(row.get("collectionEvidenceReceiptStatus")) == PaymentStatus.CANCELLED;
+            if (asInt(row.get("collectionEvidenceReceiptStatus")) != PaymentStatus.PENDING && !closedCashRequest) {
+                return new CollectionGuidance(false, methodText, "原收款记录已确认或已关闭，不能再次登记现金。", verify);
+            }
+            if (asInt(row.get("collectionEvidenceReceiptMethod")) != method
+                    || row.get("collectionEvidenceReceiptAmount") == null
+                    || toDecimal(row.get("collectionEvidenceReceiptAmount")).compareTo(toDecimal(row.get("totalAmount"))) != 0
+                    || !java.util.Objects.equals(asLong(row.get("collectionEvidenceReceiptCustomer")), asLong(row.get("customerId")))
+                    || !java.util.Objects.equals(asLong(row.get("collectionEvidenceReceiptStation")), asLong(row.get("collectionEvidenceSettleStation")))) {
+                return new CollectionGuidance(false, methodText, "原收款方式、金额或归属与本单不一致。", verify);
+            }
+        }
+        if (method == PayMethod.WECHAT) {
+            return new CollectionGuidance(false, methodText, "微信付款须核对原渠道结果，不能登记为现金。",
+                    "查看订单详情并核对原微信付款进度。");
+        }
+        if (method != PayMethod.CASH || orderMethod == PayMethod.TICKET && !split) {
+            return new CollectionGuidance(false, methodText, "本单没有已确认的现金到付安排。", verify);
+        }
+        return new CollectionGuidance(true, methodText, "", closedCashRequest
+                ? "原现金请求已关闭；实际收到本单现金后，重新登记收款。"
+                : "实际收到本单现金后，勾选订单登记收款。");
     }
 
     /**

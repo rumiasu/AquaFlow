@@ -52,6 +52,10 @@ function setup(initial, options = {}) {
       getAllBarrelRecords: async () => { if (readFail) throw Error('offline'); return ok([clone(current)]) },
       getRefundUndelivered: async () => ok({ records: [], count: 0, amount: 0 }),
       getBarrelRefundEligibility: async () => { calls.eligibility++; if (eligibilityFail) throw Error('原款读取失败'); if (options.deferEligibility) return options.deferEligibility(eligibility()); return ok(eligibility()) },
+      // Consent-only fixture: this companion contains a different product; same-product evidence is covered separately.
+      getBarrelHandoverEvidence: async () => ok({ recordId: current.id, companionOrderId: current.returnDetail.companionOrderId,
+        productId: current.productId, requiredBarrels: current.returnDetail.requiredBarrels, requiresLinkedReceipt: false,
+        eligible: true, linked: false, reason: '不同商品按原安排核对实际交接' }),
       updateBarrelRecordStatus: (id, kind, extra) => write(kind, id, extra),
       approveBarrelReturn: (id, fee) => write('approve', id, fee), confirmPayment: id => write('collect', id), markRefundPaid: id => write('paid', id),
       changeBarrelReturnArrangement: (id, body) => write('arrangement',id,body), getReturnCompanionOrders: async () => ok(options.companionOrders || [])
@@ -83,7 +87,7 @@ function setup(initial, options = {}) {
   })
   await test('free original arrangement can hand over without recording customer consent', async () => {
     for (const mode of ['STORE', 'PICKUP', 'COMBINED']) {
-      const r = record(); Object.assign(r.returnDetail, { pickupMode: mode, customerConfirmedTime: null })
+      const r = record(); Object.assign(r.returnDetail, { pickupMode: mode, customerConfirmedTime: null, companionOrderId: mode === 'COMBINED' ? 99 : null })
       const t = setup(r); await t.ready()
       assert.equal(t.page.data.selected.primaryAction, 'receive')
       assert(!t.page.data.selected.timeline.some(s => s.title === '客户确认安排'))

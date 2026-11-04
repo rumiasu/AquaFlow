@@ -42,6 +42,12 @@ public interface CustomerBarrelAssetMapper {
             "where id = #{id}")
     void addRightAmount(@Param("id") Long id, @Param("amt") java.math.BigDecimal amt);
 
+    /** 精确反向同时恢复数量和原价金额，并以受影响行数防止汇总缺失时静默成功。 */
+    @Update("update customer_barrel_asset set quantity=quantity+#{quantity},right_amount=right_amount+#{amount},update_time=NOW() " +
+            "where id=#{id} and quantity>=0 and right_amount>=0")
+    int restoreAdjustment(@Param("id") Long id, @Param("quantity") int quantity,
+                          @Param("amount") java.math.BigDecimal amount);
+
     /** 扣减可退金额，余额不足则 affected=0（调用方必须校验并回滚） */
     @Update("update customer_barrel_asset set right_amount = right_amount - #{amt}, update_time = now() " +
             "where id = #{id} and right_amount >= #{amt}")

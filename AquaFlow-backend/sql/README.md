@@ -513,3 +513,11 @@ ALTER TABLE inventory ADD COLUMN image_object_name_override VARCHAR(512) DEFAULT
 - 水票服务费v90只读预检：`precheck_v90_ticket_service_payment.sql`；核对目标、v89表、现有v90结构和活跃原款唯一键后，执行`migration_v90_ticket_service_payment.sql`（仅四张新表，无清库/演示导入），再执行`verify_v90_ticket_service_payment.sql`，要求安装4表、异常分项/hold为0。完成后才更新后端，再更新两端；未在云库执行。
 
 - 若SQL控制台一次只执行一条语句，v90使用以下四个单条文件，按顺序逐个执行：`migration_v90_01_order_ticket_payment.sql`、`migration_v90_02_order_ticket_hold.sql`、`migration_v90_03_ticket_delivery_offer.sql`、`migration_v90_04_ticket_delivery_benefit.sql`。它们与上面的v90主迁移完全相同，只需选择一种执行方式；之后统一运行只读核验文件。
+
+## v92 随单实收与原退还申请关联
+
+`migration_v92_barrel_delivery_allocation.sql` 仅新增两张凭据表：`barrel_delivery_receipt` 标记新配送流水确有逐商品实收输入，`barrel_return_delivery_allocation` 记录工作人员将其中确定数量用于哪张原退还申请。申请唯一，来源累计分配量在订单锁内校验；不会再次减少实物，不改变原退款 hold、金额或渠道。v91 留给并行退票修复，本迁移不依赖 v91。
+
+执行前核对实际目标与可恢复备份；两表不存在才安装，已存在时核对列类型、非空、InnoDB 和主键定义，结构不符应停止核实。可用 `precheck_v92_barrel_delivery_allocation.sql` 只读检查。新库 `schema.sql` 已含两表，重复 CREATE 不会修正不符的旧定义。先准备结构再更新全部后端写实例及员工端；`BarrelDeliveryReceiptSchemaGuard` 缺结构拒启，只核查而不自动迁移。
+
+历史配送流水不回填“精确输入”凭据：多商品旧总量曾按比例分摊，不能据此自动认定现场逐商品事实。旧流水缺证据时原申请与原批次保留，界面提供关联订单和客户桶流水的核实入口；不得把同一批已经入账的桶改成到店再登记。此轮只在全新断网临时测试库执行，未迁移云库或部署。

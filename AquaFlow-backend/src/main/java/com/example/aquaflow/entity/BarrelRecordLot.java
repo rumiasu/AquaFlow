@@ -5,7 +5,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 /**
- * 退桶（终止权益）时的权益批次核销明细，对应表 barrel_record_lot。
+ * 退桶或资产调整的原权益批次明细，对应表 barrel_record_lot。
  *
  * <p>一条 barrel_record（type=2 退桶）会按 FIFO 核销一个或多个
  * {@link CustomerBarrelLot}，每个批次一行，记录当时的核销单价。
@@ -24,7 +24,7 @@ public class BarrelRecordLot {
     /** customer_barrel_lot.id */
     private Long lotId;
 
-    /** 本次从该批次核销的权益数 */
+    /** 本次关联该批次的权益数，方向由所属桶流水类型决定 */
     private Integer qty;
 
     /** 核销时的批次单价快照 */

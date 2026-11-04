@@ -61,14 +61,14 @@ class ApprovedReturnAccountingIntegrityIntegrationTest extends CustomerConfirmat
         assertEquals(0,intOf("select count(*) from barrel_return_payout where record_id=?",request));
     }
 
-    @Test void sameProductCombinedArrangementMustBeSeparatedBeforeApproval() {
+    @Test void sameProductCombinedApprovalStillRequiresExplicitDeliveryReceiptForHandover() {
         seed(); deliver(paidOrder());
         long companion=newOrder("same-product",product);
         long request=combinedRequest(companion);
         Api approval=put("/api/barrels/records/"+request+"/approve",mgr,"{\"pickupFee\":0}");
-        assertEquals(1,approval.code(),approval.toString());
-        assertTrue(approval.body().path("message").asText().contains("独立") || approval.body().path("message").asText().contains("到店"),approval.toString());
-        assertEquals("APPLIED",detailStatus(request));
+        assertEquals(0,approval.code(),approval.toString());
+        assertEquals(1,status(request,2).code(),"批准不代表核对过关联配送实收，旧请求不能自动引用");
+        assertEquals("APPROVED",detailStatus(request));
         assertEquals(2,ledger.occupiedQty(customer,station,product));
     }
 
@@ -141,11 +141,11 @@ class ApprovedReturnAccountingIntegrityIntegrationTest extends CustomerConfirmat
         assertEquals(1,ledger.occupiedQty(customer,station,product));
     }
 
-    @Test void blockedCombinedRequestCanChangeOriginalArrangementAndCompleteSeparately() {
+    @Test void combinedRequestCanChangeOriginalArrangementBeforeAnyHandover() {
         seed(); deliver(paidOrder());
         long companion=newOrder("separate-after-conflict",product);
         long request=combinedRequest(companion);
-        assertEquals(1,put("/api/barrels/records/"+request+"/approve",mgr,"{\"pickupFee\":0}").code());
+        assertEquals(0,put("/api/barrels/records/"+request+"/approve",mgr,"{\"pickupFee\":0}").code());
         Api change=put("/api/barrels/records/"+request+"/arrangement",cus,change("STORE",null,1,"separate-physical-handover"));
         assertEquals(0,change.code(),change.toString());
         assertEquals(request,change.data().path("recordId").asLong());

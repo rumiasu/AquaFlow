@@ -15,6 +15,7 @@
     <view class="card">
       <view class="card-title">调整信息</view>
       <view class="field-hint"><text>未提交的编辑内容仅在本页保留。</text></view>
+      <view class="field-hint"><text>本页用于依据已核实事实订正资产。撤销已有调整请先查看原单的撤销条件；另建相反调整不能保证恢复原批次的金额及收款来源。</text></view>
 
       <view class="field">
         <text class="field-label">调整类型<text class="required">*</text></text>

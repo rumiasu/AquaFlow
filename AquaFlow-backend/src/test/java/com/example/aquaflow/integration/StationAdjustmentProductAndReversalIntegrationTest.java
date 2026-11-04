@@ -117,6 +117,8 @@ class StationAdjustmentProductAndReversalIntegrationTest extends AbstractIntegra
         execute("BARREL_GRANT", 1, "30.00", "old-low-price");
         long oldLot = jdbc.queryForObject("select min(id) from customer_barrel_lot", Long.class);
         long laterGrant = execute("BARREL_GRANT", 1, "50.00", "new-high-price");
+        // 合成升级前单据：旧调整没有原批次明细，不能从单价或备注反推来源。
+        jdbc.update("delete l from barrel_record_lot l join barrel_record r on r.id=l.record_id where r.adjustment_id=?", laterGrant);
         Api reversed = reverse(laterGrant, "reverse-high-price");
         assertEquals(1, reversed.code(), reversed.toString());
         assertEquals(1, intOf("select remain_qty from customer_barrel_lot where id=?", oldLot));
@@ -128,6 +130,7 @@ class StationAdjustmentProductAndReversalIntegrationTest extends AbstractIntegra
         execute("BARREL_GRANT", 1, "30.00", "mixed-low-price");
         execute("BARREL_GRANT", 2, "50.00", "mixed-high-price");
         long revoke = execute("BARREL_REVOKE", 2, null, "mixed-revoke");
+        jdbc.update("delete l from barrel_record_lot l join barrel_record r on r.id=l.record_id where r.adjustment_id=?", revoke);
         assertValue("50.00");
         jdbc.update("update product set deposit=99 where id=?", product);
         Api result = reverse(revoke, "mixed-revoke-reverse");

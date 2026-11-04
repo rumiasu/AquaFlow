@@ -1,5 +1,5 @@
 const { showBusinessModal } = require('../../../utils/business-dialog')
-const { updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered, approveBarrelReturn, changeBarrelReturnArrangement, getReturnCompanionOrders, confirmPayment, getBarrelRefundEligibility } = require('../../../api/station-mgmt')
+const { updateBarrelRecordStatus, markRefundPaid, getRefundUndelivered, approveBarrelReturn, changeBarrelReturnArrangement, getReturnCompanionOrders, confirmPayment, getBarrelRefundEligibility, getBarrelHandoverEvidence } = require('../../../api/station-mgmt')
 const businessRules = require('../../../api/business-rules')
 const { getPendingReturnRecord, syncPendingReminder } = require('../../../utils/pending-reminder')
 const { positiveId, readPage } = require('../../../utils/business-history-page')
@@ -21,6 +21,15 @@ function sameSession(before) {
 function money(value) { const n = Number(value); return value !== null && value !== undefined && value !== '' && Number.isFinite(n) ? n.toFixed(2) : '待核实' }
 function eventId(e) { return e && e.currentTarget && e.currentTarget.dataset.id }
 function sameId(a, b) { return a != null && b != null && String(a) === String(b) }
+function needsHandoverEvidence(record) {
+  const d = record && record.returnDetail
+  return !!(d && d.pickupMode === 'COMBINED' && d.requiredBarrels > 0 && ['APPLIED', 'APPROVED'].includes(d.status))
+}
+function matchesHandoverEvidence(record, evidence) {
+  const d = record && record.returnDetail
+  return !!(d && evidence && sameId(evidence.recordId, record.id) && sameId(evidence.companionOrderId, d.companionOrderId)
+    && sameId(evidence.productId, record.productId) && evidence.requiredBarrels === d.requiredBarrels)
+}
 function cents(value) {
   if ((typeof value !== 'number' && typeof value !== 'string') || !/^\d+(?:\.\d{1,2})?$/.test(String(value))) return null
   const amount = Math.round(Number(value) * 100)
@@ -51,6 +60,7 @@ Page({
     selectedId: null, selected: null, sheetOpen: false, showMore: false,
     operatorScopeText: '', scopeStationId: null, scopeStationName: '', scopeStationText: '',
     eligibility: null, eligibilityLoading: false, eligibilityError: '',
+    handoverEvidence: null, handoverLoading: false, handoverError: '',
     actionBusy: false, actionError: '', recoveryNeeded: false, refundRecoveryNeeded: false,
     undelivered: [], undeliveredCount: 0, undeliveredAmount: '0', undeliveredExpanded: false, undeliveredError: ''
   },
@@ -82,6 +92,7 @@ Page({
     this._hidden = true
     this._recordsSeq = (this._recordsSeq || 0) + 1
     this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
+    this._handoverSeq = (this._handoverSeq || 0) + 1
     this._undeliveredSeq = (this._undeliveredSeq || 0) + 1
     // 原生弹窗被 hide 打断时不能在返回后继续交款；已发出的写请求必须核对原结果。
     if (this._action && this._action.phase === 'modal' && this._action.refundRecovery && !this._action.reconciling) {
@@ -90,15 +101,17 @@ Page({
     }
     if (this._action && this._action.phase === 'modal' && this._action.reconciling) this._action.phase = 'recovery'
     if (this._action && this._action.phase !== 'write') this.releaseAction(this._action)
-    this.setData({ showMore: false, eligibilityLoading: false })
+    this.setData({ showMore: false, eligibilityLoading: false, handoverLoading: false })
   },
   onUnload() { this.onHide(); this._unloaded = true },
   clearSession() {
     this._recordsSeq = (this._recordsSeq || 0) + 1
     this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
+    this._handoverSeq = (this._handoverSeq || 0) + 1
     this._undeliveredSeq = (this._undeliveredSeq || 0) + 1
     this._action = null; this._pendingAction = null; this._recordsSession = null
     this.setData({ list: [], selected: null, selectedId: null, sheetOpen: false, eligibility: null, actionBusy: false, recoveryNeeded: false, refundRecoveryNeeded: false, recordsReady: false, undelivered: [], undeliveredCount: 0,
+      handoverEvidence: null, handoverError: '', handoverLoading: false,
       recordId: null, recordSearch: '', nextBeforeId: null, scope: 'ACTIVE', loading: false, loadError: '', moreError: '', searchError: '' })
   },
   validRead(seq, field, snapshot) { return seq === this[field] && !this._hidden && !this._unloaded && sameSession(snapshot) },
@@ -124,6 +137,7 @@ Page({
     const d = item.returnDetail, over = Number(item.owedBuckets) || 0
     const isReturn = item.type === 2
     const required = d ? d.requiredBarrels : item.quantity
+    const evidence = this.data.handoverEvidence, currentEvidence = matchesHandoverEvidence(item, evidence)
     const result = Object.assign({}, item, {
       isReturn, owedQty: Math.max(0, over), storageQty: Math.max(0, -over),
       amountText: money(item.depositRefund),
@@ -143,6 +157,10 @@ Page({
       rejectNeedsFeeRefund: !!(d && ['APPLIED', 'APPROVED'].includes(d.status) && d.feePaymentStatus === 2),
       canRefundFee: !!(isReturn && d && d.feePaymentId && d.feePaymentStatus === 2),
       canChangeArrangement: !!(isReturn && d && ['APPLIED','APPROVED'].includes(d.status) && Number.isInteger(d.arrangementVersion)),
+      canOpenCompanion: !!(isReturn && d && positiveId(d.companionOrderId) && currentEvidence && evidence.canOpenCompanion === true),
+      companionNextStep: currentEvidence && typeof evidence.companionNextStep === 'string' ? evidence.companionNextStep.trim() : '',
+      canReviewReturnEmpty: !!(isReturn && positiveId(item.customerId)),
+      needsHandoverEvidence: needsHandoverEvidence(item),
       needsRefund: isReturn && (d ? d.status === 'RECEIVED' : item.status === 2)
     })
     if (!isReturn) return result
@@ -161,6 +179,27 @@ Page({
       else if (d.status === 'APPROVED') { result.primaryAction = 'receive'; result.primaryLabel = required === 0 ? '确认无需交桶的交接' : '确认收到 ' + required + ' 个空桶'; result.stepHint = required === 0 ? '本次退还尚未领取的容量，无需实际收桶；交接后继续办理押金退款。' : '按本申请需交桶数量核对实物，收到空桶不等于已退押金。' }
       else if (d.status === 'REFUNDED') { result.stepHint = '押金退款已登记；收桶服务费如仍已收取，单独核对。' }
       else if (d.status === 'REJECTED' || d.status === 'WITHDRAWN') result.stepHint = '此申请已结束，保留原有记录。'
+      if (result.needsHandoverEvidence) {
+        const current = currentEvidence
+        result.handoverHint = current ? evidence.reason : '正在核对关联送水单的交接记录；已在订单登记的空桶不能再次登记。'
+        if (result.primaryAction === 'receive') {
+          result.primaryAction = ''; result.primaryLabel = '先核对关联订单回桶'
+          result.stepHint = this.data.handoverError || result.handoverHint
+          if (current && !evidence.requiresLinkedReceipt && evidence.eligible) {
+            result.primaryAction = 'receive'; result.primaryLabel = '确认收到 ' + required + ' 个空桶'
+          } else if (current && evidence.linked) {
+            result.primaryAction = 'refreshRecord'; result.primaryLabel = '重新核对原申请结果'
+          } else if (current && evidence.eligible) {
+            result.primaryAction = 'linkReceipt'; result.primaryLabel = '核对并引用订单回桶'
+            result.stepHint = '明确核对本申请对应的订单回桶凭据；关联后不再收桶、不重复登记实物，押金仍须另行退款。'
+          } else if (current && result.canOpenCompanion) {
+            result.primaryAction = 'companionOrder'; result.primaryLabel = evidence.reasonCode === 'ORDER_NOT_DELIVERED' ? '去关联订单完成送达' : '查看订单，核实原交接'
+          } else if (current) {
+            result.primaryAction = 'recheckHandover'; result.primaryLabel = '重新核对交接凭据'
+            result.stepHint = [evidence.reason, result.companionNextStep || '请由相关办理方核实原订单，再回本申请重新核对交接。'].filter(Boolean).join('；')
+          }
+        }
+      }
     } else if (item.status === 1) { result.primaryAction = 'receive'; result.primaryLabel = '确认收到空桶'; result.stepHint = '历史申请沿原流程办理，确认收桶后再退押金。' }
     else if (item.status === 3 && !item.refundPaidTime) { result.primaryAction = 'paid'; result.primaryLabel = '登记押金已交付'; result.stepHint = '这笔押金没有交付登记，请先核实钱是否已交到客户手上。' }
     if (result.needsRefund) {
@@ -171,6 +210,8 @@ Page({
       } else result.primaryLabel = '先核实退款资格'
       result.stepHint = eligibility && sameId(eligibility.recordId, item.id) ? eligibility.reason : '正在核对原收款方式，核对前请勿交付退款。'
     }
+    result.physicalBalanceChanged = !!(this.data.eligibility && sameId(this.data.eligibility.recordId, item.id) && this.data.eligibility.reasonCode === 'PHYSICAL_BALANCE_CHANGED'
+      || this.data.handoverEvidence && sameId(this.data.handoverEvidence.recordId, item.id) && this.data.handoverEvidence.reasonCode === 'PHYSICAL_BALANCE_CHANGED')
     return result
   },
   refreshSelected() {
@@ -190,8 +231,9 @@ Page({
   },
   resetRecords(patch) {
     this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
+    this._handoverSeq = (this._handoverSeq || 0) + 1
     this.setData(Object.assign({ list: [], nextBeforeId: null, recordsReady: false, selected: null, selectedId: null, sheetOpen: false,
-      eligibility: null, eligibilityError: '', eligibilityLoading: false, searchError: '', moreError: '', actionError: '' }, patch))
+      eligibility: null, eligibilityError: '', eligibilityLoading: false, handoverEvidence: null, handoverError: '', handoverLoading: false, searchError: '', moreError: '', actionError: '' }, patch))
   },
   onRecordSearch() {
     if (this.data.actionBusy || this._pendingAction) return
@@ -213,7 +255,7 @@ Page({
     const snapshot = session(), seq = this._recordsSeq = (this._recordsSeq || 0) + 1
     const recordId = this.data.recordId, request = { scope: this.data.scope }
     if (more) request.beforeId = this.data.nextBeforeId
-    this.setData(more ? { loading: true, moreError: '' } : { loading: true, recordsReady: false, loadError: '', moreError: '', eligibility: null })
+    this.setData(more ? { loading: true, moreError: '' } : { loading: true, recordsReady: false, loadError: '', moreError: '', eligibility: null, handoverEvidence: null })
     try {
       const res = recordId ? await getPendingReturnRecord(recordId) : await businessRules.getReturnApplications(request)
       if (!this.validRead(seq, '_recordsSeq', snapshot)) return false
@@ -232,7 +274,7 @@ Page({
       this.setData({ list: list.map(item => this.decorateRecord(item)), recordsReady: true, nextBeforeId })
       if (recordId && !this.data.selectedId && records.length) this.setData({ selectedId: records[0].id, sheetOpen: true })
       this.refreshSelected()
-      if (this.data.sheetOpen && this.data.selected) this.loadEligibility(this.data.selected.id)
+      if (this.data.sheetOpen && this.data.selected) { this.loadEligibility(this.data.selected.id); this.loadHandoverEvidence(this.data.selected.id) }
       return true
     } catch (err) {
       if (this.validRead(seq, '_recordsSeq', snapshot)) this.setData(more ? { moreError: '更早申请未能核对，请重试；已读取的记录保留' } : { loadError: (err.message || '退桶申请未能核对') + '；请重试，已有记录是上次读取的结果' })
@@ -262,17 +304,59 @@ Page({
     const item = this.data.list.find(r => sameId(r.id, eventId(e)))
     if (!item || !item.isReturn) return
     this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
-    this.setData({ selectedId: item.id, sheetOpen: true, showMore: false, eligibility: null, eligibilityError: '', actionError: '' })
+    this._handoverSeq = (this._handoverSeq || 0) + 1
+    this.setData({ selectedId: item.id, sheetOpen: true, showMore: false, eligibility: null, eligibilityError: '', handoverEvidence: null, handoverError: '', actionError: '' })
     this.refreshSelected()
-    if (this.data.recordsReady) return this.loadEligibility(item.id)
+    if (this.data.recordsReady) return Promise.all([this.loadEligibility(item.id), this.loadHandoverEvidence(item.id)])
   },
   onCloseSheet() {
     if (this.data.actionBusy) return
     this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
-    this.setData({ sheetOpen: false, showMore: false, eligibilityLoading: false })
+    this._handoverSeq = (this._handoverSeq || 0) + 1
+    this.setData({ sheetOpen: false, showMore: false, eligibilityLoading: false, handoverLoading: false })
   },
   noop() {},
   onMore() { if (!this.data.actionBusy) this.setData({ showMore: !this.data.showMore }) },
+  async loadHandoverEvidence(id, action) {
+    const record = this.data.list.find(r => sameId(r.id, id))
+    if (this._pendingAction || this.data.recoveryNeeded || !needsHandoverEvidence(record)) return null
+    const snapshot = session(), seq = this._handoverSeq = (this._handoverSeq || 0) + 1
+    this.setData({ handoverEvidence: null, handoverLoading: true, handoverError: '' }); this.refreshSelected()
+    try {
+      const evidence = checked(await getBarrelHandoverEvidence(id), '关联订单回桶凭据未能核对')
+      if (!this.validRead(seq, '_handoverSeq', snapshot) || !sameId(this.data.selectedId, id) || action && !this.actionCurrent(action)) return null
+      const d = record.returnDetail
+      if (!evidence || !sameId(evidence.recordId, id) || !sameId(evidence.companionOrderId, d.companionOrderId)
+          || !sameId(evidence.productId, record.productId) || evidence.requiredBarrels !== d.requiredBarrels
+          || typeof evidence.requiresLinkedReceipt !== 'boolean' || typeof evidence.eligible !== 'boolean'
+          || evidence.requiresLinkedReceipt && evidence.eligible && (evidence.linked || !positiveId(evidence.deliveryReceiptId)
+            || ![3, 4].includes(evidence.orderStatus) || ![evidence.returnedQty, evidence.allocatedQty, evidence.availableQty].every(n => Number.isSafeInteger(n) && n >= 0)
+            || evidence.returnedQty !== evidence.allocatedQty + evidence.availableQty || evidence.availableQty < d.requiredBarrels)) {
+        throw new Error('原申请与订单回桶凭据未能对齐，请核实原交接；勿再次登记已回桶')
+      }
+      this.setData({ handoverEvidence: evidence }); this.refreshSelected(); return evidence
+    } catch (err) {
+      if (this.validRead(seq, '_handoverSeq', snapshot)) { this.setData({ handoverError: err.message || '关联交接未能核对，请重试' }); this.refreshSelected() }
+      return null
+    } finally { if (this.validRead(seq, '_handoverSeq', snapshot)) this.setData({ handoverLoading: false }) }
+  },
+  onRetryHandover() { if (!this.data.actionBusy && this.data.selected) return this.loadHandoverEvidence(this.data.selected.id) },
+  onOpenCompanionOrder() {
+    if (this._hidden || this._unloaded || this.data.actionBusy || this.data.loading || this.data.recoveryNeeded || !this.data.recordsReady || !sameSession(this._recordsSession)) return
+    const record = this.data.selected
+    if (!record || !this.decorateRecord(record).canOpenCompanion) return
+    wx.navigateTo({ url: '/pages/order/detail?id=' + encodeURIComponent(record.returnDetail.companionOrderId) })
+  },
+  async onReviewReturnEmpty() {
+    const record = this.data.selected
+    if (!record || !record.canReviewReturnEmpty) return
+    const action = this.beginAction(record.id, 'reviewEmpty')
+    if (!action) return
+    try {
+      if (!await this.modal(action, { title: '核对还空桶记录', content: '请先核对本商品已有交接记录。只为实际新交回且尚未登记的空桶办理“还空桶”；订单或退还申请已登记的桶请勿重复登记。完成后返回原申请重新核对。', confirmText: '去核对' })) return
+      wx.navigateTo({ url: '/pages/station-mgmt/customers/detail/index?id=' + encodeURIComponent(action.record.customerId) + '&action=return-empty' })
+    } finally { this.releaseAction(action) }
+  },
   async loadEligibility(id, action) {
     if (this._pendingAction || this.data.recoveryNeeded) return null
     const snapshot = session(), seq = this._eligibilitySeq = (this._eligibilitySeq || 0) + 1
@@ -324,7 +408,7 @@ Page({
     const record = this.data.selected
     if (!record || !record.primaryAction) return
     const e = { currentTarget: { dataset: { id: record.id, amount: record.depositRefund } } }
-    const methods = { approve: 'onApproveArrangement', collect: 'onCollectPickupFee', receive: 'onApprove', refund: 'onRefund', paid: 'onConfirmPaid' }
+    const methods = { approve: 'onApproveArrangement', collect: 'onCollectPickupFee', receive: 'onApprove', refund: 'onRefund', paid: 'onConfirmPaid', linkReceipt: 'onLinkDeliveryReceipt', companionOrder: 'onOpenCompanionOrder', refreshRecord: 'onRetry', recheckHandover: 'onRetryHandover' }
     return this[methods[record.primaryAction]](e)
   },
   async onApproveArrangement(e) {
@@ -334,7 +418,7 @@ Page({
     try {
       if (!d || this.decorateRecord(action.record).primaryAction !== 'approve') return
       const needsFee = d.pickupMode === 'PICKUP' && d.requiredBarrels > 0
-      const result = await this.modal(action, { title: '批准交接安排', editable: needsFee, placeholderText: '独立上门费（元，可填0）', content: needsFee ? '填写本次独立上门费；收费须由客户先确认，填0则按原安排办理交接。' : '本次不另收上门费，批准后按客户申请的原安排办理交接。' })
+      const result = await this.modal(action, { title: '批准交接安排', editable: needsFee, placeholderText: '独立上门费（元，可填0）', content: needsFee ? '填写本次独立上门费；收费须由客户先确认，填0则按原安排办理交接。' : d.pickupMode === 'COMBINED' && d.requiredBarrels > 0 ? '本次不另收上门费。同商品随单收桶须先在关联送水单登记实际收回总数（含退押金桶）并完成送达，再回原申请核对引用交接凭据；同一批桶只记一次。' : '本次不另收上门费，批准后按客户申请的原安排办理交接。' })
       if (!result) return
       const fee = needsFee ? Number(result.content) : 0
       if (!Number.isFinite(fee) || fee < 0 || fee > 10000) { wx.showToast({ title: '费用不合法', icon: 'none' }); return }
@@ -351,6 +435,20 @@ Page({
       return await this.performAction(action, () => updateBarrelRecordStatus(action.id, 2))
     } finally { if (!this._pendingAction) this.releaseAction(action) }
   },
+  async onLinkDeliveryReceipt(e) {
+    const action = this.beginAction(eventId(e), 'receive')
+    if (!action) return
+    try {
+      if (this.decorateRecord(action.record).primaryAction !== 'linkReceipt') return
+      const evidence = await this.loadHandoverEvidence(action.id, action)
+      if (!evidence || !evidence.requiresLinkedReceipt || !evidence.eligible || evidence.linked || !this.actionCurrent(action)) return
+      const content = '订单 ' + (evidence.orderNo || ('#' + evidence.companionOrderId)) + '，' + (evidence.productName || action.record.productText)
+        + '，回桶凭据 #' + evidence.deliveryReceiptId + '：该次实际收回共 ' + evidence.returnedQty + ' 个，已关联 ' + evidence.allocatedQty + ' 个。'
+        + '请确认其中 ' + evidence.requiredBarrels + ' 个用于本退还申请 #' + action.id + '。本次引用已登记的交接，不再收桶、不再减少实物；押金退款仍需另行办理。'
+      if (!await this.modal(action, { title: '引用原订单回桶', content, confirmText: '确认引用' })) return
+      return await this.performAction(action, () => updateBarrelRecordStatus(action.id, 2, { deliveryReceiptId: evidence.deliveryReceiptId }))
+    } finally { if (!this._pendingAction) this.releaseAction(action) }
+  },
   async onChangeArrangement(e) {
     const action=this.beginAction(eventId(e),'arrangement')
     if (!action) return
@@ -358,6 +456,7 @@ Page({
       const d=action.record.returnDetail
       if (!d || !this.decorateRecord(action.record).canChangeArrangement) return
       if (d.feePaymentStatus === 2) { await this.modal(action,{ title:'先退原服务费',content:'原安排已收取服务费，请先按现有原款退款流程实际退还，再更改安排。',showCancel:false }); return }
+      if (needsHandoverEvidence(action.record) && !await this.modal(action, { title: '核对原随单交接', content: '若空桶已随关联订单收回并登记，请保留原安排，先核对引用订单回桶凭据；更改方式不会撤销原回桶记录，也不会减少本申请原定交桶数。仅在确需另约一次真实交接时继续，勿将已收的同一批桶再次登记。', confirmText: '继续更改' })) return
       const picked=await this.arrangementSheet(action,['到店退桶','单独上门收桶','随明确选择的送水单收桶'])
       if (!picked) return
       const mode=['STORE','PICKUP','COMBINED'][picked.tapIndex]
@@ -537,7 +636,7 @@ Page({
     if (!this.actionCurrent(action) || action.phase === 'write') return
     action.phase = 'write'; this._pendingAction = action
     const receipt = action.refundRecovery
-    this.setData({ eligibility: null, recoveryNeeded: true, refundRecoveryNeeded: action.kind === 'refund' })
+    this.setData({ eligibility: null, handoverEvidence: null, recoveryNeeded: true, refundRecoveryNeeded: action.kind === 'refund' })
     try {
       checked(await write(), '办理结果未能确认')
       action.writeSucceeded = true
@@ -599,6 +698,7 @@ Page({
       this.loadUndelivered()
       if (action.kind === 'refund' && (completed || endedWithoutRefund)) syncPendingReminder()
       if (!waiting && this.data.selected && this.data.selected.needsRefund) this.loadEligibility(this.data.selected.id)
+      if (!waiting && this.data.selected) this.loadHandoverEvidence(this.data.selected.id)
       return true
     } catch (err) {
       if (!this._hidden && !this._unloaded && sameSession(action.snapshot) && this._pendingAction === action) {

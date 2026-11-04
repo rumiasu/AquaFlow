@@ -102,6 +102,7 @@
     <text class="required" wx:if="{{!isFirstBarrelOrder}}">*</text>
   </view>
   <view class="section lv2-return-section" wx:if="{{isFirstBarrelOrder || hasBarrelItems}}">
+    <text class="section-tip">按商品填写本次实际收回的总数。如有同商品随单退押金，退押金桶也计入此数；送达完成后由水站在原申请核对引用，不再重复登记。</text>
     <text class="section-tip old-barrel-hint" wx:if="{{hasDepositOldBarrelHint}}">默认回桶数不含本单新押金桶</text>
     <!-- 本次送的桶是**本单新买押金**的：不要求本次回收（§7：不能说成"首次下单"，
          客户可能早就买过水票 —— 那与"有没有桶权益"不是一回事） -->

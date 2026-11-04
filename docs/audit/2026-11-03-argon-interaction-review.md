@@ -88,3 +88,26 @@
 最终云端后端回执：业务源码提交 `9cf7957` 上执行 `cleanTest test bootJar`，19分53秒成功。原始XML为264类/2107项，失败/错误/跳过均0，逐个 `testcase` 元素计数同为2107；归档SHA256为 `6d815c14a8f84203c714d749f049e0010eaae851e9a4ccdcd8c903899bf9c9d4`。矩阵STATS由这份完整XML重新生成。最终推送提交的GitHub CI仍单独核对，不将本机全量冒充远端结果。
 
 最终实例 `6b4c7187-d799-11f1-988b-ca89b35daaf2` 的 `aquaflow_test_pay_full` 已恢复准备后基线：90表、0业务行，完整导出剔除生成注释后与备份逐字节一致，SHA256 `84f7fb2d5608aba0cb030c163e8e3e7678f34684ae10a46832e3c39dd0246ae3`。首轮恢复比较捕获全量测试 `PaymentSandboxConnectionIntegrationTest` 新建的空标记表，核实来源后仅清除该测试遗留，再比较一致。两容器均已停止；未访问生产或远端业务数据库。
+
+## 2026-11-04 账务与实物闭环专项
+
+本节供接手修复的工程师核对成立条件、限制及局部测试，不替代上方历史全量或发布验收。远端 `rumiasu/AquaFlow` 的 `codex/stage-handoff-20261004` 已获取并核为 `50e205fb528f1fb7a47990091d9a44671246336f`；本批独立分支 `codex/accounting-integrity-20261104`。
+
+| 复现条件 | 本批处理 | 证据类 |
+|---|---|---|
+| 非分项未付微信单经应收核销，有 PENDING 时原微信流水被置 PAID，无流水时新造现金 PAID | 现场现金入口核原订单方式、终态以及锁定原款方式/金额；混合批次失败整体回滚 | `ReceivablePaymentTruthIntegrationTest` |
+| 普通现金或水票余款到付取消后，现金 PENDING 仍占活跃原款 | 同事务仅关闭未收现金原流水，保留金额，不新增退款；未知微信原款不推断渠道结果 | `ReceivablePaymentTruthIntegrationTest` |
+| 申请后新增实物占用，或收桶后再次送水，退权益会产生欠桶 | 交接、全额核销及分次实退校验当前实物；收桶后保留全部待退容量。存量 RECEIVED 按已收事实派生有效占用，不回写历史 | `ApprovedReturnAccountingIntegrityIntegrationTest`、`ApprovalRefundEligibilityReadOnlyTest` |
+| 调整引用他站私有商品、不存在商品，或把非桶商品写入桶/商品押金账 | 预览、创建、执行校验商品范围；停售历史商品与不指定商品的站级押金仍合法 | `StationAdjustmentProductAndReversalIntegrationTest` |
+| 镜像反向跨价格 FIFO，或原批次已用/预留后改扣其他批次 | 缺完整来源的桶权益、扣票调整不自动撤销；补票仅在能精确扣回原完整批次时允许 | `StationAdjustmentProductAndReversalIntegrationTest` |
+| COMBINED 需实际收桶，关联送水订单含同商品，配送实际收回与申请收桶各自减实物 | 暂拒批准/交接并允许修改原安排后独立办理；不同商品、零交桶保留。未自动拆分送水回桶 | `ApprovedReturnAccountingIntegrityIntegrationTest` |
+
+收款/资产测试先在未改生产代码上出现 7/10、11/13 个业务失败；退桶组随后出现 7/9 个业务失败；存量领取补测再出现 1/2 个业务失败。失败均由正确业务断言捕获，另有一轮退桶测试因模拟支付只接受指定库名而未进入业务，该轮不计复现。调整测试库名后沿用原保护器，未放宽限制。
+
+运行隔离：本次全新 MySQL 8.4 容器 `2a2fbaf8bf97`，数据目录为临时内存盘，无已有数据挂载、无发布端口、网络模式 `none`；测试进程共享其禁网网络命名空间。实际目标精确绑定 `127.0.0.1:3306/aquaflow_test_pay_accounting` 并使用仓库启动/清表双重护栏。COS 凭据为空、桶名为合成占位，测试进程无法访问外部网络。未使用或重建用户已有数据库，没有触及 COS 或其他外部业务服务。最终回归结束后该临时容器已停止。
+
+本批无数据库迁移、无历史补账，未修改两个小程序或 `OrderWorkflowServiceImpl`。`PaymentServiceImpl` 的 `recordCashCollection/refundOrder` 与 DeepSeek 退票工作可能有文件级冲突，须逐块合并；本批没有改 `restoreTicketsForOrder`。无来源的自动反向与同商品实物 COMBINED 的限制已写入现行领域说明，不能把保护性拒绝说成完整批次恢复或统一交接能力。
+
+最终定向 `cleanTest test` 运行 30 类/235 项，原始 XML 的 tests 与 testcase 元素计数一致，失败/错误/跳过均为 0。覆盖新增三类、既有应收、调整、现场现金收款、票余款、取消退款、跨站退款、独立桶业务、安排变更、分次实退、旧退桶、桶账边界、分层门禁及应用启动；注释扫描和 `git diff --check` 通过。此次不是全量 2107 项基线的重跑，未进行原生端或真实支付渠道验收，也未推送、部署或执行云端 SQL。
+
+代码按风险独立提交：`5a0651b` 收款及取消、`f2c862f` 商品范围及反向调整、`230d862` 退桶实物与容量。场景矩阵的类/方法引用核对通过；由于使用会话专属构建目录且仅跑专项，脚本的默认目录全量件数核对明确跳过，未把 235 写成全量 STATS。合并退票线程之后仍需统一回归，不能将本专项结果视为发布批准。

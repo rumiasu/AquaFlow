@@ -387,6 +387,7 @@
 |---|---|---|---|
 | `GET` | `/api/barrels/all-records` | {"STATION_MANAGER"} | `BarrelController.getAllRecords` |
 | `GET` | `/api/barrels/records` | {"STATION_MANAGER"} | `BarrelController.listRecords` |
+| `GET` | `/api/barrels/records/{id}/handover-evidence` | "STATION_MANAGER" | `BarrelController.handoverEvidence` —— 归属站只读核实随单原实收凭据、剩余可关联数量与原单可见性；同商品随单收桶须在 `status=2` 命令显式传 `deliveryReceiptId`，锁内复核并关联原实收，不重复记回桶 |
 | `GET` | `/api/barrels/records/{id}/refund-eligibility` | "STATION_MANAGER" | `BarrelController.refundEligibility` —— 归属站交款前只读核对原款、可退金额和渠道；不执行退款，办理时仍重新校验 |
 | `PUT` | `/api/barrels/records/{id}/status` | "STATION_MANAGER" | `BarrelController.handleReturn`（`status=3` 时**必须**带 `refundChannel`：`CASH` 当面交付 / `ONLINE` 原路退回；微信退款通道未接入 ⇒ `ONLINE` 明确拒绝，不假装已退） |
 | `PUT` | `/api/barrels/records/{id}/refund-paid` | "STATION_MANAGER" | `BarrelController.markRefundPaid` —— 「押金已交顾客」**幂等**确认（重复调用不改原交付时间，只补事实，不动金额与状态） |

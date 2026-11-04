@@ -815,59 +815,24 @@ public class BarrelLedgerService {
 
     private LotConsumption checkAdjustmentLots(Long customer, Long station, Long product, int quantity,
                                                List<BarrelRecordLot> proof, boolean restore, boolean locked) {
-        if (quantity <= 0 || proof == null || proof.isEmpty()) {
-            throw new BusinessException("原调整缺少完整批次凭据，请核对原单及资产流水");
-        }
+        BarrelAdjustmentChecks.requireProof(quantity, proof);
         // 同一 over 锁串行化分配与桶账；随后当前读批次（含耗尽批次）与预留，保持既有锁顺序。
         int rights = locked ? lockRights(customer, station, product) : rightQty(customer, station, product);
-        List<BarrelRecordLot> ordered = new ArrayList<>(proof);
-        ordered.sort(Comparator.comparing(BarrelRecordLot::getLotId, Comparator.nullsFirst(Comparator.naturalOrder())));
-        Set<Long> seen = new HashSet<>();
-        LotConsumption result = new LotConsumption();
-        long total = 0;
-        BigDecimal amount = BigDecimal.ZERO;
-        for (BarrelRecordLot line : ordered) {
-            if (line.getLotId() == null || !seen.add(line.getLotId()) || line.getQty() == null
-                    || line.getQty() <= 0 || line.getUnitPrice() == null || line.getUnitPrice().signum() < 0
-                    || line.getAmount() == null || line.getAmount().compareTo(
-                    line.getUnitPrice().multiply(BigDecimal.valueOf(line.getQty()))) != 0) {
-                throw new BusinessException("原批次数量或金额凭据不完整，请核对原单及资产流水");
-            }
+        BarrelAdjustmentChecks checks = new BarrelAdjustmentChecks(proof);
+        for (BarrelRecordLot line : checks.orderedProof()) {
+            checks.requireProofLine(line);
             CustomerBarrelLot lot = locked ? lotMapper.getByIdForUpdate(line.getLotId()) : lotMapper.getById(line.getLotId());
-            if (lot == null || !Objects.equals(customer, lot.getCustomerId()) || !Objects.equals(station, lot.getStationId())
-                    || !Objects.equals(product, lot.getProductId()) || lot.getUnitPrice() == null
-                    || lot.getUnitPrice().compareTo(line.getUnitPrice()) != 0 || lot.getQty() == null
-                    || lot.getRemainQty() == null || lot.getRemainQty() < 0 || lot.getRemainQty() > lot.getQty()
-                    || !(Integer.valueOf(1).equals(lot.getStatus()) || Integer.valueOf(2).equals(lot.getStatus()))
-                    || (Integer.valueOf(2).equals(lot.getStatus()) && lot.getRemainQty() != 0)) {
-                throw new BusinessException("原批次归属、单价或状态不一致，请核对原单及资产流水");
-            }
+            checks.requireSourceLot(customer, station, product, line, lot);
             int held = businessPolicy.hasSchema() ? (locked ? returnDetailMapper.heldLot(lot.getId())
                     : returnDetailMapper.heldLotReadOnly(lot.getId())) : 0;
-            if (held < 0 || held > lot.getRemainQty()) throw new BusinessException("原批次占用与余额不一致，请核对退还申请");
-            if (restore) {
-                if ((long) lot.getRemainQty() + line.getQty() > lot.getQty()) {
-                    throw new BusinessException("恢复数量超过原批次上限，请核对是否已有补回记录");
-                }
-            } else {
-                if (!Integer.valueOf(1).equals(lot.getStatus()) || lot.getRemainQty() < line.getQty()) {
-                    throw new BusinessException("原批次已被使用，不能用其他批次代替撤销，请核对资产流水");
-                }
-                if (lot.getRemainQty() - held < line.getQty()) throw new BusinessException("原批次已被退还申请占用，请先核对原申请");
-            }
-            total += line.getQty();
-            amount = amount.add(line.getAmount());
-            result.getDetails().add(new LotConsumption.Detail(lot.getId(), line.getQty(), line.getUnitPrice(), line.getAmount()));
-            result.setHasMigratedPrice(result.isHasMigratedPrice() || Integer.valueOf(1).equals(lot.getIsMigrated()));
+            checks.acceptAvailableLot(line, lot, held, restore);
         }
-        if (total != quantity) throw new BusinessException("原调整数量与批次凭据不一致，请核对原单");
+        checks.requireTotalQuantity(quantity);
         if (!restore) {
             if (locked) {
                 requireManualRevokeSafe(customer, station, product, quantity);
             } else {
-                if ((long) rights + overQty(customer, station, product) - quantity < 0) {
-                    throw new BusinessException("撤销后客户实物桶数会为负，请核对交桶记录");
-                }
+                BarrelAdjustmentChecks.requirePreviewPhysicalBalance(rights, overQty(customer, station, product), quantity);
                 long busy = businessPolicy.hasSchema() ? (long) businessMapper.reserved(customer, station, product)
                         + businessMapper.legacyOrderBusy(customer, station, product)
                         + businessMapper.legacyReturnBusy(customer, station, product) : 0;
@@ -876,15 +841,7 @@ public class BarrelLedgerService {
         }
         CustomerBarrelAsset asset = locked ? assetMapper.getByCustomerAndProductForUpdate(customer, product, station)
                 : assetMapper.getByCustomerAndProduct(customer, product, station);
-        if (asset == null || asset.getQuantity() == null || asset.getRightAmount() == null
-                || asset.getQuantity() < 0 || asset.getRightAmount().signum() < 0
-                || (restore && ((long) asset.getQuantity() + quantity > Integer.MAX_VALUE
-                || asset.getRightAmount().add(amount).compareTo(new BigDecimal("99999999.99")) > 0))
-                || (!restore && (asset.getQuantity() < quantity || asset.getRightAmount().compareTo(amount) < 0))) {
-            throw new BusinessException("原批次与桶权益汇总不一致，请核对资产流水");
-        }
-        result.setAmount(amount);
-        return result;
+        return checks.resultForAsset(asset, quantity, restore);
     }
 
     /** 人工撤权益会减少实物展示 H；不得把未领取容量撤成负实物，亦不得吃掉遗留占用。 */
@@ -893,17 +850,13 @@ public class BarrelLedgerService {
         int right = lockRights(customerId, stationId, productId);
         CustomerBarrelOver current = overMapper.getForUpdate(customerId, stationId, productId);
         int over = current == null || current.getOverQty() == null ? 0 : current.getOverQty();
-        if (qty <= 0 || (long) right + over - qty < 0) {
-            throw new BusinessException("撤销后客户实物桶数不能为负；未领取容量请走权益退还申请");
-        }
+        BarrelAdjustmentChecks.requireManualPhysicalBalance(right, over, qty);
         if (businessPolicy.hasSchema()) {
             int busy = businessMapper.activeForUpdate(customerId, stationId, productId).stream()
                     .mapToInt(r -> r.getQuantity() - r.getPendingQty()).sum();
             long legacy = (long) businessMapper.legacyOrderBusy(customerId, stationId, productId)
                     + businessMapper.legacyReturnBusy(customerId, stationId, productId);
-            if (qty > (long) right - busy - legacy) {
-                throw new BusinessException("该部分权益仍被配送或退还占用，请先处理原单");
-            }
+            BarrelAdjustmentChecks.requireManualAvailableRights(right, busy, legacy, qty);
         }
     }
 
@@ -940,10 +893,7 @@ public class BarrelLedgerService {
      */
     @Transactional
     public OverChange adjustOver(Long customerId, Long stationId, Long productId, int delta, Long operatorId) {
-        if (delta == 0) throw new BusinessException("欠桶调整量不能为 0");
-        if (customerId == null || stationId == null || productId == null) {
-            throw new BusinessException("欠桶调整必须指定客户、水站与商品");
-        }
+        BarrelAdjustmentChecks.requireOverAdjustment(customerId, stationId, productId, delta);
 
         // 与 returnEmpty / applyDelivery 同一套协议：先 upsert 建行（FOR UPDATE 对不存在的行不加锁），
         // 再当前读取最新已提交值，最后才校验。
@@ -952,10 +902,7 @@ public class BarrelLedgerService {
         int after = before + delta;
 
         int right = rightQty(customerId, stationId, productId);
-        if (right + after < 0) {
-            throw new BusinessException("该调整会使占用为负（权益 " + right + " + 调整后 over " + after
-                    + " < 0）；核销欠桶的数量不能超过（权益 + 当前 over）=" + (right + before));
-        }
+        BarrelAdjustmentChecks.requireOverPhysicalBalance(right, before, after);
 
         overMapper.adjustOver(customerId, stationId, productId, delta);
         // [v29] 人工调整同样要维护欠桶起始时间（补记欠桶=开始计时；核销=清空/继续计时）

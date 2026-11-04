@@ -127,7 +127,7 @@ class ReceivablePaymentTruthIntegrationTest extends AbstractIntegrationTest {
             createTicketAccount(customer, station, product, 10);
             createBarrelAsset(customer, station, product, 10, "300.00");
             createBarrelLot("CANCEL-COD-RIGHTS", customer, station, product, "30", 10, 10);
-            assertTrue(put("/api/manager/delivery-config", managerToken,
+            assertTrue(saveDeliveryConfig(managerToken,
                     "{\"baseDeliveryFee\":3,\"floorFeePerLevel\":0,\"floorFreeLevel\":1}").isSuccess());
             Api created = post("/api/orders/create", customerToken,
                     "{\"stationId\":" + station + ",\"addressId\":" + address

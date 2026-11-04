@@ -168,4 +168,76 @@ class ReceivableCollectionGuidanceIntegrationTest extends AbstractIntegrationTes
         managerToken = staffToken(receivingManager, "STATION_MANAGER", receivingStation);
         assertTrue(row(order).path("canRegisterCash").asBoolean());
     }
+
+    @Test
+    void closedCashRequestRetainsHistoricalStationWithoutBlockingCollectionAfterDispatch() {
+        long receivingStation = createStation("关闭请求接收站");
+        long receivingManager = createStaff("关闭请求接收站长", "STATION_MANAGER", receivingStation, 1);
+        long goods = createProduct("迁站应收饮水机", 2, "20.00", "0.00", 0, "0.00");
+        createInventoryFull(station, goods, 10, 0, "0.00");
+        createInventoryFull(receivingStation, goods, 10, 0, "0.00");
+        Api created = post("/api/orders/create", customerToken(customer),
+                "{\"stationId\":" + station + ",\"addressId\":" + address
+                        + ",\"paymentMethod\":2,\"idempotencyKey\":\"closed-receivable-dispatch\","
+                        + "\"items\":[{\"productId\":" + goods + ",\"quantity\":1}]}");
+        assertTrue(created.isSuccess(), created.toString());
+        long order = created.data().path("orderId").asLong();
+        // 已关闭现金请求是既有受支持的历史形状；外派只搬活跃待收款，不能改它的历史站别。
+        long closed = createPaymentRecord(order, customer, station,
+                decimalOf("select total_amount from orders where id=?", order).toPlainString(), 2, 4);
+        Api dispatched = post("/api/delivery/orders/" + order + "/dispatch", managerToken,
+                "{\"targetStationId\":" + receivingStation + "}");
+        assertTrue(dispatched.isSuccess(), dispatched.toString());
+        assertEquals(station, longOf("select station_id from payment_record where id=?", closed));
+
+        managerToken = staffToken(receivingManager, "STATION_MANAGER", receivingStation);
+        boolean displayedAsCollectable = row(order).path("canRegisterCash").asBoolean();
+        Api collected = post("/api/manager/receivables/settle", managerToken,
+                "{\"customerId\":" + customer + ",\"orderIds\":[" + order + "]}");
+        assertTrue(collected.isSuccess(), collected.toString());
+        assertEquals(4, intOf("select status from payment_record where id=?", closed));
+        assertEquals(station, longOf("select station_id from payment_record where id=?", closed));
+        assertEquals(1, intOf("select count(*) from payment_record where order_id=? and status=2 and station_id=?", order, receivingStation));
+        assertTrue(displayedAsCollectable, "历史关闭请求应留在原站，不应阻断当前结算站合法新收款");
+    }
+
+    @Test
+    void unpaidWechatGuidanceDoesNotOfferAnEmployeeOrderDetailThatIsForbidden() {
+        long order = order(1);
+        Api detail = get("/api/orders/" + order, managerToken);
+        assertFalse(detail.isSuccess(), detail.toString());
+        assertTrue(detail.body().path("message").asText().contains("尚未支付"), detail.toString());
+        var row = row(order);
+        assertTrue(row.path("canViewOrder").isBoolean(), row.toString());
+        assertFalse(row.path("canViewOrder").asBoolean());
+        assertTrue(row.path("collectionNextStep").asText().contains("客户"), row.toString());
+        assertFalse(row.path("canRegisterCash").asBoolean());
+    }
+
+    @Test
+    void ordinaryCashOrderRetainsItsActualEmployeeDetailAndCollectionActions() {
+        long order = order(2);
+        Api detail = get("/api/orders/" + order, managerToken);
+        assertTrue(detail.isSuccess(), detail.toString());
+        var row = row(order);
+        assertTrue(row.path("canViewOrder").isBoolean(), row.toString());
+        assertTrue(row.path("canViewOrder").asBoolean());
+        assertTrue(row.path("canRegisterCash").asBoolean());
+    }
+
+    @Test
+    void settlementScopeDoesNotGrantAccessToAnotherStationsDeliveryDetail() {
+        long order = order(2);
+        long deliveryStation = createStation("独立履约站");
+        jdbc.update("update orders set settle_station_id=?,delivery_station_id=? where id=?",
+                station, deliveryStation, order);
+        Api detail = get("/api/orders/" + order, managerToken);
+        assertFalse(detail.isSuccess(), detail.toString());
+        assertTrue(detail.body().path("message").asText().contains("他站"), detail.toString());
+        var row = row(order);
+        assertTrue(row.path("canViewOrder").isBoolean(), row.toString());
+        assertFalse(row.path("canViewOrder").asBoolean());
+        assertTrue(row.path("collectionNextStep").asText().contains("履约站"), row.toString());
+        assertTrue(row.path("canRegisterCash").asBoolean(), "详情不可读不能改变已确认的收款站权限");
+    }
 }

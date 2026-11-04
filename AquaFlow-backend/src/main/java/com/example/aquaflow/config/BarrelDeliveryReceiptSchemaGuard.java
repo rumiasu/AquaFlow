@@ -24,10 +24,11 @@ public class BarrelDeliveryReceiptSchemaGuard {
         for (var table : tables.entrySet()) {
             var engines = jdbc.queryForList("select engine from information_schema.tables where table_schema=database() and table_name=?", table.getKey());
             valid &= engines.size() == 1 && "InnoDB".equalsIgnoreCase(String.valueOf(engines.get(0).get("engine")));
-            var columns = jdbc.queryForList("select column_name,data_type,is_nullable from information_schema.columns where table_schema=database() and table_name=?", table.getKey());
+            var columns = jdbc.queryForList("select column_name,data_type,is_nullable,character_maximum_length,column_default from information_schema.columns where table_schema=database() and table_name=?", table.getKey());
             for (var field : table.getValue().entrySet()) {
                 valid &= columns.stream().anyMatch(c -> field.getKey().equals(c.get("column_name"))
-                        && field.getValue().equals(c.get("data_type")) && "NO".equals(c.get("is_nullable")));
+                        && field.getValue().equals(c.get("data_type")) && "NO".equals(c.get("is_nullable"))
+                        && requiredWriteShape(field.getKey(), c));
             }
         }
         for (var index : List.of(List.of("barrel_delivery_receipt", "record_id"),
@@ -37,5 +38,19 @@ public class BarrelDeliveryReceiptSchemaGuard {
                     && columns.get(0).get("sub_part") == null;
         }
         if (!valid) throw new IllegalStateException("随单实收关联结构未就绪，请核实并安装 migration_v92_barrel_delivery_allocation.sql；不得回填历史交接或关闭校验继续运行");
+    }
+
+    /** 类型相同仍可能无法保存来源，或把凭据写成固定旧时间；只核 v92 实际写入依赖。 */
+    private static boolean requiredWriteShape(String column, Map<String, Object> metadata) {
+        if ("input_kind".equals(column)) {
+            return metadata.get("character_maximum_length") instanceof Number length && length.longValue() == 32;
+        }
+        if ("create_time".equals(column)) {
+            String defaultValue = String.valueOf(metadata.get("column_default"));
+            return "CURRENT_TIMESTAMP".equalsIgnoreCase(defaultValue)
+                    || "CURRENT_TIMESTAMP()".equalsIgnoreCase(defaultValue)
+                    || "CURRENT_TIMESTAMP(0)".equalsIgnoreCase(defaultValue);
+        }
+        return true;
     }
 }

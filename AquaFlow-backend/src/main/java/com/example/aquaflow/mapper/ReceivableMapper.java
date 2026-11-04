@@ -80,6 +80,7 @@ public interface ReceivableMapper {
             + "       o.payment_status as paymentStatus, o.settlement_status as settlementStatus, "
             + "       o.due_date as dueDate, o.status as status, o.source as source, "
             + "       o.station_id as collectionEvidenceAssetStation, "
+            + "       o.delivery_station_id as collectionEvidenceDeliveryStation, "
             + "       coalesce(o.settle_station_id,o.delivery_station_id,o.station_id) as collectionEvidenceSettleStation, "
             + "       tp.order_id as collectionEvidenceSplitId, tp.customer_id as collectionEvidenceSplitCustomer, "
             + "       tp.station_id as collectionEvidenceSplitStation, tp.cash_method as collectionEvidenceSplitMethod, "

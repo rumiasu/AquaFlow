@@ -11,6 +11,8 @@ import com.example.aquaflow.mapper.CustomerStationConfigMapper;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.ReceivableMapper;
 import com.example.aquaflow.util.BusinessTime;
+import com.example.aquaflow.util.OrderTaskAccess;
+import com.example.aquaflow.util.StationUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -114,13 +116,42 @@ public class ReceivableService {
         List<Map<String, Object>> rows = receivableMapper.listOrders(stationId, customerId, onlyOverdue);
         for (Map<String, Object> row : rows) {
             CollectionGuidance guidance = collectionGuidance(row);
+            Orders taskOrder = orderForTaskAccess(row);
+            boolean ownDelivery = java.util.Objects.equals(stationId, StationUtil.deliveryStation(taskOrder));
+            boolean canViewOrder = ownDelivery && OrderTaskAccess.visibleToEmployee(taskOrder);
+            String nextStep = guidance.nextStep();
+            if (!canViewOrder) {
+                if (!ownDelivery) {
+                    nextStep = "订单详情请联系履约站核对。" + (guidance.allowed()
+                            ? "实际收到本单现金后仍可在此登记收款。" : "核实原款结果后再处理。");
+                } else {
+                    nextStep = "请客户从原订单核对付款进度，确认原渠道结果后刷新应收；不要重复付款。"
+                            + (guidance.allowed() ? "实际收到本单现金后仍可在此登记。" : "");
+                }
+            }
             row.keySet().removeIf(key -> key.startsWith("collectionEvidence"));
             row.put("canRegisterCash", guidance.allowed());
+            row.put("canViewOrder", canViewOrder);
             row.put("collectionMethodText", guidance.method());
             row.put("collectionBlockReason", guidance.reason());
-            row.put("collectionNextStep", guidance.nextStep());
+            row.put("collectionNextStep", nextStep);
         }
         return rows;
+    }
+
+    /** 应收按结算站可见，不等于可打开履约站任务；复用真实任务规则，不为导航放宽权限。 */
+    private Orders orderForTaskAccess(Map<String, Object> row) {
+        Orders order = new Orders();
+        order.setStationId(asLong(row.get("collectionEvidenceAssetStation")));
+        order.setDeliveryStationId(asLong(row.get("collectionEvidenceDeliveryStation")));
+        order.setPaymentMethod(asInt(row.get("paymentMethod")));
+        order.setPaymentStatus(asInt(row.get("paymentStatus")));
+        order.setStatus(asInt(row.get("status")));
+        order.setTicketFeePaymentMethod(row.get("collectionEvidenceSplitMethod") == null
+                ? null : asInt(row.get("collectionEvidenceSplitMethod")));
+        order.setTicketWaterState(row.get("collectionEvidenceSplitState") == null
+                ? null : String.valueOf(row.get("collectionEvidenceSplitState")));
+        return order;
     }
 
     private record CollectionGuidance(boolean allowed, String method, String reason, String nextStep) {}
@@ -172,7 +203,8 @@ public class ReceivableService {
                     || row.get("collectionEvidenceReceiptAmount") == null
                     || toDecimal(row.get("collectionEvidenceReceiptAmount")).compareTo(toDecimal(row.get("totalAmount"))) != 0
                     || !java.util.Objects.equals(asLong(row.get("collectionEvidenceReceiptCustomer")), asLong(row.get("customerId")))
-                    || !java.util.Objects.equals(asLong(row.get("collectionEvidenceReceiptStation")), asLong(row.get("collectionEvidenceSettleStation")))) {
+                    // 关闭请求保留发生时的站别；换站仅搬 PENDING，不得为了新收款改写历史。
+                    || !closedCashRequest && !java.util.Objects.equals(asLong(row.get("collectionEvidenceReceiptStation")), asLong(row.get("collectionEvidenceSettleStation")))) {
                 return new CollectionGuidance(false, methodText, "原收款方式、金额或归属与本单不一致。", verify);
             }
         }

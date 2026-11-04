@@ -117,7 +117,7 @@
           <text class="collection-next-step">{{item.collectionNextStep}}</text>
           <text class="row-danger" wx:if="{{item.overdue}}">已逾期 {{item.overdueDays}} 天</text>
         </view>
-        <text class="order-detail-link">查看详情 ›</text>
+        <text class="order-detail-link" wx:if="{{item.canViewOrder === true}}">查看详情 ›</text>
       </view>
     </view>
 

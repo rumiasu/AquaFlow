@@ -7,7 +7,7 @@ const event = id => ({ currentTarget: { dataset: { id } } })
 const tick = () => new Promise(setImmediate)
 const row = (orderId, extra = {}) => ({ orderId, customerId: 7, totalAmount: '10.00',
   status: 3, paymentStatus: 1, settlementStatus: 1, paymentMethod: 2,
-  canRegisterCash: true, collectionMethodText: '现金（货到付款）',
+  canRegisterCash: true, canViewOrder: true, collectionMethodText: '现金（货到付款）',
   collectionBlockReason: '', collectionNextStep: '实际收到现金后勾选登记。', ...extra })
 
 async function fixture(rows) {
@@ -46,6 +46,48 @@ test('blocked and unknown rows cannot toggle but their order detail remains avai
   assert.equal(t.posts.length, 0)
 })
 
+test('unpaid WeChat preserves the customer payment instruction without an inaccessible employee order link', async () => {
+  const instruction = '请客户从原订单核对付款进度，收到渠道结果后重新加载明细；已付款请勿重复支付。'
+  const t = await fixture([row(101, { status: 1, paymentMethod: 1, canRegisterCash: false, canViewOrder: false,
+    collectionMethodText: '微信支付', collectionNextStep: instruction })])
+  const nodes = renderElements(parseWxml(fs.readFileSync(ROOT + '/miniapp-delivery/pages/station-mgmt/receivables/index.wxml', 'utf8')),
+    t.page.data, { includeText: true })
+  assert(nodes.some(n => n.text === instruction))
+  assert(!nodes.some(n => n.className === 'order-detail-link'))
+  t.page.onOpenOrder(event(101)); assert.equal(t.wx.__calls.nav.length, 0)
+  t.page.onToggleOrder(event(101)); assert.equal(t.page.data.selectedCount, 0); assert.equal(t.posts.length, 0)
+})
+
+test('different delivery station can prevent detail navigation without removing legitimate cash registration', async () => {
+  const instruction = '订单由其他水站履约，请联系履约站核实详情；已实际收到现金可按原收款安排登记。'
+  const t = await fixture([row(101, { canViewOrder: false, collectionNextStep: instruction })])
+  t.page.onOpenOrder(event(101)); assert.equal(t.wx.__calls.nav.length, 0)
+  assert.equal(t.page.data.orders[0].cashSelectable, true); assert.equal(t.page.data.orders[0].collectionNextStep, instruction)
+  t.page.onToggleOrder(event(101)); assert.equal(t.page.data.selectedCount, 1)
+  const work = t.page.onSettle(), modal = t.wx.__calls.modal.at(-1)
+  assert(modal); modal.success({ confirm: true }); await work
+  assert.deepEqual(t.posts[0].body, { customerId: 7, orderIds: [101] })
+})
+
+test('missing or non-boolean order access never creates a detail link or a fabricated detail instruction', async () => {
+  for (const canViewOrder of [undefined, null, 'true', 1]) {
+    const t = await fixture([row(101, { canViewOrder, collectionNextStep: undefined })])
+    t.page.onOpenOrder(event(101)); assert.equal(t.wx.__calls.nav.length, 0)
+    assert.equal(t.page.data.orders[0].canViewOrder, false)
+    assert(!t.page.data.orders[0].collectionNextStep.includes('订单详情'))
+    t.page.onToggleOrder(event(101)); assert.equal(t.page.data.selectedCount, 1)
+  }
+})
+
+test('order access changed after selection is rechecked at navigation without clearing cash selection', async () => {
+  const t = await fixture([row(101)])
+  t.page.onToggleOrder(event(101)); assert.equal(t.page.data.selectedCount, 1)
+  t.page.data.orders[0].canViewOrder = false
+  t.page.onOpenOrder(event(101)); assert.equal(t.wx.__calls.nav.length, 0)
+  assert.equal(t.page.data.selectedCount, 1); assert.equal(t.page.data.orders[0].checked, true)
+  assert.equal(t.posts.length, 0)
+})
+
 test('an injected checked online row cannot reach confirmation or registration', async () => {
   const t = await fixture([row(101, { paymentMethod: 1, canRegisterCash: false })])
   t.page.data.orders[0].checked = true
@@ -64,16 +106,18 @@ test('an open confirmation becomes invalid when cash eligibility changes', async
   assert.equal(t.posts.length, 0)
 })
 
-test('each blocked row exposes the original channel, specific reason and next step without hiding detail', async () => {
+test('each blocked row exposes the original channel and actual next step, with detail only when permitted', async () => {
   const t = await fixture([row(101), row(102, { paymentMethod: 1, canRegisterCash: false,
+    canViewOrder: false,
     collectionMethodText: '微信支付', collectionBlockReason: '原付款尚待渠道确认，不能登记为现金。',
-    collectionNextStep: '查看订单详情核对原付款结果。' })])
+    collectionNextStep: '请客户核对原订单付款结果，再重新加载明细。' })])
   const nodes = renderElements(parseWxml(fs.readFileSync(ROOT + '/miniapp-delivery/pages/station-mgmt/receivables/index.wxml', 'utf8')),
     t.page.data, { includeText: true })
   const text = nodes.map(n => n.text || '').join('\n')
-  for (const expected of ['微信支付', '原付款尚待渠道确认，不能登记为现金。', '查看订单详情核对原付款结果。', '可登记现金', '暂不可登记现金']) assert(text.includes(expected), expected)
+  for (const expected of ['微信支付', '原付款尚待渠道确认，不能登记为现金。', '请客户核对原订单付款结果，再重新加载明细。', '可登记现金', '暂不可登记现金']) assert(text.includes(expected), expected)
   assert.equal(nodes.filter(n => n.attrs.catchtap === 'onToggleOrder').length, 1)
   assert.equal(nodes.filter(n => n.attrs.bindtap === 'onOpenOrder').length, 2)
+  assert.equal(nodes.filter(n => n.className === 'order-detail-link').length, 1)
 })
 
 ;(async () => {

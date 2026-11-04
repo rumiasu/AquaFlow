@@ -230,6 +230,7 @@ SOURCE seed_platform_pulisi_185.sql;
 | 73 | `migration_v88_dispatch_offer_version.sql` | 外派报价轮次版本；已有协议表先核对列定义并备份，缺列时安装。新后端有只读启动守卫；不改历史金额或自动接受报价。 |
 | 74 | `migration_v89_case_handling_action.sql` | 非财务核实结案与顾客可见反馈回复的追加记录，先核目标与表定义、备份，再安装结构和配套后端，最后更新两端。既有财务/桶票记录不变，云端未执行。 |
 | 75 | `migration_v90_ticket_service_payment.sql` | 水票服务费组合凭据、按批次票预留与一次配送费权益。先核目标并备份，安装增量结构后更新后端与两端；无历史实款改写或演示数据重导。 |
+| 76 | `migration_v92_barrel_delivery_allocation.sql` | 新增明确配送实收来源及原退还申请分配两表，无历史回填。核对目标、备份及现有结构后安装；隔离旧版本交接写流量，全部后端切换后再启用配套两端。详见本文 v92 说明；v91 并行修复须在整合时另核，不是本迁移依赖。 |
 
 ## 历史迁移演进（脚本已删除，结论保留）
 
@@ -518,6 +519,8 @@ ALTER TABLE inventory ADD COLUMN image_object_name_override VARCHAR(512) DEFAULT
 
 `migration_v92_barrel_delivery_allocation.sql` 仅新增两张凭据表：`barrel_delivery_receipt` 标记新配送流水确有逐商品实收输入，`barrel_return_delivery_allocation` 记录工作人员将其中确定数量用于哪张原退还申请。申请唯一，来源累计分配量在订单锁内校验；不会再次减少实物，不改变原退款 hold、金额或渠道。v91 留给并行退票修复，本迁移不依赖 v91。
 
-执行前核对实际目标与可恢复备份；两表不存在才安装，已存在时核对列类型、非空、InnoDB 和主键定义，结构不符应停止核实。可用 `precheck_v92_barrel_delivery_allocation.sql` 只读检查。新库 `schema.sql` 已含两表，重复 CREATE 不会修正不符的旧定义。先准备结构再更新全部后端写实例及员工端；`BarrelDeliveryReceiptSchemaGuard` 缺结构拒启，只核查而不自动迁移。
+执行前核对实际目标与可恢复备份；两表不存在才安装，已存在时核对列类型、长度、非空、时间默认值、InnoDB 和索引定义，结构不符应停止核实。特别是 `input_kind` 应为 `VARCHAR(32)`，两表 `create_time` 均应为 `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`；正常 INSERT 不显式填写时间，不能把缺默认值或固定历史时间的同类型字段视为就绪。可用 `precheck_v92_barrel_delivery_allocation.sql` 只读检查。新库 `schema.sql` 已含两表，重复 CREATE 不会修正不符的旧定义；启动守卫只核查而不自动迁移。
+
+上线顺序：先准备并核实 v92 结构，再停止或隔离旧版本相关写流量；确认所有配送/交接写实例及其路由均已切换到配套后端，最后开放流量并更新配套两端。不能用“表已创建”替代写实例切换：早期旧版交接仍会直接减少实物，旧版配送也不产生新来源标记。发生 v92 关联业务后，不可简单回滚旧 JAR 继续写；应先停相关写入、保留新表及全部关联凭据，核对兼容恢复方案。此处仅为发布要求，本轮没有执行云端迁移、切流或部署。
 
 历史配送流水不回填“精确输入”凭据：多商品旧总量曾按比例分摊，不能据此自动认定现场逐商品事实。旧流水缺证据时原申请与原批次保留，界面提供关联订单和客户桶流水的核实入口；不得把同一批已经入账的桶改成到店再登记。此轮只在全新断网临时测试库执行，未迁移云库或部署。

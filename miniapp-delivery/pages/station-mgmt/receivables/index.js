@@ -268,9 +268,11 @@ Page({
         dueDateText: o.dueDate ? String(o.dueDate).slice(0, 10) : '',
         overdue: o.overdueDays > 0, checked: false,
         cashSelectable: canRegister(o),
+        canViewOrder: o.canViewOrder === true,
         collectionMethodText: o.collectionMethodText || '收款方式待核实',
         collectionBlockReason: canRegister(o) ? '' : o.collectionBlockReason || '现金登记资格尚未核实。',
-        collectionNextStep: o.collectionNextStep || '请重新加载明细并核对订单详情。',
+        collectionNextStep: typeof o.collectionNextStep === 'string' && o.collectionNextStep.trim()
+          ? o.collectionNextStep.trim() : o.canViewOrder === true ? '请重新加载明细并核对订单详情。' : '请重新加载明细，核实原收款与履约情况。',
         amountText: amountCents(o.totalAmount) === null ? '金额待核实' : amountText(amountCents(o.totalAmount))
       }))
       this._ordersReadSession = session
@@ -298,7 +300,8 @@ Page({
     if (this._orderNavigating || this._hidden || this._unloaded || this.data.loadError || this.data.ordersError || this.data.ordersLoading) return
     const session = receivableSession(), id = e.currentTarget.dataset.id
     if (!session.allowed || !sameSession(this._viewSession, session) || !sameSession(this._ordersReadSession, session)
-      || !validId(id) || !this.data.customer || !this.data.orders.some(o => String(o.orderId) === String(id) && String(o.customerId) === String(this.data.customer.customerId))) return
+      || !validId(id) || !this.data.customer || !this.data.orders.some(o => o.canViewOrder === true
+        && String(o.orderId) === String(id) && String(o.customerId) === String(this.data.customer.customerId))) return
     this._orderNavigating = true
     wx.navigateTo({ url: '/pages/order/detail?id=' + id, fail: () => { this._orderNavigating = false } })
   },

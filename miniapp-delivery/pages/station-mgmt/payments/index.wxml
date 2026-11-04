@@ -52,8 +52,14 @@
     </view>
     <view class="info-row" wx:if="{{item.isTicketPurchase}}"><text class="label">购票数量</text><text>{{item.ticketQty}} 张</text></view>
     <view class="info-row" wx:if="{{item.isTicketPurchase}}"><text class="label">购票商品</text><text>{{item.productName || (item.ticketWaterTypeId ? '商品 #' + item.ticketWaterTypeId : '商品信息未核对')}}</text></view>
+    <view class="record-links" wx:if="{{item.canOpenOrder || item.canOpenCustomer}}">
+      <button wx:if="{{item.canOpenOrder}}" class="af-action af-action--quiet" data-id="{{item.id}}" catchtap="onOpenPaymentOrder" disabled="{{paymentNavigationBusy}}">查看订单</button>
+      <button wx:if="{{item.canOpenCustomer}}" class="af-action af-action--quiet" data-id="{{item.id}}" catchtap="onOpenPaymentCustomer" disabled="{{paymentNavigationBusy}}">查看客户</button>
+    </view>
+    <view class="record-link-error" wx:if="{{item.orderNavigationError}}"><text>订单：{{item.orderNavigationError}}</text></view>
+    <view class="record-link-error" wx:if="{{item.customerNavigationError}}"><text>客户：{{item.customerNavigationError}}</text></view>
     <view class="card-actions" wx:if="{{view === 'pending'}}">
-      <button class="af-action af-action--primary" data-id="{{item.id}}" bindtap="onConfirm">确认已到账</button>
+      <button class="af-action af-action--primary" data-id="{{item.id}}" catchtap="onConfirm" disabled="{{paymentNavigationBusy}}">确认已到账</button>
     </view>
   </view>
 

@@ -5,14 +5,13 @@ import com.example.aquaflow.common.Result;
 import com.example.aquaflow.constant.DeliveryLimitMode;
 import com.example.aquaflow.constant.FloorFeeMode;
 import com.example.aquaflow.entity.StationDeliveryConfig;
-import com.example.aquaflow.mapper.StationDeliveryConfigMapper;
+import com.example.aquaflow.dto.DeliveryConfigSaveDTO;
+import com.example.aquaflow.service.StationDeliveryConfigService;
 import com.example.aquaflow.service.impl.DeliveryConfigGuideService;
 import com.example.aquaflow.util.AuthContext;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,11 +31,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/manager/delivery-config")
 @RequireRole({"STATION_MANAGER"})
-@Slf4j
 public class ManagerDeliveryConfigController {
 
     @Autowired
-    private StationDeliveryConfigMapper stationDeliveryConfigMapper;
+    private StationDeliveryConfigService stationDeliveryConfigService;
 
     @Autowired
     private DeliveryConfigGuideService deliveryConfigGuideService;
@@ -53,14 +51,12 @@ public class ManagerDeliveryConfigController {
     @GetMapping
     public Result<Map<String, Object>> get() {
         Long stationId = AuthContext.requireStationId();
-        StationDeliveryConfig cfg = stationDeliveryConfigMapper.getByStationId(stationId);
-        boolean configured = cfg != null;
-        if (!configured) {
-            cfg = StationDeliveryConfig.defaults(stationId);
-        }
+        StationDeliveryConfigService.Snapshot snapshot = stationDeliveryConfigService.get(stationId);
+        StationDeliveryConfig cfg = snapshot.config();
         Map<String, Object> data = new HashMap<>();
-        data.put("configured", configured);
+        data.put("configured", snapshot.configured());
         data.put("config", cfg);
+        data.put("snapshot", snapshot.snapshot());
         // 枚举文案由后端下发，前端禁止自建映射表
         data.put("minOrderModeText", DeliveryLimitMode.textOf(cfg.getMinOrderMode()));
         data.put("overRadiusModeText", DeliveryLimitMode.textOf(cfg.getOverRadiusMode()));
@@ -71,7 +67,7 @@ public class ManagerDeliveryConfigController {
     }
 
     /**
-     * 保存本站配送计费配置（有则更新、无则插入）。
+     * 保存本站配送计费配置，expectedSnapshot 必须来自最近加载的表单；过期快照拒绝覆盖。
      *
      * <p>两类校验刻意做得宽松：</p>
      * <ul>
@@ -82,42 +78,13 @@ public class ManagerDeliveryConfigController {
      * </ul>
      */
     @PutMapping
-    public Result<Map<String, Object>> save(@RequestBody StationDeliveryConfig body) {
-        Long stationId = AuthContext.requireStationId();
-
-        StationDeliveryConfig cfg = new StationDeliveryConfig();
-        cfg.setStationId(stationId);   // 忽略请求体里的 stationId
-        cfg.setMinOrderBuckets(nonNegative(body.getMinOrderBuckets()));
-        cfg.setMinOrderAmount(nonNegative(body.getMinOrderAmount()));
-        cfg.setMinOrderMode(DeliveryLimitMode.normalize(body.getMinOrderMode()));
-        cfg.setMinOrderFee(nonNegative(body.getMinOrderFee()));
-        cfg.setDeliveryRadiusM(nonNegative(body.getDeliveryRadiusM()));
-        cfg.setOverRadiusMode(DeliveryLimitMode.normalize(body.getOverRadiusMode()));
-        cfg.setRemoteFee(nonNegative(body.getRemoteFee()));
-        cfg.setBaseDeliveryFee(nonNegative(body.getBaseDeliveryFee()));
-        cfg.setFreeDeliveryBuckets(nonNegative(body.getFreeDeliveryBuckets()));
-        cfg.setFreeDeliveryAmount(nonNegative(body.getFreeDeliveryAmount()));
-        Integer freeLevel = nonNegative(body.getFloorFreeLevel());
-        cfg.setFloorFreeLevel(freeLevel != null ? freeLevel : 1);
-        cfg.setFloorFeePerLevel(nonNegative(body.getFloorFeePerLevel()));
-        cfg.setFloorFeeMode(FloorFeeMode.normalize(body.getFloorFeeMode()));
-
-        int affected = stationDeliveryConfigMapper.upsert(cfg);
-        log.info("[v35] 站长保存配送计费配置: stationId={}, affected={}, minOrder={}/{} {}, radius={}, floorFee={}",
-                stationId, affected, cfg.getMinOrderBuckets(), cfg.getMinOrderAmount(), cfg.getMinOrderMode(),
-                cfg.getDeliveryRadiusM(), cfg.getFloorFeePerLevel());
-
+    public Result<Map<String, Object>> save(@RequestBody DeliveryConfigSaveDTO body) {
+        StationDeliveryConfigService.Snapshot saved =
+                stationDeliveryConfigService.save(AuthContext.requireStationId(), body);
         Map<String, Object> data = new HashMap<>();
-        data.put("config", stationDeliveryConfigMapper.getByStationId(stationId));
+        data.put("configured", saved.configured());
+        data.put("config", saved.config());
+        data.put("snapshot", saved.snapshot());
         return Result.success(data);
-    }
-
-    private static Integer nonNegative(Integer v) {
-        return v == null ? null : Math.max(0, v);
-    }
-
-    private static BigDecimal nonNegative(BigDecimal v) {
-        if (v == null) return null;
-        return v.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : v;
     }
 }

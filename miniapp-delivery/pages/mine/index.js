@@ -391,7 +391,12 @@ Page({
 
   /** 员工（列表/画像/绑定申请审核）已整块搬到站长端员工页，这里直跳，不再走宫格中转 */
   onGoStaff() {
-    wx.navigateTo({ url: '/pages/station-mgmt/staff/index' })
+    const app = getApp()
+    if (!this.data.isLogin || !this.data.isManager || !app.globalData.isLogin
+      || !app.isStationManager() || !app.canAccessStationBusiness()) return
+    // 2026-11-04：原「绑定申请」里的更多丢了页签，落到员工名单；保留当前申请上下文。
+    const query = this.data.mgmtActiveTab === 1 ? '?tab=apply' : ''
+    wx.navigateTo({ url: '/pages/station-mgmt/staff/index' + query })
   },
 
   /** 整行水站资料入口，仅当前站长可进入。 */

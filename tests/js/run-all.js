@@ -15,6 +15,11 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'manager-entry-navigation.test.js', name: 'manager workbench and application tab navigation' },
+  { file: 'cross-station-order-navigation.test.js', name: 'cross-station order detail navigation and event boundaries' },
+  { file: 'payment-record-navigation.test.js', name: 'payment record navigation with current access checks' },
+  { file: 'delivery-config-concurrency.test.js', name: 'delivery fee snapshots and stale draft recovery' },
+  { file: 'selected-address-account.test.js', name: 'customer selected address account isolation' },
   { file: 'submitted-cart-flow.test.js', name: 'confirmed cart consumption' },
   { file: 'companion-orders-pagination.test.js', name: 'active companion order pagination' },
   { file: 'barrel-product-limit.test.js', name: 'per-product return quantity limit' },

@@ -162,6 +162,7 @@ Page({
   data: {
     v2SceneFailed: false, v2EmptyImageFailed: false, v2TodoExpanded: false,
     isManager: false,
+    canOpenWorkbench: false,
     activeTab: 'pending',
     // 「审批」大页签内的子页签：customer 客户发起 / station 站内（配送员）发起
     approvalTab: 'customer',
@@ -393,7 +394,7 @@ Page({
     const userInfo = app.globalData.userInfo || {}
     const role = userInfo.role || ''
     const isManager = role === 'STATION_MANAGER' || role === 'manager'
-    this.setData({ isManager })
+    this.setData({ isManager, canOpenWorkbench: todoScope().allowed })
     return isManager
   },
 
@@ -483,11 +484,12 @@ Page({
     syncTabBar(this, '/pages/coordination/index')
     this.updateModalViewport()
     this.syncModalTabBar()
+    const isManager = this.checkRole()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
     }
-    if (this.checkRole()) {
+    if (isManager) {
       // 营业状态（软状态 v32：只提示不阻断）：与「配送」页共用实现，见 behaviors/stationNavbar.js
       this.loadStationStatus((app.globalData.userInfo || {}).stationId)
       // 待填项徽标 + 「条件项刚成立」提醒（见 behaviors/stationNavbar.js；
@@ -826,15 +828,13 @@ Page({
   },
 
   /**
-   * 常驻「水站管理」入口（wxml 里紧跟导航栏的那一条）→ 站长端宫格（完整功能目录）。
-   *
-   * ⚠️ 它是本页**唯一不受服务端事项影响**的入口：**不要**给它接任何计数、也不要在 wxml 里
-   * 加 `wx:if` —— 提醒区（「其他待处理」卡 / 页签角标）取不到数或全为零时它也必须照旧在，
-   * 否则站长一遇到加载失败就再也进不去完整功能（docs/design/29 §5「完整功能入口另行常驻」）。
-   * 宫格是**非 tabBar 页**，只能用 navigateTo（`switchTab` 只认 app.json 里的 tab 页）。
+   * 工作台只依赖当前站长/水站身份，不依赖待办数量或读取结果。
+   * 工作台是非 tabBar 页；共用导航器保留 navigateTo 和失败重试行为。
    */
   onGoStationMgmt() {
-    wx.navigateTo({ url: '/pages/station-mgmt/index' })
+    // 2026-11-04：常驻入口不依赖待办读取；迟到点击仍须以当前登录和水站身份为准。
+    if (!todoScope().allowed) return
+    navigation.open('/pages/station-mgmt/index', { owner: this })
   },
 
   onShowAssign(e) {

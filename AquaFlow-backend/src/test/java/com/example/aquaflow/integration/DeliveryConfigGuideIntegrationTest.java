@@ -42,7 +42,7 @@ class DeliveryConfigGuideIntegrationTest extends AbstractIntegrationTest {
 
     /** 只配桶数门槛、不配金额门槛 —— 正是产品说的那种"以为设了门槛"的配置。 */
     private void configBucketOnly() {
-        Api res = put("/api/manager/delivery-config", mgrToken,
+        Api res = saveDeliveryConfig(mgrToken,
                 "{\"minOrderBuckets\":2,\"minOrderMode\":\"REJECT\",\"freeDeliveryBuckets\":2,"
                         + "\"baseDeliveryFee\":3.00}");
         assertEquals(0, res.code(), "保存桶数门槛应成功: " + res);
@@ -79,7 +79,7 @@ class DeliveryConfigGuideIntegrationTest extends AbstractIntegrationTest {
         assertEquals(0, shelves(barrel).code(), "桶装水上架不该被金额门槛校验拦住");
 
         // 补齐金额门槛后，一次性桶可以上架
-        assertEquals(0, put("/api/manager/delivery-config", mgrToken,
+        assertEquals(0, saveDeliveryConfig(mgrToken,
                 "{\"minOrderBuckets\":2,\"minOrderAmount\":24.00,\"minOrderMode\":\"REJECT\","
                         + "\"freeDeliveryBuckets\":2,\"freeDeliveryAmount\":36.00,\"baseDeliveryFee\":3.00}").code());
         assertEquals(0, shelves(disposable).code(), "补齐金额门槛后应可上架，实际=" + shelves(disposable));
@@ -143,7 +143,7 @@ class DeliveryConfigGuideIntegrationTest extends AbstractIntegrationTest {
         long emptyStation = createStation("空目录站");
         long emptyMgr = createStaff("空目录站长", "STATION_MANAGER", emptyStation, 1);
         String token = staffToken(emptyMgr, "STATION_MANAGER", emptyStation);
-        assertEquals(0, put("/api/manager/delivery-config", token,
+        assertEquals(0, saveDeliveryConfig(token,
                 "{\"minOrderBuckets\":2,\"minOrderMode\":\"REJECT\",\"freeDeliveryBuckets\":2}").code());
 
         Api res = get("/api/manager/delivery-config", token);

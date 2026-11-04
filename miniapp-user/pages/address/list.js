@@ -1,7 +1,7 @@
 const { showBusinessModal } = require('../../utils/business-dialog')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { getAddresses, deleteAddress, setDefaultAddress } = require('../../api/address')
-const { storage } = require('../../utils/storage')
+const { selectedAddressStorage } = require('../../utils/storage')
 const { formatAddress } = require('../../utils/address')
 
 // 只生成展示文案，不改写错误对象及其业务判断元数据。
@@ -56,8 +56,7 @@ Page({
     if (!this.ensurePageSession()) return
     if (this.data.loading || this.data.loadError || this.data.mutationPending || this.data.actionUnknown) return
     if (this.data.from === 'home' || this.data.from === 'order') {
-      storage.set('selectedAddress', e.currentTarget.dataset.item)
-      wx.navigateBack()
+      if (selectedAddressStorage.set(e.currentTarget.dataset.item, this._pageSession)) wx.navigateBack()
     }
   },
   onAddAddress() { if (!this.data.mutationPending) wx.navigateTo({ url: '/pages/address/edit' }) },

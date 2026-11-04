@@ -5,7 +5,7 @@ const test = (name, run) => cases.push({ name, run })
 const CONFIG = '/api/manager/delivery-config', SETUP = '/api/manager/setup-guide'
 const flush = async () => { for (let i = 0; i < 15; i++) await Promise.resolve() }
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
-const config = value => ({ code: 0, data: { configured: true, config: { baseDeliveryFee: value, floorFreeLevel: null }, guidance: {} } })
+const config = value => ({ code: 0, data: { configured: true, snapshot: 'snapshot-' + value, config: { baseDeliveryFee: value, floorFreeLevel: null }, guidance: {} } })
 const setup = label => ({ code: 0, data: { summaryText: label, items: [{ key: 'stationPosition', done: false, level: 'P0', why: label }] } })
 function fixture(handler = url => Promise.resolve(url === CONFIG ? config(3) : setup('fresh'))) {
   const wx = createWx(), calls = [], puts = [], state = { stops: 0, redirects: 0, allowed: true }
@@ -119,7 +119,7 @@ test('onShow loads superseded by pull cannot repaint after the refreshed result'
   assert.equal(t.page.data.form.baseDeliveryFee, '6'); assert.equal(t.page.data.setup.summaryText, 'fresh'); assert.equal(t.state.stops, 1)
 })
 test('existing save payload still distinguishes blank from zero and reloads configuration plus preparation', async () => {
-  const t = fixture(); t.page.setData({ form: { ...t.page.data.form, baseDeliveryFee: '0', floorFreeLevel: '' } })
+  const t = fixture(); await t.page.load(); t.calls.length = 0; t.page.setData({ form: { ...t.page.data.form, baseDeliveryFee: '0', floorFreeLevel: '' } })
   await t.page.onSave(); await flush(); assert.equal(t.puts.length, 1); assert.equal(t.puts[0].url, CONFIG)
   assert.equal(t.puts[0].body.baseDeliveryFee, 0); assert.equal(t.puts[0].body.floorFreeLevel, null)
   assert.deepStrictEqual(t.calls, [CONFIG, SETUP]); assert.equal(t.page.data.saving, false)

@@ -293,8 +293,10 @@ test('real required gaps preserve their count, summary and direct fill route', (
 test('successful fee save refreshes the real preparation snapshot', async () => {
   const wx = createWx(), app = createApp(), calls = []
   const page = loadPage('miniapp-delivery/pages/station-mgmt/delivery-config/index.js', { wx, app, stubs: {
-    'utils/request': { put: async () => ({ code: 0 }), get: async () => ({ code: 0, data: { config: {} } }) }
+    'utils/request': { put: async () => ({ code: 0 }), get: async () => ({ code: 0, data: { config: {}, snapshot: 'setup-snapshot' } }) }
   } })
+  page._feeOwner = JSON.stringify([false, true, null, null, null, null])
+  page.setData({ loading: false, configReady: true, configSnapshot: 'setup-snapshot' })
   page.load = () => {}
   page.loadSetup = () => calls.push('setup')
   await page.onSave()

@@ -11,7 +11,7 @@ const { getBarrelSummary, getBarrelSummaryByType } = require('../../api/barrel')
 const { getUnreadNotifications, markAllRead } = require('../../api/notification')
 const { getPublicStations, getStationStatus } = require('../../api/station')
 const { getQuote } = require('../../api/payment')
-const { storage, stationStorage, payMethodStorage } = require('../../utils/storage')
+const { storage, stationStorage, payMethodStorage, selectedAddressStorage } = require('../../utils/storage')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 const { itemUnit } = require('../../utils/order-item-view')
@@ -105,21 +105,20 @@ Page({
     this.setData({ isLogin })
     this._updateHomeFeedback()
 
-    if (!isLogin) {
-      this.setData({ state: 'guest', products: [], productsView: [], catalogState: 'idle', loading: false })
-      return
-    }
-
     if (!this._homeAddressSession || !isCurrentSession(this._homeAddressSession)) {
       this._homeChosenAddressId = null
       this.setData({ address: null, addressHint: '点击设置配送地址' })
     }
     this._homeAddressSession = captureSession()
-    const selectedAddress = storage.get('selectedAddress')
+    if (!isLogin) {
+      this.setData({ state: 'guest', products: [], productsView: [], catalogState: 'idle', loading: false })
+      return
+    }
+
+    const selectedAddress = selectedAddressStorage.take(this._homeAddressSession)
     if (selectedAddress) {
       this._homeChosenAddressId = selectedAddress.id
       this.setData({ address: selectedAddress })
-      storage.remove('selectedAddress')
     }
     this.checkStation()
     this.checkNotifications()

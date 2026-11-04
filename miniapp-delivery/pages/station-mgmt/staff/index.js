@@ -103,7 +103,9 @@ Page({
   },
 
   onTabSwitch(e) {
-    this.setData({ activeTab: e.currentTarget.dataset.tab })
+    const tab = e.currentTarget.dataset.tab
+    if (!['staff', 'apply'].includes(tab)) return
+    this.setData({ activeTab: tab })
   },
 
   onKeywordInput(e) {

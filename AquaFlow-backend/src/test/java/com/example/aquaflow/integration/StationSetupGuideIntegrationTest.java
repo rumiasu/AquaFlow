@@ -128,7 +128,7 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
         jdbc.update("UPDATE station SET address=?, lat=36.65, lng=117.12 WHERE id=?", "引导目录站地址", station);
         long water = createProduct("引导目录桶装水", 1, "12.00", "50.00", 0, "0.00");
         createInventoryFull(station, water, 100, 0, "0.00");   // enabled=1 = 已上架
-        assertEquals(0, put("/api/manager/delivery-config", mgrToken,
+        assertEquals(0, saveDeliveryConfig(mgrToken,
                 "{\"baseDeliveryFee\":0,\"minOrderMode\":\"WARN\"}").code(), "保存一次计费配置（哪怕全 0）");
 
         JsonNode g = guide();

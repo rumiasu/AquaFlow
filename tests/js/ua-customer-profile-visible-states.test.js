@@ -105,7 +105,9 @@ test('address: default action blocks duplicate requests; select uses order route
   d.resolve(ok(null)); await pending
   f.p.onSelectAddress(tap({ item: address }))
   assert.equal(f.calls.write.length, 1)
-  assert.strictEqual(f.calls.write[0].value, address)
+  assert.equal(f.calls.write[0].key, 'selectedAddress')
+  assert.equal(f.calls.write[0].value.customerId, '7')
+  assert.strictEqual(f.calls.write[0].value.address, address)
 })
 test('address: delete confirmation is retained and uncertain response refreshes once automatically', async () => {
   let writes = 0

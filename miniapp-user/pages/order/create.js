@@ -9,7 +9,7 @@ const { createOrder, createPayment } = require('../../api/order')
 const { getQuote } = require('../../api/payment')
 const { getStationPublicPhone, getStationStatus } = require('../../api/station')
 const { submitEnterpriseApply, getMyEnterpriseApplies } = require('../../api/enterprise')
-const { storage, stationStorage, payMethodStorage } = require('../../utils/storage')
+const { stationStorage, payMethodStorage, selectedAddressStorage } = require('../../utils/storage')
 const { resolveStationId } = require('../../utils/station')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { simulationAllowed } = require('../../utils/payment-channel')
@@ -307,6 +307,14 @@ Page({
   onShow() {
     this._orderNavigationHidden = false
     this._quoteHidden = false
+    // 2026-11-04：缓存地址之外，存活页面里的上一登录地址也不能留给新账号报价。
+    if (this._addressSession && !isCurrentSession(this._addressSession)) {
+      this._addressRequestSeq = (this._addressRequestSeq || 0) + 1
+      this._addressNeedsReload = true
+      this.invalidateQuote()
+      this.setData({ address: null, addressText: '', addressLoadError: '', addressLoading: false, _preferAddressId: null })
+    }
+    this._addressSession = captureSession()
     // 后台期间作废的读取/确认，回到同一账号后重新核实，避免停在空白加载态。
     if (this._reorderNeedsReload && this._pendingReorder) {
       this._reorderNeedsReload = false
@@ -314,14 +322,13 @@ Page({
       if (isCurrentSession(pending.session)) this.loadReorder(pending.orderId)
       else this._pendingReorder = null
     }
-    const selectedAddress = storage.get('selectedAddress')
+    const selectedAddress = selectedAddressStorage.take(this._addressSession)
     if (selectedAddress) {
       // 2026-10-11：原先先按旧地址报价再换地址，旧结果可在新地址下恢复可提交；先失效并应用地址。
       this._addressRequestSeq = (this._addressRequestSeq || 0) + 1
       this._addressNeedsReload = false
       this.invalidateQuote()
       this.setData({ address: selectedAddress, addressText: formatAddress(selectedAddress), addressLoadError: '', addressLoading: false })
-      storage.remove('selectedAddress')
     }
     if (!selectedAddress && !this.data.addressLoading
       && (this._addressNeedsReload || !this.data.address || this.data.addressLoadError)) {
@@ -660,6 +667,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     if (this._quoteDestroyed || this._quoteHidden) return
     const seq = this._addressRequestSeq = (this._addressRequestSeq || 0) + 1
     const session = captureSession()
+    this._addressSession = session
     const current = () => !this._quoteDestroyed && !this._quoteHidden
       && seq === this._addressRequestSeq && isCurrentSession(session)
     this._addressNeedsReload = false

@@ -251,7 +251,7 @@ test('unavailable whole catalog has a specific visible recovery impact rather th
 
 test('WB-04 selected non-default address survives actual onShow refresh and checkout uses its fresh record', async () => {
   const t = fixture({ addresses: async () => ok([{ id: 12, detail: '默认地址', isDefault: 1 }, { id: 13, detail: '更新后的已选地址', isDefault: 0 }]) })
-  t.wx.setStorageSync('selectedAddress', { id: 13, detail: '选择时的旧地址' })
+  require('../../miniapp-user/utils/storage').selectedAddressStorage.set({ id: 13, detail: '选择时的旧地址' })
   t.page.onShow(); await new Promise(setImmediate)
   assert.equal(t.page.data.address.id, 13); assert.equal(t.page.data.address.detail, '更新后的已选地址')
   t.page.onSubmit()
@@ -260,7 +260,7 @@ test('WB-04 selected non-default address survives actual onShow refresh and chec
   assert.equal(query.get('addressDetail'), '更新后的已选地址')
 })
 test('removed selected address remains unselected across retries and cannot silently fall back to another default', async () => {
-  const t = fixture(); t.wx.setStorageSync('selectedAddress', { id: 13 })
+  const t = fixture(); require('../../miniapp-user/utils/storage').selectedAddressStorage.set({ id: 13 })
   t.page.onShow(); await new Promise(setImmediate)
   assert.equal(t.page.data.address, null); assert(t.page.data.addressHint.includes('重新选择'))
   await t.page.loadData(); assert.equal(t.page.data.address, null)
@@ -269,19 +269,19 @@ test('removed selected address remains unselected across retries and cannot sile
   assert(!t.wx.__calls.nav.some(n => n.url.includes('/pages/order/create')))
 })
 test('successful empty address list clears a prior selected address rather than retaining an unavailable record', async () => {
-  const t = fixture({ addresses: async () => ok([]) }); t.wx.setStorageSync('selectedAddress', { id: 13 })
+  const t = fixture({ addresses: async () => ok([]) }); require('../../miniapp-user/utils/storage').selectedAddressStorage.set({ id: 13 })
   t.page.onShow(); await new Promise(setImmediate)
   assert.equal(t.page.data.address, null); assert(t.page.data.addressHint.includes('不可用'))
 })
 test('address read failure preserves an explicit selection with a visible read-failure boundary', async () => {
   const t = fixture({ addresses: async () => { throw Error('SYNTH address offline') } })
-  t.wx.setStorageSync('selectedAddress', { id: 13, detail: '本次选择' })
+  require('../../miniapp-user/utils/storage').selectedAddressStorage.set({ id: 13, detail: '本次选择' })
   t.page.onShow(); await new Promise(setImmediate)
   assert.equal(t.page.data.address.id, 13); assert(t.page.data.loadError.includes('配送地址'))
 })
 test('a new customer does not inherit the previous explicit address choice', async () => {
   let rows = [{ id: 12, isDefault: 1 }, { id: 13 }]
-  const t = fixture({ addresses: async () => ok(rows) }); t.wx.setStorageSync('selectedAddress', { id: 13 })
+  const t = fixture({ addresses: async () => ok(rows) }); require('../../miniapp-user/utils/storage').selectedAddressStorage.set({ id: 13 })
   t.page.onShow(); await new Promise(setImmediate); assert.equal(t.page.data.address.id, 13)
   t.app.globalData.customerId = 8; rows = [{ id: 21, isDefault: 1 }]
   t.page.onShow(); await new Promise(setImmediate)
@@ -290,8 +290,8 @@ test('a new customer does not inherit the previous explicit address choice', asy
 test('an old address response cannot overwrite a newer explicit choice', async () => {
   const old = deferred(), latest = deferred(); let calls = 0
   const t = fixture({ addresses: () => ++calls === 1 ? old.promise : latest.promise })
-  t.wx.setStorageSync('selectedAddress', { id: 13 }); t.page.onShow()
-  t.wx.setStorageSync('selectedAddress', { id: 14 }); t.page.onShow()
+  require('../../miniapp-user/utils/storage').selectedAddressStorage.set({ id: 13 }); t.page.onShow()
+  require('../../miniapp-user/utils/storage').selectedAddressStorage.set({ id: 14 }); t.page.onShow()
   latest.resolve(ok([{ id: 12, isDefault: 1 }, { id: 14 }]))
   await new Promise(setImmediate)
   old.resolve(ok([{ id: 12, isDefault: 1 }, { id: 13 }]))

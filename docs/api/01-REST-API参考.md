@@ -315,6 +315,8 @@
 | `GET` | `/api/manager/delivery-config` | {"STATION_MANAGER"} | `ManagerDeliveryConfigController.get` |
 | `PUT` | `/api/manager/delivery-config` | {"STATION_MANAGER"} | `ManagerDeliveryConfigController.save` |
 
+配送计费配置的 `GET` 返回 `snapshot`（含尚未配置的状态），`PUT` 须将该值作为 `expectedSnapshot` 原样传回；保存成功返回新快照。未提供快照或配置已被另一会话修改时返回业务错误，旧表单不得直接覆盖；刷新核对后可重新编辑保存。站别仍从当前站长登录态取得。
+
 ### 支付与资金
 
 | 方法 | 路径 | 角色 | 说明 |

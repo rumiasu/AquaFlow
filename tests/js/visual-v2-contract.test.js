@@ -10,7 +10,7 @@ const coord='miniapp-delivery/pages/coordination/index',manage='miniapp-delivery
 const tree=route=>{const result=parseWxml(fs.readFileSync(path.join(ROOT,route+'.wxml'),'utf8'));validateConditionalSiblings(result);return result}
 const ct=tree(coord),mt=tree(manage),mineTree=tree(mine),view=(t,p)=>renderElements(t,p.data,{includeText:true}),has=(nodes,c)=>nodes.filter(n=>n.className?.split(/\s+/).includes(c))
 const ready={pending:true,approvalCustomer:true,approvalStation:true,pool:true,directedIncoming:true,dispatchPool:true,dispatchDirected:true}
-function cp(){const f=fixture(coord+'.js');f.page.setData({isManager:true,queuesLoading:false,sectionRead:ready,showGuide:false});return f}
+function cp(){const f=fixture(coord+'.js');f.page.setData({isManager:true,queuesLoading:false,sectionRead:ready,showGuide:false});f.page.checkRole();return f}
 try{
 test('line Icon keeps explicit semantic color; optional duo fill never overrides the stroke',()=>{
  for(const app of ['miniapp-user','miniapp-delivery']){
@@ -24,8 +24,8 @@ test('line Icon keeps explicit semantic color; optional duo fill never overrides
   for(const name of ['ticket','wallet','barrel','bill','location','chat','products','user','truck','chart','notice','settings'])assert(make(name,'duotone').includes('#D8E8F4'),name)
  }
 })
-test('workbench navigation exists once in manager Mine and never duplicates on the dispatch homepage',()=>{
- for(const state of [{todo:null,todoError:'',todoLoading:false},{todo:null,todoError:'synthetic-read-error',todoLoading:false},{todo:{items:[]},todoError:'',todoLoading:false}]){const {page}=cp();page.setData(state);assert.equal(view(ct,page).filter(n=>n.attrs.bindtap==='onGoStationMgmt').length,0)}
+test('workbench remains reachable from manager home and Mine even without pending items',()=>{
+ for(const state of [{todo:null,todoError:'',todoLoading:false},{todo:null,todoError:'synthetic-read-error',todoLoading:false},{todo:{items:[]},todoError:'',todoLoading:false}]){const {page}=cp();page.setData(state);assert.equal(view(ct,page).filter(n=>n.attrs.bindtap==='onGoStationMgmt').length,1)}
  const {page,wx}=fixture(mine+'.js');page.setData({isLogin:true,isManager:true,userInfo:{staffId:7,stationId:3,role:'STATION_MANAGER'},displayImageErrors:{}});assert.equal(view(mineTree,page).filter(n=>n.attrs.bindtap==='onGoStationMgmt').length,1);page.onGoStationMgmt();assert.equal(wx.__calls.nav.filter(n=>n.url==='/pages/station-mgmt/index').length,1)
  page.setData({isManager:false});assert.equal(view(mineTree,page).filter(n=>n.attrs.bindtap==='onGoStationMgmt').length,0);page.onGoStationMgmt();assert.equal(wx.__calls.nav.filter(n=>n.url==='/pages/station-mgmt/index').length,1)
  page.setData({isLogin:false,isManager:true});assert.equal(view(mineTree,page).filter(n=>n.attrs.bindtap==='onGoStationMgmt').length,0)
@@ -38,8 +38,8 @@ test('collapsed todo discloses the original first item and expands all original 
 test('queue selection distinguishes unread counts, loading and confirmed zero',()=>{
  const {page}=cp();page.setData({sectionRead:{}});assert(has(view(ct,page),'tab-count').every(n=>n.text==='—'));page.setData({queuesLoading:true});assert(has(view(ct,page),'tab-count').every(n=>n.text==='…'));page.setData({queuesLoading:false,sectionRead:ready});assert(has(view(ct,page),'tab-count').every(n=>n.text==='0'))
 })
-test('scene and empty illustration failures preserve verified empty text without inventing navigation',()=>{
- const {page}=cp();page.onV2SceneError();page.onV2EmptyImageError();const nodes=view(ct,page);assert(!nodes.some(n=>n.attrs.src==='/assets/ui/scene-station-delivery.webp'));assert(!nodes.some(n=>n.attrs.src==='/assets/ui/empty-order.webp'));assert.equal(nodes.filter(n=>n.attrs.bindtap==='onGoStationMgmt').length,0);assert(nodes.some(n=>n.text==='暂无待分配/转单订单'))
+test('scene and empty illustration failures preserve verified empty text and the workbench entry',()=>{
+ const {page}=cp();page.onV2SceneError();page.onV2EmptyImageError();const nodes=view(ct,page);assert(!nodes.some(n=>n.attrs.src==='/assets/ui/scene-station-delivery.webp'));assert(!nodes.some(n=>n.attrs.src==='/assets/ui/empty-order.webp'));assert.equal(nodes.filter(n=>n.attrs.bindtap==='onGoStationMgmt').length,1);assert(nodes.some(n=>n.text==='暂无待分配/转单订单'))
  page.setData({sectionRead:{},queuesLoading:false});assert(!view(ct,page).some(n=>n.text==='暂无待分配/转单订单'),'unverified read cannot become empty')
 })
 test('twenty original management targets remain reachable after expanding groups; dashboard exists exactly once',()=>{

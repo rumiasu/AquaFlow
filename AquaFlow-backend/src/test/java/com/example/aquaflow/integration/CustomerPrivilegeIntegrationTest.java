@@ -35,7 +35,7 @@ class CustomerPrivilegeIntegrationTest extends AbstractIntegrationTest {
         String cus = customerToken(customer);
 
         // 起送量 5 桶 + 不接单
-        assertEquals(0, put("/api/manager/delivery-config", mgr,
+        assertEquals(0, saveDeliveryConfig(mgr,
                 "{\"minOrderBuckets\":5,\"minOrderMode\":\"REJECT\"}").code(), "配置起送量");
 
         // 授予前：2 桶被拦
@@ -132,9 +132,9 @@ class CustomerPrivilegeIntegrationTest extends AbstractIntegrationTest {
         String tokenB = staffToken(mgrB, "STATION_MANAGER", stationB);
 
         // 两个站都配起送量 5 桶 + 不接单
-        assertEquals(0, put("/api/manager/delivery-config", tokenA,
+        assertEquals(0, saveDeliveryConfig(tokenA,
                 "{\"minOrderBuckets\":5,\"minOrderMode\":\"REJECT\"}").code());
-        assertEquals(0, put("/api/manager/delivery-config", tokenB,
+        assertEquals(0, saveDeliveryConfig(tokenB,
                 "{\"minOrderBuckets\":5,\"minOrderMode\":\"REJECT\"}").code());
 
         // 只在 A 站授予

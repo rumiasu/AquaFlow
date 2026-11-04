@@ -22,7 +22,7 @@ class TicketServicePaymentIntegrationTest extends AbstractIntegrationTest {
         createInventoryFull(station,product,100,1,"18.00");address=createAddress(customer,"分项地址");
         createTicketAccount(customer,station,product,10);createBarrelAsset(customer,station,product,10,"300.00");createBarrelLot("SPLIT-RIGHTS",customer,station,product,"30",10,10);
         createCustomerStationConfig(customer,station,1);
-        assertTrue(put("/api/manager/delivery-config",staffToken(manager,"STATION_MANAGER",station),"{\"baseDeliveryFee\":3,\"floorFeePerLevel\":2,\"floorFreeLevel\":1}").isSuccess());
+        assertTrue(saveDeliveryConfig(staffToken(manager,"STATION_MANAGER",station),"{\"baseDeliveryFee\":3,\"floorFeePerLevel\":2,\"floorFreeLevel\":1}").isSuccess());
         jdbc.update("update address set floor=3,has_elevator=0 where id=?",address);
     }
     String customerToken(){return customerToken(customer);} String managerToken(){return staffToken(manager,"STATION_MANAGER",station);}

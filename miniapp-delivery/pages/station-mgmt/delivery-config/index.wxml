@@ -38,7 +38,7 @@
   <view class="fee-section-nav">
     <button wx:for="{{sectionTabs}}" wx:key="key" class="af-choice b3-on-section-tap {{activeSection === item.key ? 'af-choice--selected' : ''}}" data-section="{{item.key}}" bindtap="onSectionTap" hover-class="af-action--pressed"><view class="af-choice__face">{{item.label}}</view></button>
   </view>
-  <view class="ui-state" wx:if="{{saveError}}"><text class="ui-state-copy">{{saveError}}</text></view>
+  <view class="ui-state" wx:if="{{saveError || configConflict}}"><text class="ui-state-copy">{{saveError || '已保存规则有变化，请先记录本页修改，再重新读取后核对。'}}</text><button size="mini" bindtap="onReloadLatest" disabled="{{saving || loading}}" class="af-action af-action--quiet" hover-class="af-action--pressed"><view class="af-action__face">重新读取计费</view></button></view>
 
   <!--
     金额门槛引导（2026-09-19）：本站上架了非桶装商品（瓶装水/一次性桶/饮水器）却只配了桶数门槛时，
@@ -198,7 +198,7 @@
 
   <view class="fee-save-bar {{feeKeyboardOffset ? 'keyboard-open' : ''}}" style="bottom:{{feeKeyboardOffset}}px;">
     <view class="fee-save-actions"><button class="af-action af-action--cancel b3-on-exit-fee" bindtap="onExitFee" disabled="{{saving}}" hover-class="af-action--pressed">返回</button>
-    <button class="af-action af-action--primary b3-on-save af-action--grow" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !configReady}}" hover-class="af-action--pressed">{{!configured ? (hasUnsavedChanges ? '保存并确认规则' : '确认并保存默认规则') : '保存计费修改'}}</button></view>
+    <button class="af-action af-action--primary b3-on-save af-action--grow" bindtap="onSave" loading="{{saving}}" disabled="{{saving || loading || !configReady || !configSnapshot || configConflict}}" hover-class="af-action--pressed">{{!configured ? (hasUnsavedChanges ? '保存并确认规则' : '确认并保存默认规则') : '保存计费修改'}}</button></view>
   </view>
   </block>
 </view>

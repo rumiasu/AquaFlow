@@ -2,6 +2,13 @@ const { showBusinessModal } = require('../../../utils/business-dialog')
 const { getPendingPayments, confirmPayment } = require('../../../api/station-mgmt')
 const historyCustomer = require('../../../utils/station-history-customer')
 const { get } = require('../../../utils/request')
+const navigation = require('../../../utils/navigation')
+
+const associationId = value => {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) return null
+  const id = Number(value)
+  return Number.isSafeInteger(id) && id > 0 ? id : null
+}
 
 // 支付方式/支付状态文案一律由后端下发（PaymentRecord.getMethodText / getStatusText，
 // 真相源为 PayMethod.java / PaymentStatus.java）。前端不再自建 1/2/3 映射表。
@@ -12,7 +19,7 @@ Page({
     ...historyCustomer.data,
     list: [],
     view: 'pending', startDate: '', endDate: '', historyScope: '', historyPage: 1, historyHasMore: false,
-    loading: false,
+    loading: false, paymentNavigationBusy: false,
     /**
      * [2026-09-27 走查 C05/U01 同族修] 加载失败的原因（空串 = 成功）。
      *
@@ -43,20 +50,25 @@ Page({
   },
   // 缓存只属于当前登录对象、员工/站别、客户与视图；日期是该缓存的本地筛选。
   paymentQueryIdentity() {
-    const owner = getApp().globalData.userInfo || null
+    const app = getApp(), owner = app.globalData.userInfo || null
     const user = owner || {}
-    return { owner, key: JSON.stringify([user.staffId, user.role, user.stationId, this.data.customerId || null, this.data.view]) }
+    return { app, generation: app._loginGeneration || 0, owner,
+      key: JSON.stringify([!!app.globalData.isLogin, user.staffId, user.role, user.stationId, user.bindStatus,
+        this.data.customerId || null, this.data.view]) }
   },
   paymentQueryMatches(query) {
     const current = this.paymentQueryIdentity()
-    return !this._paymentsHidden && query && query.owner === current.owner && query.key === current.key
+    return !this._paymentsHidden && query && query.app === current.app && query.generation === current.generation
+      && query.owner === current.owner && query.key === current.key
   },
   clearHistoryCache() {
+    this._paymentListQuery = null
+    this._paymentNavigationFlight = null
     this._historyRecords = []
     this._filteredHistory = []
     this._historyCacheQuery = null
     this._historyState = 'idle'
-    this.setData({ list: [], historyScope: '', historyPage: 1, historyHasMore: false })
+    this.setData({ list: [], historyScope: '', historyPage: 1, historyHasMore: false, paymentNavigationBusy: false })
   },
   hasCurrentHistory() {
     if (this._historyState === 'ready' && this.paymentQueryMatches(this._historyCacheQuery)
@@ -115,6 +127,7 @@ Page({
   },
 
   onHide() {
+    navigation.hide(this)
     if (this._confirmFlight && this._confirmFlight.started) wx.hideLoading()
     this._paymentsHidden = true
     this._paymentsSeq = (this._paymentsSeq || 0) + 1
@@ -122,7 +135,7 @@ Page({
     this.clearHistoryCache()
     this.setData({ loading: false })
   },
-  onUnload() { this.onHide() },
+  onUnload() { this.onHide(); navigation.dispose(this) },
   onShow() {
     this._paymentsHidden = false
     this.syncNavigationTitle()
@@ -132,6 +145,7 @@ Page({
       app.routeByRole(true)
       return
     }
+    navigation.show(this)
     return this.loadData()
   },
 
@@ -157,6 +171,10 @@ Page({
       if (!Array.isArray(res.data)) throw new Error('收款记录尚未核对')
       // wxml 里不能做函数调用与三元嵌套，所有展示字段在 JS 里预计算好。
       const list = (res.data || []).map(item => Object.assign({}, item, {
+        // [2026-11-04] 支付所属站不等于订单履约站，也不授予客户画像权限；点击后由目标读取核实。
+        canOpenOrder: this.canNavigatePaymentAssociations() && !!associationId(item.orderId),
+        canOpenCustomer: this.canNavigatePaymentAssociations() && !!associationId(item.customerId),
+        orderNavigationError: '', customerNavigationError: '',
         methodText: item.methodText || '—',
         // [2026-09-27 走查 M01 修] 兜底从 `'—'` 改成 `'待核实到账'`：
         // 本列表按 `status = 1`（待收款）过滤，缺文案时写"待核实到账"是**照实说**，
@@ -172,6 +190,7 @@ Page({
         // 备注后端带的是「线上购买水票」等中文，直接展示；为空时给个兜底
         noteText: item.note || item.purposeText || '独立款项待核实',
       }))
+      this._paymentListQuery = query
       if (view === 'pending') this.setData({ list, loadError: '' })
       else {
         this._historyRecords = list
@@ -208,6 +227,68 @@ Page({
     return this.loadData()
   },
 
+  canNavigatePaymentAssociations() {
+    const app = getApp(), user = app.globalData.userInfo || {}
+    return app.globalData.isLogin === true && app.canAccessStationBusiness() && ['STATION_MANAGER', 'manager'].includes(user.role)
+      && !!associationId(user.stationId)
+  },
+
+  /** 历史分页和日期筛选复用同一批记录，保留已核实的拒绝提示，直到重新读取。 */
+  setPaymentNavigationState(paymentId, patch) {
+    const update = rows => rows.map(row => String(row.id) === String(paymentId) ? { ...row, ...patch } : row)
+    this._historyRecords = update(this._historyRecords || [])
+    this._filteredHistory = update(this._filteredHistory || [])
+    this.setData({ list: update(this.data.list) })
+  },
+
+  onOpenPaymentOrder(e) { return this.openPaymentAssociation(e, 'order') },
+  onOpenPaymentCustomer(e) { return this.openPaymentAssociation(e, 'customer') },
+
+  /** 只在点开时读取目标：不逐行预取详情，不把收款记录上的 customerId 当成画像授权。 */
+  async openPaymentAssociation(e, kind) {
+    if (this._paymentNavigationFlight || this._confirmFlight || this.data.loading
+        || !this.canNavigatePaymentAssociations()) return
+    const query = this._paymentListQuery, seq = this._paymentsSeq
+    const paymentId = e.currentTarget.dataset.id
+    const item = this.data.list.find(row => String(row.id) === String(paymentId))
+    const isOrder = kind === 'order', idField = isOrder ? 'orderId' : 'customerId'
+    const allowedField = isOrder ? 'canOpenOrder' : 'canOpenCustomer'
+    const errorField = isOrder ? 'orderNavigationError' : 'customerNavigationError'
+    const targetId = item && associationId(item[idField])
+    if (!item || !item[allowedField] || !targetId || !this.paymentQueryMatches(query)) return
+    const current = () => seq === this._paymentsSeq && this.paymentQueryMatches(query)
+      && this.canNavigatePaymentAssociations()
+      && this.data.list.some(row => String(row.id) === String(paymentId) && associationId(row[idField]) === targetId)
+    const flight = this._paymentNavigationFlight = {}
+    this.setData({ paymentNavigationBusy: true })
+    this.setPaymentNavigationState(paymentId, { [errorField]: '' })
+    try {
+      const result = await get(isOrder ? '/api/delivery/orders/' + targetId : '/api/customers/' + targetId)
+      if (!current()) return
+      if (!result || (result.code !== 0 && result.code !== 200)) {
+        throw Object.assign(new Error(result && result.message || '关联信息暂未核对，请重试'),
+          { businessRejected: !!result && result.code === 1, backendCode: result && result.code })
+      }
+      if (!result || !result.data || associationId(result.data.id) !== targetId) {
+        throw new Error('关联信息未能核对，请重试')
+      }
+      // 成功响应只作为当前目标的授权证据；详情由落地页重新读取，不缓存或转传客户资料。
+      const url = isOrder ? '/pages/order/detail?id=' + targetId : '/pages/station-mgmt/customers/detail/index?id=' + targetId
+      if (!navigation.open(url, { owner: this })) throw new Error('页面暂未打开，请稍后重试')
+    } catch (error) {
+      if (!current()) return
+      const message = error.message || '关联信息暂时无法读取，请重试'
+      const denied = error.businessRejected || error.backendCode === 1
+        || error.statusCode === 403 || error.backendCode === 403
+      this.setPaymentNavigationState(paymentId, { [errorField]: message, ...(denied ? { [allowedField]: false } : {}) })
+    } finally {
+      if (this._paymentNavigationFlight === flight) {
+        this._paymentNavigationFlight = null
+        this.setData({ paymentNavigationBusy: false })
+      }
+    }
+  },
+
   /**
    * 确认某笔收款已到账。
    * 后端按订单、购票、独立押金及收桶费来源分派实际入账，
@@ -216,7 +297,7 @@ Page({
    */
   onConfirm(e) {
     // 2026-10-30: 连点曾排入多个确认框并重复发请求；一次确认从弹窗到回执只允许一个。
-    if (this.data.view !== 'pending' || this._confirmFlight || this._paymentsHidden) return
+    if (this.data.view !== 'pending' || this._confirmFlight || this._paymentNavigationFlight || this._paymentsHidden) return
     const seq = this._paymentsSeq
     const query = this.paymentQueryIdentity()
     const id = e.currentTarget.dataset.id

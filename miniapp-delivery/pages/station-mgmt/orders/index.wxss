@@ -32,8 +32,9 @@
 .cross-amount { font-size: 28rpx; color: var(--text-primary); }
 .cross-toggle { font-size: 24rpx; color: var(--text-secondary); }
 .cross-sub { display: flex; justify-content: space-between; margin-top: 10rpx; font-size: 24rpx; color: var(--text-secondary); }
-.cross-row { border-top: 1rpx solid var(--border-color); padding-top: 14rpx; margin-top: 14rpx; }
+.cross-row { border-top: 1rpx solid var(--border-color); padding: 14rpx 0; margin-top: 14rpx; min-height: 52px; box-sizing: border-box; }
 .cross-row-head { display: flex; align-items: center; }
+.cross-row-link { flex-shrink: 0; font-size: 24rpx; color: var(--primary-color); }
 .cross-row-body { display: flex; justify-content: space-between; margin-top: 8rpx; }
 .cross-row-addr { margin-top: 6rpx; font-size: 24rpx; color: var(--text-secondary); }
 

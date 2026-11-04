@@ -43,10 +43,12 @@ module.exports = { percent: percent }
         <text>已完成 {{crossStation.completed !== null && crossStation.completed !== undefined ? crossStation.completed : '待核实'}}</text>
         <text>独立履约汇总，不计入本站当前筛选页数</text>
       </view>
-      <view class="cross-row" wx:if="{{crossExpanded}}" wx:for="{{crossStation.orders}}" wx:key="id">
+      <!-- 2026-11-04：行点击进入详情，catchtap 防止同时触发父级的收起操作。 -->
+      <view class="cross-row" wx:if="{{crossExpanded}}" wx:for="{{crossStation.orders}}" wx:key="id" data-id="{{item.id}}" catchtap="onCrossStationOrderTap" hover-class="entry-pressed">
         <view class="cross-row-head">
           <text class="status-tag status-{{item.statusCls}}">{{item.statusText}}</text>
           <text class="order-id">#{{item.id}}</text>
+          <text class="cross-row-link">查看详情 ›</text>
         </view>
         <view class="cross-row-body">
           <text class="customer-name">{{item.receiverName || '收货人待补充'}}</text>

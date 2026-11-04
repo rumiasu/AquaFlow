@@ -51,12 +51,19 @@ Page({
   },
 
   onShow() {
+    this._crossHidden = false
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
     }
     this.loadData()
+  },
+
+  onHide() { this._crossHidden = true; this._crossContext = null },
+  onUnload() {
+    this.onHide()
+    historyCustomer.methods.onUnload.call(this)
   },
 
   onToggleFilters() { this.setData({ filtersExpanded: !this.data.filtersExpanded }) },
@@ -147,7 +154,9 @@ Page({
 
   async loadCrossStation(seq, query) {
     const version = this._crossVersion = (this._crossVersion || 0) + 1
-    const current = () => version === this._crossVersion && seq === this._ordersSeq && this.orderQueryMatches(query)
+    const app = getApp(), context = { app, loginGeneration: app._loginGeneration, query }
+    this._crossContext = null
+    const current = () => version === this._crossVersion && seq === this._ordersSeq && this.crossStationContextMatches(context)
     try {
       const cs = await getCrossStationOrders()
       if (!current()) return
@@ -155,6 +164,7 @@ Page({
       if (!d || d.count === null || d.count === undefined || d.count === '' || !Number.isInteger(Number(d.count)) || Number(d.count) < 0 || (d.orders != null && !Array.isArray(d.orders)) || (Number(d.count) > 0 && !Array.isArray(d.orders))) throw new Error('跨站记录不完整')
       const orders = (d.orders || []).map(o => ({ ...o, statusText: o.statusText || '未知',
         statusCls: STATUS_CLASS_MAP[o.status] || 'default' }))
+      this._crossContext = context
       this.setData({ crossStation: { ...d, count: Number(d.count), orders }, crossState: 'ready' })
     } catch (err) {
       if (current()) this.setData({ crossStation: null, crossState: 'error' })
@@ -170,6 +180,25 @@ Page({
   /** 展开/收起跨站履约单明细（归并行点击）。 */
   onToggleCrossStation() {
     this.setData({ crossExpanded: !this.data.crossExpanded })
+  },
+
+  /** 跨站行只能沿用当前会话成功读取的列表，换号/换站后的旧行不能继续跳转。 */
+  crossStationContextMatches(context) {
+    const app = getApp()
+    return !!context && !this._crossHidden && context.app === app &&
+      context.loginGeneration === app._loginGeneration && this.orderQueryMatches(context.query)
+  },
+
+  onCrossStationOrderTap(e) {
+    const app = getApp(), owner = app.globalData.userInfo
+    if (!app.globalData.isLogin || !owner || !app.isStationManager() || !app.canAccessStationBusiness() ||
+        !this.crossStationContextMatches(this._crossContext) || this.data.loading ||
+        this.data.crossState !== 'ready' || !this.data.crossExpanded || !this.data.crossStation?.count) return
+    const id = String(e.currentTarget.dataset.id || '')
+    if (!/^[1-9]\d*$/.test(id) || !this.data.crossStation.orders.some(order => String(order.id) === id)) return
+    // 2026-11-04：跨站行原先只冒泡收起汇总，无法进入详情；复用员工详情，仅传订单 id。
+    // 归属站不等于履约站，不能把行内 stationId 当登录站或另开客户画像入口；详情仍由服务端验归属。
+    wx.navigateTo({ url: `/pages/order/detail?id=${id}` })
   },
 
   onOrderTap(e) {

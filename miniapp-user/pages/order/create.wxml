@@ -435,6 +435,9 @@
             <view class="detail-row"><view class="detail-row-left"><text class="detail-item-name">本次新增桶押金</text><text class="detail-item-meta">本次新增 {{extraDepositBuckets}} 份</text></view><text class="detail-item-price">¥{{extraDepositAmountText}}</text></view>
             <view class="section-link standalone-link" wx:if="{{barrelPurchases.length > 0}}" bindtap="onStandalonePurchase">也可单独办理桶押金 ›</view>
           </view>
+        </block>
+        <!-- 2026-11-04：票抵水费曾连带隐藏服务费；配送与楼层分项仍须展示本次报价。 -->
+        <block wx:if="{{quoteReady}}">
           <view class="detail-row" wx:if="{{feeBreakdownReady && (deliveryFeeText || floorFeeText)}}"><text class="detail-item-name">配送费</text><text class="detail-item-price">¥{{deliveryFeeText || '0.00'}}</text></view>
           <view class="detail-row" wx:if="{{feeBreakdownReady && floorFeeText}}"><text class="detail-item-name">楼层费</text><text class="detail-item-price">¥{{floorFeeText}}</text></view>
           <view class="detail-row" wx:if="{{feeBreakdownReady && !deliveryFeeText && !floorFeeText}}"><text class="detail-item-name">配送费、楼层费</text><text class="detail-item-price">¥0.00</text></view>
@@ -446,11 +449,12 @@
       <view class="detail-sheet-footer">
         <!-- 水票抵水费；合计展示服务端重算的实际余款，配送优惠只抵一次配送费。
              票不足时"本次需付"就是订单全额（本单用不了票），上方已有警示结论说明原因。 -->
-        <view class="detail-total-row ticket-cover-row" wx:if="{{ticketCoverText}}">
+        <view class="detail-total-row ticket-cover-row" wx:if="{{quoteReady && ticketCoverText}}">
           <text class="detail-total-label">{{ticketCoverText}}</text>
           <text class="detail-total-value">抵水费</text>
         </view>
-        <view class="detail-total-row" wx:if="{{isTicketPay && ticketDeliveryCredit > 0}}"><text class="detail-total-label">本次配送费抵扣</text><text class="detail-total-value">−¥{{ticketDeliveryCreditText}}</text></view>
+        <!-- 重新核价时可能仍有上次优惠值；仅在本次报价就绪后展示。 -->
+        <view class="detail-total-row" wx:if="{{quoteReady && isTicketPay && ticketDeliveryCredit > 0}}"><text class="detail-total-label">本次配送费抵扣</text><text class="detail-total-value">−¥{{ticketDeliveryCreditText}}</text></view>
         <view class="detail-total-row">
           <text class="detail-total-label">{{isTicketPay ? payableAmountLabel : '合计'}}</text>
           <text class="detail-total-value">{{quoteReady ? '¥' + payableAmountText : '待核实'}}</text>

@@ -876,7 +876,7 @@
 .v2-overview-copy { flex:1; min-width:0; position:relative; z-index:1; }
 .v2-overview-title { display:block; font-size:20px; line-height:28px; font-weight:600; overflow-wrap:anywhere; }
 .v2-overview-note { display:block; margin-top:8px; font-size:13px; line-height:20px; color:#DCE8F1; }
-.v2-management-link { margin-top:10px; min-height:44px; padding:5px 12px; border:0; gap:10px; font-size:14px; line-height:22px; color:#253D59; background:#F5F9FC; }
+.v2-management-link { box-sizing:border-box; width:calc(100% - 32px); margin:12px 16px; min-height:44px; padding:5px 12px; border:0; gap:10px; font-size:14px; line-height:22px; color:#253D59; background:#F5F9FC; }
 .v2-delivery-scene,.v2-scene-fallback { width:178px; height:111px; flex:none; }
 .v2-scene-fallback { display:flex; align-items:center; justify-content:center; }
 .v2-workbench .setup-launch-entry { margin:8px 16px; }

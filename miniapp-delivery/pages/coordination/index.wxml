@@ -41,20 +41,11 @@
       样式复用 app.wxss 的 .load-error（全局，不要在本页再写一份）。
     -->
     <view class="load-error" wx:if="{{loadError}}"><text>{{loadError}}</text><button bindtap="onRetryVisibleData" class="af-action af-action--quiet"><view class="af-action__face">重新加载</view></button></view>
-    <!--
-      常驻「水站管理」入口（[2026-09-26] Wave1 轨道 G；docs/design/29 §5
-      「首页以站名/营业状态开头，常驻"水站管理"入口」「完整功能入口另行常驻，零待办不占提醒区」）。
-      三件必须同时成立的判据（改这里之前逐条确认）：
-        ① **与任何服务端事项无关**：直跳宫格，不读 `todo`、不读任何计数、不发请求；
-        ② **永远在**：它写在 `wx:else`（站长分支）里、**在下面任何 `wx:if` 之外** ——
-           提醒区取不到数、零待办、部分加载失败时，它照旧渲染。此前「水站管理」只在
-           「我的」页有门（mine 的「管理 ›」与菜单项），**工作台自己反而没有**；
-        ③ **不附功能清单**（§6：同级入口不用每个附一串功能清单）。
-      位置：紧跟自绘导航栏（站名 + 营业状态胶囊）之后、提醒区之前 —— 即 §5 的层级
-      「站名/营业状态开头 → 待分配与审批 → 其他待处理」。
-    -->
-
-
+    <!-- 2026-11-04：旧模板只留入口注释，实际按钮已缺失；零待办或读取失败时也保留工作台。 -->
+    <button wx:if="{{canOpenWorkbench}}" class="af-entry v2-management-link" bindtap="onGoStationMgmt" hover-class="af-action--pressed" aria-label="进入工作台">
+      <icon name="products" variant="duotone" size="24px" color="#1264D6" />
+      <view class="af-entry__body">工作台</view><text class="af-entry__arrow" aria-hidden="true">›</text>
+    </button>
     <!--
       「其他待处理」——**只列不在本页 tab 里的那几项**。
       [2026-09-19 收敛，当天两次修订] 这里先加过一张 15 项、按 P0/P1/P2 三级铺开的大卡（密度过高），
@@ -74,7 +65,7 @@
       三条不能被改坏：
         ① **P0 红点**由 `loadTodo` 的 `applyRedDot(d)` 按完整 payload 的 `p0Total` 算，
            与本卡内容**无关**（别改成拿 todo.items 推）；
-        ② **功能没删**：完整功能目录从「我的」高亮管理卡进入，零值照样进得去；
+        ② **功能没删**：完整功能目录从首页或「我的」工作台进入，零值照样进得去；
         ③ 同一身份/水站读取失败时保留上次卡并显示未核对提示；切换身份不借用旧卡，首次失败也能重试。
       数量非零的项标红（`hasCount`）—— 现在能进卡的项恒为非零，这个类是"提醒色"不是"等级色"。
     -->

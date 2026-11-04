@@ -77,6 +77,8 @@ class ApprovalRefundEligibilityReadOnlyTest {
         record=new BarrelRecord(); record.setId(77L); record.setType(2); record.setStatus(2); record.setCustomerId(7L);
         record.setStationId(1L); record.setProductId(10L); record.setQuantity(2); record.setDepositRefund(new BigDecimal("60"));
         detail=new BarrelReturnDetail(); detail.setRecordId(77L); detail.setStatus("RECEIVED"); detail.setRequiredBarrels(2);
+        // 已实际交回2桶而权益尚未退出，实物减少对应over=-2；不能只伪造RECEIVED状态。
+        when(ledger.overQty(7L,1L,10L)).thenReturn(-2);
         when(policy.hasSchema()).thenReturn(true); when(records.getById(77L)).thenReturn(record); when(details.get(77L)).thenReturn(detail);
         when(lots.listAvailable(7L,1L,10L)).thenReturn(List.of(lot(50L,2,"30")));
         when(details.heldLots(77L)).thenReturn(List.of(Map.of("lotId",50L,"qty",2,"amount",new BigDecimal("60"))));
@@ -108,6 +110,14 @@ class ApprovalRefundEligibilityReadOnlyTest {
     @Test void onlineUnavailableNeverOffersCashReplacement() {
         original.setPaymentMethod(PayMethod.WECHAT); Map<String,Object> result=read();
         unavailable(result,"线上原渠道退款尚不可用"); assertEquals("ONLINE",result.get("channel"));
+    }
+    @Test void physicalBucketsAcquiredAfterHandoverBlockPreviewWithoutWritingOrLocking() {
+        when(ledger.overQty(7L,1L,10L)).thenReturn(0);
+        unavailable(read(),"实物持有或欠桶已变化");
+        verify(ledger).overQty(7L,1L,10L);verifyNoMoreInteractions(ledger);
+        verifyNoInteractions(lots,payments,recordLots,paymentLocks,deposits);
+        verify(details,never()).lock(anyLong());verify(details,never()).heldLots(anyLong());
+        verify(transactions).commit(transaction);verify(transactions,never()).rollback(any());
     }
     @Test void mockOnlineCapabilityUsesOriginalOnlineChannel() {
         original.setPaymentMethod(PayMethod.WECHAT);

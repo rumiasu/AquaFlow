@@ -40,6 +40,7 @@ import java.util.*;
  */
 @Service
 public class BarrelLedgerService {
+    static final String RETURN_PHYSICAL_BALANCE_CHANGED = "该商品的实物持有或欠桶已变化，请先核实并归还欠桶，再沿原申请办理退押金";
     @Autowired private BarrelBusinessPolicy businessPolicy;
 
     @Autowired private CustomerBarrelLotMapper lotMapper;
@@ -75,12 +76,15 @@ public class BarrelLedgerService {
     @Transactional
     public LotConsumption refundHeldRights(Long customerId, Long stationId, Long productId, Long recordId) {
         lockRights(customerId, stationId, productId);
+        List<Map<String,Object>> held = returnDetailMapper.heldLots(recordId);
+        int quantity = held.stream().mapToInt(row -> ((Number)row.get("qty")).intValue()).sum();
+        if (quantity == 0) throw new BusinessException("未找到本申请的退款批次");
+        requireReturnPhysicalBalance(customerId,stationId,productId,quantity,0);
         Map<Long,CustomerBarrelLot> available = new HashMap<>();
         for (CustomerBarrelLot lot : lotMapper.listAvailableForUpdate(customerId, stationId, productId)) available.put(lot.getId(),lot);
         LotConsumption result = new LotConsumption();
         BigDecimal total = BigDecimal.ZERO;
-        int quantity = 0;
-        for (Map<String,Object> row : returnDetailMapper.heldLots(recordId)) {
+        for (Map<String,Object> row : held) {
             Long lotId = ((Number)row.get("lotId")).longValue();
             int qty = ((Number)row.get("qty")).intValue();
             CustomerBarrelLot lot = available.get(lotId);
@@ -89,15 +93,41 @@ public class BarrelLedgerService {
             BigDecimal amount = (BigDecimal)row.get("amount");
             result.getDetails().add(new LotConsumption.Detail(lotId,qty,lot.getUnitPrice(),amount));
             result.setHasMigratedPrice(result.isHasMigratedPrice() || Integer.valueOf(1).equals(lot.getIsMigrated()));
-            total = total.add(amount); quantity += qty;
+            total = total.add(amount);
         }
-        if (quantity == 0) throw new BusinessException("未找到本申请的退款批次");
         decreaseRight(customerId,stationId,productId,quantity,total);
         overMapper.adjustOver(customerId,stationId,productId,quantity);
         overMapper.syncOwedSince(customerId,stationId,productId);
         if (businessMapper.release("RETURN",recordId,"REFUNDED") != 1) throw new BusinessException("退还权益已被处理");
         result.setAmount(total);
         return result;
+    }
+
+    /** 交接和实退都用当前实物校验；receiving 只表示本次明确登记的收桶量。 */
+    @Transactional
+    public void requireReturnPhysicalBalance(Long customerId,Long stationId,Long productId,int quantity,int receiving) {
+        lockRights(customerId,stationId,productId);
+        // 2026-11-04：申请后仍可发生配送。只查 over>0 会漏掉退权益后新增的欠桶，
+        // 普通 SELECT 又会复用锁等待前的 RR 快照；必须当前读并验证完整退出数量。
+        if(quantity<=0 || receiving<0 || receiving>quantity
+                || (long)lockedOverQty(customerId,stationId,productId)+quantity-receiving>0)
+            throw new BusinessException(RETURN_PHYSICAL_BALANCE_CHANGED);
+    }
+
+    /** 已交回的实物对应待退容量仍由原申请占用，不能被后续订单再次领取。 */
+    @Transactional
+    public void reserveReceivedReturnCapacity(Long customerId,Long stationId,Long productId,Long recordId,int quantity) {
+        requireReturnPhysicalBalance(customerId,stationId,productId,quantity,0);
+        List<BarrelRightReservation> rows=businessMapper.reservationsForUpdate("RETURN",recordId);
+        if(rows.size()!=1)throw new BusinessException("退还容量凭据不完整，请核实原申请");
+        BarrelRightReservation reservation=rows.get(0);
+        if(!Objects.equals(customerId,reservation.getCustomerId()) || !Objects.equals(stationId,reservation.getStationId())
+                || !Objects.equals(productId,reservation.getProductId()) || !Objects.equals(quantity,reservation.getQuantity())
+                || !"ACTIVE".equals(reservation.getStatus()) || reservation.getPendingQty()!=0 || reservation.getPendingPickupQty()!=0)
+            throw new BusinessException("退还容量已变化，请核实原申请");
+        // 2026-11-04：收到桶后仍保留申请时 pickup_qty，会把刚退回但尚未退款的容量借给新订单。
+        if(businessMapper.reserveReceivedReturn(reservation.getId(),recordId,quantity,reservation.getPickupQty())!=1)
+            throw new BusinessException("退还容量已变化，本次交接未登记，请核实原申请");
     }
 
     /** 当前读必须在 over 锁之后；普通聚合读会看见并发提交前的权益。 */

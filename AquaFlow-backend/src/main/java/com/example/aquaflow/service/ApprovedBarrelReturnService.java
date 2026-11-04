@@ -39,6 +39,7 @@ public class ApprovedBarrelReturnService {
     @Autowired private CustomerRiskService risk;
     @Autowired private ProductMapper productMapper;
     @Autowired private OrderMapper orderMapper;
+    @Autowired private OrderItemMapper orderItemMapper;
     @Autowired private StaffMapper staffMapper;
     @Autowired private PaymentRecordMapper paymentMapper;
     @Autowired private ConsumptionRefundMapper paymentLocks;
@@ -96,6 +97,8 @@ public class ApprovedBarrelReturnService {
             return unavailable(view,"请先完成本申请的实际交接，再核对退款");
         if (record.getCustomerId()==null || record.getProductId()==null || record.getQuantity()==null || record.getQuantity()<=0)
             return unavailable(view,"申请信息不完整，请核实原申请");
+        if(detail!=null && (long)ledger.overQty(record.getCustomerId(),stationId,record.getProductId())+record.getQuantity()>0)
+            return unavailable(view,BarrelLedgerService.RETURN_PHYSICAL_BALANCE_CHANGED);
         BigDecimal amount = BigDecimal.ZERO, cashCap=BigDecimal.ZERO;
         boolean expiredCash=false;String pendingReason=null;
         String channel = BarrelRefundDTO.CHANNEL_CASH;
@@ -277,8 +280,7 @@ public class ApprovedBarrelReturnService {
         if (!BarrelScope.isBarrel(productMapper.getById(dto.getProductId()))) throw new BusinessException("该商品不涉及退桶");
         ledger.lockRights(customerId,dto.getStationId(),dto.getProductId());
         checkRisk(customerId,dto.getStationId(),dto.getProductId());
-        if (ledger.overQty(customerId,dto.getStationId(),dto.getProductId()) > 0)
-            throw new BusinessException("请先归还该商品的欠桶，再申请退押金");
+        ledger.requireReturnPhysicalBalance(customerId,dto.getStationId(),dto.getProductId(),dto.getQuantity(),dto.getQuantity());
         if ("COMBINED".equals(mode)) {
             Orders companion=requireCompanion(customerId,dto.getStationId(),dto.getCompanionOrderId());
             if(companion.getStatus()!=OrderStatus.PENDING && companion.getStatus()!=OrderStatus.DELIVERING)
@@ -329,7 +331,7 @@ public class ApprovedBarrelReturnService {
         if (fee == null || fee.signum()<0 || fee.compareTo(new BigDecimal("10000"))>0) throw new BusinessException("取桶费用不合法");
         if ((!"PICKUP".equals(detail.getPickupMode()) || detail.getRequiredBarrels()==0) && fee.signum()!=0)
             throw new BusinessException("到店、顺路或未领桶的权益退还不收独立上门费");
-        if ("COMBINED".equals(detail.getPickupMode())) requireCompanion(record.getCustomerId(),stationId,detail.getCompanionOrderId());
+        requireDistinctCombinedHandover(record,detail);
         Long paymentId = null;
         if (fee.signum()>0) {
             PaymentRecord payment = new PaymentRecord();
@@ -530,10 +532,11 @@ public class ApprovedBarrelReturnService {
         // 2026-10-08：免费原安排不卡收桶；新增费用/水站新安排保留授权，不伪造客户确认。
         if (detail.getCustomerConfirmationRequired() && !detail.getCustomerConfirmationCurrent())
             throw new BusinessException("请先由客户确认新增费用或水站提出的新安排");
-        if ("COMBINED".equals(detail.getPickupMode())) requireCompanion(record.getCustomerId(),record.getStationId(),detail.getCompanionOrderId());
+        requireDistinctCombinedHandover(record,detail);
         if (detail.getFeePaymentId()!=null && paymentMapper.getById(detail.getFeePaymentId()).getStatus()!=PaymentStatus.PAID)
             throw new BusinessException("请先确认实际收到独立上门收桶费");
         int qty = detail.getRequiredBarrels();
+        ledger.requireReturnPhysicalBalance(record.getCustomerId(),record.getStationId(),record.getProductId(),record.getQuantity(),qty);
         if (qty>0) {
             List<BarrelLedgerService.OverChange> changes = ledger.returnEmpty(record.getCustomerId(),record.getStationId(),
                     List.of(new BarrelLedgerService.ItemQty(record.getProductId(),qty)),operatorId);
@@ -544,6 +547,7 @@ public class ApprovedBarrelReturnService {
             received.setOperatorId(operatorId); received.setNote("退还申请实际收桶 " + record.getId()); received.setCreateTime(LocalDateTime.now());
             recordMapper.insert(received);
         }
+        ledger.reserveReceivedReturnCapacity(record.getCustomerId(),record.getStationId(),record.getProductId(),record.getId(),record.getQuantity());
         if (detailMapper.receive(record.getId())!=1 || recordMapper.confirmReceived(record.getId(),operatorId,note)!=1)
             throw new BusinessException("交接状态已变化，请核实原结果");
     }
@@ -620,6 +624,7 @@ public class ApprovedBarrelReturnService {
             return Map.of("payoutId",old.get("id"),"paidAmount",old.get("amount"),"alreadyRecorded",true,"progress",refundProgress(owned(id,station)));
         }
         if(detail==null || !"RECEIVED".equals(detail.getStatus()))throw new BusinessException("请沿已实际交接的原申请办理，不新增或重做退桶");
+        ledger.requireReturnPhysicalBalance(record.getCustomerId(),station,record.getProductId(),record.getQuantity(),0);
         var view=refundEligibility(id,station,true);
         if(!Boolean.TRUE.equals(view.get("available")) || !BarrelRefundDTO.CHANNEL_CASH.equals(view.get("channel")))throw new BusinessException(String.valueOf(view.get("reason")));
         if(amount.compareTo((BigDecimal)view.get("refundAmount"))>0)throw new BusinessException("本次原交付金额超过当前可退上限，请查原记录；本次未登记，勿重复交款");
@@ -686,6 +691,16 @@ public class ApprovedBarrelReturnService {
             if(original==null || !Integer.valueOf(PayMethod.CASH).equals(original.getPaymentMethod()))throw new BusinessException("旧申请缺原渠道固定批次凭据，请核实原款，不能改交现金");
         }
     }
+    private void requireDistinctCombinedHandover(BarrelRecord record,BarrelReturnDetail detail) {
+        if(!"COMBINED".equals(detail.getPickupMode()))return;
+        requireCompanion(record.getCustomerId(),record.getStationId(),detail.getCompanionOrderId());
+        // 2026-11-04：配送页输入的是实际收回总量，尚无同次交接的退押金分项凭据。
+        // 同商品再走申请收桶会重复减少实物；未领容量和不同商品不受这一限制。
+        if(detail.getRequiredBarrels()>0 && orderItemMapper.listByOrderId(detail.getCompanionOrderId()).stream()
+                .anyMatch(item -> Objects.equals(record.getProductId(),item.getProductId())))
+            throw new BusinessException("同商品随单收桶尚不能与送水回桶分别核对，请在原申请改为到店或独立上门，并分别核对实际交桶；已记入送水订单的桶请勿重复登记");
+    }
+
     private Orders requireCompanion(Long customerId,Long stationId,Long orderId) {
         Orders order = orderId==null ? null : orderMapper.getById(orderId);
         if (order==null || !Objects.equals(order.getCustomerId(),customerId) || !Objects.equals(order.getStationId(),stationId)

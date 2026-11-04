@@ -1,4 +1,5 @@
 // 本地存储工具
+const { captureSession, isCurrentSession } = require('./token')
 
 const storage = {
   get: (key) => {
@@ -123,11 +124,30 @@ const payMethodStorage = {
   remove: () => storage.remove('lastPayMethod')
 }
 
+// 2026-11-04：原 selectedAddress 裸对象在异常退出后会被下一账号消费。
+// 归属随选择一起保存；不推断旧条目的主人，读取时按当前账号核对并一次性消费。
+const selectedAddressStorage = {
+  set: (address, session = captureSession()) => {
+    if (!session.loggedIn || !session.customerId || !isCurrentSession(session)
+      || !address || !address.id) return false
+    return storage.set('selectedAddress', { customerId: String(session.customerId), address })
+  },
+  take: (session = captureSession()) => {
+    const selection = storage.get('selectedAddress')
+    storage.remove('selectedAddress')
+    if (!session.loggedIn || !session.customerId || !isCurrentSession(session)
+      || !selection || selection.customerId !== String(session.customerId)
+      || !selection.address || !selection.address.id) return null
+    return selection.address
+  }
+}
+
 module.exports = {
   storage,
   tokenStorage,
   userStorage,
   searchStorage,
   stationStorage,
-  payMethodStorage
+  payMethodStorage,
+  selectedAddressStorage
 }

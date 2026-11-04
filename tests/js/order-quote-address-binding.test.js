@@ -33,7 +33,7 @@ function fixture(options = {}) {
   } })
   page.setData({ stationId: 1, products: [{ id: 5, name: '合成商品', quantity: 1, price: 20, category: 1 }],
     address: A, selectedMethod: options.method || 1, loading: false })
-  const select = address => { require('../../miniapp-user/utils/storage').storage.set('selectedAddress', address); page.onShow() }
+  const select = address => { require('../../miniapp-user/utils/storage').selectedAddressStorage.set(address); page.onShow() }
   return { page, wx, app, calls, select }
 }
 function blocked(t) {

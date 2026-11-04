@@ -15,6 +15,7 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'selected-address-account.test.js', name: 'customer selected address account isolation' },
   { file: 'submitted-cart-flow.test.js', name: 'confirmed cart consumption' },
   { file: 'companion-orders-pagination.test.js', name: 'active companion order pagination' },
   { file: 'barrel-product-limit.test.js', name: 'per-product return quantity limit' },

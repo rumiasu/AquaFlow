@@ -35,12 +35,19 @@ function fixture(name, overrides = {}) {
     stopPullDownRefresh: () => { calls.stop++ },
     getSetting: o => { calls.setting = o }, chooseLocation: o => { calls.location = o }, openSetting: () => { calls.openSetting = true }
   }, overrides.wx || {})
+  const token = { getCustomerId: () => 7, captureSession: () => ({ epoch: sessionEpoch, customerId: 7, loggedIn: true }), isCurrentSession: value => value.epoch === sessionEpoch }
+  const storageModule = { exports: {} }
+  // Keep the real account-owned handoff contract; only platform storage and session identity are synthetic.
+  vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'miniapp-user/utils/storage.js'), 'utf8'), {
+    module: storageModule, require: name => { if (name === './token') return token; throw Error('Unexpected storage dependency ' + name) },
+    wx: Object.assign({}, wx, { setStorageSync: (key, value) => { wx.setStorageSync(key, value); calls.write.push({ key, value }) } }), console
+  }, { filename: 'miniapp-user/utils/storage.js' })
   const deps = {
     'api/address': api, 'api/notice': api, 'api/company': api, 'utils/request': api,
-    'utils/storage': { storage: { set: (key, value) => calls.write.push({ key, value }) } },
+    'utils/storage': storageModule.exports,
     'utils/address': { formatAddress: a => [a.district, a.detail].filter(Boolean).join(''), parseRegion: s => ({ province: '', city: '', district: '', detail: s }) },
     'utils/validator': { validateForm: () => ({ valid: true }), rules: {} },
-    'utils/token': { getCustomerId: () => 7, captureSession: () => ({ epoch: sessionEpoch, customerId: 7, loggedIn: true }), isCurrentSession: value => value.epoch === sessionEpoch },
+    'utils/token': token,
     'utils/format': { formatTime: s => s || '' },
     'config/api': { API: { CUSTOMER_EXCEPTIONS: '/api/customer/exceptions' } }
   }

@@ -22,7 +22,7 @@ assert(pendingText.includes('核对收款方及款项后登记'))
 assert(pendingText.includes('待确认不代表已到账'))
 // The redesigned list uses one actionable caution; transaction/channel facts are checked in payment suites.
 const pendingRow = view('miniapp-delivery/pages/station-mgmt/payments/index', { view: 'pending', list: [{ id: 7, amountText: '1.00' }], loading: false })
-assert(pendingRow.some(n => n.tag === 'button' && n.attrs.bindtap === 'onConfirm')); assert(!pendingText.includes('同意购票'))
+assert(pendingRow.some(n => n.tag === 'button' && n.attrs.catchtap === 'onConfirm')); assert(!pendingText.includes('同意购票'))
 const history = view('miniapp-delivery/pages/station-mgmt/payments/index', { view: 'ticketHistory', list: [], loading: false })
 assert(!text(history).includes('待确认不代表已到账'))
 const feedbackBase = { activeSection: 'feedback', denied: false, list: [], disputes: [], type: 'error', errMsg: '连接失败' }

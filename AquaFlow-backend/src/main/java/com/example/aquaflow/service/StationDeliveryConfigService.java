@@ -36,7 +36,8 @@ public class StationDeliveryConfigService {
     @Transactional
     public Snapshot save(Long stationId, DeliveryConfigSaveDTO body) {
         if (body.getExpectedSnapshot() == null || body.getExpectedSnapshot().isBlank()) {
-            throw new BusinessException("请重新加载配送配置后再保存");
+            // 旧员工端不会发送快照；重复加载页面仍无法恢复，须明确引导更新小程序。
+            throw new BusinessException("请更新员工端小程序至最新版本后再保存配送计费规则");
         }
         if (mapper.lockStation(stationId) == null) {
             throw new BusinessException("水站不存在");

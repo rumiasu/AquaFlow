@@ -58,7 +58,9 @@ class DeliveryConfigConcurrencyIntegrationTest extends AbstractIntegrationTest {
         long otherStation = createUnconfiguredStation("配置他站");
         String otherToken = manager(otherStation);
         String otherSnapshot = get(PATH, otherToken).data().path("snapshot").asText();
-        assertEquals(1, put(PATH, token, "{\"baseDeliveryFee\":9}").code());
+        var oldClient = put(PATH, token, "{\"baseDeliveryFee\":9}");
+        assertEquals(1, oldClient.code());
+        assertEquals("请更新员工端小程序至最新版本后再保存配送计费规则", oldClient.message());
         assertEquals(1, put(PATH, token, payload(otherSnapshot, "9")).code());
         assertEquals(0, intOf("select count(*) from station_delivery_config where station_id in (?,?)", station, otherStation));
     }

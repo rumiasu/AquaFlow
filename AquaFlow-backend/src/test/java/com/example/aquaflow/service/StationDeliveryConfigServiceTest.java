@@ -19,7 +19,10 @@ class StationDeliveryConfigServiceTest {
 
     @Test
     void missingSnapshotCannotBypassConcurrencyGuard() {
-        assertThrows(BusinessException.class, () -> service.save(1L, new DeliveryConfigSaveDTO()));
+        for (String snapshot : new String[] {null, "", "  "}) {
+            var error = assertThrows(BusinessException.class, () -> service.save(1L, body(snapshot)));
+            assertEquals("请更新员工端小程序至最新版本后再保存配送计费规则", error.getMessage());
+        }
         verifyNoInteractions(mapper);
     }
 
@@ -30,6 +33,8 @@ class StationDeliveryConfigServiceTest {
         when(mapper.getByStationIdForUpdate(1L)).thenReturn(StationDeliveryConfig.defaults(1L));
         var error = assertThrows(BusinessException.class, () -> service.save(1L, body));
         assertTrue(error.getMessage().contains("其他会话"));
+        assertTrue(error.getMessage().contains("重新加载"), "有效但过期的快照仍通过刷新恢复");
+        assertFalse(error.getMessage().contains("更新员工端"));
         verify(mapper, never()).upsert(any());
     }
 

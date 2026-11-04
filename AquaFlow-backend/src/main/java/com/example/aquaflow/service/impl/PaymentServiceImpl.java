@@ -625,8 +625,21 @@ public class PaymentServiceImpl implements PaymentService {
             }
             return;
         }
-        // 幂等：已有 PAID 流水则跳过，不重复记账（#27）
-        if (hasPaidRecord(orderId)) {
+        // 2026-11-04：应收核销曾把未付微信原款改成 PAID，或替它新建现金收款。
+        // 非分项现场收款只认原订单现金方式；终态不能复活，PAID 保留给确认收款后的幂等调用。
+        if (!Objects.equals(order.getPaymentMethod(), PayMethod.CASH)
+                || Objects.equals(order.getStatus(), OrderStatus.CANCELLED)
+                || Objects.equals(order.getPaymentStatus(), PaymentStatus.REFUNDED)
+                || Objects.equals(order.getPaymentStatus(), PaymentStatus.CANCELLED)) {
+            throw new BusinessException("本单不能按现金确认收款，请核对原付款方式和订单状态");
+        }
+        // 与 confirmPayment 共用原款核验；先锁订单再当前读流水，不能把错配原款修成已收事实。
+        List<PaymentRecord> activePayments = paymentRecordMapper.activeByOrderForUpdate(orderId);
+        for (PaymentRecord original : activePayments) {
+            ticketPayments.validateRecord(order, original);
+        }
+        // 幂等：已有合法 PAID 流水则跳过，不重复记账（#27）。
+        if (activePayments.stream().anyMatch(r -> Objects.equals(r.getStatus(), PaymentStatus.PAID))) {
             return;
         }
         String finalNote = note != null && !note.isEmpty() ? note : "现场收款（货到付款）";
@@ -860,6 +873,20 @@ public class PaymentServiceImpl implements PaymentService {
                 && (expectedRefundAmount==null || expectedRefundAmount.compareTo(paid.getAmount())!=0))
                 throw new BusinessException("取消须明确确认实际退还的服务费金额，请重新预览本单退款");
         }
+        // 2026-11-04：取消曾只关闭订单，留下现金 PENDING，继续占据活跃原款并显示待收款。
+        // 在释放水票预留前保存到付事实；仅终止未收现金，不把未知微信结果猜成取消或退款。
+        boolean cashOnDelivery = ticketPayments.cod(order);
+        List<PaymentRecord> activePayments = paymentRecordMapper.activeByOrderForUpdate(orderId);
+        if (cashOnDelivery) {
+            for (PaymentRecord original : activePayments) {
+                if (Objects.equals(original.getPaymentMethod(), PayMethod.CASH)
+                        && Objects.equals(original.getStatus(), PaymentStatus.PENDING)
+                        && paymentRecordMapper.updateStatusTo(original.getId(), PaymentStatus.CANCELLED,
+                                PaymentStatus.PENDING) != 1) {
+                    throw new BusinessException("待收款状态已变化，本次取消已回滚，请刷新后重试");
+                }
+            }
+        }
         Long customerId = order.getCustomerId();
         // ===== 站别口径（跨站外派单必须分清，混用会真丢钱）=====
         // 这里退的是**客户的资产**：预收押金、水票。它们在收款时一律记【归属站】(ownerStation)，
@@ -879,7 +906,7 @@ public class PaymentServiceImpl implements PaymentService {
         // 唯一新增的是"已回补过就跳过"的幂等闸门（两条退款路径可能先后碰到同一张单）。
         restoreTicketsForOrder(order, orderId, reason);
 
-        List<PaymentRecord> paidRecords = paymentRecordMapper.listByOrderId(orderId).stream()
+        List<PaymentRecord> paidRecords = activePayments.stream()
                 .filter(r -> r.getStatus() == PaymentStatus.PAID)
                 .toList();
 

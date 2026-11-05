@@ -41,8 +41,7 @@ public class UnusedTicketRefundService {
     @Transactional
     public void refund(Long paymentId,String note,Integer expectedQty,BigDecimal expectedAmount,String idempotencyKey) {
         if(expectedQty==null || expectedAmount==null) throw new BusinessException("请先核实并确认本批剩余水票数量和实退金额");
-        if(idempotencyKey==null || idempotencyKey.isBlank()) throw new BusinessException("请重新打开退票批次后再提交");
-        if(idempotencyKey.length()>64) throw new BusinessException("退票请求凭据过长");
+        requireValidRequestKey(idempotencyKey);
         PaymentRecord p=locks.lockPayment(paymentId);
         if (p==null || p.getOrderId()!=null || p.getTicketQty()==null || p.getTicketQty()<=0
                 || !AuthContext.requireStationId().equals(p.getStationId())) throw new BusinessException("仅购票原收款站可办理本批剩余票退款");
@@ -91,6 +90,23 @@ public class UnusedTicketRefundService {
         r.setCreateTime(LocalDateTime.now()); r.setUpdateTime(LocalDateTime.now()); payments.insert(r);
         if (receipts.insert(paymentId,r.getId(),idempotencyKey,consumed.getQuantity(),amount,AuthContext.getUserId())!=1) throw new BusinessException("退票凭据未保存");
         if (newTotalQty==p.getTicketQty() && payments.updateStatusTo(paymentId,PaymentStatus.REFUNDED,PaymentStatus.PAID)!=1) throw new BusinessException("原款状态已变更");
+    }
+    /**
+     * 请求键直接写入 {@code ticket_exit_refund.idempotency_key}（varchar(64) ascii_bin）。
+     * 非 ASCII 在 ascii 列会变成数据库异常；尾空格在 PAD SPACE 比较下可能与无空格键同值。
+     * 这里只做拒绝，不 trim：静默改键会把“原键重试”改成另一把键。
+     */
+    static void requireValidRequestKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank())
+            throw new BusinessException("请重新打开退票批次后再提交");
+        for (int i = 0; i < idempotencyKey.length(); i++) {
+            if (idempotencyKey.charAt(i) > 0x7F)
+                throw new BusinessException("退票请求凭据只能包含 ASCII 字符");
+        }
+        if (!idempotencyKey.isEmpty() && idempotencyKey.charAt(idempotencyKey.length() - 1) == ' ')
+            throw new BusinessException("退票请求凭据末尾不能是空格");
+        if (idempotencyKey.length() > 64)
+            throw new BusinessException("退票请求凭据过长");
     }
     private static BigDecimal nz(BigDecimal value){return value==null?BigDecimal.ZERO:value;}
     private static BigDecimal decimal(Object value){return value==null?BigDecimal.ZERO:new BigDecimal(value.toString());}

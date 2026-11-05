@@ -15,6 +15,7 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'mine-barrel-stats.test.js', name: 'mine statistics use barrel quantities with scoped sources and unknown-state recovery' },
   { file: 'staff-order-delivery-handoff.test.js', name: 'phone order success navigation and delivery task handoff' },
   { file: 'delivery-task-read-recovery.test.js', name: 'delivery task stale reads and action confirmation recovery' },
   { file: 'manager-entry-navigation.test.js', name: 'manager workbench and application tab navigation' },

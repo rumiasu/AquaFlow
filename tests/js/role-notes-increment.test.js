@@ -167,9 +167,9 @@ test('nickname fallback identifies a manager correctly and avoids duplicate role
 })
 test('personal stats order uses existing personal fields and unknown values stay unknown', () => {
   const t = mine('DELIVERY')
-  t.page.setData({ statsReady: true, todayStats: { completedCount: 12, deliveringCount: 3, returnBarrels: 7 } })
+  t.page.setData({ statsReady: true, todayStats: { completedBarrels: 12, deliveringBarrels: 3, returnBarrels: 7 } })
   let result = mineSection('stats-card', t.page.data)
-  assert.deepEqual(result.filter(n => n.className.includes('stats-value')).map(n => n.text), ['3', '12', '7'])
+  assert.deepEqual(result.filter(n => n.className.includes('stats-value')).map(n => n.text), ['3 桶', '12 桶', '7 桶'])
   assert.deepEqual(result.filter(n => n.className === 'stats-label').map(n => n.text), ['配送中', '今日送达', '回桶数'])
   t.page.setData({ statsReady: false })
   result = mineSection('stats-card', t.page.data)
@@ -177,7 +177,7 @@ test('personal stats order uses existing personal fields and unknown values stay
 })
 test('manager summary preserves income/cost and barrel uncertainty instead of showing fake zero', () => {
   const t = mine('STATION_MANAGER')
-  t.page.setData({ managerStatsLoading: false, todayProfit: { metricLabel: '今日收入', netProfitText: '268.00', orderCount: 6 }, risk: { barrelExceptionFailed: true, owedCustomerFailed: true } })
+  t.page.setData({ managerStatsLoading: false, todayProfit: { metricLabel: '今日收入', netProfitText: '268.00', orderCount: 6, barrelCountText: '18 桶' }, risk: { barrelExceptionFailed: true, owedCustomerFailed: true } })
   const result = mineSection('stats-card', t.page.data)
   assert(result.some(n => n.text === '本站概况'))
   assert(result.some(n => n.text === '今日收入'))

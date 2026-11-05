@@ -137,6 +137,7 @@ public class ManagerGrossProfitController {
      * {@code orderCount} / {@code deliveryFee} / {@code floorFee} / {@code totalIncome}
      * / {@code wage} / {@code netProfit} —— 六个字段全部取自<b>同一订单集合</b>，
      * 看 {@code profitBasisNote} 了解口径。</p>
+     * <p>{@code barrelCount} 供员工端我的页展示，同一订单集合只累加桶装水明细数量；保留原单数字段。</p>
      *
      * <p>所选期间缺失出库成本时，成本合计与两个利润字段均为 null；客户端只展示收入。
      * 入库成本为选填，不要求事后补价，也不影响商品或营业。</p>
@@ -278,6 +279,8 @@ public class ManagerGrossProfitController {
                 start.atStartOfDay(), end.plusDays(1).atStartOfDay());
         int orderCount = fees == null || fees.get("orderCount") == null
                 ? 0 : ((Number) fees.get("orderCount")).intValue();
+        long barrelCount = fees == null || fees.get("barrelCount") == null
+                ? 0L : ((Number) fees.get("barrelCount")).longValue();
         BigDecimal deliveryFee = fees == null ? BigDecimal.ZERO : dec(fees.get("deliveryFee"));
         BigDecimal floorFee = fees == null ? BigDecimal.ZERO : dec(fees.get("floorFee"));
         BigDecimal wage = wageRow == null ? BigDecimal.ZERO : dec(wageRow.get("wage"));
@@ -291,6 +294,7 @@ public class ManagerGrossProfitController {
                 ? null : totalIncome.subtract(totalCost).subtract(wage);
 
         data.put("orderCount", orderCount);
+        data.put("barrelCount", barrelCount);
         data.put("deliveryFee", deliveryFee);
         data.put("floorFee", floorFee);
         data.put("totalIncome", totalIncome);

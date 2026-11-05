@@ -18,6 +18,7 @@ import com.example.aquaflow.service.CustomerRiskService;
 import com.example.aquaflow.service.DeliveryConsoleService;
 import com.example.aquaflow.service.InventoryReservationService;
 import com.example.aquaflow.service.OrderWorkflowService;
+import com.example.aquaflow.util.BarrelScope;
 import com.example.aquaflow.util.CustomerProfileMask;
 import com.example.aquaflow.util.StationUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * 员工端配送控制台只读投影的实现（F-18：由 {@code DeliveryController} 原样搬出）。
@@ -179,6 +181,21 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
         stats.put("deliveryTimeUnverifiedCount", orderMapper.countDeliveryTimeUnverified(staffId));
         var delivering = orderMapper.listByDeliveryStaffId(staffId, OrderStatus.DELIVERING);
         stats.put("deliveringCount", delivering.size());
+        // 2026-11-05：我的页展示送水桶数；同一批获准订单按桶装水明细计量，不混入瓶装水/设备或回桶。
+        List<Long> orderIds = Stream.concat(completed.stream(), delivering.stream())
+                .map(Orders::getId).distinct().toList();
+        Map<Long, Long> barrelsByOrder = new HashMap<>();
+        if (!orderIds.isEmpty()) {
+            for (OrderItem item : orderItemMapper.listSummaryByOrderIds(orderIds)) {
+                if (BarrelScope.isBarrelCategory(item.getCategory()) && item.getQuantity() != null) {
+                    barrelsByOrder.merge(item.getOrderId(), item.getQuantity().longValue(), Long::sum);
+                }
+            }
+        }
+        stats.put("completedBarrels", completed.stream()
+                .mapToLong(order -> barrelsByOrder.getOrDefault(order.getId(), 0L)).sum());
+        stats.put("deliveringBarrels", delivering.stream()
+                .mapToLong(order -> barrelsByOrder.getOrDefault(order.getId(), 0L)).sum());
         int totalReturn = completed.stream()
                 .mapToInt(o -> o.getReturnBucketQty() != null ? o.getReturnBucketQty() : 0)
                 .sum();

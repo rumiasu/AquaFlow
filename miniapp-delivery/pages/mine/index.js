@@ -14,7 +14,7 @@ Page({
     userInfo: null,
     todayStats: {}, statsLoading: false, statsError: '', statsReady: false,
     // 站长三格（[2026-09-19] 按角色分叉，见 loadManagerStats）：
-    // 今日净利与单数（净利为 null = 有商品没填成本 → 显示「未填成本」+ 一行说明，
+    // 今日净利与下单桶数（净利为 null = 有商品没填成本 → 显示「未填成本」+ 一行说明，
     // 见 _decorateProfit）、桶异常 / 欠桶客户数
     todayProfit: null, managerStatsLoading: false, managerStatsError: '',
     // [2026-09-20 真机联调] 两个**失败标记**：接口拉不到时绝不能把两格显示成 0。
@@ -116,7 +116,7 @@ Page({
     const identity = this.readIdentity()
     if (!this._visibleIdentity || this._visibleIdentity.app !== identity.app || this._visibleIdentity.generation !== identity.generation || this._visibleIdentity.key !== identity.key) {
       this._visibleIdentity = identity
-      this.setData({ todayStats: {}, statsReady: false, statsError: '', todayProfit: { netProfitText: '待核实', orderCount: '待核实' },
+      this.setData({ todayStats: {}, statsReady: false, statsError: '', todayProfit: { netProfitText: '待核实', orderCount: '待核实', barrelCountText: '待核实' },
         risk: { barrelExceptionCount: 0, owedCustomerCount: 0, barrelExceptionFailed: true, owedCustomerFailed: true },
         stationInfo: null, stationInfoError: '', staffList: [], bindApplications: [], staffReadReady: false, applicationsReadReady: false, staffReadError: '', applicationsReadError: '' })
     }
@@ -159,8 +159,13 @@ Page({
     try {
       const res = await getTodayStats()
       if (!this.currentRead(ctx)) return
-      if (!res.data) throw new Error('今日配送统计尚未读取')
-      this.setData({ todayStats: res.data, statsReady: true })
+      if (!res || (res.code != null && res.code !== 0 && res.code !== 200) || !res.data || typeof res.data !== 'object' || Array.isArray(res.data)) throw new Error('今日配送统计尚未读取')
+      const todayStats = { ...res.data }
+      const quantities = ['deliveringBarrels', 'completedBarrels', 'returnBarrels']
+      quantities.forEach(key => { todayStats[key] = this._knownCount(res.data[key]) ? Number(res.data[key]) : null })
+      // 老版本只返回单数时保持未知，不能换个单位后仍展示单数。
+      this.setData({ todayStats, statsReady: true,
+        statsError: quantities.some(key => todayStats[key] === null) ? '部分配送桶数尚未核实，请重试' : '' })
     } catch (err) {
       if (!this.currentRead(ctx)) return
       // 静默失败会让看板把「没加载出来」显示成 0，误导站长。至少留痕 + 提示。
@@ -170,7 +175,7 @@ Page({
     } finally { if (this.currentRead(ctx)) this.setData({ statsLoading: false }) }
   },
 
-  /** 站长三格：今日净利 / 今日单数 / 桶异常·欠桶。三个请求互不依赖，任一失败只影响自己那一格。 */
+  /** 站长概况：今日净利 / 今日下单桶数 / 桶异常·欠桶。三个请求互不依赖，任一失败只影响自己那一格。 */
   async loadManagerStats() {
     const ctx = this.beginRead('overview')
     this.setData({ managerStatsLoading: true, managerStatsError: '' })
@@ -188,7 +193,7 @@ Page({
     } else {
       // 取不到就给"—"而不是 0：0 会被读成"今天一分没赚"
       console.warn('[Mine] 今日净利加载失败:', profitRes.reason && profitRes.reason.message)
-      next.todayProfit = { netProfitText: '待核实', netProfitWarn: true, costMissing: false, orderCount: '待核实', readFailed: true }
+      next.todayProfit = { netProfitText: '待核实', netProfitWarn: true, costMissing: false, orderCount: '待核实', barrelCountText: '待核实', readFailed: true }
     }
 
     const risk = { barrelExceptionCount: null, owedCustomerCount: null, barrelExceptionFailed: true, owedCustomerFailed: true }
@@ -235,13 +240,15 @@ Page({
     const amount = complete ? d.netProfit : d.totalIncome
     const known = finiteMoney(amount)
     const countKnown = this._knownCount(d.orderCount)
+    const barrelsKnown = this._knownCount(d.barrelCount)
     return {
       netProfitText: known ? '¥' + Number(amount).toFixed(2) : '待核实',
       metricLabel: complete ? '今日净利' : '今日收入',
       netProfitWarn: !known,
       costMissing: false,
       orderCount: countKnown ? Number(d.orderCount) : '待核实',
-      readFailed: !known || !countKnown
+      barrelCountText: barrelsKnown ? Number(d.barrelCount) + ' 桶' : '待核实',
+      readFailed: !known || !countKnown || !barrelsKnown
     }
   },
 
@@ -257,7 +264,7 @@ Page({
       String(d.getDate()).padStart(2, '0')
   },
 
-  /** 点「今日净利 / 今日单数」→ 利润报表页，并把期间锁定为今天（页面据 range=today 设 from/to）。 */
+  /** 点「今日净利 / 今日下单桶数」→ 利润报表页，并把期间锁定为今天（页面据 range=today 设 from/to）。 */
   onGoTodayProfit() {
     wx.navigateTo({ url: '/pages/station-mgmt/gross-profit/index?range=today' })
   },

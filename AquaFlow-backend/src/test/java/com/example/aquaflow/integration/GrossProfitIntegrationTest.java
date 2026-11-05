@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import static org.junit.jupiter.api.Assertions.*;
 /** HTTP receipts and transactional cost snapshots; missing history stays unknown. */
 @Import(TestBusinessClock.Config.class)
@@ -50,6 +51,82 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
   money("0",report(),"totalIncome");
   String ot=staffToken(createStaff("履约站长","STATION_MANAGER",other,1),"STATION_MANAGER",other);
   JsonNode r=get("/api/manager/gross-profit",ot).data();money("40",r,"totalIncome");money("10",r,"totalCost");money("30",r,"totalProfit");
+ }
+
+ @Test void barrelCountUsesOnlyBarrelItemsWithoutMultiplyingOrderFees(){
+  JsonNode empty=report();
+  assertTrue(empty.path("barrelCount").isIntegralNumber());
+  assertEquals(0,empty.path("barrelCount").asLong());
+  assertEquals(0,empty.path("orderCount").asInt());
+  reportOrder(station,product,4,2,1,7,TestBusinessClock.now());
+  JsonNode nonBarrel=report();
+  assertEquals(0,nonBarrel.path("barrelCount").asLong());
+  assertEquals(1,nonBarrel.path("orderCount").asInt());
+
+  long barrelA=createProduct("桶装水甲",1,"20","0",0,"0");
+  long barrelB=createProduct("桶装水乙",1,"20","0",0,"0");
+  long device=createProduct("饮水设备",3,"20","0",0,"0");
+  long mixed=reportOrder(station,barrelA,4,2,1,2,TestBusinessClock.now());
+  createOrderItemFull(mixed,barrelB,"桶装水乙",3,0,"20","0");
+  createOrderItemFull(mixed,product,"瓶装水",9,0,"20","0");
+  createOrderItemFull(mixed,device,"饮水设备",4,0,"20","0");
+  long second=reportOrder(station,barrelA,4,2,2,4,TestBusinessClock.now());
+  jdbc.update("update orders set water_amount=360,total_amount=367,delivery_fee=5,floor_fee=2,quantity=99,delivery_bucket_qty=99 where id=?",mixed);
+  jdbc.update("update orders set total_amount=90,delivery_fee=7,floor_fee=3 where id=?",second);
+  // 商品下架不应使已存在订单的桶数消失；桶数也不能取订单头的遗留数量。
+  jdbc.update("update product set status=0 where id=?",barrelB);
+  JsonNode r=report();
+  assertEquals(3,r.path("orderCount").asInt());
+  assertEquals(9,r.path("barrelCount").asLong());
+  money("12",r,"deliveryFee");money("5",r,"floorFee");
+ }
+
+ @Test void barrelCountKeepsCreationWindowStatusAndPaymentScope(){
+  long barrel=createProduct("桶装水",1,"20","0",0,"0");
+  LocalDateTime start=TestBusinessClock.today().atStartOfDay();
+  reportOrder(station,barrel,1,0,1,1,start);
+  reportOrder(station,barrel,2,1,2,2,start.plusHours(1));
+  reportOrder(station,barrel,3,2,3,3,start.plusHours(2));
+  reportOrder(station,barrel,4,2,1,4,start.plusDays(1).minusSeconds(1));
+  reportOrder(station,barrel,5,2,1,8,start.plusHours(3));
+  long old=reportOrder(station,barrel,4,2,1,16,start.minusSeconds(1));
+  jdbc.update("update orders set update_time=? where id=?",start.plusHours(4),old);
+  reportOrder(station,barrel,4,2,1,32,start.plusDays(1));
+  JsonNode r=report();
+  assertEquals(4,r.path("orderCount").asInt());
+  assertEquals(10,r.path("barrelCount").asLong());
+ }
+
+ @Test void barrelCountKeepsSettlementStationPrecedenceAndFallbacks(){
+  long other=createStation("另一水站");
+  long barrel=createProduct("桶装水",1,"20","0",0,"0");
+  long settledHere=reportOrder(other,barrel,4,2,1,2,TestBusinessClock.now());
+  jdbc.update("update orders set settle_station_id=? where id=?",station,settledHere);
+  long deliveredHere=reportOrder(other,barrel,4,2,1,3,TestBusinessClock.now());
+  jdbc.update("update orders set settle_station_id=null,delivery_station_id=? where id=?",station,deliveredHere);
+  long ownedHere=reportOrder(station,barrel,4,2,1,5,TestBusinessClock.now());
+  jdbc.update("update orders set settle_station_id=null,delivery_station_id=null where id=?",ownedHere);
+  long settledElsewhere=reportOrder(station,barrel,4,2,1,7,TestBusinessClock.now());
+  jdbc.update("update orders set settle_station_id=? where id=?",other,settledElsewhere);
+  long deliveredElsewhere=reportOrder(station,barrel,4,2,1,11,TestBusinessClock.now());
+  jdbc.update("update orders set settle_station_id=null,delivery_station_id=? where id=?",other,deliveredElsewhere);
+  JsonNode r=report();
+  assertEquals(3,r.path("orderCount").asInt());
+  assertEquals(10,r.path("barrelCount").asLong());
+  String otherToken=staffToken(createStaff("另一站长","STATION_MANAGER",other,1),"STATION_MANAGER",other);
+  String day=TestBusinessClock.today().toString();
+  Api response=get("/api/manager/gross-profit?from="+day+"&to="+day+"&stationId="+station,otherToken);
+  assertEquals(0,response.code(),response.toString());
+  assertEquals(2,response.data().path("orderCount").asInt());
+  assertEquals(18,response.data().path("barrelCount").asLong());
+ }
+
+ private long reportOrder(long ownerStation,long itemProduct,int status,int paymentStatus,int method,int quantity,LocalDateTime created){
+  String amount=BigDecimal.valueOf(20L*quantity).toPlainString();
+  long id=createOrderFull(customer,address,ownerStation,itemProduct,status,paymentStatus,method,amount,"0",amount,false,quantity);
+  createOrderItemFull(id,itemProduct,"统计商品",quantity,0,"20","0");
+  jdbc.update("update orders set create_time=? where id=?",created,id);
+  return id;
  }
 
 }

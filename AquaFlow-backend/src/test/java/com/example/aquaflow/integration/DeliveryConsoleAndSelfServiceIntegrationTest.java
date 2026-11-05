@@ -62,7 +62,7 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
     }
 
     @Test
-    @DisplayName("今日送达按业务日及事件时间：审计优先、桶流水备用、边界去重，补收款不改日期")
+    @DisplayName("今日送达按事件时间：桶数只计桶装水明细，边界去重，补收款不改日期")
     void dailyDeliveryEventsRespectPrecedenceBoundariesAndRemainStableAfterCollection() {
         long station = createStation("今日送达口径站");
         long delivery = createStaff("今日送达配送员", "DELIVERY", station, 1);
@@ -81,12 +81,30 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
         long unknown = deliveryReadOrder(customer, address, station, product, delivery, 4, 9);
         long otherOrder = deliveryReadOrder(customer, address, station, product, other, 4, 9);
         long stillDelivering = deliveryReadOrder(customer, address, station, product, delivery, 2, 9);
+        long cancelled = deliveryReadOrder(customer, address, station, product, delivery, 5, 9);
+        long returned = deliveryReadOrder(customer, address, station, product, delivery, 1, 9);
+        long otherStation = createStation("其他履约站");
+        long wrongFulfillmentStation = deliveryReadOrder(customer, address, otherStation, product, delivery, 2, 9);
+        createOrderItem(unpaid, product, "三桶水", 3, "10.00", "0.00", 1);
+        createOrderItem(unpaid, bottle, "七瓶水", 7, "10.00", "0.00", 0);
+        createOrderItem(zeroNonBarrel, bottle, "六瓶水", 6, "10.00", "0.00", 0);
+        createOrderItem(stillDelivering, product, "在途四桶水", 4, "10.00", "0.00", 1);
+        createOrderItem(stillDelivering, bottle, "在途八瓶水", 8, "10.00", "0.00", 0);
+        for (long excluded : new long[]{yesterday, tomorrowBoundary, unknown, otherOrder,
+                cancelled, returned, wrongFulfillmentStation}) {
+            createOrderItem(excluded, product, "不属于统计集合的五十桶", 50, "10.00", "0.00", 1);
+        }
+        jdbc.update("UPDATE orders SET quantity=10 WHERE id=?", unpaid);
+        jdbc.update("UPDATE orders SET quantity=6 WHERE id=?", zeroNonBarrel);
+        // 在途仍是全部当前配送中订单，不能随今日送达一起加下单日期限制。
+        jdbc.update("UPDATE orders SET quantity=12,create_time=? WHERE id=?", start.minusDays(1), stillDelivering);
         deliveryCompleteEvent(unpaid, start);
         deliveryCompleteEvent(unpaid, until.plusHours(1)); // 首次送达有效，后续重复事件不挪日期。
         deliveryLedgerEvent(customer, station, product, unpaid, start.minusSeconds(1));
         deliveryCompleteEvent(zeroNonBarrel, until.minusSeconds(1)); // 无type8也要计入零桶/非桶完成。
-        createOrderItem(type8Only, product, "第一款水", 1, "10.00", "0.00", 1);
-        createOrderItem(type8Only, secondProduct, "第二款水", 1, "10.00", "0.00", 1);
+        createOrderItem(type8Only, product, "第一款水", 2, "10.00", "0.00", 1);
+        createOrderItem(type8Only, secondProduct, "第二款水", 3, "10.00", "0.00", 1);
+        jdbc.update("UPDATE orders SET quantity=5 WHERE id=?", type8Only);
         deliveryLedgerEvent(customer, station, product, type8Only, start.plusHours(11));
         deliveryLedgerEvent(customer, station, secondProduct, type8Only, start.plusHours(11));
         deliveryCompleteEvent(yesterday, start.minusHours(12));
@@ -94,6 +112,8 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
         deliveryCompleteEvent(tomorrowBoundary, until);
         deliveryCompleteEvent(otherOrder, start.plusHours(10));
         deliveryCompleteEvent(stillDelivering, start.plusHours(10));
+        deliveryCompleteEvent(cancelled, start.plusHours(10));
+        deliveryCompleteEvent(returned, start.plusHours(10));
         jdbc.update("INSERT INTO audit_log(module,action,target,create_time) VALUES('PAYMENT','COMPLETE',?,?)",
                 "order:" + unknown, start.plusHours(10));
         jdbc.update("INSERT INTO audit_log(module,action,target,create_time) VALUES('ORDER','COLLECT',?,?)",
@@ -104,6 +124,9 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
         Api before = get("/api/delivery/stats/today", token);
         assertEquals(0, before.code());
         assertEquals(3, before.data().path("completedCount").asInt());
+        assertEquals(8, before.data().path("completedBarrels").asInt());
+        assertEquals(1, before.data().path("deliveringCount").asInt());
+        assertEquals(4, before.data().path("deliveringBarrels").asInt());
         assertEquals(5, before.data().path("returnBarrels").asInt());
         assertEquals(1, before.data().path("deliveryTimeUnverifiedCount").asInt());
 
@@ -114,6 +137,8 @@ class DeliveryConsoleAndSelfServiceIntegrationTest extends AbstractIntegrationTe
         Api after = get("/api/delivery/stats/today", token);
         assertEquals(0, after.code());
         assertEquals(before.data().path("completedCount"), after.data().path("completedCount"));
+        assertEquals(before.data().path("completedBarrels"), after.data().path("completedBarrels"));
+        assertEquals(before.data().path("deliveringBarrels"), after.data().path("deliveringBarrels"));
         assertEquals(before.data().path("returnBarrels"), after.data().path("returnBarrels"));
         assertEquals(1, after.data().path("deliveryTimeUnverifiedCount").asInt());
     }

@@ -107,16 +107,19 @@ public interface GrossProfitMapper {
     }
 
     /**
-     * 同一订单集合里的<b>单数</b>与<b>配送费 / 楼层费</b>合计（净利用）。
+     * 同一订单集合里的<b>单数 / 桶数</b>与<b>配送费 / 楼层费</b>合计（净利用）。
      *
      * <p>⚠️ 判据必须与 {@link #grossProfitByProduct} <b>逐字一致</b>（结算站 + 排除已取消 +
      * 同一时间窗）—— 两批不同的单混在一起算出来的净利没有任何意义。所以这里刻意
-     * <b>不 join {@code order_item}</b>：一旦 join，配送费会被明细行数放大
+     * <b>不直接 join {@code order_item}</b>：一旦 join，配送费会被明细行数放大
      * （一单 2 个商品 = 把同一笔配送费收了两次）。</p>
      *
      * <p>本查询恒返回一行（{@code count(*)} 是聚合），金额字段用 coalesce 兜 0。</p>
      */
     @Select("select count(*) as orderCount, "
+            // [2026-11-05] 我的页原先显示单数，不能拿它或混合商品总件数充当桶数；逐单汇总桶装水，避免放大费用。
+            + "       coalesce(sum((select sum(oi.quantity) from order_item oi join product p on p.id=oi.product_id "
+            + "           where oi.order_id=o.id and p.category=1)), 0) as barrelCount, "
             // [2026-09-20] 金额只算**非水票单**：票单的配送费 / 楼层费已被票抵掉，钱在购票时收过了
             // （见 ticketPurchaseRevenueByProduct），算进来就是重复。单数仍是全部单（票单也是单）。
             + "       round(coalesce(sum(case when exists(select 1 from order_ticket_payment tp where tp.order_id=o.id) then greatest(0,coalesce((select sum(p.delivery_fee) from payment_record p where p.order_id=o.id and p.status in (2,3) and p.payment_method in (1,2)),0)) when o.payment_method <> 3 and " + SERVICE_RETAINED + " then o.delivery_fee else 0 end), 0), 2) as deliveryFee, "

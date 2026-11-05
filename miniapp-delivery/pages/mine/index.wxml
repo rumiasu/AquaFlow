@@ -77,7 +77,7 @@
 
   <!--
     统计卡片（有业务权限时才显示）—— [2026-09-19] **按角色分叉**，两个角色看的不是同一组数：
-      · 站长 = 经营三格：今日净利 / 今日单数 / 桶异常·欠桶
+      · 站长 = 经营概况：今日净利 / 今日下单桶数 / 桶异常·欠桶
       · 配送员 = 自己的活三格：今日完成 / 配送中 / 回桶数
     为什么站长那三格不显示"今日完成/待配送"：那两件事在「配送」tab 上就是页签与角标
     （tab 名已由「待接单」改为「待配送」，与 OrderStatus 1 同名），在「我的」再报一遍就是重复。
@@ -93,25 +93,25 @@
         <text class="stats-label">{{todayProfit.metricLabel || '今日收入'}}</text>
       </view>
       <view class="stats-item" bindtap="onGoTodayProfit">
-        <text class="stats-value">{{managerStatsLoading ? '待核实' : todayProfit.orderCount}}</text>
-        <text class="stats-label">今日单数</text>
+        <text class="stats-value">{{managerStatsLoading ? '待核实' : (todayProfit.barrelCountText || '待核实')}}</text>
+        <text class="stats-label">今日下单桶数</text>
       </view>
     </view>
 
     <!-- 配送员：自己的活（口径全部按人统计，见 /api/delivery/stats/today） -->
     <view class="stats-row" wx:else>
       <view class="stats-item role-stat-current" bindtap="onOpenTaskStat" data-tab="delivering" aria-role="button">
-        <text class="stats-value">{{statsReady && todayStats.deliveringCount !== null && todayStats.deliveringCount !== undefined ? todayStats.deliveringCount : '待核实'}}</text>
+        <text class="stats-value">{{statsReady && todayStats.deliveringBarrels !== null && todayStats.deliveringBarrels !== undefined ? todayStats.deliveringBarrels + ' 桶' : '待核实'}}</text>
         <text class="stats-label">配送中</text><text class="stats-link">查看 ›</text>
       </view>
       <view class="stats-divider"></view>
       <view class="stats-item" bindtap="onOpenTaskStat" data-tab="completed" aria-role="button">
-        <text class="stats-value">{{statsReady && todayStats.completedCount !== null && todayStats.completedCount !== undefined ? todayStats.completedCount : '待核实'}}</text>
+        <text class="stats-value">{{statsReady && todayStats.completedBarrels !== null && todayStats.completedBarrels !== undefined ? todayStats.completedBarrels + ' 桶' : '待核实'}}</text>
         <text class="stats-label">今日送达</text><text class="stats-link">查看 ›</text>
       </view>
       <view class="stats-divider"></view>
       <view class="stats-item role-stat-physical" bindtap="onBarrelRecords" aria-role="button">
-        <text class="stats-value">{{statsReady && todayStats.returnBarrels !== null && todayStats.returnBarrels !== undefined ? todayStats.returnBarrels : '待核实'}}</text>
+        <text class="stats-value">{{statsReady && todayStats.returnBarrels !== null && todayStats.returnBarrels !== undefined ? todayStats.returnBarrels + ' 桶' : '待核实'}}</text>
         <text class="stats-label">回桶数</text><text class="stats-link">全部记录 ›</text>
       </view>
     </view>

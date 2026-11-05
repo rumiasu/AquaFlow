@@ -1,8 +1,10 @@
 package com.example.aquaflow.service;
 
+import com.example.aquaflow.entity.OrderItem;
 import com.example.aquaflow.entity.OrderTransfer;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.exception.BusinessException;
+import com.example.aquaflow.mapper.OrderItemMapper;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.mapper.OrderTransferMapper;
 import com.example.aquaflow.service.impl.DeliveryConsoleServiceImpl;
@@ -30,8 +32,10 @@ class DeliveryEventAndReturnRequestTest {
 
     @Test void dailyListAndStatsUseTheSameDeliveryWindowIncludingDeliveredUnpaidAndZeroReturns() {
         OrderMapper mapper = mock(OrderMapper.class);
+        OrderItemMapper items = mock(OrderItemMapper.class);
         DeliveryConsoleServiceImpl service = new DeliveryConsoleServiceImpl();
         ReflectionTestUtils.setField(service, "orderMapper", mapper);
+        ReflectionTestUtils.setField(service, "orderItemMapper", items);
         ReflectionTestUtils.setField(service, "businessTime", new BusinessTime(Clock.fixed(
                 Instant.parse("2026-10-23T16:30:00Z"), ZoneId.of("Asia/Shanghai"))));
         Orders unpaid = delivered(1L, 3, 2), zero = delivered(2L, 4, 0);
@@ -39,14 +43,27 @@ class DeliveryEventAndReturnRequestTest {
         var until = start.plusDays(1);
         when(mapper.listDeliveredByDeliveryStaffIdAndPeriod(20L, start, until)).thenReturn(List.of(unpaid, zero));
         when(mapper.countDeliveryTimeUnverified(20L)).thenReturn(3);
-        when(mapper.listByDeliveryStaffId(20L, 2)).thenReturn(List.of(new Orders()));
+        when(mapper.listByDeliveryStaffId(20L, 2)).thenReturn(List.of(delivered(3L, 2, 0)));
+        // 订单总数量、回桶量都不能替代桶装水明细；缺失商品分类也不能猜成桶。
+        unpaid.setQuantity(99);
+        when(items.listSummaryByOrderIds(List.of(1L, 2L, 3L))).thenReturn(List.of(
+                item(1L, 1, 3), item(1L, 1, 2), item(1L, 2, 7), item(1L, 3, 1),
+                item(2L, 2, 6), item(2L, null, 9), item(3L, 1, 4), item(3L, 2, 8)));
         var rows = service.listCompletedToday(20L);
         assertEquals(2, rows.size()); assertNull(unpaid.getCustomerName());
         assertEquals("receiver", unpaid.getReceiverName());
         var stats = service.todayStats(20L, null);
         assertEquals(2, stats.get("completedCount")); assertEquals(2, stats.get("returnBarrels"));
         assertEquals(1, stats.get("deliveringCount")); assertEquals(3, stats.get("deliveryTimeUnverifiedCount"));
+        assertEquals(5L, stats.get("completedBarrels")); assertEquals(4L, stats.get("deliveringBarrels"));
         verify(mapper, times(2)).listDeliveredByDeliveryStaffIdAndPeriod(20L, start, until);
+        verify(items).listSummaryByOrderIds(List.of(1L, 2L, 3L));
+
+        when(mapper.listDeliveredByDeliveryStaffIdAndPeriod(20L, start, until)).thenReturn(List.of());
+        when(mapper.listByDeliveryStaffId(20L, 2)).thenReturn(List.of());
+        var empty = service.todayStats(20L, null);
+        assertEquals(0L, empty.get("completedBarrels")); assertEquals(0L, empty.get("deliveringBarrels"));
+        verifyNoMoreInteractions(items); // 空列表不能查询 IN ()。
     }
 
     @Test void barrelHistoryPreservesZeroReturnsAndMasksCrossStationProfiles() {
@@ -111,6 +128,10 @@ class DeliveryEventAndReturnRequestTest {
         Orders row = new Orders(); row.setId(id); row.setStatus(status); row.setReturnBucketQty(returned);
         row.setStationId(7L); row.setDeliveryStationId(8L); row.setCustomerName("private");
         row.setCustomerPhone("private"); row.setReceiverName("receiver"); return row;
+    }
+    private static OrderItem item(long orderId, Integer category, int quantity) {
+        OrderItem item = new OrderItem(); item.setOrderId(orderId); item.setCategory(category);
+        item.setQuantity(quantity); return item;
     }
     private static OrderTransfer request(String subKind, long staff, long station) {
         OrderTransfer request = new OrderTransfer(); request.setId(70L); request.setOrderId(1L);

@@ -12,7 +12,7 @@ import static org.mockito.Mockito.*;
 
 class CaseHandlingServiceTest {
  CaseHandlingMapper m; FeedbackMapper f; OrderBarrelExceptionMapper e; CaseHandlingService service;
- @BeforeEach void setup(){m=mock(CaseHandlingMapper.class);f=mock(FeedbackMapper.class);e=mock(OrderBarrelExceptionMapper.class);service=new CaseHandlingService(m,f,e);when(m.schemaReady()).thenReturn(1);manager(2);}
+ @BeforeEach void setup(){m=mock(CaseHandlingMapper.class);f=mock(FeedbackMapper.class);e=mock(OrderBarrelExceptionMapper.class);var recovery=mock(BarrelExceptionRecoveryService.class);when(recovery.evidence(any())).thenReturn(BarrelExceptionRecoveryService.Evidence.unknown());service=new CaseHandlingService(m,f,e,recovery);when(m.schemaReady()).thenReturn(1);manager(2);}
  @AfterEach void clear(){AuthContext.clear();}
  void manager(long station){AuthContext.set(new AuthContext.AuthUser(7L,"staff","STATION_MANAGER",station));}
  ExceptionCloseoutDTO input(){var d=new ExceptionCloseoutDTO();d.setExpectedVersion(0L);d.setReason("已核实现场，无需补偿");d.setIdempotencyKey("synthetic-case-key");return d;}

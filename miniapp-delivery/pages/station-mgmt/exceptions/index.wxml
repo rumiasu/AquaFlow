@@ -11,8 +11,9 @@
   <view class="ui-state" wx:if="{{actionNotice}}"><text class="ui-state-copy">{{actionNotice}}</text><button wx:if="{{uncertainId}}" bindtap="onVerifyHandling" class="af-action af-action--quiet">核对原办理结果</button></view>
 
   <view class="empty" wx:if="{{loading}}">加载中…</view>
+  <view class="empty" wx:if="{{denied}}">仅当前水站站长可查看和处理桶异常。</view>
 
-  <block wx:if="{{!loading}}">
+  <block wx:if="{{!loading && !denied}}">
     <!-- 页签。第二个带角标：有 WARN（待处置）时一眼能看见，不必点进去 -->
     <view class="tabs">
       <view class="af-choice b3-on-switch-tab {{activeTab === item.key ? 'af-choice--selected' : ''}}"
@@ -46,7 +47,7 @@
               <text class="ex-value">订单编号：{{item.orderId}} · {{item.customerText}}</text>
             </view>
             <view class="ex-row">
-              <text class="ex-label">桶</text>
+              <text class="ex-label">当时桶数</text>
               <text class="ex-value">{{item.qtyText}}</text>
             </view>
             <view class="ex-row" wx:if="{{item.staffNote}}">
@@ -57,17 +58,18 @@
               <text class="ex-label">站长</text>
               <text class="ex-value">{{item.managerNote}}</text>
             </view>
-            <button class="af-action af-action--primary" data-id="{{item.id}}" bindtap="onOpenResolution"><view class="af-action__face">核实结案 / 办理记录</view></button>
+            <text class="ex-handling-hint" wx:if="{{item.handlingHint}}">{{item.handlingHint}}</text>
+            <!-- 2026-11-05：主按钮自身已有蓝底白字；旧浅色 face 会叠出低对比度内框。 -->
+            <button wx:if="{{item.canReturnEmpty}}" class="af-action af-action--primary af-action--block" data-id="{{item.id}}" bindtap="onReturnExceptionEmpty">办理还桶</button>
+            <button class="af-action {{item.canReturnEmpty ? 'af-action--secondary' : 'af-action--primary'}} af-action--block ex-resolution" data-id="{{item.id}}" bindtap="onOpenResolution">{{item.canVerifyReturn ? '核实归还并结案' : item.pending ? '处理异常' : '查看办理记录'}}</button>
             <view class="ex-actions">
-              <button class="af-action af-action--quiet" data-id="{{item.id}}" bindtap="onOpenExceptionOrder"><view class="af-action__face">查看订单 / 售后</view></button>
-              <button class="af-action af-action--quiet" data-id="{{item.id}}" bindtap="onOpenExceptionCustomer"><view class="af-action__face">核对客户资产</view></button>
+              <button class="af-action af-action--secondary" data-id="{{item.id}}" bindtap="onOpenExceptionOrder">查看订单 / 售后</button>
+              <button class="af-action af-action--secondary" data-id="{{item.id}}" bindtap="onOpenExceptionCustomer">{{item.reviewOwedBarrels ? '核对欠桶 / 还桶' : '核对客户资产'}}</button>
             </view>
             <text class="ex-time">{{item.timeText}}</text>
-            <!-- 处置入口（2026-09-20 产品批准开放「A1」）：只有两个动作。
-                 ⚠️ 这里**没有任何金额/数量输入框** —— 「按系统建议补偿」的明细由后端下发、前端原样提交，
-                 人手输入金额在本仓出过事故（design/20 §9.3 的护栏之一）。 -->
+            <!-- 忽略只登记原因，不代表已收桶或补偿；正常办理沿上方处理入口完成。 -->
             <view class="ex-actions" wx:if="{{item.pending}}">
-              <button disabled="{{handling}}" class="af-action af-action--quiet b3-on-ignore" data-id="{{item.id}}" bindtap="onIgnore" hover-class="af-action--pressed"><view class="af-action__face">忽略</view></button>
+              <button disabled="{{handling || uncertainId}}" class="af-action af-action--quiet b3-on-ignore" data-id="{{item.id}}" bindtap="onIgnore" hover-class="af-action--pressed">填写原因并忽略</button>
             </view>
           </view>
         </block>
@@ -102,7 +104,7 @@
       </view>
 
       <view class="page-note">
-        异常不自动补偿。请先核对原订单、应回与实回桶，再核实结案或进入客户资产调整流程，保留办理依据。
+        当时桶数保留现场记录，不等于当前欠桶。已收到空桶请办理还桶；其他异常核对后填写处理结果。
       </view>
     </block>
 

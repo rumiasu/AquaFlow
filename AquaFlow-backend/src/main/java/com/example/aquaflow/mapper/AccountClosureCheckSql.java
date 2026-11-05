@@ -86,7 +86,7 @@ public final class AccountClosureCheckSql {
         r.add(row("barrel_record b","b.station_id","RETURN_PENDING","b.customer_id",
             "b.type=2 and b.status in (1,2) and not exists(select 1 from barrel_return_detail d where d.record_id=b.id)","0","0"));
         add(r,"barrel_record","MANUAL_REVIEW","type=2 and (status is null or status not in (1,2,3,4) or (status=3 and refund_paid_time is null))","0","0");
-        add(r,"order_barrel_exception","EXCEPTION_OPEN","status is null or status not in ('EXECUTED','IGNORED')","0","0");
+        add(r,"order_barrel_exception","EXCEPTION_OPEN","status is null or status not in ('EXECUTED','IGNORED','VERIFIED','RETURNED')","0","0");
         add(r,"station_adjustment","MANUAL_REVIEW","status is null or status not in ('EFFECTIVE','REVERSED','REJECTED')","0","0");
         // A revoked judgment does not clear a different asset station's confirmed freeze; its own release is authoritative.
         r.add(row("customer_refusal_case c left join orders o on o.id=c.order_id left join customer_refusal_resolution z on z.order_id=c.order_id",

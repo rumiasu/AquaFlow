@@ -48,6 +48,7 @@ Page({
     tabs: TABS,
     activeTab: 'exceptions',
     loading: true,
+    denied: false,
 
     // —— 页签 1：桶异常单 ——
     onlyPending: false,
@@ -90,12 +91,22 @@ Page({
   onShow() {
     this._exceptionsHidden = false
     const app = getApp()
-    if (!app.canAccessStationBusiness()) {
+    // 2026-11-05：已绑定配送员也能通过通用业务守卫，但本页查询与结案仅属站长。
+    if (!this.canAccessExceptions()) {
+      this._listContext = null
+      this.setData({ denied: true, loading: false, items: [], stats: null, alerts: [], visibleAlerts: [], uncertainId: null, actionNotice: '' })
       app.routeByRole(true)
       return
     }
-    this.load()
+    const context = this.exceptionContext()
+    if (this._viewContext && this._viewContext !== context) this.setData({ uncertainId: null, actionNotice: '', stats: null, alerts: [], visibleAlerts: [] })
+    this._viewContext = context
+    this.setData({ denied: false })
+    return this.load()
   },
+
+  canAccessExceptions() { const app = getApp(); return app.canAccessStationBusiness() && app.isStationManager() },
+  currentExceptionRead(context) { return !this._exceptionsHidden && context === this.exceptionContext() && this.canAccessExceptions() },
 
   /** json 里开了 enablePullDownRefresh，就必须有对应的处理函数，否则下拉只转圈不停。 */
   async onPullDownRefresh() {
@@ -158,7 +169,7 @@ Page({
 
   /** ① 忽略：最轻的动作，不动任何金额与桶账。 */
   async onIgnore(e) {
-    if (this._exceptionAction || this._exceptionsHidden) return
+    if (this._exceptionAction || this._exceptionsHidden || this.data.uncertainId || !this.canAccessExceptions()) return
     const action = { context: this.exceptionContext() }
     this._exceptionAction = action
     this.setData({ handling: true })
@@ -166,7 +177,7 @@ Page({
       const id = e.currentTarget.dataset.id
       const note = await this.askNote('忽略这张异常单', '请填写忽略原因（会留痕）')
       if (note === null || this._exceptionAction !== action || this._exceptionsHidden
-        || action.context !== this.exceptionContext() || !getApp().canAccessStationBusiness()) return
+        || action.context !== this.exceptionContext() || !this.canAccessExceptions()) return
       await this.submitHandle(id, { action: 'IGNORE', managerNote: note }, '已忽略')
     } finally {
       if (this._exceptionAction === action) { this._exceptionAction = null; this.setData({ handling: false }) }
@@ -175,14 +186,14 @@ Page({
 
   /** 旧回调保留为明确拒绝，防止旧组件触发补偿。 */
   async onApproveSuggested(e) {
-    if (this._exceptionsHidden || !getApp().canAccessStationBusiness()) return
+    if (this._exceptionsHidden || !this.canAccessExceptions()) return
     showBusinessModal({ title: '补偿已停用', content: '请核对原订单、客户资产及实际还桶，再按依据办理。', showCancel: false })
     },
 
   /** 带理由登记非财务处理；结果未知仅查询原异常。 */
   async submitHandle(id, body, okTitle) {
     const context = this.exceptionContext()
-    const current = () => !this._exceptionsHidden && context === this.exceptionContext() && getApp().canAccessStationBusiness()
+    const current = () => this.currentExceptionRead(context)
     try {
       wx.showLoading({ title: '处理中...' })
       await post(EXCEPTIONS + '/' + id + '/handle', body)
@@ -190,7 +201,7 @@ Page({
       if (!current()) return false
       if (okTitle) {
         wx.showToast({ title: okTitle, icon: 'success' })
-        this.load()
+        await this.load()
       }
       return true
     } catch (err) {
@@ -216,29 +227,36 @@ Page({
 
   /** 保留原入口名供既有调用兼容；现在只核对原异常；/handle亦禁止新增补偿。 */
   async executeCompensation(id) {
-    if (this._exceptionsHidden || !getApp().canAccessStationBusiness()) return
+    if (this._exceptionsHidden || !this.canAccessExceptions()) return
     const context = this.exceptionContext()
     try {
       const res = await get(EXCEPTIONS + '/' + id)
-      if (this._exceptionsHidden || context !== this.exceptionContext()) return
+      if (!this.currentExceptionRead(context)) return
       const row = res && res.data
       if (!row || String(row.id) !== String(id) || !row.status) throw new Error('原办理记录尚未核实')
-      const terminal = ['EXECUTED', 'IGNORED', 'VERIFIED'].includes(row.status)
+      const terminal = ['EXECUTED', 'IGNORED', 'VERIFIED', 'RETURNED'].includes(row.status)
       this.setData({ uncertainId: terminal ? null : id, actionNotice: terminal
         ? '原记录显示：' + (row.statusText || '办理已结束') + '。请核对最新记录。'
         : row.status === 'STAFF_RECORDED' ? '原记录仍待处理。请先核实最新状态，再重新选择办理动作。' : '原记录正在办理，请稍后再次核对。' })
       if (row.status === 'STAFF_RECORDED') this.setData({ uncertainId: null })
       await this.load()
     } catch (err) {
-      if (!this._exceptionsHidden && context === this.exceptionContext()) this.setData({ uncertainId: id,
+      if (this.currentExceptionRead(context)) this.setData({ uncertainId: id,
         actionNotice: '原办理结果尚未核实，请重试核对，勿再次补偿。' })
     }
   },
   onVerifyHandling() { if (this.data.uncertainId) return this.executeCompensation(this.data.uncertainId) },
 
   exceptionForNavigation(e) {
-    if (this._exceptionsHidden || !getApp().canAccessStationBusiness() || this._listContext !== this.exceptionContext()) return null
+    if (this._exceptionsHidden || !this.canAccessExceptions() || this._listContext !== this.exceptionContext()) return null
     return this.data.items.find(item => String(item.id) === String(e.currentTarget.dataset.id)) || null
+  },
+  onReturnExceptionEmpty(e) {
+    const item = this.exceptionForNavigation(e)
+    // 2026-11-05：历史差异不是当前待还数；只有服务端明确允许才打开既有实际收桶流程。
+    if (item && item.canReturnEmpty && /^[1-9][0-9]*$/.test(String(item.customerId))) {
+      wx.navigateTo({ url: '/pages/station-mgmt/customers/detail/index?id=' + item.customerId + '&action=return-empty' })
+    }
   },
   onOpenResolution(e) {
     const item = this.exceptionForNavigation(e)
@@ -258,12 +276,19 @@ Page({
   onRetryList() { return this.loadList(this.data.page === 0) },
   exceptionContext() { const app = getApp(), u = app.globalData.userInfo || {}; return JSON.stringify([app._loginGeneration || 0, u.staffId, u.role, u.stationId]) },
   onToggleExceptionStats() { this.setData({ statsExpanded: !this.data.statsExpanded }) },
-  onHide() { this._exceptionsHidden = true; this._exceptionAction = null; this.setData({ handling: false }) },
-  onUnload() { this._exceptionsHidden = true; this._exceptionAction = null; this._listSeq = (this._listSeq || 0) + 1; this._overviewSeq = (this._overviewSeq || 0) + 1 },
+  onHide() {
+    // 2026-11-05：去欠桶页办理后必须重读；离页前的慢响应不得覆盖返回后的新结果。
+    this._exceptionsHidden = true; this._exceptionAction = null; this._listContext = null
+    this._listSeq = (this._listSeq || 0) + 1; this._overviewSeq = (this._overviewSeq || 0) + 1
+    this.setData({ handling: false })
+  },
+  onUnload() { this.onHide() },
 
   async loadList(reset) {
+    if (this._exceptionsHidden || !this.canAccessExceptions()) return
     if (!reset && (this.data.loading || this.data.loadingMore || !this.data.hasMore)) return
-    this._listContext = this.exceptionContext()
+    const context = this.exceptionContext()
+    this._listContext = null
     const seq = this._listSeq = (this._listSeq || 0) + 1
     const page = reset ? 1 : this.data.page + 1
     const query = { page, size: this.data.size }
@@ -273,7 +298,7 @@ Page({
     if (reset) this.setData({ items: [], total: null, loaded: 0, page: 0, hasMore: false })
     try {
       const res = await get(EXCEPTIONS, query)
-      if (seq !== this._listSeq) return
+      if (seq !== this._listSeq || !this.currentExceptionRead(context)) return
       const data = res && res.data
       if (!data || !Array.isArray(data.records) || !Number.isSafeInteger(data.total) || data.total < 0) throw new Error('异常列表尚未核对')
       const raw = data.records
@@ -286,6 +311,12 @@ Page({
           : typeof r.receiverName === 'string' && r.receiverName.trim() ? '收件人：' + r.receiverName.trim() + '（客户编号：' + r.customerId + '）'
             : referenceText(null, r.customerId, '客户'),
         pending: !!r.pending,
+        canReturnEmpty: r.pending === true && r.canReturnEmpty === true && /^[1-9][0-9]*$/.test(String(r.customerId)),
+        canVerifyReturn: r.pending === true && r.canVerifyReturn === true,
+        // 2026-11-05：缺少可归还凭据不能变成无入口；类别只提示去核对，不认定仍欠、不预填收桶。
+        reviewOwedBarrels: r.pending === true && r.category === 'RETURN_SHORT' && r.canReturnEmpty !== true
+          && r.canVerifyReturn !== true && /^[1-9][0-9]*$/.test(String(r.customerId)),
+        handlingHint: typeof r.handlingHint === 'string' ? r.handlingHint : '',
         categoryText: r.categoryText,
         statusText: r.statusText,
         // 回桶异常的deliveryQty保存应回值（已排除新领容量），不能再标成送出数。
@@ -299,21 +330,24 @@ Page({
       const ids = new Set(previous.map(it => it.id))
       const added = mapped.filter(it => !ids.has(it.id) && ids.add(it.id))
       const items = previous.concat(added)
+      this._listContext = context
       this.setData({ items, total: data.total, loaded: items.length, page,
         hasMore: raw.length > 0 && page * this.data.size < data.total })
       if (!reset && raw.length && !added.length) {
         this.setData({ hasMore: false, listError: '列表暂未更新，请下拉刷新重试' })
       }
     } catch (e) {
-      if (seq === this._listSeq) this.setData({ listError: errText(e, '异常列表加载失败，请重试') })
+      if (seq === this._listSeq && this.currentExceptionRead(context)) this.setData({ listError: errText(e, '异常列表加载失败，请重试') })
     } finally {
-      if (seq === this._listSeq) this.setData({ loading: false, loadingMore: false })
+      if (seq === this._listSeq && this.currentExceptionRead(context)) this.setData({ loading: false, loadingMore: false })
     }
   },
 
   onRetryOverview() { return this.load() },
 
   async load() {
+    if (this._exceptionsHidden || !this.canAccessExceptions()) return
+    const context = this.exceptionContext()
     const seq = this._overviewSeq = (this._overviewSeq || 0) + 1
     this.setData({ loading: true, alertsError: '', statsError: '' })
     const today = new Date()
@@ -326,7 +360,7 @@ Page({
       getAlerts(200)
     ])
 
-    if (seq !== this._overviewSeq) return
+    if (seq !== this._overviewSeq || !this.currentExceptionRead(context)) return
     const next = {}
 
     if (statsRes.status === 'fulfilled') {

@@ -55,7 +55,7 @@ public class OrderBarrelException {
     /** 欠水桶数 */
     private Integer waterOwed;
 
-    /** 站长调解动作: REFUND_TICKET/REFUND_CASH/WAIVE_DEPOSIT/ADJUST_ASSET/RESCHEDULE/IGNORE */
+    /** 站长调解动作: REFUND_TICKET/REFUND_CASH/WAIVE_DEPOSIT/ADJUST_ASSET/RESCHEDULE/IGNORE/VERIFY/RETURN_EMPTY */
     private String managerAction;
 
     /** 退水票数量 */
@@ -79,7 +79,7 @@ public class OrderBarrelException {
     /** 系统建议退现金金额 */
     private BigDecimal suggestedCashAmount;
 
-    /** 状态: STAFF_RECORDED/MANAGER_PENDING/MANAGER_APPROVED/EXECUTING/EXECUTED/IGNORED */
+    /** 状态: STAFF_RECORDED/MANAGER_PENDING/MANAGER_APPROVED/EXECUTING/EXECUTED/IGNORED/VERIFIED/RETURNED */
     private String status;
 
     /**
@@ -95,6 +95,7 @@ public class OrderBarrelException {
             case "EXECUTING":        return "执行中";
             case "EXECUTED":         return "已完成";
             case "IGNORED":          return "已忽略";
+            case "RETURNED":         return "欠桶已归还";
             case "VERIFIED":         return "核实结案（无需补偿）";
             default:                 return status;
         }

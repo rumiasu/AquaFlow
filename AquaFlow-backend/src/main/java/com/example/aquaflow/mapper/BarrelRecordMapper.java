@@ -23,6 +23,22 @@ public interface BarrelRecordMapper {
     @Select("select * from barrel_record where id = #{id}")
     BarrelRecord getById(@Param("id") Long id);
 
+    /** 原订单配送来源，保留所有商品以识别抵消差异，不能只取正数行。 */
+    @Select("select * from barrel_record where related_order_id=#{orderId} and customer_id=#{customerId} "
+            + "and station_id=#{stationId} and type=8 order by id")
+    List<BarrelRecord> deliveryEvidence(@Param("orderId") Long orderId, @Param("customerId") Long customerId,
+                                      @Param("stationId") Long stationId);
+
+    /** 不过滤类型/状态：未知调整或失效流水必须令连续性核对失败，不能被查询静默跳过。 */
+    @Select("select * from barrel_record where customer_id=#{customerId} and station_id=#{stationId} "
+            + "and product_id=#{productId} and id>#{afterId} order by id")
+    List<BarrelRecord> historyAfter(@Param("customerId") Long customerId, @Param("stationId") Long stationId,
+                                  @Param("productId") Long productId, @Param("afterId") Long afterId);
+
+    @Select("select count(*) from barrel_delivery_receipt where record_id=#{recordId} "
+            + "and input_kind in ('ITEMIZED','SINGLE_PRODUCT_TOTAL')")
+    int exactDeliveryEvidence(@Param("recordId") Long recordId);
+
     /** 一张调整单唯一的桶流水；原批次凭据必须经此关联，不从备注推断。 */
     @Select("select * from barrel_record where adjustment_id=#{adjustmentId}")
     BarrelRecord getByAdjustmentId(@Param("adjustmentId") Long adjustmentId);

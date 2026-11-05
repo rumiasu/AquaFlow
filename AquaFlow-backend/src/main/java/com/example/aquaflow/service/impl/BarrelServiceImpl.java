@@ -46,6 +46,7 @@ import java.util.Set;
 @Service
 @lombok.extern.slf4j.Slf4j
 public class BarrelServiceImpl implements BarrelService {
+    @Autowired private com.example.aquaflow.service.BarrelExceptionRecoveryService exceptionRecovery;
     @Autowired private com.example.aquaflow.service.RecordDisplayNameService displayNames;
     @Autowired private com.example.aquaflow.service.ApprovedBarrelReturnService approvedReturnService;
     @Autowired private com.example.aquaflow.service.ScopedDisputeService disputes;
@@ -1071,10 +1072,14 @@ public class BarrelServiceImpl implements BarrelService {
      * 「桶账唯一写入口」的编排却散在 HTTP 层（分层收口，见 LayeringArchitectureTest 的基线）。
      */
     @Override
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED, rollbackFor = Exception.class)
     public Map<String, Object> returnEmptyWithRecord(Long stationId, Long customerId,
                                                      List<BarrelLedgerService.ItemQty> items,
                                                      String clientToken, String note, Long operatorId) {
+        // 2026-11-05：原还桶只改桶账，异常永久待处理。先锁异常再锁桶账，
+        // RC 当前读让等待另一笔归还后的凭据可见；绝不在拿到桶锁后补锁异常/其它商品。
+        var recoveryCandidates = exceptionRecovery.lockCandidates(customerId, stationId);
+        java.util.Set<Long> receiptIds = new java.util.HashSet<>();
         // 幂等：同一 token 已处理过就直接返回成功，绝不再动一次账。
         // 为什么必须先查而不是靠唯一键兜底：唯一键冲突是在【账已经改完、准备写流水时】才炸，
         // 那时 over 已经减了；事务回滚虽能救回来，但前端拿到的是一句"请勿重复提交"的错误，
@@ -1115,7 +1120,9 @@ public class BarrelServiceImpl implements BarrelService {
             record.setOperatorId(operatorId);
             record.setCreateTime(LocalDateTime.now());
             barrelRecordMapper.insert(record);
+            receiptIds.add(record.getId());
         }
+        exceptionRecovery.completeReturned(recoveryCandidates, operatorId, receiptIds);
 
         Map<String, Object> data = new HashMap<>();
         data.put("changes", changes);

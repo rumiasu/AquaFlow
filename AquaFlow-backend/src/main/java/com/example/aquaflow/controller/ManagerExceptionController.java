@@ -152,7 +152,7 @@ public class ManagerExceptionController {
     /** 核实结案能力与版本；不执行财务调整。 */
     @GetMapping("/{id}/resolution")
     public Result<?> resolution(@PathVariable Long id) { return Result.success(caseHandling.exceptionView(id)); }
-    /** 仅无差异、无欠水、无补偿待办的未处理异常可核实结案。 */
+    /** 无差异普通事项，或具有完整实际归还凭据的少回桶事项，可核实结案；均不改财务和桶账。 */
     @PostMapping("/{id}/resolve")
     public Result<?> resolve(@PathVariable Long id, @jakarta.validation.Valid @RequestBody com.example.aquaflow.dto.ExceptionCloseoutDTO input) {
         return Result.success(caseHandling.resolve(id,input));

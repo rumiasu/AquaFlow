@@ -325,6 +325,17 @@ public interface OrderBarrelExceptionService {
          * 文案一改就静默失效）。所以这里下发一个布尔：判据留在后端，前端只负责标红。</p>
          */
         private boolean pending;
+        /** 是否有已核实来源且仍需归还的商品，不由前端按总欠桶推断。 */
+        private boolean canReturnEmpty;
+        private boolean canVerifyReturn;
+        private String handlingHint;
+        public boolean isCanReturnEmpty() { return canReturnEmpty; }
+        public void setCanReturnEmpty(boolean value) { canReturnEmpty = value; }
+        public boolean isCanVerifyReturn() { return canVerifyReturn; }
+        public void setCanVerifyReturn(boolean value) { canVerifyReturn = value; }
+        public String getHandlingHint() { return handlingHint; }
+        public void setHandlingHint(String value) { handlingHint = value; }
+
         private java.time.LocalDateTime createdAt;
         private java.time.LocalDateTime decidedAt;
         private java.time.LocalDateTime executedAt;

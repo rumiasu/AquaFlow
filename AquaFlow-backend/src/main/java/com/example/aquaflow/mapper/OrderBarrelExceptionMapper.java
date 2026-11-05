@@ -21,6 +21,14 @@ public interface OrderBarrelExceptionMapper {
     @Select("select * from order_barrel_exception where id=#{id} for update")
     OrderBarrelException getByIdForUpdate(@Param("id") Long id);
 
+    /** 锁顺序固定为异常 ID → 桶账；不得在已持桶账锁后才锁异常。 */
+    @Select("select * from order_barrel_exception where customer_id=#{customerId} and station_id=#{stationId} "
+            + "and category='RETURN_SHORT' and status='STAFF_RECORDED' order by id for update")
+    List<OrderBarrelException> pendingReturnsForUpdate(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
+    @Select("select count(*) from order_barrel_exception where order_id=#{orderId} and category='RETURN_SHORT' and discrepancy>0")
+    int shortReturnsOfOrder(@Param("orderId") Long orderId);
+
     @Insert("insert into order_barrel_exception(" +
             "order_id, customer_id, station_id, delivery_staff_id, " +
             "delivery_qty, return_qty, discrepancy, category, type, " +
@@ -99,6 +107,7 @@ public interface OrderBarrelExceptionMapper {
             "adjust_product_id = #{adjustProductId}, " +
             "manager_note = #{managerNote}, " +
             "status = #{status}, " +
+            "executed_at = case when #{status}='RETURNED' then NOW() else executed_at end, " +
             "decided_at = NOW() " +
             "where id = #{id} and status = #{expectedStatus}")
     int updateDecisionIf(@Param("id") Long id,

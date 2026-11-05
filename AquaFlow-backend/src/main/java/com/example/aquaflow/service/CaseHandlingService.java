@@ -17,6 +17,7 @@ public class CaseHandlingService {
     private final CaseHandlingMapper mapper;
     private final FeedbackMapper feedback;
     private final OrderBarrelExceptionMapper exceptions;
+    private final BarrelExceptionRecoveryService recovery;
 
     private void ready() {
         if(mapper.schemaReady()!=1)throw new BusinessException("处理记录尚未准备好，请联系负责人核对服务更新");
@@ -53,17 +54,23 @@ public class CaseHandlingService {
         var history=mapper.history(kind,id,station);var out=new LinkedHashMap<String,Object>();
         out.put("kind",kind);out.put("caseId",id);out.put("stationId",station);out.put("version",version(history));
         var visible=history.stream().map(row->{var action=new LinkedHashMap<String,Object>(row);
-            action.put("actionText",switch(String.valueOf(row.get("action"))){case "VERIFY"->"核实结案（无需补偿）";case "REPLY"->"水站回复";case "CLOSE"->"回复并结案";default->"处理动作待核实";});return action;}).toList();
+            action.put("actionText",switch(String.valueOf(row.get("action"))){case "VERIFY"->"核实结案（无需补偿）";case "RETURN_EMPTY"->"核实归还并结案";case "REPLY"->"水站回复";case "CLOSE"->"回复并结案";default->"处理动作待核实";});return action;}).toList();
         out.put("actions",visible);out.put("closed",closed(history));
         return out;
     }
     public Map<String,Object> exceptionView(Long id) {
         var e=exceptions.getById(id);authorizeException(e);ready();var out=view("EXCEPTION",id,e.getStationId());
-        out.put("canResolve",canResolve(e));out.put("status",e.getStatus());out.put("statusText",e.getStatusText());
+        var proof=recovery.evidence(e);boolean canResolve=canResolve(e)||proof.returned();
+        out.put("canResolve",canResolve);out.put("status",e.getStatus());out.put("statusText",e.getStatusText());
+        out.put("canReturnEmpty",recovery.canReturnEmpty(e,proof));
+        if(proof.supported())out.put("customerId",e.getCustomerId());
+        out.put("handlingHint",recovery.hint(e,proof));
+        out.put("resolveActionText",proof.returned()?"核实归还并结案":"核实无需补偿并结案");
+        out.put("closed",Set.of("RETURNED","VERIFIED","EXECUTED","IGNORED").contains(e.getStatus()));
         // 2026-11-02：只给编号会令站长无法核对原事项；摘要仅取已授权异常，不扩展客户画像读取。
         out.put("subjectText",e.getStaffNote()==null||e.getStaffNote().isBlank()?e.getCategoryText():e.getStaffNote());
         out.put("subjectCategory",e.getCategoryText());out.put("orderId",e.getOrderId());
-        out.put("blockReason",canResolve(e)?"":!"STAFF_RECORDED".equals(e.getStatus())
+        out.put("blockReason",canResolve?"":!"STAFF_RECORDED".equals(e.getStatus())
             ?"原异常已有办理结果，请查看处理记录。"
             :"CUSTOMER_REFUSE".equals(e.getCategory())?"拒付事项须在业务待办中核对，不能按无需补偿结案。"
             :"仍有桶水差异或补偿待办，请先核对原订单和客户资产，不能按无需补偿结案。");
@@ -97,11 +104,19 @@ public class CaseHandlingService {
         if(input.reason().length()>500)throw new BusinessException("核实理由最多500字");
         var e=exceptions.getByIdForUpdate(id);authorizeException(e);Long station=e.getStationId();
         var old=replay("EXCEPTION",id,station,input);if(old!=null)return old;
-        if(version(mapper.history("EXCEPTION",id,station))!=input.version()||!canResolve(e))
+        var proof=recovery.evidence(e);
+        if(version(mapper.history("EXCEPTION",id,station))!=input.version()||(!canResolve(e)&&!proof.returned()))
             throw new BusinessException("异常已有变化或仍有差异、补偿待办，请刷新核对后办理");
-        if(exceptions.updateDecisionIf(id,"STAFF_RECORDED","VERIFY",null,null,null,null,input.reason(),"VERIFIED")!=1)
+        String action=proof.returned()?"RETURN_EMPTY":"VERIFY";
+        String state=proof.returned()?"RETURNED":"VERIFIED";
+        if(exceptions.updateDecisionIf(id,"STAFF_RECORDED",action,null,null,null,null,input.reason(),state)!=1)
             throw new BusinessException("异常状态已变化，请刷新核对");
-        return append("EXCEPTION",id,station,"VERIFY",input);
+        if(proof.returned()) {
+            String reason=input.reason()+"；"+proof.description();
+            if(reason.length()>1000)throw new BusinessException("归还凭据较多，请联系水站逐项核对");
+            input=new ExceptionActionEvidence.Input(input.key(),reason,input.version(),input.digest());
+        }
+        return append("EXCEPTION",id,station,action,input);
     }
     @Transactional(isolation=Isolation.READ_COMMITTED,rollbackFor=Exception.class)
     public Map<String,Object> feedbackAct(Long id,ExceptionCloseoutDTO dto,boolean close) {

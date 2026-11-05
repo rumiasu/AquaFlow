@@ -8,7 +8,7 @@ function owner() {
   return JSON.stringify([STAFF_APP,!!d.isLogin,u.staffId||d.customerId||wx.getStorageSync('customerId'),u.stationId,u.role])
 }
 Page({
-  data:{kind:'',id:null,ready:false,loading:false,error:'',history:[],version:0,canReply:false,canClose:false,canResolve:false,reason:'',busy:false,pending:false,result:'',subjectText:'',subjectCategory:'',statusText:'',blockReason:'',orderId:null},
+  data:{kind:'',id:null,ready:false,loading:false,error:'',history:[],version:0,canReply:false,canClose:false,canResolve:false,reason:'',busy:false,pending:false,result:'',subjectText:'',subjectCategory:'',statusText:'',blockReason:'',orderId:null,customerId:null,canReturnEmpty:false,handlingHint:'',resolveActionText:'核实无需补偿并结案'},
   onLoad(options){
     const kind=options.kind,id=options.id
     if(!ids(id)||!['FEEDBACK','EXCEPTION'].includes(kind)||(!STAFF_APP&&kind!=='FEEDBACK')) {this._invalid=true;this.setData({error:'处理对象无效，请返回原记录'});return}
@@ -18,7 +18,7 @@ Page({
   onShow(){
     this._hidden=false
     if(this._invalid)return
-    if(!this.current()){this.setData({ready:false,history:[],subjectText:'',subjectCategory:'',statusText:'',blockReason:'',orderId:null,reason:'',pending:false,canReply:false,canClose:false,canResolve:false,busy:false,error:'登录身份已变化，请返回原记录重新进入'});return}
+    if(!this.current()){this.setData({ready:false,history:[],subjectText:'',subjectCategory:'',statusText:'',blockReason:'',orderId:null,customerId:null,canReturnEmpty:false,handlingHint:'',reason:'',pending:false,canReply:false,canClose:false,canResolve:false,busy:false,error:'登录身份已变化，请返回原记录重新进入'});return}
     if(!this._flight)this.setData({busy:false})
     return this.load()
   },
@@ -45,12 +45,16 @@ Page({
       const history=d.actions.map(a=>({...a,label:a.actionText||'处理记录'}))
       this.setData({ready:true,history,version:d.version,canReply:STAFF_APP&&d.canReply===true,canClose:STAFF_APP&&d.canClose===true,canResolve:STAFF_APP&&d.canResolve===true,
         subjectText:typeof d.subjectText==='string'?d.subjectText:'',subjectCategory:typeof d.subjectCategory==='string'?d.subjectCategory:'',
-        statusText:typeof d.statusText==='string'?d.statusText:'',blockReason:typeof d.blockReason==='string'?d.blockReason:'',orderId:STAFF_APP&&ids(d.orderId)?String(d.orderId):null})
+        statusText:typeof d.statusText==='string'?d.statusText:'',blockReason:typeof d.blockReason==='string'?d.blockReason:'',orderId:STAFF_APP&&ids(d.orderId)?String(d.orderId):null,
+        customerId:STAFF_APP&&ids(d.customerId)?String(d.customerId):null,canReturnEmpty:STAFF_APP&&this.data.kind==='EXCEPTION'&&d.canReturnEmpty===true&&ids(d.customerId),
+        handlingHint:typeof d.handlingHint==='string'?d.handlingHint:'',resolveActionText:typeof d.resolveActionText==='string'&&d.resolveActionText.trim()?d.resolveActionText:'核实无需补偿并结案'})
     }catch(e){if(this.current()&&seq===this._seq)this.setData({error:e.message||'暂时无法核对处理记录'})}
     finally{if(this.current()&&seq===this._seq)this.setData({loading:false})}
   },
   // 2026-11-02：原事项先核对，关联订单只沿现有员工权限入口读取。
   onOpenOrder(){if(STAFF_APP&&this.current()&&this.data.ready&&ids(this.data.orderId))wx.navigateTo({url:'/pages/order/detail?id='+this.data.orderId})},
+  // 2026-11-05：被桶差异阻止时给真实收桶入口；历史差异不能当作当前欠桶数量或结案依据。
+  onReturnEmpty(){if(STAFF_APP&&this.current()&&this.data.ready&&!this.data.pending&&this.data.canReturnEmpty&&ids(this.data.customerId))wx.navigateTo({url:'/pages/station-mgmt/customers/detail/index?id='+this.data.customerId+'&action=return-empty'})},
   onReason(e){if(!this.data.busy&&!this.data.pending)this.setData({reason:e.detail.value})},
   onReply(){return this.act('REPLY')},
   onClose(){return this.act('CLOSE')},
@@ -69,7 +73,7 @@ Page({
         if(!this.data.ready||!(action==='VERIFY'?this.data.canResolve:action==='CLOSE'?this.data.canClose:this.data.canReply))throw new Error('当前记录不能执行此操作，请刷新核对')
         const reason=String(this.data.reason||'').trim(),max=action==='VERIFY'?500:1000
         if(!reason||reason.length>max)throw new Error('请填写处理理由或给顾客的回复，最多'+max+'字')
-        const confirm=await new Promise(resolve=>showBusinessModal({title:action==='VERIFY'?'核实无需补偿并结案':action==='CLOSE'?'回复顾客并结案':'发送水站回复',content:reason,confirmText:'确认提交',success:r=>resolve(r.confirm),fail:()=>resolve(false)}))
+        const confirm=await new Promise(resolve=>showBusinessModal({title:action==='VERIFY'?this.data.resolveActionText:action==='CLOSE'?'回复顾客并结案':'发送水站回复',content:reason,confirmText:'确认提交',success:r=>resolve(r.confirm),fail:()=>resolve(false)}))
         if(!confirm||!current())return
         saved=intent.prepare(this._owner,this._object,action,reason,this.data.version)
         const check=intent.read(this._owner,this._object,action)

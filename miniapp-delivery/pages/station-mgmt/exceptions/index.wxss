@@ -416,3 +416,9 @@ page{background:#f5f7fa}.page{padding-bottom:calc(24px + env(safe-area-inset-bot
 .exception-list .ex-time { font-size:14px; line-height:1.6; }
 .exception-list .ex-actions { align-items:stretch; }
 .exception-list .ex-actions button { min-width:0; white-space:normal; line-height:1.6; }
+
+/* 2026-11-05：操作按单层按钮呈现，主次分开；窄屏文字换行不缩小触控区。 */
+.exception-list .ex > .af-action { margin-top:12px; }
+.exception-list .ex > .af-action--primary { min-height:48px; }
+.exception-list .ex-handling-hint { display:block; margin-top:12px; color:#375a85; font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
+.exception-list .b3-on-ignore { flex:none; margin-left:auto; padding:8px 0; color:#475569; }

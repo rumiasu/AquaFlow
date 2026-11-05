@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionService {
+    @Autowired private com.example.aquaflow.service.BarrelExceptionRecoveryService exceptionRecovery;
     @Autowired private com.example.aquaflow.service.AuditLogService auditLogService;
     @Autowired private com.example.aquaflow.service.RecordDisplayNameService displayNames;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
@@ -604,6 +605,10 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
         dto.setCategoryText(ex.getCategoryText());
         // 「还等着站长处置」的判据也留在后端：前端标红时不该去比对中文文案（文案一改就静默失效）
         dto.setPending("STAFF_RECORDED".equals(ex.getStatus()));
+        var proof = exceptionRecovery.evidence(ex);
+        dto.setCanReturnEmpty(exceptionRecovery.canReturnEmpty(ex, proof));
+        dto.setCanVerifyReturn(proof.returned());
+        dto.setHandlingHint(exceptionRecovery.hint(ex, proof));
         dto.setCreatedAt(ex.getCreatedAt());
         dto.setDecidedAt(ex.getDecidedAt());
         dto.setExecutedAt(ex.getExecutedAt());

@@ -12,6 +12,11 @@ function page(kind, api = {}) {
     'utils/business-dialog': { showBusinessModal: o => { wx.__calls.modal.push(o); if (api.manualModal) return; return o.success({ confirm: true }) } }
   } })
   p.loadAllData = () => {}; p.loadData = () => {}
+  if (kind === 'home') {
+    // 本套聚焦已经读到的报价；弱网读取状态另由 delivery-task-read-recovery 覆盖。
+    p._taskDataContext = p._collectionContext()
+    p.setData({ loading: false, readReady: { assignedActions: true } })
+  }
   if (kind === 'coordination') {
     p.setData({ staffList: [{ id: 8, name: '合成配送' }], lists: { pending: [], pool: [], incoming: [] } })
     p._confirmRisk = async () => ({ ok: true, acknowledged: false })

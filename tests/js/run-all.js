@@ -15,6 +15,8 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'staff-order-delivery-handoff.test.js', name: 'phone order success navigation and delivery task handoff' },
+  { file: 'delivery-task-read-recovery.test.js', name: 'delivery task stale reads and action confirmation recovery' },
   { file: 'manager-entry-navigation.test.js', name: 'manager workbench and application tab navigation' },
   { file: 'cross-station-order-navigation.test.js', name: 'cross-station order detail navigation and event boundaries' },
   { file: 'payment-record-navigation.test.js', name: 'payment record navigation with current access checks' },

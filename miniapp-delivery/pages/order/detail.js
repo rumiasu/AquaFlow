@@ -502,11 +502,19 @@ Page({
       this.setData({ loading: false, detailError: err.message || '加载失败' })
       wx.showToast({ title: this._withdrawOutcome ? '已撤回，但详情刷新失败，请重新加载' : (err.message || '加载失败'), icon: 'none' })
       return false
+    } finally {
+      // 最新读取在途中失效时仍需解除等待；旧请求不能结束后来一次读取。
+      if (!this._hidden && !this._unloaded && ctx.readVersion === this._detailVersion && !this._isCurrent(ctx)) {
+        this.setData({ order: {}, loading: false, detailError: '订单或办理身份已变化，请重新加载。',
+          detailOutcomeText: '', hasMoreActions: false, showMoreActions: false })
+      }
     }
   },
 
   onRetryDetail() {
     if (this._hidden || this._unloaded || this.data.loading || this._pendingWrite()) return
+    const app = getApp()
+    if (!app.canAccessStationBusiness()) { app.routeByRole(true); return }
     const record = writeRecovery.read(this.data.orderId)
     if (record && record.phase === 'pending') return
     return this.loadOrderDetail(this.data.orderId)

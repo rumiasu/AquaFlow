@@ -1,4 +1,5 @@
 const { showBusinessModal } = require('../../../utils/business-dialog')
+const navigation = require('../../../utils/navigation')
 // ⚠️ 直接用 utils/request，不引 api/station-mgmt.js 与 config/api.js：
 // 那两个文件正被另一个工作流（商品图片库）改动，共用会让两边未提交的改动纠缠在一起。
 // 路径常量写在本文件里，理由同上。
@@ -523,12 +524,22 @@ Page({
       const warnings = Array.isArray(d.warnings) ? d.warnings : []
       this.clearOriginalOrderStorage()
       this.setData({ unknownOrder: false, orderRecoveryError: '' })
-      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '查看订单',
+      showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083', confirmText: '查看订单', cancelText: '配送任务',
         title: '下单成功',
-        content: '订单号 ' + d.orderId + (warnings.length ? '\n\n' + warnings.join('\n') : ''),
-        showCancel: false,
-        success() {
-          wx.redirectTo({ url: '/pages/order/detail?id=' + d.orderId })
+        content: '订单号 ' + d.orderId + '\n先核对订单付款状态。符合配送条件后，可到配送任务接单自送。'
+          + (warnings.length ? '\n\n' + warnings.join('\n') : ''),
+        showCancel: true,
+        success: r => {
+          if (r.reason === 'dismissed' || this._hidden || ownerKey() !== requestOwner || !getApp().canAccessStationBusiness()) return
+          if (r.confirm) navigation.open('/pages/order/detail?id=' + d.orderId, { mode: 'replace', owner: this })
+          else if (r.cancel) {
+            const app = getApp(), g = app.globalData, u = g.userInfo || {}
+            // 与「我的」统计入口共用一次性页签意图；只决定展示，不替站长接单。
+            const intent = { tab: 'assigned', generation: app._loginGeneration || 0,
+              identity: JSON.stringify([!!g.isLogin, u.staffId, u.role, u.stationId, u.bindStatus]) }
+            g.mineDeliveryTabIntent = intent
+            if (!navigation.open('/pages/home/index', { owner: this }) && g.mineDeliveryTabIntent === intent) delete g.mineDeliveryTabIntent
+          }
         }
       })
     } catch (err) {

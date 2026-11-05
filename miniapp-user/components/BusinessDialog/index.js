@@ -16,7 +16,7 @@ Component({
     open(options = {}) {
       return new Promise(resolve => {
         if (this._closed || this._hidden) {
-          const result = { confirm: false, cancel: true, errMsg: 'showModal:ok' }
+          const result = { confirm: false, cancel: true, errMsg: 'showModal:ok', reason: 'dismissed' }
           try { if (options.success) options.success(result) } finally { try { if (options.complete) options.complete(result) } finally { resolve(result) } }
           return
         }
@@ -37,12 +37,12 @@ Component({
     stop() {},
     onConfirm() { this.finish(true) },
     onCancel() { this.finish(false) },
-    finish(confirm) {
+    finish(confirm, reason) {
       const entry = this._active
       if (!entry) return
       this._active = null
       this._advancing = true
-      const result = { confirm, cancel: !confirm, errMsg: 'showModal:ok', ...(entry.options.editable ? { content: this.data.input } : {}) }
+      const result = { confirm, cancel: !confirm, errMsg: 'showModal:ok', ...(reason ? { reason } : {}), ...(entry.options.editable ? { content: this.data.input } : {}) }
       if (wx.hideKeyboard) wx.hideKeyboard()
       this.setData({ visible: false })
       try { if (entry.options.success) entry.options.success(result) }
@@ -54,9 +54,9 @@ Component({
     },
     cancelAll() {
       const waiting = this._queue || []; this._queue = []
-      this.finish(false)
+      this.finish(false, 'dismissed')
       for (const entry of waiting) {
-        const result = { confirm: false, cancel: true, errMsg: 'showModal:ok' }
+        const result = { confirm: false, cancel: true, errMsg: 'showModal:ok', reason: 'dismissed' }
         try { if (entry.options.success) entry.options.success(result) }
         finally { try { if (entry.options.complete) entry.options.complete(result) } finally { entry.resolve(result) } }
       }

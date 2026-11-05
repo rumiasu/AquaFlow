@@ -104,8 +104,8 @@
               catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.customerPhone || item.receiverPhone}}</text></view>
       </view>
       <view class="card-actions">
-        <button catchtap="onAcceptTransfer" data-id="{{item.id}}" class="af-action af-action--primary">同意，我来送</button>
-        <button catchtap="onRejectTransfer" data-id="{{item.id}}" class="af-action af-action--secondary">不接受</button>
+        <button catchtap="onAcceptTransfer" data-id="{{item.id}}" disabled="{{loading || !readReady.transfers}}" class="af-action af-action--primary">同意，我来送</button>
+        <button catchtap="onRejectTransfer" data-id="{{item.id}}" disabled="{{loading || !readReady.transfers}}" class="af-action af-action--secondary">不接受</button>
       </view>
     </view>
     <view class="order-card" wx:for="{{assignedOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
@@ -137,7 +137,7 @@
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">
-        <button catchtap="onAcceptOrder" data-id="{{item.id}}" class="af-action af-action--primary">接单配送</button>
+        <button catchtap="onAcceptOrder" data-id="{{item.id}}" disabled="{{loading || !readReady.assignedActions}}" class="af-action af-action--primary">接单配送</button>
       </view>
     </view>
     <view class="empty-state" wx:if="{{!loading && readReady.assigned && assignedOrders.length === 0 && readReady.transfers && incomingTransfers.length === 0}}">
@@ -182,7 +182,7 @@
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">
-        <button catchtap="onCompleteOrder" data-id="{{item.id}}" class="af-action af-action--primary af-action--final af-action--grow">完成配送</button>
+        <button catchtap="onCompleteOrder" data-id="{{item.id}}" disabled="{{loading || !readReady.delivering}}" class="af-action af-action--primary af-action--final af-action--grow">完成配送</button>
         <button catchtap="onMediateOrder" data-id="{{item.id}}" class="af-action af-action--secondary">配送遇到问题</button>
       </view>
     </view>

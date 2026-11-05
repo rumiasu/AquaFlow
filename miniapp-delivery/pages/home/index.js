@@ -62,7 +62,7 @@ Page({
     delete app.globalData.mineDeliveryTabIntent
     const session = homeStationSession()
     if (intent && intent.generation === session.generation && intent.identity === session.identity
-      && app.canAccessStationBusiness() && ['delivering', 'completed'].includes(intent.tab)) this.setData({ activeTab: intent.tab })
+      && app.canAccessStationBusiness() && ['assigned', 'delivering', 'completed'].includes(intent.tab)) this.setData({ activeTab: intent.tab })
     // 自绘底栏：配送员只有 配送/我的 两项（本页是配送员的主页）
     syncTabBar(this, '/pages/home/index')
     if (!app.canAccessStationBusiness()) {
@@ -118,6 +118,10 @@ Page({
 
   onHide() {
     this._homeIdentityHidden = true
+    this._taskDataContext = null
+    if (this._accepting && !this._accepting.submitted) this._accepting = null
+    if (this._transferBusy && !this._transferBusy.submitted) this._transferBusy = null
+    if (this._taskLoading) { wx.hideLoading(); this._taskLoading = null }
     this._collectionLife = (this._collectionLife || 0) + 1
     ;(this._collectionDialogs || new Map()).forEach(item => { if (item.cancel) item.cancel() })
     this._collectionDialogs = new Map()
@@ -147,6 +151,7 @@ Page({
     const context = this._collectionContext()
     const manager = isManager === true
     const seq = this._taskReadSeq = (this._taskReadSeq || 0) + 1
+    this._taskDataContext = null
     this.setData({ loading: true, readReady: {}, onlyAssigned: !manager })
     try {
       // ⚠️ [2026-09-19 删除] 这里原先还调 `getTodayStats()`（/api/delivery/stats/today）并把结果写进
@@ -174,7 +179,7 @@ Page({
       if (seq !== this._taskReadSeq || !this._collectionCurrent(context)) return
       const valid = r => r && r.status === 'fulfilled' && r.value && (r.value.code === 0 || r.value.code === 200) && Array.isArray(r.value.data)
       const unwrap = r => valid(r) ? r.value : { data: [] }
-      const readReady = { assigned: valid(results[0]) && (!manager || valid(results[5])), delivering: valid(results[1]), completed: valid(results[2]), unpaid: valid(results[3]), transfers: valid(results[4]) }
+      const readReady = { assigned: valid(results[0]) && (!manager || valid(results[5])), assignedActions: valid(results[0]) || (manager && valid(results[5])), delivering: valid(results[1]), completed: valid(results[2]), unpaid: valid(results[3]), transfers: valid(results[4]) }
       // [2026-09-20 真机联调] 原来 unwrap 把「失败」静默折成「空列表」，于是外层 catch
       // **永远不会触发** —— 后端没起 / 手机换了网时，配送员看到的是 4 个空白列表，
       // 与"今天确实没有单"完全无法区分（正是 AGENTS §8.22 描述的形状）。
@@ -254,6 +259,7 @@ Page({
         return true
       }).map(enrichOrder)
 
+      this._taskDataContext = context
       this.setData({
         readReady, assignedOrders: mergedAssigned,
         deliveringOrders: (deliveringRes.data || []).map(enrichOrder),
@@ -273,10 +279,40 @@ Page({
       console.error('加载数据失败:', err)
       this.setData({ loading: false, loadError: '配送任务暂未读取，请重新加载后核对' })
       wx.showToast({ title: err.message || '加载失败', icon: 'none' })
+    } finally {
+      // 2026-11-05：最新读取因换号/换站失效时也要结束等待；旧请求或已离页请求不能收尾新页面。
+      if (seq === this._taskReadSeq && !this._homeIdentityHidden && !this._collectionCurrent(context)) {
+        this._taskDataContext = null
+        this.setData({ loading: false, readReady: {}, assignedOrders: [], deliveringOrders: [],
+          completedOrders: [], deliveredUnpaidOrders: [], incomingTransfers: [],
+          loadError: '身份或水站已变化，请重新加载后核对' })
+      }
     }
   },
 
   onRetryVisibleData() { return this.loadData(this.data.isManager) },
+
+  /** 2026-11-05：刷新保留的旧卡曾仍可提交；只允许本次成功读取的对应任务操作。 */
+  _taskActionContext(field, id) {
+    const readyKey = { assignedOrders: 'assignedActions', incomingTransfers: 'transfers', deliveringOrders: 'delivering' }[field]
+    const context = this._taskDataContext
+    if (!readyKey || this.data.loading || !this.data.readReady[readyKey] || !getApp().globalData.isLogin ||
+        !context || !this._collectionCurrent(context) ||
+        !(this.data[field] || []).some(order => String(order.id) === String(id))) return null
+    return { ...context, field, id, readSeq: this._taskReadSeq }
+  },
+
+  _taskActionCurrent(context) {
+    return !!context && context.readSeq === this._taskReadSeq && this._collectionCurrent(context) &&
+      !!this._taskActionContext(context.field, context.id)
+  },
+
+  _finishTaskAction(context, lock, refresh) {
+    if (this._taskLoading === context) { wx.hideLoading(); this._taskLoading = null }
+    if (this[lock] === context) this[lock] = null
+    // 已发送操作可以在返回前台后结束；此处只重新读取同一会话，不恢复旧弹窗或重发操作。
+    if (refresh && this._collectionCurrent({ ...context, life: this._collectionLife || 0 })) this.loadData(this.data.isManager)
+  },
 
   switchTab(e) {
     this.setData({ activeTab: e.currentTarget.dataset.tab })
@@ -304,6 +340,8 @@ Page({
 
   async onAcceptOrder(e) {
     const id = e.currentTarget.dataset.id
+    const context = this._taskActionContext('assignedOrders', id)
+    if (!context) return
     const order = (this.data.assignedOrders || []).find(row => String(row.id) === String(id))
     const offer = order && order.dispatchAgreement
     const quoteToken = offer && offer.status === 'OFFERED' ? offer.quoteToken : null
@@ -314,30 +352,28 @@ Page({
       + '；桶折款 ¥' + offer.barrelAmount + '。确认接受此约定？' : '确定接受此配送任务？'
     // #47: 防重复点击
     if (this._accepting) return
-    this._accepting = true
+    this._accepting = context
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认接单',
       confirmText: '接单配送', cancelText: '暂不接单',
       content: offerText,
       success: async (res) => {
+        if (!this._taskActionCurrent(context) || !res.confirm) { this._finishTaskAction(context, '_accepting', false); return }
         if (res.confirm) {
+          context.submitted = true
+          this._taskLoading = context
           wx.showLoading({ title: '接单中...' })
           try {
             await acceptOrder(id, quoteToken)
-            wx.hideLoading()
-            wx.showToast({ title: '接单成功', icon: 'success' })
-            // ⚠️ 必须显式传 isManager（loadData 的第一句就是 setData({onlyAssigned: !manager})）：
-            // 漏传 → manager=undefined → 站长点完接单就被切成"配送员视角"
-            // （onlyAssigned=true、空态文案也变成"等站长分配"），而他明明还是站长。
-            this.loadData(this.data.isManager)
+            if (this._taskActionCurrent(context)) wx.showToast({ title: '接单成功', icon: 'success' })
           } catch (err) {
-            wx.hideLoading()
-            wx.showToast({ title: err.message || '接单失败', icon: 'none' })
+            if (this._taskActionCurrent(context)) wx.showToast({ title: err.message || '接单失败', icon: 'none' })
+          } finally {
+            this._finishTaskAction(context, '_accepting', true)
           }
         }
-        this._accepting = false
       },
-      fail: () => { this._accepting = false }
+      fail: () => { this._finishTaskAction(context, '_accepting', false) }
     })
   },
 
@@ -350,63 +386,69 @@ Page({
    */
   async onAcceptTransfer(e) {
     const id = e.currentTarget.dataset.id
+    const context = this._taskActionContext('incomingTransfers', id)
+    if (!context) return
     if (this._transferBusy) return
-    this._transferBusy = true
+    this._transferBusy = context
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认接收',
       content: '同意后这单归你配送，确定吗？',
       confirmText: '同意',
       success: async (res) => {
+        if (!this._taskActionCurrent(context) || !res.confirm) { this._finishTaskAction(context, '_transferBusy', false); return }
         if (res.confirm) {
+          context.submitted = true
+          this._taskLoading = context
           wx.showLoading({ title: '确认中...' })
           try {
             await respondTransfer(id, { action: 'claim' })
-            wx.hideLoading()
-            wx.showToast({ title: '已接收，请尽快配送', icon: 'success' })
+            if (this._taskActionCurrent(context)) wx.showToast({ title: '已接收，请尽快配送', icon: 'success' })
           } catch (err) {
-            wx.hideLoading()
-            wx.showToast({ title: err.message || '接收失败', icon: 'none' })
+            if (this._taskActionCurrent(context)) wx.showToast({ title: err.message || '接收失败', icon: 'none' })
+          } finally {
+            // 成败都重读，避免继续操作已经改派或撤回的转单。
+            this._finishTaskAction(context, '_transferBusy', true)
           }
-          // 成功失败都重拉：失败多半是"这条转单已被处理/订单已被改派"（后端 CAS 拒绝），
-          // 重拉一次列表就能自愈，而不是让配送员对着一条已经不存在的待确认卡反复点。
-          this.loadData(this.data.isManager)
         }
-        this._transferBusy = false
       },
-      fail: () => { this._transferBusy = false }
+      fail: () => { this._finishTaskAction(context, '_transferBusy', false) }
     })
   },
 
   /** 不接受同事转来的单：订单原地留在原配送员名下（待确认期间归属从没改过），我这边卡片消失。 */
   async onRejectTransfer(e) {
     const id = e.currentTarget.dataset.id
+    const context = this._taskActionContext('incomingTransfers', id)
+    if (!context) return
     if (this._transferBusy) return
-    this._transferBusy = true
+    this._transferBusy = context
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '不接受转单',
       content: '这单会留在对方名下，确定不接受吗？',
       confirmText: '不接受',
       success: async (res) => {
+        if (!this._taskActionCurrent(context) || !res.confirm) { this._finishTaskAction(context, '_transferBusy', false); return }
         if (res.confirm) {
+          context.submitted = true
+          this._taskLoading = context
           wx.showLoading({ title: '处理中...' })
           try {
             await respondTransfer(id, { action: 'reject' })
-            wx.hideLoading()
-            wx.showToast({ title: '已回绝，这单仍归对方', icon: 'none' })
+            if (this._taskActionCurrent(context)) wx.showToast({ title: '已回绝，这单仍归对方', icon: 'none' })
           } catch (err) {
-            wx.hideLoading()
-            wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+            if (this._taskActionCurrent(context)) wx.showToast({ title: err.message || '操作失败', icon: 'none' })
+          } finally {
+            this._finishTaskAction(context, '_transferBusy', true)
           }
-          this.loadData(this.data.isManager)
         }
-        this._transferBusy = false
       },
-      fail: () => { this._transferBusy = false }
+      fail: () => { this._finishTaskAction(context, '_transferBusy', false) }
     })
   },
 
   onCompleteOrder(e) {
     const id = e.currentTarget.dataset.id
+    if (!this._taskActionContext('deliveringOrders', id)) return
     // [2026-10-06] 原二次确认已撤掉：完成配送页本身有回桶/收款/最终提交流程，
     // 再加前置确认既重复又容易误解（GPT验收意见#4）。
     wx.navigateTo({ url: `/pages/order/complete?id=${id}&from=home` })

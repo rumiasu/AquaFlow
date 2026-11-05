@@ -24,6 +24,44 @@ for(const [name,change] of [['hide',t=>t.page.onHide()],['unload',t=>t.page.onUn
  test('late detail discarded after '+name,async()=>{const d=deferred(),t=fixture({api:{getOrderDetail:()=>d.promise}});const pending=t.page.loadOrderDetail(20);change(t);d.resolve({data:{...t.order,orderNo:'late'}});await pending;assert.notEqual(t.page.data.order.orderNo,'late')})
 }
 test('new detail wins over slower older success',async()=>{const a=deferred(),b=deferred();let n=0;const t=fixture({api:{getOrderDetail:()=>++n===1?a.promise:b.promise}});const p=t.page.loadOrderDetail(20),q=t.page.loadOrderDetail(20);b.resolve({data:{...t.order,orderNo:'new'}});await q;a.resolve({data:{...t.order,orderNo:'old'}});await p;assert.equal(t.page.data.order.orderNo,'new')})
+for (const [name, change] of [['login', t => t.app._loginGeneration++], ['station', t => { t.app.globalData.userInfo.stationId = 2 }], ['order', t => t.page.setData({ orderId: 21 })]]) {
+ test('invalidated latest detail unlocks retry for current '+name,async()=>{
+  const read=deferred();let calls=0
+  const t=fixture({api:{getOrderDetail:id=>++calls===1?read.promise:Promise.resolve({data:{...t.order,id,orderNo:'fresh'}})}})
+  const pending=t.page.loadOrderDetail(20);change(t);read.resolve({data:{...t.order,orderNo:'stale'}});await pending
+  assert.equal(t.page.data.loading,false);assert.equal(t.page.data.order.id,undefined);assert(t.page.data.detailError.includes('重新加载'))
+  assert.equal(t.page.data.hasMoreActions,false)
+  await t.page.onRetryDetail();assert.equal(calls,2);assert.equal(t.page.data.detailError,'');assert.equal(t.page.data.order.orderNo,'fresh')
+  assert.equal(String(t.page.data.order.id),String(t.page.data.orderId))
+ })
+}
+test('invalidated older detail cannot unlock a newer pending read',async()=>{
+ const first=deferred(),second=deferred();let calls=0
+ const t=fixture({api:{getOrderDetail:()=>++calls===1?first.promise:second.promise}})
+ const old=t.page.loadOrderDetail(20);t.app._loginGeneration++;const current=t.page.loadOrderDetail(20)
+ first.resolve({data:{...t.order,orderNo:'stale'}});await old
+ assert.equal(t.page.data.loading,true);assert.equal(t.page.data.detailError,'')
+ second.resolve({data:{...t.order,orderNo:'fresh'}});await current;assert.equal(t.page.data.loading,false);assert.equal(t.page.data.order.orderNo,'fresh')
+})
+test('detail retry routes a caller that no longer has station access',async()=>{
+ const t=fixture();let routes=0,reads=0
+ t.app.canAccessStationBusiness=()=>false;t.app.routeByRole=()=>routes++;t.api.getOrderDetail=async()=>{reads++;return {data:t.order}}
+ await t.page.onRetryDetail();assert.equal(routes,1);assert.equal(reads,0)
+})
+test('first failed detail read stays visible and retries the route order',async()=>{
+ let fail=true;const reads=[]
+ const t=fixture({api:{getOrderDetail:async id=>{reads.push(id);if(fail)throw Error('暂时无法连接');return {data:{...t.order,id}}}}})
+ t.page.setData({order:{}});await t.page.onShow();assert.equal(t.page.data.loading,false);assert(t.page.data.detailError)
+ const {parseWxml,renderElements}=require('./wxml-tree')
+ const tree=parseWxml(fs.readFileSync(path.join(ROOT,source.replace('.js','.wxml')),'utf8'))
+ let view=renderElements(tree,t.page.data,{includeText:true})
+ assert(view.some(n=>n.text.includes('订单暂未读取')));assert(view.some(n=>n.attrs.bindtap==='onRetryDetail'));assert.equal(t.page.data.writePending,false)
+ fail=false;await t.page.onRetryDetail();assert.deepStrictEqual(reads,[20,20]);assert.equal(t.page.data.detailError,'')
+ t.page.setData({loading:true});view=renderElements(tree,t.page.data,{includeText:true})
+ assert(view.some(n=>n.text.includes('正在更新订单')));assert(!view.some(n=>n.attrs.bindtap==='onComplete'))
+ t.page.setData({loading:false,detailError:'暂时无法连接'});view=renderElements(tree,t.page.data,{includeText:true})
+ assert(view.some(n=>n.text.includes('上次读取的内容')))
+})
 test('stock prep prompt is only actionable in order statuses 1/2; delivered/completed/cancelled orders keep projection only',async()=>{
  const stockPrep={ready:false,itemsWithoutCredential:1,items:[]}
  for(const order of [

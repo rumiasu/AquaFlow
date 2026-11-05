@@ -619,7 +619,7 @@
 
 新退还：`PUT /api/barrels/records/{id}/approve` 批准安排；`PUT /api/barrels/records/{id}/customer-confirm` 客户确认；旧 status 收桶/退款命令对新凭据强制阶段闸门。收桶费单独支付和退款。
 
-消费：`GET /api/payments/{id}/refund-preview`、`PUT /api/payments/{id}/refund`，scope 为 WATER/SERVICE/ALL_CONSUMPTION；购票剩余退款还须 expectedTicketQty、expectedTicketAmount，与已确认余额变化不符时整笔回滚。
+消费：`GET /api/payments/{id}/refund-preview`、`PUT /api/payments/{id}/refund`，scope 为 WATER/SERVICE/ALL_CONSUMPTION；购票剩余退款还须 expectedTicketQty、expectedTicketAmount，与已确认余额变化不符时整笔回滚。无订单购票批次还须 idempotencyKey（≤64 字符）：同键同数量/金额重试返回原结果，同键换内容或换键但余额/累计上限已变则拒绝。
 
 站长：`GET /api/manager/business-waiting`、`GET /api/manager/ticket-exit-batches`、`GET /api/manager/refusal-cases`、`PUT /api/manager/refusal-cases/{orderId}/confirm-freeze`；`GET/PUT /api/manager/dispatch-agreements/{orderId}` 每单报酬和桶安排；`GET /api/manager/station-barrel-balances` 与 `{orderId}/dispute`、`proposal`、`agree`、`received` 处理实际桶争议及双方交接；`GET /api/manager/inter-station-recoveries` 与 `{orderId}/sent`、`received` 处理已付款返还。新库存损失 `POST /api/inventory/{productId}/loss` 必传预期实物、目标实物及原因。
 

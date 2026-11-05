@@ -231,6 +231,7 @@ const SUITES = [
   { file: 'page-failure-recovery.test.js', name: '五页加载、失败重试与请求竞态' },
   { file: 'business-pending-flow.test.js', name: '站长业务责任：首页待办、原申请定位与失败重试' },
   { file: 'business-waiting-ticket-flow.test.js', name: '业务待办退票候选按需查询与办理保护' },
+  { file: 'ticket-exit-recovery.test.js', name: '退票结果未知的原键恢复、身份隔离与存储失败保护' },
   { file: 'display-reference-regression.test.js', name: '绑定解绑标签、权限内名称与明确编号回退' },
   { file: 'order-create-flow.test.js', name: '客户下单闭环（工作包 B）' },
   { file: 'order-intent-storage-recovery.test.js', name: '下单存储故障原键恢复与真实新意图边界' },

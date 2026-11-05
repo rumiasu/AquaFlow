@@ -18,9 +18,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * </ul>
  *
  * <p>两者共用一条最容易被写坏的不变量 —— <b>[AQ-016]「退回待审期间不许清空配送员」</b>：
- * 一旦在申请阶段就把 delivery_staff_id 清掉，站长点「拒绝」时状态要回到「配送中」，
- * 却已经没有配送员可恢复 → 订单卡成「配送中但无人可送」的孤儿单。
- * 所以本类专门断言：申请后配送员仍在，只有同意才清空；拒绝必须能原样回到配送中。</p>
+ * 一旦在申请阶段就把 delivery_staff_id 清掉，站长点「拒绝」时就没有配送员可恢复。
+ * 2026-11-04 起，站内拒绝还要恢复<b>申请前的主状态</b>：未接单回待配送，已接单才回配送中；
+ * 申请后配送员又接单的，拒绝只撤申请、不能把已开始的配送倒滚。历史申请证据不足时拒绝猜测。</p>
  */
 class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegrationTest {
 
@@ -35,7 +35,7 @@ class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegratio
     }
 
     @Test
-    @DisplayName("退回站长：申请→同意清空配送员；拒绝→回到配送中且配送员还在")
+    @DisplayName("退回站长：申请→同意清空配送员；拒绝→按申请前状态恢复且配送员还在")
     void returnToStationApproveAndReject() {
         long station = createStation("退回站");
         long manager = createStaff("退回站长", "STATION_MANAGER", station, 1);
@@ -81,7 +81,7 @@ class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegratio
         assertEquals("REJECTED", jdbc.queryForObject("SELECT status FROM order_transfer WHERE order_id=? "
                 + "AND sub_kind='RETURN_STATION'", String.class, order2));
 
-        // ---- 守卫：只能退自己名下的单；拒绝时必须有配送员 ----
+        // ---- 守卫：只能退自己名下的单；拒绝按申请前状态恢复，不再一律要求有配送员 ----
         long otherDelivery = createStaff("别的配送员", "DELIVERY", station, 1);
         long order3 = createOrderFull(customer, address, station, product, 2, 2, 2,
                 "10.00", "30.00", "40.00", true, 2);
@@ -94,8 +94,81 @@ class DirectedReturnAndReturnToStationIntegrationTest extends AbstractIntegratio
                 "10.00", "30.00", "40.00", true, 1);
         assertEquals(0, post("/api/delivery/orders/return/" + order4, mgr, "{\"reason\":\"站长退回\"}").code(),
                 "待配送(无配送员)的订单也能挂退回标记");
-        assertNotEquals(0, post("/api/delivery/orders/return/" + order4 + "/reject", mgr, null).code(),
-                "[AQ-016] 无配送员时拒绝退回必须被拦，否则订单会卡成配送中但无人可送");
+        assertEquals(0, post("/api/delivery/orders/return/" + order4 + "/reject", mgr, null).code(),
+                "未接单订单拒绝退回不得被写成配送中，也不应再要求必须有配送员");
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order4),
+                "申请前是待配送，拒绝后仍应是待配送");
+        assertNull(jdbc.queryForObject("SELECT delivery_staff_id FROM orders WHERE id=?", Object.class, order4));
+
+        // ---- 情形 3：已分配但尚未接单（待配送 + 有配送员）→ 拒绝仍回待配送 ----
+        long order5 = createOrderFull(customer, address, station, product, 1, 1, 2,
+                "10.00", "30.00", "40.00", true, 1);
+        jdbc.update("UPDATE orders SET delivery_staff_id=? WHERE id=?", delivery, order5);
+        assertEquals(0, post("/api/delivery/orders/return/" + order5, del, "{\"reason\":\"尚未接单，先退回\"}").code());
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order5));
+        assertEquals(0, post("/api/delivery/orders/return/" + order5 + "/reject", mgr, null).code());
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order5),
+                "未接单（即使已分配）拒绝退回后不得变成配送中");
+        assertEquals(delivery, longOf("SELECT delivery_staff_id FROM orders WHERE id=?", order5),
+                "拒绝退回保留原指派，配送员可继续接单");
+        assertNotEquals(0, post("/api/delivery/orders/return/" + order5 + "/reject", mgr, null).code(),
+                "重复拒绝必须被已处理申请挡住");
+
+        // ---- 历史申请缺来源状态：证据不足时拒绝猜测，订单与申请都不变 ----
+        long order6 = createOrderFull(customer, address, station, product, 1, 1, 2,
+                "10.00", "30.00", "40.00", true, 1);
+        jdbc.update("UPDATE orders SET delivery_staff_id=? WHERE id=?", delivery, order6);
+        assertEquals(0, post("/api/delivery/orders/return/" + order6, del, "{\"reason\":\"历史申请\"}").code());
+        jdbc.update("UPDATE audit_log SET detail='' WHERE module='ORDER' AND action='RETURN_TO_STATION' AND target=?",
+                "order:" + order6);
+        assertNotEquals(0, post("/api/delivery/orders/return/" + order6 + "/reject", mgr, null).code(),
+                "历史申请没有来源状态且无接单审计时，不能凭空猜成配送中");
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order6));
+        assertEquals("PENDING", jdbc.queryForObject("SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='RETURN_STATION'", String.class, order6));
+
+        // ---- 情形 4：申请后配送员又接单 → 旧申请不得处理新的配送中状态 ----
+        long order7 = createOrderFull(customer, address, station, product, 1, 1, 2,
+                "10.00", "30.00", "40.00", true, 1);
+        jdbc.update("UPDATE orders SET delivery_staff_id=? WHERE id=?", delivery, order7);
+        assertEquals(0, post("/api/delivery/orders/return/" + order7, del, "{\"reason\":\"先退回再说\"}").code());
+        assertEquals(0, post("/api/delivery/orders/" + order7 + "/accept", del, null).code(),
+                "退回待审期间配送员又接了单");
+        assertNotEquals(0, post("/api/delivery/orders/return/" + order7 + "/reject", mgr, null).code(),
+                "申请后新接单，旧申请不能直接审批");
+        assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order7),
+                "拒绝失败不得改写当前配送中状态");
+        assertEquals(delivery, longOf("SELECT delivery_staff_id FROM orders WHERE id=?", order7));
+        assertEquals("PENDING", jdbc.queryForObject("SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='RETURN_STATION'", String.class, order7));
+
+        // ---- 情形 5：站长代退未分配单 → 之后分配并接单 → 旧申请不得处理新履约状态 ----
+        // 申请时 fromStaffId 为空，之后分配并由配送员接单；旧申请已不能代表当前履约人，
+        // 必须拒绝审批并保留原申请，不能拿旧 sourceStatus 改写现在的配送中状态。
+        long order8 = createOrderFull(customer, address, station, product, 1, 2, 2,
+                "10.00", "30.00", "40.00", true, 1);
+        assertEquals(0, post("/api/delivery/orders/return/" + order8, mgr, "{\"reason\":\"站长代退\"}").code());
+        assertEquals(0, post("/api/delivery/orders/assign/" + order8, mgr,
+                "{\"deliveryStaffId\":" + delivery + "}").code(), "待审期间仍可分配");
+        assertEquals(0, post("/api/delivery/orders/" + order8 + "/accept", del, null).code());
+        assertNotEquals(0, post("/api/delivery/orders/return/" + order8 + "/reject", mgr, null).code(),
+                "申请后分配并接单，旧申请不能直接处理新的配送中状态");
+        assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order8),
+                "拒绝失败不得改写当前配送中状态");
+        assertEquals("PENDING", jdbc.queryForObject("SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='RETURN_STATION'", String.class, order8),
+                "旧申请必须保留待核实");
+
+        // ---- 情形 6：A→B→A 后旧申请不得处理新履约 ----
+        long order9 = createOrderFull(customer, address, station, product, 1, 1, 2,
+                "10.00", "30.00", "40.00", true, 1);
+        jdbc.update("UPDATE orders SET delivery_staff_id=? WHERE id=?", delivery, order9);
+        assertEquals(0, post("/api/delivery/orders/return/" + order9, del, "{\"reason\":\"A 先退回\"}").code());
+        assertEquals(0, post("/api/delivery/orders/assign/" + order9, mgr,
+                "{\"deliveryStaffId\":" + otherDelivery + "}").code());
+        assertEquals(0, post("/api/delivery/orders/assign/" + order9, mgr,
+                "{\"deliveryStaffId\":" + delivery + "}").code());
+        assertNotEquals(0, post("/api/delivery/orders/return/" + order9 + "/reject", mgr, null).code(),
+                "A→B→A 后旧申请不能因为当前配送员又等于 A 就被当成有效");
+        assertEquals(1, intOf("SELECT status FROM orders WHERE id=?", order9));
+        assertEquals("PENDING", jdbc.queryForObject("SELECT status FROM order_transfer WHERE order_id=? AND sub_kind='RETURN_STATION'", String.class, order9));
 
         // ---- 守卫：只能操作本站履约的订单 ----
         long otherStation = createStation("别的水站");

@@ -1667,9 +1667,12 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         orderMapper.appendSpecialNote(orderId, "[退回站长] " + r);
         // [AQ-015] 结构化转单记录（权威状态源）
-        insertTransfer(orderId, OrderTransfer.KIND_STAFF, OrderTransfer.SUB_RETURN_STATION,
+        Long requestId = insertTransfer(orderId, OrderTransfer.KIND_STAFF, OrderTransfer.SUB_RETURN_STATION,
                 order.getDeliveryStaffId(), null, deliveryStation(order), r);
-        log("RETURN_TO_STATION", orderId, null);
+        // 2026-11-04：申请前的主状态必须留凭据。旧实现拒绝时一律置配送中，
+        // 未接单订单会被凭空写成“已开始配送”。审批按 transferId 精确核对，旧申请走审计兜底。
+        log("RETURN_TO_STATION", orderId, serviceMap("sourceStatus", cur, "transferId", requestId,
+                "deliveryStaffId", order.getDeliveryStaffId()));
     }
 
     @Override
@@ -1681,7 +1684,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站订单");
         }
-        resolveStaffReturnRequest(order, OrderTransfer.STATUS_APPROVED);
+        OrderTransfer request = requireStaffReturnRequest(order);
+        requireStaffReturnMatchesFulfillment(order, request);
         // [AQ-016] 同意退回才清空配送员（转成真正待分配），且状态必须是待配送，
         // 否则会出现「配送中但无配送员」的孤儿卡死单。
         int cur = order.getStatus() != null ? order.getStatus() : 0;
@@ -1691,6 +1695,8 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 throw new BusinessException("订单状态已变更，请刷新后重试");
             }
         }
+        // 状态 CAS 成功后才解决申请；CAS 失败不得提前消耗申请（事务内也一样）。
+        resolveStaffReturnRequest(order, OrderTransfer.STATUS_APPROVED);
         // [AQ-015] 写入决策子串「-已同意」，列表侧用 LIKE 排除；不做 replace 整列覆盖（并发下会丢更新）
         orderMapper.appendSpecialNote(orderId, "[退回站长-已同意] [退回通过]");
         orderMapper.clearDeliveryStaff(orderId);
@@ -1706,21 +1712,26 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (!stationId.equals(deliveryStation(order))) {
             throw new BusinessException("仅能操作本站订单");
         }
-        resolveStaffReturnRequest(order, OrderTransfer.STATUS_REJECTED);
-        // [AQ-016] 拒绝退回须保证订单有配送员可继续履约，否则会变成「配送中但无配送员」的孤儿卡死单。
-        if (order.getDeliveryStaffId() == null) {
-            throw new BusinessException("订单当前无配送员，无法拒绝退回，请先分配配送员");
+        OrderTransfer request = requireStaffReturnRequest(order);
+        // 2026-11-04：拒绝退回 = 撤销“退回申请”，不是“开始配送”。
+        // 申请前是待配送就回待配送；只有申请前确实配送中才回配送中。
+        int restoredStatus = staffReturnSourceStatus(order, request);
+        if (restoredStatus == OrderStatus.DELIVERING && order.getDeliveryStaffId() == null) {
+            throw new BusinessException("订单当前无配送员，无法恢复配送中，请先分配配送员");
         }
         int cur = order.getStatus() != null ? order.getStatus() : 0;
-        int changed = orderMapper.updateStatusIf(orderId, cur, OrderStatus.DELIVERING);
-        if (changed == 0) {
-            throw new BusinessException("订单状态已变更，请刷新后重试");
+        if (cur != restoredStatus) {
+            int changed = orderMapper.updateStatusIf(orderId, cur, restoredStatus);
+            if (changed == 0) {
+                throw new BusinessException("订单状态已变更，请刷新后重试");
+            }
         }
+        resolveStaffReturnRequest(order, OrderTransfer.STATUS_REJECTED);
         orderMapper.appendSpecialNote(orderId, "[退回站长-已拒绝] [退回拒绝]");
-        log("RETURN_REJECT", orderId, null);
+        log("RETURN_REJECT", orderId, serviceMap("transferId", request.getId(), "restoredStatus", restoredStatus));
     }
 
-    private void resolveStaffReturnRequest(Orders order, String outcome) {
+    private OrderTransfer requireStaffReturnRequest(Orders order) {
         if (!Integer.valueOf(OrderStatus.PENDING).equals(order.getStatus())
                 && !Integer.valueOf(OrderStatus.DELIVERING).equals(order.getStatus())) {
             throw new BusinessException("当前订单状态不可审批退回");
@@ -1729,10 +1740,109 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (request == null || !OrderTransfer.SUB_RETURN_STATION.equals(request.getSubKind())) {
             throw new BusinessException("该订单没有待审批的退回站长申请，请使用对应申请的处理入口");
         }
+        return request;
+    }
+
+    private void resolveStaffReturnRequest(Orders order, String outcome) {
+        OrderTransfer request = requireStaffReturnRequest(order);
         if (orderTransferMapper.resolvePendingRequest(request.getId(), OrderTransfer.KIND_STAFF,
                 OrderTransfer.SUB_RETURN_STATION, outcome, AuthContext.getUserId()) != 1) {
             throw new BusinessException("该退回申请已被处理，请刷新后重试");
         }
+    }
+
+    /**
+     * 申请、当前履约站、当前配送员必须仍是同一组事实。申请后分配/接单/改派
+     * 都会让旧申请不再代表当前履约状态；审批只能停下核实，不能改写新的履约状态。
+     */
+    private void requireStaffReturnMatchesFulfillment(Orders order, OrderTransfer request) {
+        // 申请创建后只要又发生接单/分配/改派/外派等履约变化，旧申请就不再代表
+        // 当前履约状态。同配送员重新分配、A→B→A 都算变化；必须重新申请，不能
+        // 只看当前 deliveryStaffId 是否碰巧又等于申请人。
+        if (request.getCreateTime() != null
+                && orderMapper.latestFulfillmentEventSince(order.getId(), request.getCreateTime()) != null) {
+            throw new BusinessException("申请后配送安排已变化，请核实后重新申请");
+        }
+        if (!java.util.Objects.equals(request.getFromStationId(), deliveryStation(order))) {
+            throw new BusinessException("退回申请所属水站已变化，请核实后处理");
+        }
+        if (!java.util.Objects.equals(order.getDeliveryStaffId(), request.getFromStaffId())) {
+            throw new BusinessException("订单配送员已变化，请核实退回申请后处理");
+        }
+    }
+
+    /**
+     * 站内退回拒绝时恢复申请前的主状态。
+     * <p>新申请在 audit_log 的 RETURN_TO_STATION.detail 里保存 sourceStatus/transferId；
+     * 旧申请没有该字段，只能凭申请前的接单/分配审计判断。证据不足时拒绝审批，不能猜成配送中。</p>
+     */
+    private int staffReturnSourceStatus(Orders order, OrderTransfer request) {
+        int current = order.getStatus() != null ? order.getStatus() : 0;
+        requireStaffReturnMatchesFulfillment(order, request);
+        // 申请后配送员又接了单：当前已是配送中，拒绝退回只撤申请，不能倒滚回待配送。
+        // 前面已核对当前配送员就是申请人，因此这里不会把别人的新履约状态当成旧申请处理。
+        if (current == OrderStatus.DELIVERING) {
+            return OrderStatus.DELIVERING;
+        }
+        Map<String, Object> event = orderMapper.latestStaffReturnEvent(order.getId());
+        Long source = auditNumber(event, "sourceStatus");
+        if (source != null) {
+            // returnToStation 把“配送中”申请压成待配送，但申请前状态另存 sourceStatus；
+            // 因此这里校验的是“当前仍是待审批的待配送”，而不是 sourceStatus == 当前状态。
+            if (!java.util.Objects.equals(auditNumber(event, "transferId"), request.getId())
+                    || current != OrderStatus.PENDING
+                    || (source.intValue() != OrderStatus.PENDING && source.intValue() != OrderStatus.DELIVERING)
+                    || (source.intValue() == OrderStatus.DELIVERING && order.getDeliveryStaffId() == null)) {
+                throw new BusinessException("原配送状态或申请已变化，请核实后处理");
+            }
+            return source.intValue();
+        }
+        if (order.getDeliveryStaffId() == null) return OrderStatus.PENDING;
+        if (event != null && event.get("id") instanceof Number) {
+            // 旧申请没有 transferId/sourceStatus，只能凭申请之后最近一条审计反推。
+            // 事件早于申请创建、或时间不可读时证据不足，不能猜。
+            java.time.LocalDateTime eventTime = auditTime(event);
+            if (eventTime == null || request.getCreateTime() == null || eventTime.isBefore(request.getCreateTime())) {
+                throw new BusinessException("原配送状态未能核实，请先核实或同意退回后重新安排");
+            }
+            Map<String, Object> previous = orderMapper.orderStateEventBefore(order.getId(), ((Number) event.get("id")).longValue());
+            if (previous != null) {
+                String action = String.valueOf(previous.get("action"));
+                if ("ACCEPT".equals(action)
+                        && java.util.Objects.equals(auditNumber(previous, "deliveryStaffId"), request.getFromStaffId())) {
+                    return OrderStatus.DELIVERING;
+                }
+                if ("CLAIM_POOL".equals(action)
+                        && java.util.Objects.equals(auditNumber(previous, "staffId"), request.getFromStaffId())
+                        && java.util.Objects.equals(auditNumber(previous, "stationId"), request.getFromStationId())) {
+                    return OrderStatus.DELIVERING;
+                }
+                if ("RETURN_REJECT".equals(action)) {
+                    // 新版本在拒绝事件里留下恢复后的状态；旧版本恒回配送中。
+                    Long restored = auditNumber(previous, "restoredStatus");
+                    return restored != null && restored.intValue() == OrderStatus.PENDING
+                            ? OrderStatus.PENDING : OrderStatus.DELIVERING;
+                }
+                if ("ASSIGN".equals(action)
+                        && java.util.Objects.equals(auditNumber(previous, "targetStaffId"), request.getFromStaffId())) {
+                    return OrderStatus.PENDING;
+                }
+                if (Set.of("DISPATCH", "OUTSOURCE_DIRECT", "OUTSOURCE", "RETURN_TO_STATION",
+                        "RETURN_APPROVE", "CANCEL_DISPATCH", "DIRECTED_RETURN_APPROVE").contains(action)) {
+                    return OrderStatus.PENDING;
+                }
+                if ("DIRECTED_RETURN_REJECT".equals(action)) {
+                    Long restored = auditNumber(previous, "restoredStatus");
+                    if (restored == null || restored.intValue() == OrderStatus.DELIVERING) return OrderStatus.DELIVERING;
+                    if (restored.intValue() == OrderStatus.PENDING) return OrderStatus.PENDING;
+                }
+                if ("STATION_REJECT".equals(action)
+                        && String.valueOf(previous.get("detail")).contains("tryDispatch=true")) {
+                    return OrderStatus.PENDING;
+                }
+            }
+        }
+        throw new BusinessException("原配送状态未能核实，请先核实或同意退回后重新安排");
     }
 
     /* ==================================================================
@@ -1885,6 +1995,14 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         var match = java.util.regex.Pattern.compile("(?:\\{|,\\s*)" + field + "=(\\d+)(?:,|\\})")
                 .matcher(String.valueOf(event.get("detail")));
         return match.find() ? Long.valueOf(match.group(1)) : null;
+    }
+
+    /** 旧申请兜底审计的时间证据；读不到就按证据不足处理，不用猜。 */
+    private static java.time.LocalDateTime auditTime(Map<String, Object> event) {
+        Object value = event == null ? null : event.get("eventTime");
+        if (value instanceof java.time.LocalDateTime) return (java.time.LocalDateTime) value;
+        if (value instanceof java.sql.Timestamp) return ((java.sql.Timestamp) value).toLocalDateTime();
+        return null;
     }
 
     /* ==================================================================

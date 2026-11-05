@@ -155,7 +155,11 @@ public interface OrderWorkflowService {
     /** 站长同意退回：清空配送员，转为真正待分配。 */
     void approveReturn(Long orderId);
 
-    /** 站长拒绝退回：回到配送中，由原配送员继续履约。 */
+    /**
+     * 站长拒绝退回：恢复到申请前的主状态。
+     * <p>申请前是待配送就回待配送（保留原指派），只有申请前确实配送中才回配送中。
+     * 历史申请缺来源状态时按接单/分配审计核实；证据不足拒绝猜测。</p>
+     */
     void rejectReturn(Long orderId);
 
     /* ========== 站间指定退回 ========== */

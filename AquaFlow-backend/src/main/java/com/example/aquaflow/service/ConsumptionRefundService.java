@@ -31,6 +31,9 @@ public class ConsumptionRefundService {
     @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
     public boolean usesIndependentRules(Long paymentId) {
         PaymentRecord check=payments.getById(paymentId);
+        // 水票退出是 v36 批次账能力，不应被桶权益开关顺带关掉；只要 v71 旁表已安装就走批次退出。
+        if(check!=null && check.getOrderId()==null && check.getTicketQty()!=null && check.getTicketQty()>0)
+            return policy.hasSchema();
         if(check!=null && check.getOrderId()!=null && ticketPayments.get(check.getOrderId())!=null)return true;
         if(policy.isEnabled())return true;
         if(!policy.hasSchema())return false;
@@ -39,13 +42,13 @@ public class ConsumptionRefundService {
     }
 
     @Transactional
-    public void refund(Long paymentId,String requestedScope,String note,Integer expectedTicketQty,BigDecimal expectedTicketAmount,BigDecimal expectedRefundAmount) {
+    public void refund(Long paymentId,String requestedScope,String note,Integer expectedTicketQty,BigDecimal expectedTicketAmount,BigDecimal expectedRefundAmount,String idempotencyKey) {
         PaymentRecord original=payments.getById(paymentId);
         if (original==null) throw new BusinessException("支付记录不存在");
         String scope=requestedScope==null?"WATER":requestedScope.toUpperCase(Locale.ROOT);
         if (!Set.of("WATER","SERVICE","ALL_CONSUMPTION").contains(scope)) throw new BusinessException("请选择水费、配送费用或全部消费费用");
         if (original.getOrderId()==null) {
-            if (original.getTicketQty()!=null && original.getTicketQty()>0) unusedTickets.refund(paymentId,note,expectedTicketQty,expectedTicketAmount);
+            if (original.getTicketQty()!=null && original.getTicketQty()>0) unusedTickets.refund(paymentId,note,expectedTicketQty,expectedTicketAmount,idempotencyKey);
             else if(!approvedReturns.refundFee(paymentId,note)) paymentService.refundPayment(paymentId,note);
             return;
         }

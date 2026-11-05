@@ -195,7 +195,7 @@ const approveStaffReturn = (id) => {
   return post(`${API.DELIVERY_ORDERS}/return/${id}/approve`)
 }
 
-// 配送员转单（退回站长）：站长拒绝 -> 回到配送中，由原配送员继续配送
+// 配送员转单（退回站长）：站长拒绝 -> 恢复申请前状态（未接单仍待配送，已接单才配送中）
 const rejectStaffReturn = (id) => {
   return post(`${API.DELIVERY_ORDERS}/return/${id}/reject`)
 }

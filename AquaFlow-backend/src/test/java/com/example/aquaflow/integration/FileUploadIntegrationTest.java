@@ -1,9 +1,14 @@
 package com.example.aquaflow.integration;
 
+import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.support.AbstractIntegrationTest;
+import com.example.aquaflow.util.CosUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
@@ -17,6 +22,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -35,6 +41,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FileUploadIntegrationTest extends AbstractIntegrationTest {
 
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
+
+    @Autowired
+    private CosUtil cosUtil;
+    @Autowired
+    private ApplicationContext context;
+
+    @Test
+    @DisplayName("测试环境 COS 必须离线且失败关闭，禁止访问真实桶")
+    void cosIsOfflineAndFailClosed() {
+        assertEquals(1, context.getBeansOfType(CosUtil.class).size(), "测试上下文只能有离线 COS");
+        assertTrue(Mockito.mockingDetails(cosUtil).isMock(), "测试上下文必须注入离线 COS");
+        assertFalse(cosUtil.isCredentialsConfigured(), "测试环境不得视为已配置真实 COS");
+        assertThrows(BusinessException.class,
+                () -> cosUtil.upload(new byte[]{1}, "public/test.png"), "上传必须失败关闭");
+        assertThrows(BusinessException.class,
+                () -> cosUtil.delete("public/test.png"), "删除必须失败关闭");
+        assertEquals("https://offline.invalid/public/test.png",
+                cosUtil.generatePublicUrl("public/test.png"), "URL 只能本地合成，不得访问云");
+    }
 
     /** 手工拼 multipart/form-data —— 基类的 HTTP helper 固定发 JSON，而上传端点只吃 multipart。 */
     private Api multipart(String path, String token, Map<String, String> fields,

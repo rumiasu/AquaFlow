@@ -1,8 +1,20 @@
 package com.example.aquaflow;
 
+import com.example.aquaflow.exception.BusinessException;
+import com.example.aquaflow.support.OfflineCosTestConfiguration;
+import com.example.aquaflow.util.CosUtil;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 上下文冒烟测试：只验证 Spring 容器能完整装配起来（Bean 循环依赖、配置缺失会在此暴露）。
@@ -23,10 +35,24 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest
 @ActiveProfiles({"local", "test"})
+@Import(OfflineCosTestConfiguration.class)
 class AquaFlowApplicationTests {
+
+    @Autowired
+    private CosUtil cosUtil;
+    @Autowired
+    private ApplicationContext context;
 
     @Test
     void contextLoads() {
     }
 
+    @Test
+    void cosIsOfflineAndFailClosedInApplicationContext() {
+        assertEquals(1, context.getBeansOfType(CosUtil.class).size(), "测试上下文只能有离线 COS");
+        assertTrue(Mockito.mockingDetails(cosUtil).isMock(), "必须使用离线 COS mock");
+        assertFalse(cosUtil.isCredentialsConfigured());
+        assertThrows(BusinessException.class, () -> cosUtil.upload(new byte[]{1}, "public/test.png"));
+        assertThrows(BusinessException.class, () -> cosUtil.delete("public/test.png"));
+    }
 }

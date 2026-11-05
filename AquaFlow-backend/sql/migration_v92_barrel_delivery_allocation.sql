@@ -1,6 +1,6 @@
 -- v92: exact delivery receipt provenance and explicit return allocation.
 -- CREATE only. Verify target/backup and existing definitions first; never backfill old receipts.
--- v91 is reserved by the parallel ticket-refund repair; this migration has no v91 dependency.
+-- v91 (ticket-exit multi-refund) is independent; this migration has no v91 dependency.
 CREATE TABLE IF NOT EXISTS barrel_delivery_receipt (
  record_id BIGINT NOT NULL,
  input_kind VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,

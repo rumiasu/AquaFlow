@@ -176,8 +176,8 @@ class IndependentBarrelBusinessIntegrationTest extends AbstractIntegrationTest {
         long payment=bought.data().path("paymentId").asLong();assertTrue(payment>0,bought.toString());assertEquals(0,put("/api/payments/"+payment+"/confirm",mgr,null).code());
         Api o=post("/api/orders/create",cus,orderBody("ticket-order",1).replace("\"paymentMethod\":1","\"paymentMethod\":3"));assertEquals(0,o.code(),o.toString());long order=o.data().path("orderId").asLong();pay(order,3);deliver(order,mgr,0,0,false);
         Api batches=get("/api/manager/ticket-exit-batches",mgr);assertEquals(0,batches.code(),batches.toString());assertEquals(2,batches.data().get(0).path("remainingQty").asInt());
-        assertEquals(1,put("/api/payments/"+payment+"/refund",mgr,"{\"scope\":\"WATER\",\"expectedTicketQty\":3,\"expectedTicketAmount\":24}").code());assertEquals(2,intOf("select sum(remain_qty) from ticket_lot"));
-        Api refund=put("/api/payments/"+payment+"/refund",mgr,"{\"scope\":\"WATER\",\"expectedTicketQty\":2,\"expectedTicketAmount\":16}");assertEquals(0,refund.code(),refund.toString());
+        assertEquals(1,put("/api/payments/"+payment+"/refund",mgr,"{\"scope\":\"WATER\",\"expectedTicketQty\":3,\"expectedTicketAmount\":24,\"idempotencyKey\":\"exit-stale\"}").code());assertEquals(2,intOf("select sum(remain_qty) from ticket_lot"));
+        Api refund=put("/api/payments/"+payment+"/refund",mgr,"{\"scope\":\"WATER\",\"expectedTicketQty\":2,\"expectedTicketAmount\":16,\"idempotencyKey\":\"exit-remaining\"}");assertEquals(0,refund.code(),refund.toString());
         assertEquals(2,intOf("select quantity from ticket_exit_refund where original_payment_id=?",payment));assertEquals(0,intOf("select sum(remain_qty) from ticket_lot"));assertEquals(1,put("/api/payments/"+payment+"/refund",mgr,"{\"scope\":\"WATER\"}").code());assertBalanced();
     }
     @Test void crossStationRefusalRequiresOriginReviewBeforeFreezingItsDeposit() {

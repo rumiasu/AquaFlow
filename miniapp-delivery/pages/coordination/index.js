@@ -1190,7 +1190,7 @@ Page({
     }
     showBusinessModal({ cancelColor: '#637083',
       title: '拒绝转单',
-      content: directed ? '拒绝后保留原配送状态和指派，由履约水站继续处理。' : '拒绝后订单将回到配送中，由原配送员继续完成配送。',
+      content: directed ? '拒绝后保留原配送状态和指派，由履约水站继续处理。' : '拒绝后恢复到申请前的配送状态：未接单仍是待配送，已接单才回到配送中；原指派保留。',
       confirmText: '拒绝',
       confirmColor: '#BD3328',
       success: async (res) => {
@@ -1200,7 +1200,7 @@ Page({
             if (directed) await rejectDirectedReturn(id, requestId)
             else await rejectStaffReturn(id)
             wx.hideLoading()
-            wx.showToast({ title: directed ? '已拒绝，保留原配送安排' : '已拒绝，订单回到配送中', icon: 'none' })
+            wx.showToast({ title: directed ? '已拒绝，保留原配送安排' : '已拒绝，恢复申请前配送状态', icon: 'none' })
             this.loadAllData()
           } catch (err) {
             wx.hideLoading()

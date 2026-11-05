@@ -8,6 +8,7 @@ import com.example.aquaflow.mapper.OrderTransferMapper;
 import com.example.aquaflow.service.impl.OrderWorkflowServiceImpl;
 import com.example.aquaflow.util.AuthContext;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -48,9 +49,16 @@ class OrderTransferCommandGuardTest {
         OrderWorkflowServiceImpl service = fixture(orders, transfers, "STATION_MANAGER", 8L, status);
         OrderTransfer request = new OrderTransfer(); request.setId(70L);
         request.setSubKind(OrderTransfer.SUB_RETURN_STATION);
+        request.setFromStaffId(20L);
+        request.setFromStationId(8L);
         when(transfers.findPendingByOrderAndKind(1L, OrderTransfer.KIND_STAFF)).thenReturn(request);
         when(transfers.resolvePendingRequest(eq(70L), eq(OrderTransfer.KIND_STAFF), eq(OrderTransfer.SUB_RETURN_STATION), anyString(), eq(20L))).thenReturn(1);
         when(orders.updateStatusIf(anyLong(), anyInt(), anyInt())).thenReturn(1);
+        // 待配送且已分配的订单，拒绝退回要靠申请时留的来源状态区分“未接单”和“配送中”。
+        java.util.Map<String,Object> evidence = new java.util.HashMap<>();
+        evidence.put("id", 99L);
+        evidence.put("detail", "{sourceStatus=" + status + ", transferId=70, deliveryStaffId=20}");
+        when(orders.latestStaffReturnEvent(1L)).thenReturn(evidence);
         if (approve) service.approveReturn(1L); else service.rejectReturn(1L);
         verify(transfers).resolvePendingRequest(70L, OrderTransfer.KIND_STAFF, OrderTransfer.SUB_RETURN_STATION,
                 approve ? OrderTransfer.STATUS_APPROVED : OrderTransfer.STATUS_REJECTED, 20L);
@@ -67,10 +75,14 @@ class OrderTransferCommandGuardTest {
         OrderWorkflowServiceImpl service = fixture(orders, transfers, "STATION_MANAGER", 8L, 2);
         OrderTransfer request = new OrderTransfer(); request.setId(70L);
         request.setSubKind(OrderTransfer.SUB_RETURN_STATION);
+        request.setFromStaffId(20L);
+        request.setFromStationId(8L);
         when(transfers.findPendingByOrderAndKind(1L, OrderTransfer.KIND_STAFF)).thenReturn(request);
+        when(orders.updateStatusIf(anyLong(), anyInt(), anyInt())).thenReturn(1);
+        // 申请已被并发处理：resolve 返回 0；approve 的状态 CAS 成功后必须回滚/停止，
+        // 不能再清配送员。reject 在恢复状态前就会因申请已失效而停止。
         assertThrows(BusinessException.class, () -> { if (approve) service.approveReturn(1L); else service.rejectReturn(1L); });
         verify(orders, never()).clearDeliveryStaff(anyLong());
-        verify(orders, never()).updateStatusIf(anyLong(), anyInt(), anyInt());
     }
 
     @ParameterizedTest
@@ -86,6 +98,99 @@ class OrderTransferCommandGuardTest {
         when(orders.updateStatusIf(anyLong(), anyInt(), anyInt())).thenReturn(1);
         assertThrows(BusinessException.class, () -> service.approveReturn(1L));
         verify(orders, never()).clearDeliveryStaff(anyLong());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true", "false"})
+    void changedAssigneeCannotUseOldRequestForNewFulfillment(boolean approve) {
+        OrderMapper orders = mock(OrderMapper.class);
+        OrderTransferMapper transfers = mock(OrderTransferMapper.class);
+        OrderWorkflowServiceImpl service = fixture(orders, transfers, "STATION_MANAGER", 8L, 2);
+        OrderTransfer request = new OrderTransfer(); request.setId(70L);
+        request.setSubKind(OrderTransfer.SUB_RETURN_STATION);
+        request.setFromStaffId(21L);
+        request.setFromStationId(8L);
+        when(transfers.findPendingByOrderAndKind(1L, OrderTransfer.KIND_STAFF)).thenReturn(request);
+        assertThrows(BusinessException.class, () -> { if (approve) service.approveReturn(1L); else service.rejectReturn(1L); });
+        verify(orders, never()).updateStatusIf(anyLong(), anyInt(), anyInt());
+        verify(transfers, never()).resolvePendingRequest(any(), anyString(), anyString(), anyString(), any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true", "false"})
+    void fulfillmentChangeAfterRequestBlocksOldRequestEvenForSameStaff(boolean approve) {
+        OrderMapper orders = mock(OrderMapper.class);
+        OrderTransferMapper transfers = mock(OrderTransferMapper.class);
+        OrderWorkflowServiceImpl service = fixture(orders, transfers, "STATION_MANAGER", 8L, 2);
+        OrderTransfer request = new OrderTransfer(); request.setId(70L);
+        request.setSubKind(OrderTransfer.SUB_RETURN_STATION);
+        request.setFromStaffId(20L);
+        request.setFromStationId(8L);
+        request.setCreateTime(java.time.LocalDateTime.now().minusMinutes(1));
+        when(transfers.findPendingByOrderAndKind(1L, OrderTransfer.KIND_STAFF)).thenReturn(request);
+        java.util.Map<String,Object> change = new java.util.HashMap<>();
+        change.put("id", 99L);
+        change.put("action", "ASSIGN");
+        change.put("eventTime", java.time.LocalDateTime.now());
+        when(orders.latestFulfillmentEventSince(eq(1L), any())).thenReturn(change);
+        assertThrows(BusinessException.class, () -> { if (approve) service.approveReturn(1L); else service.rejectReturn(1L); });
+        verify(orders, never()).updateStatusIf(anyLong(), anyInt(), anyInt());
+        verify(transfers, never()).resolvePendingRequest(any(), anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void approveStatusCasFailureDoesNotResolveRequest() {
+        OrderMapper orders = mock(OrderMapper.class);
+        OrderTransferMapper transfers = mock(OrderTransferMapper.class);
+        OrderWorkflowServiceImpl service = fixture(orders, transfers, "STATION_MANAGER", 8L, 2);
+        OrderTransfer request = new OrderTransfer(); request.setId(70L);
+        request.setSubKind(OrderTransfer.SUB_RETURN_STATION);
+        request.setFromStaffId(20L);
+        request.setFromStationId(8L);
+        when(transfers.findPendingByOrderAndKind(1L, OrderTransfer.KIND_STAFF)).thenReturn(request);
+        when(orders.updateStatusIf(1L, 2, 1)).thenReturn(0);
+        assertThrows(BusinessException.class, () -> service.approveReturn(1L));
+        verify(transfers, never()).resolvePendingRequest(any(), anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void oldAuditBeforeRequestCannotGuessSourceStatus() {
+        OrderMapper orders = mock(OrderMapper.class);
+        OrderTransferMapper transfers = mock(OrderTransferMapper.class);
+        OrderWorkflowServiceImpl service = fixture(orders, transfers, "STATION_MANAGER", 8L, 1);
+        OrderTransfer request = new OrderTransfer(); request.setId(70L);
+        request.setSubKind(OrderTransfer.SUB_RETURN_STATION);
+        request.setFromStaffId(20L);
+        request.setFromStationId(8L);
+        request.setCreateTime(java.time.LocalDateTime.now());
+        when(transfers.findPendingByOrderAndKind(1L, OrderTransfer.KIND_STAFF)).thenReturn(request);
+        java.util.Map<String,Object> event = new java.util.HashMap<>();
+        event.put("id", 99L);
+        event.put("detail", "");
+        event.put("eventTime", java.time.LocalDateTime.now().minusMinutes(1));
+        when(orders.latestStaffReturnEvent(1L)).thenReturn(event);
+        assertThrows(BusinessException.class, () -> service.rejectReturn(1L));
+        verify(orders, never()).updateStatusIf(anyLong(), anyInt(), anyInt());
+        verify(transfers, never()).resolvePendingRequest(any(), anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void statusCasFailureDoesNotResolveRequest() {
+        OrderMapper orders = mock(OrderMapper.class);
+        OrderTransferMapper transfers = mock(OrderTransferMapper.class);
+        OrderWorkflowServiceImpl service = fixture(orders, transfers, "STATION_MANAGER", 8L, 1);
+        OrderTransfer request = new OrderTransfer(); request.setId(70L);
+        request.setSubKind(OrderTransfer.SUB_RETURN_STATION);
+        request.setFromStaffId(20L);
+        request.setFromStationId(8L);
+        when(transfers.findPendingByOrderAndKind(1L, OrderTransfer.KIND_STAFF)).thenReturn(request);
+        java.util.Map<String,Object> event = new java.util.HashMap<>();
+        event.put("id", 99L);
+        event.put("detail", "{sourceStatus=2, transferId=70, deliveryStaffId=20}");
+        when(orders.latestStaffReturnEvent(1L)).thenReturn(event);
+        when(orders.updateStatusIf(1L, 1, 2)).thenReturn(0);
+        assertThrows(BusinessException.class, () -> service.rejectReturn(1L));
+        verify(transfers, never()).resolvePendingRequest(any(), anyString(), anyString(), anyString(), any());
     }
 
     private OrderWorkflowServiceImpl fixture(OrderMapper orders, OrderTransferMapper transfers, String role, long station, int status) {

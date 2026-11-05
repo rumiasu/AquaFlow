@@ -10,7 +10,7 @@
 
 | 文件 | 用途 | 说明 |
 |------|------|------|
-| `schema.sql` | 数据库结构基线 | 当前库完整 DDL（表结构以 `schema.sql` 为准、无视图），2026-09-11 从实际库重新导出，2026-09-12 校正漂移，2026-09-15 清理废弃对象，2026-09-16 加入商品与库存重构的 3 列 + 2 个唯一键 + `product_submission`（v31），2026-09-27 加入 `inter_station_settlement`（v67），2026-09-28 增加 `orders.customer_note`（v68），2026-09-30 加入 `staff_bind_code`（v69），2026-10-01 吸收独立桶权益及业务凭据（v71），2026-10-03 吸收随单押金凭据与未付分配字段（v74） |
+| `schema.sql` | 数据库结构基线 | 当前库完整 DDL（表结构以 `schema.sql` 为准、无视图），2026-09-11 从实际库重新导出，2026-09-12 校正漂移，2026-09-15 清理废弃对象，2026-09-16 加入商品与库存重构的 3 列 + 2 个唯一键 + `product_submission`（v31），2026-09-27 加入 `inter_station_settlement`（v67），2026-09-28 增加 `orders.customer_note`（v68），2026-09-30 加入 `staff_bind_code`（v69），2026-10-01 吸收独立桶权益及业务凭据（v71），2026-10-03 吸收随单押金凭据与未付分配字段（v74），2026-11-04 吸收剩余票多次退出结构（v91）及随单实收/原退还申请关联（v92） |
 | `init.sql` | 一键初始化入口 | 创建数据库 + schema，**只建结构，不含种子数据** |
 | `seed_platform_pulisi_185.sql` | 可选公共商品初始化 | 只补缺失的三款普利思18.5L公共SKU；需显式确认参考金额，缺参拒绝；不更新存量、不选品上架、不写库存，见下节 |
 | `seed_dev_account.sql` | **过期开发样本，不可执行** | 仍引用已删除的 `customer.station_id` / `deposit_balance`、`water_type` 及旧资产结构；保留作历史参考，撤下当前开发初始化推荐 |
@@ -230,7 +230,8 @@ SOURCE seed_platform_pulisi_185.sql;
 | 73 | `migration_v88_dispatch_offer_version.sql` | 外派报价轮次版本；已有协议表先核对列定义并备份，缺列时安装。新后端有只读启动守卫；不改历史金额或自动接受报价。 |
 | 74 | `migration_v89_case_handling_action.sql` | 非财务核实结案与顾客可见反馈回复的追加记录，先核目标与表定义、备份，再安装结构和配套后端，最后更新两端。既有财务/桶票记录不变，云端未执行。 |
 | 75 | `migration_v90_ticket_service_payment.sql` | 水票服务费组合凭据、按批次票预留与一次配送费权益。先核目标并备份，安装增量结构后更新后端与两端；无历史实款改写或演示数据重导。 |
-| 76 | `migration_v92_barrel_delivery_allocation.sql` | 新增明确配送实收来源及原退还申请分配两表，无历史回填。核对目标、备份及现有结构后安装；隔离旧版本交接写流量，全部后端切换后再启用配套两端。详见本文 v92 说明；v91 并行修复须在整合时另核，不是本迁移依赖。 |
+| 76 | `precheck_v91_ticket_exit_multiple_refunds.sql` + `migration_v91_ticket_exit_multiple_refunds.sql` + `verify_v91_ticket_exit_multiple_refunds.sql` | 同一原购票款允许多笔剩余票退出：先逐句执行只读预检，只有 `v91_precheck_result=GO` 才执行**单句 ALTER**（不含 session 变量/PREPARE），把 `ticket_exit_refund` 从 `original_payment_id` 单列主键改为自增 `id` 主键，增加非唯一原款索引、可空请求键及 `(original_payment_id, idempotency_key)` 唯一键；最后逐句执行只读核验并核对行数。**不改写任何历史退款金额/票数**；新后端按原款行锁累计数量与金额，累计不超过原款，最后一张补齐尾差。执行前必须停写、备份并记录行数；未知/部分迁移结构一律 STOP，不猜修。**本次未执行真实库或云端迁移。** |
+| 77 | `migration_v92_barrel_delivery_allocation.sql` | 新增明确配送实收来源及原退还申请分配两表，无历史回填。核对目标、备份及现有结构后安装；隔离旧版本交接写流量，全部后端切换后再启用配套两端。详见本文 v92 说明；v91 与本迁移独立，互不依赖。 |
 
 ## 历史迁移演进（脚本已删除，结论保留）
 
@@ -515,9 +516,27 @@ ALTER TABLE inventory ADD COLUMN image_object_name_override VARCHAR(512) DEFAULT
 
 - 若SQL控制台一次只执行一条语句，v90使用以下四个单条文件，按顺序逐个执行：`migration_v90_01_order_ticket_payment.sql`、`migration_v90_02_order_ticket_hold.sql`、`migration_v90_03_ticket_delivery_offer.sql`、`migration_v90_04_ticket_delivery_benefit.sql`。它们与上面的v90主迁移完全相同，只需选择一种执行方式；之后统一运行只读核验文件。
 
+## v91 剩余水票多次退出
+
+`ticket_exit_refund` 从「原款单行主键」改成「自增 id 主键 + 原款非唯一索引 + 可空请求键 + `(original_payment_id, idempotency_key)` 唯一键」。同一原购票款在部分退出、售后回补后再退出时不再被旧凭据挡住；新后端在原款行锁内累计数量与金额，累计不超过原款，最后一张补齐尾差。历史退款行不改写，`idempotency_key` 保持 `NULL`。
+
+**执行顺序（DMC 可逐句执行，禁止跨句 session 变量/PREPARE）：**
+
+1. 核对目标库：`SELECT DATABASE();`
+2. 逐句执行 `precheck_v91_ticket_exit_multiple_refunds.sql`，确认 `v91_precheck_result` 为 `GO: exact v90 old structure...`。预检要求 `refund_payment_id` 是**单列**唯一索引，并核对列数、`non_unique`、`sub_part`、`index_type`、排序方向；复合唯一、前缀或属性不符一律 STOP。
+3. 停止旧后端及所有写入 `ticket_exit_refund` / 退票凭据的进程；完成可恢复备份（例如 `mysqldump`），并记录预检输出的 `existing_rows`。
+4. 仅在精确旧结构成立时，执行 `migration_v91_ticket_exit_multiple_refunds.sql` 中**唯一一条 ALTER**。
+5. 逐句执行 `verify_v91_ticket_exit_multiple_refunds.sql`：
+   - `v91_verify_result` 必须为 `GO: v91 structure verified...`；
+   - `rows_after` 必须等于预检记录的 `existing_rows`；
+   - 核对列类型、nullable、auto_increment、主键、唯一索引列序及 `idempotency_key` 的 `ascii/ascii_bin`。
+6. 结构核验通过后，再部署匹配后端。旧后端不认识 `idempotency_key`，新后端在缺列时会报 SQL 错误；迁移后不得新旧后端混跑剩余票退出路径。
+
+**停止条件：** 任何 `STOP`、缺表、列/索引与诊断不一致、未知或部分迁移结构，都必须停下人工核实；不得猜修、不得直接跑 ALTER、不得重写历史数据。新库 `schema.sql` 已含新结构。本轮未对真实业务库或云库执行。
+
 ## v92 随单实收与原退还申请关联
 
-`migration_v92_barrel_delivery_allocation.sql` 仅新增两张凭据表：`barrel_delivery_receipt` 标记新配送流水确有逐商品实收输入，`barrel_return_delivery_allocation` 记录工作人员将其中确定数量用于哪张原退还申请。申请唯一，来源累计分配量在订单锁内校验；不会再次减少实物，不改变原退款 hold、金额或渠道。v91 留给并行退票修复，本迁移不依赖 v91。
+`migration_v92_barrel_delivery_allocation.sql` 仅新增两张凭据表：`barrel_delivery_receipt` 标记新配送流水确有逐商品实收输入，`barrel_return_delivery_allocation` 记录工作人员将其中确定数量用于哪张原退还申请。申请唯一，来源累计分配量在订单锁内校验；不会再次减少实物，不改变原退款 hold、金额或渠道。v91 与本迁移独立，互不依赖。
 
 执行前核对实际目标与可恢复备份；两表不存在才安装，已存在时核对列类型、长度、非空、时间默认值、InnoDB 和索引定义，结构不符应停止核实。特别是 `input_kind` 应为 `VARCHAR(32)`，两表 `create_time` 均应为 `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`；正常 INSERT 不显式填写时间，不能把缺默认值或固定历史时间的同类型字段视为就绪。可用 `precheck_v92_barrel_delivery_allocation.sql` 只读检查。新库 `schema.sql` 已含两表，重复 CREATE 不会修正不符的旧定义；启动守卫只核查而不自动迁移。
 

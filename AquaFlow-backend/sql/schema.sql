@@ -1220,8 +1220,18 @@ CREATE TABLE IF NOT EXISTS consumption_refund (
   KEY idx_consumption_original (original_payment_id), KEY idx_consumption_order (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS ticket_exit_refund (
-  original_payment_id BIGINT NOT NULL PRIMARY KEY, refund_payment_id BIGINT NOT NULL UNIQUE,
-  quantity INT NOT NULL, amount DECIMAL(10,2) NOT NULL, operator_id BIGINT NOT NULL, create_time DATETIME NOT NULL
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  original_payment_id BIGINT NOT NULL,
+  refund_payment_id BIGINT NOT NULL,
+  idempotency_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  quantity INT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  operator_id BIGINT NOT NULL,
+  create_time DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_ticket_exit_refund_payment (refund_payment_id),
+  UNIQUE KEY uk_ticket_exit_request (original_payment_id, idempotency_key),
+  KEY idx_ticket_exit_original (original_payment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS inter_station_recovery (
   order_id BIGINT NOT NULL PRIMARY KEY, from_station_id BIGINT NOT NULL, to_station_id BIGINT NOT NULL,

@@ -335,13 +335,16 @@ public class PaymentController {
      *
      * <p>业务拒绝一律是 {@code code=1} + 可读文案 —— 前端必须把 {@code message} 原样显示出来：
      * 「微信支付渠道未接入，无法自动原路退回，请线下退款并登记」这类文案是站长唯一的操作指引。</p>
+     *
+     * <p>无订单购票批次的剩余票退出必须带 {@code idempotencyKey}：同一原款同一键重放返回原结果，
+     * 换键则重新核对余额与累计上限。该键不能替代原款累计数量/金额校验。</p>
      */
     @RequireRole({"STATION_MANAGER"})
     @PutMapping("/{id}/refund")
     public Result refund(@PathVariable Long id, @RequestBody @Valid PaymentRefundDTO dto) {
         Result<Void> check = requireRefundStation(id);
         if (check != null) return check;
-        if (consumptionRefunds.usesIndependentRules(id)) consumptionRefunds.refund(id,dto.getScope(),dto.getNote(),dto.getExpectedTicketQty(),dto.getExpectedTicketAmount(),dto.getExpectedRefundAmount());
+        if (consumptionRefunds.usesIndependentRules(id)) consumptionRefunds.refund(id,dto.getScope(),dto.getNote(),dto.getExpectedTicketQty(),dto.getExpectedTicketAmount(),dto.getExpectedRefundAmount(),dto.getIdempotencyKey());
         else paymentService.refundPayment(id, dto.getNote());
         return Result.success();
     }

@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -49,6 +50,7 @@ import java.util.Locale;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"local", "test"})
 @ContextConfiguration(initializers = TestDatabaseTargetGuard.Initializer.class)
+@Import(OfflineCosTestConfiguration.class)
 public abstract class AbstractIntegrationTest {
 
     /** F-68: even direct Gradle must confirm the exact TCP target before Spring can connect. */

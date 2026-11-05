@@ -3,6 +3,7 @@ const api = require('../../../api/business-rules')
 const { barrelModeText, referenceText } = require('../../../utils/display-message')
 const { syncPendingReminder } = require('../../../utils/pending-reminder')
 const closeoutIntent = require('../../../utils/exception-action-intent')
+const ticketExitRecovery = require('../../../utils/ticket-exit-recovery')
 const { positiveId, readPage } = require('../../../utils/business-history-page')
 const recoveryKey = s => 'refusal-recovery:STAFF:' + s.staffId + ':' + s.stationId
 const sectionLabels = { stock: '缺货待补', returns: '退桶与退款', recoveries: '返还款', barrels: '净桶交接', refusals: '拒付核实', tickets: '原款水票批次' }
@@ -10,7 +11,7 @@ Page({
   data: { loading: false, error: '', stock: [], returns: [], refusals: [], recoveries: [], barrels: [], tickets: [], stationId: null,
     ready: {}, errors: {}, counts: {}, limit: 200, focusSection: '', activeSection: 'all', waitingTabs: [{ key: 'all', label: '全部' }, { key: 'stock', label: '缺货' }, { key: 'returns', label: '退桶退款' }, { key: 'refusals', label: '拒付核实' }, { key: 'recoveries', label: '返还款' }, { key: 'barrels', label: '净桶交接' }], selectedRefusal: null, refusalAction: '',
     refusalReason: '', refusalBusy: false, pendingRefusal: false, refusalHistory: [], refusalHistoryError: '', scopeLines: [],
-    ticketOpen: false, ticketLoading: false, ticketBusy: false, ticketError: '', refusalScope: 'ACTIVE', refusalNextBeforeId: null, refusalOrderId: null, refusalSearch: '', refusalSearchError: '', refusalLoading: false, refusalMoreError: '' },
+    ticketOpen: false, ticketLoading: false, ticketBusy: false, ticketError: '', ticketRecovery: null, ticketRecoveryError: '', refusalScope: 'ACTIVE', refusalNextBeforeId: null, refusalOrderId: null, refusalSearch: '', refusalSearchError: '', refusalLoading: false, refusalMoreError: '' },
   onLoad(options) {
     const section = options && options.section
     this.setData({ focusSection: ['stock', 'returns', 'recoveries', 'barrels'].includes(section) ? section : '', activeSection: ['stock', 'returns', 'recoveries', 'barrels'].includes(section) ? section : 'all' })
@@ -29,7 +30,12 @@ Page({
     if (previous && (previous.user !== user || previous.staffId !== user.staffId || previous.stationId !== user.stationId || previous.generation !== (app._loginGeneration || 0))) {
       this.setData({ refusals: [], refusalScope: 'ACTIVE', refusalOrderId: null, refusalSearch: '', refusalNextBeforeId: null })
     }
-    this.setData({ stationId: user.stationId, ticketOpen: false, ticketLoading: false, tickets: [], ticketError: '', ticketBusy: false, selectedRefusal: null, refusalBusy: false, pendingRefusal: false, refusalHistory: [], refusalHistoryError: '' })
+    let ticketRecovery = null, ticketRecoveryError = ''
+    try { ticketRecovery = ticketExitRecovery.read({ staffId: user.staffId, stationId: user.stationId }) }
+    catch (err) { ticketRecoveryError = err.message || '上次退票记录未能核对，请保留现场并联系负责人' }
+    this.setData({ stationId: user.stationId, ticketOpen: !!ticketRecovery || !!ticketRecoveryError,
+      ticketLoading: false, tickets: [], ticketError: '', ticketBusy: false, ticketRecovery, ticketRecoveryError,
+      selectedRefusal: null, refusalBusy: false, pendingRefusal: false, refusalHistory: [], refusalHistoryError: '' })
     this._recoveryError = ''
     try {
       const id = wx.getStorageSync(recoveryKey(this.refusalSession()))
@@ -254,6 +260,20 @@ Page({
     const batch = this.data.tickets.find(t => String(t.paymentId) === String(e.currentTarget.dataset.id))
     if (!batch || !this.data.ticketOpen || this.data.ticketLoading || this.data.ticketError || this.data.ticketBusy) return
     const session = this.refusalSession()
+    if (this.data.ticketRecoveryError) {
+      wx.showToast({ title: this.data.ticketRecoveryError, icon: 'none' }); return
+    }
+    let old
+    try { old = ticketExitRecovery.read(session) }
+    catch (err) { this.setData({ ticketRecoveryError: err.message }); wx.showToast({ title: err.message, icon: 'none' }); return }
+    if (old) {
+      if (!ticketExitRecovery.sameContent(old, batch)) {
+        const message = '上次退票结果仍待核实，不能改数量、金额或换批次；请先核实原请求'
+        this.setData({ ticketRecovery: old, ticketRecoveryError: message })
+        wx.showToast({ title: message, icon: 'none' }); return
+      }
+      return this.submitTicketRefund(old, session)
+    }
     this.setData({ ticketBusy: true })
     const release = () => { if (this.currentRefusalSession(session)) this.setData({ ticketBusy: false }) }
     let submitted = false
@@ -263,17 +283,80 @@ Page({
         if (submitted) return
         if (!r.confirm || !this.currentRefusalSession(session)) { release(); return }
         submitted = true
-        try {
-          await api.refundTickets(batch.paymentId, batch.remainingQty, batch.refundAmount)
-          if (!this.currentRefusalSession(session)) return
-          release(); await this.onOpenTickets(); await this.afterAction()
-        } catch (err) {
-          if (this.currentRefusalSession(session)) {
-            this.setData({ ticketError: err.message || '退款结果未确认，请重新核对', tickets: [] })
-            wx.showToast({ title: err.message || '退款结果未确认', icon: 'none' })
-          }
-        } finally { release() }
+        let record
+        try { record = ticketExitRecovery.prepare(session, batch) }
+        catch (err) {
+          release()
+          if (this.currentRefusalSession(session)) this.setData({ ticketRecoveryError: err.message, ticketError: '' })
+          wx.showToast({ title: err.message || '退票请求未能保存，尚未提交', icon: 'none' })
+          return
+        }
+        await this.submitTicketRefund(record, session)
       }, fail: release })
+  },
+  async onRetryTicketRefund() {
+    const session = this.refusalSession()
+    if (this.data.ticketBusy) return
+    let record
+    try { record = ticketExitRecovery.read(session) }
+    catch (err) { this.setData({ ticketRecoveryError: err.message }); return }
+    if (!record) { this.setData({ ticketRecovery: null, ticketRecoveryError: '' }); return }
+    await this.submitTicketRefund(record, session)
+  },
+  keepTicketRecoveryUnknown(record) {
+    // 状态必须写回模块读取层，而不是只改页面副本：否则 active 仍是 pending，
+    // 下一次 businessRejected 会把“退款已成功但清理失败”的凭据误清。
+    let value = Object.assign({}, record, { phase: 'unknown' }), error = ''
+    try { value = ticketExitRecovery.markUnknown(record) }
+    catch (err) { error = err.message }
+    return { value, error }
+  },
+  async submitTicketRefund(record, session) {
+    if (!record || !this.currentRefusalSession(session)) return
+    const wasUnknown = record.phase === 'unknown'
+    this.setData({ ticketBusy: true, ticketRecovery: record, ticketRecoveryError: '', ticketError: '' })
+    try {
+      await api.refundTickets(record.paymentId, record.quantity, record.amount, record.requestKey)
+      if (!this.currentRefusalSession(session)) return
+      try { ticketExitRecovery.clear(record) }
+      catch (err) {
+        // 退款已成功但本机记录未能清除：把 unknown 写回模块读取层，保留原键。
+        // 这样下次重试即使被业务拒绝，也不会把已成功的退款凭据当成“首次未成功”清掉。
+        const kept = this.keepTicketRecoveryUnknown(record)
+        this.setData({ ticketRecovery: kept.value,
+          ticketRecoveryError: [err.message, kept.error].filter(Boolean).join('；') })
+        wx.showToast({ title: '退票已成功，但本机记录未能清除，请勿重复提交', icon: 'none' }); return
+      }
+      this.setData({ ticketRecovery: null, ticketRecoveryError: '', ticketBusy: false })
+      await this.onOpenTickets(); await this.afterAction()
+      if (this.currentRefusalSession(session)) wx.showToast({ title: '已退票', icon: 'success' })
+    } catch (err) {
+      if (!this.currentRefusalSession(session)) return
+      if (err && err.businessRejected === true) {
+        // 只有“首次请求就被明确拒绝”才能证明没有形成退款。
+        // 如果上一次已经是未知结果，本次重试被权限/站点/业务闸拒绝，不能反推第一次没成功；
+        // 必须保留原键原内容，直到原结果被明确核实。
+        if (wasUnknown) {
+          const kept = this.keepTicketRecoveryUnknown(record)
+          this.setData({ ticketRecovery: kept.value, ticketRecoveryError: kept.error, ticketBusy: false,
+            ticketError: '原退票请求结果仍未核实，本次拒绝不能证明原请求未退款；请保留原记录并核实' })
+        } else {
+          let clearError = ''
+          try { ticketExitRecovery.clear(record) } catch (e) { clearError = e.message }
+          const kept = clearError ? this.keepTicketRecoveryUnknown(record) : null
+          this.setData({ ticketRecovery: kept ? kept.value : null,
+            ticketRecoveryError: [clearError, kept && kept.error].filter(Boolean).join('；'),
+            ticketError: err.message || '退票被拒绝', ticketBusy: false })
+          await this.onOpenTickets()
+          if (this.currentRefusalSession(session)) this.setData({ ticketError: clearError || err.message || '退票被拒绝' })
+        }
+      } else {
+        const kept = this.keepTicketRecoveryUnknown(record)
+        this.setData({ ticketRecovery: kept.value, ticketRecoveryError: kept.error,
+          ticketError: kept.error || '退票结果未确认，请先重试原请求或核实结果，勿重新提交' })
+      }
+      wx.showToast({ title: err.message || '退票结果未确认', icon: 'none' })
+    } finally { if (this.currentRefusalSession(session)) this.setData({ ticketBusy: false }) }
   },
   onProposal(e) {
     const id=e.currentTarget.dataset.id

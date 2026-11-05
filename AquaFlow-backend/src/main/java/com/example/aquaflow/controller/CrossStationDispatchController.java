@@ -197,7 +197,7 @@ public class CrossStationDispatchController {
      * 指定水站外派后，目标水站将订单调解退回原归属站。
      * 仅打标记 [指定退回待确认]（即「转单中」），保留原履约站与原配送员，等待原站长决定：
      * 同意 -> 变回原站普通待分配（可重新分配/外派）；
-     * 拒绝 -> 回到配送中，由原配送员继续完成配送。
+     * 拒绝 -> 恢复申请前的主状态与指派（未接单仍待配送，已接单才配送中）。
      */
     @RequireRole("STATION_MANAGER")
     @PostMapping("/orders/{id}/directed-return")

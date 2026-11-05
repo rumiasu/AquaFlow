@@ -88,13 +88,21 @@
       <button bindtap="onCloseTickets" disabled="{{ticketBusy}}" class="af-action af-action--quiet b3-on-close-tickets" hover-class="af-action--pressed"><view class="af-action__face">收起</view></button>
       <text class="hint" wx:if="{{ticketLoading}}">正在核对批次…</text>
       <view wx:if="{{ticketError}}"><text class="error">{{ticketError}}</text><button bindtap="onOpenTickets" disabled="{{ticketBusy || ticketLoading}}" class="af-entry b3-on-open-tickets" hover-class="af-action--pressed"><view class="af-entry__body">重新核对</view><text class="af-entry__arrow" aria-hidden="true">›</text></button></view>
+      <view wx:if="{{ticketRecovery || ticketRecoveryError}}" class="ticket-recovery">
+        <text class="error" wx:if="{{ticketRecoveryError}}">{{ticketRecoveryError}}</text>
+        <block wx:if="{{ticketRecovery}}">
+          <text class="hint">上次退票结果待核实：批次 {{ticketRecovery.paymentId}}，{{ticketRecovery.quantity}} 张，金额 ¥{{ticketRecovery.amount}}。</text>
+          <button bindtap="onRetryTicketRefund" disabled="{{ticketBusy}}" class="af-action af-action--secondary b3-on-retry-ticket-refund" hover-class="af-action--pressed">重试原请求</button>
+        </block>
+        <text class="hint">核实完成前请勿换批次或重新提交。</text>
+      </view>
       <view class="row task-row" wx:for="{{tickets}}" wx:key="paymentId">
         <text class="card-title">{{item.customerName}} · {{item.productName}}</text>
         <text class="card-amount">剩余 {{item.remainingQty}} 张 · ¥{{item.refundAmount}}</text>
         <text>原渠道 {{item.paymentMethodText}}</text>
-        <button data-id="{{item.paymentId}}" bindtap="onTicketRefund" disabled="{{ticketBusy || ticketLoading || ticketError}}" class="af-action af-action--secondary b3-on-ticket-refund" hover-class="af-action--pressed">核实并退票</button>
+        <button data-id="{{item.paymentId}}" bindtap="onTicketRefund" disabled="{{ticketBusy || ticketLoading || ticketError || ticketRecovery || ticketRecoveryError}}" class="af-action af-action--secondary b3-on-ticket-refund" hover-class="af-action--pressed">核实并退票</button>
       </view>
-      <text class="empty-state" wx:if="{{!ticketLoading && !ticketError && !tickets.length}}">暂无可退批次</text>
+      <text class="empty-state" wx:if="{{!ticketLoading && !ticketError && !ticketRecovery && !ticketRecoveryError && !tickets.length}}">暂无可退批次</text>
     </block>
   </view>
 </view>

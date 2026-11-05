@@ -15,16 +15,20 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** Real HTTP/JWT/MySQL; external object upload is synthetic, private URL signing is the real SDK offline. */
+/** Real HTTP/JWT/MySQL; external object storage and signed URLs are synthetic and offline. */
 class HistoricalClaimPhotoIntegrationTest extends AbstractIntegrationTest {
     @MockitoBean CosUtil cos;
-    private final CosUtil signer = new CosUtil("ap-guangzhou", "synthetic-id", "synthetic-secret", "synthetic-123456");
     private long station, customer, manager;
+    /** Only a local synthetic signed URL; no SDK and no cloud request. */
+    private static String offlineSignedUrl(String objectName) {
+        long now = System.currentTimeMillis() / 1000;
+        return "https://offline.invalid/" + objectName + "?q-signature=synthetic&q-sign-time=" + now + ";" + (now + 3600);
+    }
     @BeforeEach void configureStorage() {
         when(cos.isCredentialsConfigured()).thenReturn(true);
         when(cos.uploadPrivate(any(),eq("private/asset-claim"),eq(".png"))).thenReturn("private/asset-claim/synthetic-proof.png");
-        when(cos.generatePrivateUrl(anyString())).thenAnswer(c -> signer.generatePrivateUrl(c.getArgument(0)));
-        when(cos.generatePublicUrl(anyString())).thenAnswer(c -> signer.generatePublicUrl(c.getArgument(0)));
+        when(cos.generatePrivateUrl(anyString())).thenAnswer(c -> offlineSignedUrl(c.getArgument(0)));
+        when(cos.generatePublicUrl(anyString())).thenAnswer(c -> offlineSignedUrl(c.getArgument(0)));
         station=createStation("合成照片站"); customer=createCustomer("合成照片客户","synthetic-photo-customer");
         manager=createStaff("合成照片站长","STATION_MANAGER",station,1);
     }

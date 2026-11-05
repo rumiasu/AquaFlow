@@ -66,7 +66,7 @@ class GrossProfitRefundRepairIntegrationTest extends AbstractIntegrationTest {
         jdbc.update("update payment_record set update_time=? where id=?",oldDay.atTime(12,0),payment);
         money("24.00",report(oldDay),"ticketRevenue");
         assertEquals(0,post("/api/tickets/consume",mgr,"{\"customerId\":"+customer+",\"productId\":"+product+",\"quantity\":1,\"idempotencyKey\":\"used-one\"}").code());
-        Api returned=put("/api/payments/"+payment+"/refund",mgr,"{\"scope\":\"WATER\",\"expectedTicketQty\":2,\"expectedTicketAmount\":16,\"note\":\"实际退剩余两张\"}");
+        Api returned=put("/api/payments/"+payment+"/refund",mgr,"{\"scope\":\"WATER\",\"expectedTicketQty\":2,\"expectedTicketAmount\":16,\"idempotencyKey\":\"profit-exit\",\"note\":\"实际退剩余两张\"}");
         assertEquals(0,returned.code(),returned.toString());money("8.00",report(oldDay),"ticketRevenue");
         assertEquals(0,intOf("select sum(remain_qty) from ticket_lot where customer_id=?",customer));
         assertEquals(0,new BigDecimal("16.00").compareTo(decimalOf("select amount from ticket_exit_refund where original_payment_id=?",payment)));

@@ -8,7 +8,8 @@ const STORAGE_KEYS = {
   STAFF_ROLE: 'aq_delivery_staffRole',
   STATION_ID: 'aq_delivery_stationId',
   REFUND_NOTE_INTENT: 'aq_delivery_refundNoteIntent:',
-  BARREL_REFUND_RECOVERY: 'aq_delivery_barrelRefundRecovery:'
+  BARREL_REFUND_RECOVERY: 'aq_delivery_barrelRefundRecovery:',
+  TICKET_EXIT_RECOVERY: 'aq_delivery_ticketExitRecovery:'
 }
 
 module.exports = { STORAGE_KEYS }

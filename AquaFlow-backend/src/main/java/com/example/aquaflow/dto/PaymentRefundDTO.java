@@ -9,6 +9,12 @@ public class PaymentRefundDTO {
     /** 剩余票退出必须回传站长确认的数量与金额，防止预览后并发用票改变实退。 */
     @jakarta.validation.constraints.Min(0)
     private Integer expectedTicketQty;
+    /**
+     * 剩余票退出的客户端请求键（仅无订单购票批次使用）。
+     * 同一键重试返回原结果；换键但余额已变会被余额/累计上限拒绝。
+     */
+    @Size(max = 64, message = "退票请求凭据过长")
+    private String idempotencyKey;
     @jakarta.validation.constraints.DecimalMin("0.00")
     @jakarta.validation.constraints.Digits(integer=10,fraction=2)
     private java.math.BigDecimal expectedTicketAmount;

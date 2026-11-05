@@ -47,9 +47,9 @@ class ClosedStationTicketPurchaseIntegrationTest extends AbstractIntegrationTest
         assertEquals(0,get("/api/tickets?stationId="+station,cus).code());
         Api replay=post("/api/tickets/purchase",cus,body("old",2));assertEquals(0,replay.code(),replay.toString());assertEquals(p,replay.data().path("paymentId").asLong());
         assertEquals(3,intOf("select sum(remain_qty) from ticket_lot"));
-        Api refund=put("/api/payments/"+p+"/refund",mgr,"{\"scope\":\"WATER\",\"expectedTicketQty\":3,\"expectedTicketAmount\":24}");assertEquals(0,refund.code(),refund.toString());
+        Api refund=put("/api/payments/"+p+"/refund",mgr,"{\"scope\":\"WATER\",\"expectedTicketQty\":3,\"expectedTicketAmount\":24,\"idempotencyKey\":\"closed-exit\"}");assertEquals(0,refund.code(),refund.toString());
         assertEquals(0,intOf("select sum(remain_qty) from ticket_lot"));assertEquals(3,intOf("select quantity from ticket_exit_refund where original_payment_id=?",p));
-        assertEquals(1,put("/api/payments/"+p+"/refund",mgr,"{\"scope\":\"WATER\"}").code());assertEquals(1,intOf("select count(*) from ticket_exit_refund"));
+        assertEquals(1,put("/api/payments/"+p+"/refund",mgr,"{\"scope\":\"WATER\",\"idempotencyKey\":\"closed-exit-2\"}").code());assertEquals(1,intOf("select count(*) from ticket_exit_refund"));
     }
     @Test void existingDepositReturnCanFinishAfterClosure() {
         seed();buyRight();close();assertEquals(0,get("/api/barrels/summary-by-type?stationId="+station,cus).code());

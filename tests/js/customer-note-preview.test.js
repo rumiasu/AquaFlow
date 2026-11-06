@@ -7,7 +7,7 @@ const employeeNotes = require('../../miniapp-delivery/utils/customer-note')
 const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8')
 const noteRow = (extra = {}) => ({ id: 81, status: 1, statusText: '待配送', stationId: 11,
   deliveryStationId: 11, deliveryStaffId: 7, customerNote: ' 门铃坏了\n请先电话联系 <门口> & "轻放" ',
-  specialNote: '[分配] 内部记录\n[接单] 内部记录', addressDetail: '合成地址：清泉路8号2栋601',
+  specialNote: '[分配] 内部记录\n[接单] 内部记录', addressDetail: '合成修改后地址', addressSnapshot: '合成地址：清泉路8号2栋601',
   receiverName: '合成收件人', receiverPhone: '13800000000', itemSummary: '纯净水 2桶，矿泉水 1瓶',
   totalAmount: 36, payState: 'PENDING', payStateText: '待收款', needCollect: true,
   paymentMethod: 2, paymentStatus: 1,
@@ -133,7 +133,7 @@ test('delivery home keeps five courier and six manager list reads with four prev
     for (const node of nodes) {
       const rendered = render(node, t.page.data), previews = rendered.filter(n => n.className === 'customer-note-preview')
       assert.strictEqual(previews.length, 1); assert.ok(previews[0].text.includes('<门口>'))
-      assert.ok(rendered.some(n => n.text === '¥36.00')); assert.ok(rendered.some(n => n.text === noteRow().addressDetail))
+      assert.ok(rendered.some(n => n.text === '¥36.00')); assert.ok(rendered.some(n => n.text === noteRow().addressSnapshot)); assert.ok(!rendered.some(n => n.text === noteRow().addressDetail))
     }
     t.page.onOrderTap(event(81)); assert.strictEqual(t.wx.__calls.nav.at(-1).url, '/pages/order/detail?id=81')
   }

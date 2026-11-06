@@ -11,6 +11,12 @@ public interface BarrelReturnDetailMapper {
     String ARRANGEMENT_FIELDS = "a.initial_pickup_mode,a.initial_companion_order_id,a.version as arrangement_version,a.requires_confirmation as arrangement_requires_confirmation,a.confirmed_version as customer_confirmed_version";
     @Select("select d.*,p.status as fee_payment_status," + ARRANGEMENT_FIELDS + " from barrel_return_detail d left join payment_record p on p.id=d.fee_payment_id left join barrel_return_arrangement a on a.record_id=d.record_id where d.record_id=#{recordId}")
     BarrelReturnDetail get(@Param("recordId") Long recordId);
+    @Select("select d.*, " + ARRANGEMENT_FIELDS + ",s.name as station_name from barrel_return_detail d "
+        + "join barrel_record r on r.id=d.record_id and r.customer_id=d.customer_id and r.station_id=d.station_id and r.type=2 "
+        + "left join barrel_return_arrangement a on a.record_id=d.record_id left join station s on s.id=d.station_id "
+        + "where d.customer_id=#{customerId} and d.status='APPROVED' order by d.record_id desc")
+    List<BarrelReturnDetail> approvedForCustomer(@Param("customerId") Long customerId);
+
     @Select("select * from barrel_return_detail where fee_payment_id=#{payment}") BarrelReturnDetail byFeePayment(Long payment);
     @Insert("insert into barrel_return_fee_refund(original_payment_id,refund_payment_id,record_id,amount,operator_id,note,create_time) values(#{original},#{refund},#{record},#{amount},#{operator},#{note},now())")
     int feeRefund(@Param("original") Long original,@Param("refund") Long refund,@Param("record") Long record,@Param("amount") BigDecimal amount,@Param("operator") Long operator,@Param("note") String note);

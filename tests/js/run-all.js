@@ -15,6 +15,9 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'customer-pending-return.test.js', name: 'customer return confirmation reminders and direct entry' },
+  { file: 'delivery-home-address-navigation.test.js', name: 'delivery home snapshot address and navigation' },
+  { file: 'delivery-detail-address-navigation.test.js', name: 'delivery detail snapshot address and navigation' },
   { file: 'mine-barrel-stats.test.js', name: 'mine statistics use barrel quantities with scoped sources and unknown-state recovery' },
   { file: 'staff-order-delivery-handoff.test.js', name: 'phone order success navigation and delivery task handoff' },
   { file: 'delivery-task-read-recovery.test.js', name: 'delivery task stale reads and action confirmation recovery' },

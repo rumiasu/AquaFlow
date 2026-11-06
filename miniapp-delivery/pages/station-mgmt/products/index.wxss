@@ -516,7 +516,7 @@
 }
 
 .pkg-delete-pending,
-.pkg-validation-error { display:block; margin:8rpx 0 0; font-size:24rpx; line-height:1.5; }
+.pkg-validation-error { display:block; margin:8rpx 0 0; font-size:28rpx; line-height:1.5; }
 .pkg-delete-pending { color:var(--error-color); }
 .pkg-validation-error { color:var(--error-color); }
 
@@ -524,7 +524,7 @@
   background: var(--bg-card);
   border-radius: 8rpx;
   padding: 8rpx 12rpx;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--text-primary);
   text-align: center;
 }
@@ -538,7 +538,7 @@
 }
 
 .pkg-unit {
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--text-secondary);
   margin: 0 8rpx;
 }
@@ -819,7 +819,7 @@
 .record-change .record-type { display:block; margin:0; padding:4rpx 12rpx; border-radius:6rpx; font-size:24rpx; background:var(--primary-bg); color:var(--primary-color); }
 .inventory-record.decrease .record-type { color:var(--text-regular); background:var(--border-color); }
 .record-change .record-delta { display:block; margin:8rpx 0 0; font-size:36rpx; font-weight:700; font-variant-numeric:tabular-nums; }
-.record-delta text { font-size:24rpx; font-weight:400; }
+.record-delta text { font-size:28rpx; font-weight:400; }
 .record-detail { grid-column:1 / -1; display:flex; flex-wrap:wrap; justify-content:space-between; gap:8rpx 20rpx; color:var(--text-regular); font-size:24rpx; line-height:1.6; }
 .inventory-records-body .load-more { min-height:48px; padding-bottom:calc(24rpx + env(safe-area-inset-bottom)); }
 .inventory-operation-card .product-section-heading { margin-bottom:8rpx; }

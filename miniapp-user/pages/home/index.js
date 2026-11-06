@@ -7,7 +7,7 @@ const { showBusinessModal } = require('../../utils/business-dialog')
 const { getStationProducts } = require('../../api/product')
 const { getOrders, getOrderDetail, getMyLatestStation } = require('../../api/order')
 const { getAddresses } = require('../../api/address')
-const { getBarrelSummary, getBarrelSummaryByType } = require('../../api/barrel')
+const { getBarrelSummary, getBarrelSummaryByType, getPendingReturnConfirmations } = require('../../api/barrel')
 const { getUnreadNotifications, markAllRead } = require('../../api/notification')
 const { getPublicStations, getStationStatus } = require('../../api/station')
 const { getQuote } = require('../../api/payment')
@@ -34,6 +34,7 @@ Page({
     loadIssueDetails: [],
     loadImpactSummary: '',
     notificationsLoading: false,
+    pendingReturns: [], pendingReturnsLoading: false, pendingReturnsError: false,
     homeRetrying: false,
     showLoadDetails: false,
     catalogState: 'idle', // idle / loading / error / empty / ready
@@ -111,7 +112,7 @@ Page({
     }
     this._homeAddressSession = captureSession()
     if (!isLogin) {
-      this.setData({ state: 'guest', products: [], productsView: [], catalogState: 'idle', loading: false })
+      this.setData({ state: 'guest', products: [], productsView: [], catalogState: 'idle', loading: false, pendingReturns: [], pendingReturnsError: false })
       return
     }
 
@@ -122,6 +123,7 @@ Page({
     }
     this.checkStation()
     this.checkNotifications()
+    this.checkPendingReturns()
 
     const selectedProductId = storage.get('selectedProductId')
     if (selectedProductId) {
@@ -136,6 +138,8 @@ Page({
     this._homeLoadSeq = (this._homeLoadSeq || 0) + 1
     this._homeRetry = null
     this._notificationSeq = (this._notificationSeq || 0) + 1
+    this._pendingReturnsSeq = (this._pendingReturnsSeq || 0) + 1
+    this.setData({ pendingReturns: [], pendingReturnsLoading: false, pendingReturnsError: false })
     this._stationCheckSeq = (this._stationCheckSeq || 0) + 1
     this._stationListSeq = (this._stationListSeq || 0) + 1
     this._stationStatusSeq = (this._stationStatusSeq || 0) + 1
@@ -145,7 +149,7 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.checkStation().then(() => wx.stopPullDownRefresh())
+    Promise.all([this.checkStation(), this.checkPendingReturns()]).then(() => wx.stopPullDownRefresh())
   },
 
   /**
@@ -246,7 +250,7 @@ Page({
     if (this._homeDestroyed || this._homeHidden || this.data.loading || this._homeRetry) return
     const retry = this._homeRetry = {}
     this.setData({ homeRetrying: true })
-    try { await Promise.all([this.checkStation(), this.checkNotifications()]) }
+    try { await Promise.all([this.checkStation(), this.checkNotifications(), this.checkPendingReturns()]) }
     finally {
       if (this._homeRetry === retry) { this._homeRetry = null; this.setData({ homeRetrying: false }) }
     }
@@ -320,6 +324,33 @@ Page({
     } finally {
       if (!completed && current()) this.setData({ loading: false })
     }
+  },
+
+  async checkPendingReturns() {
+    const session = captureSession()
+    const sequence = this._pendingReturnsSeq = (this._pendingReturnsSeq || 0) + 1
+    const current = () => !this._homeDestroyed && !this._homeHidden
+      && sequence === this._pendingReturnsSeq && isCurrentSession(session)
+    this.setData({ pendingReturns: [], pendingReturnsError: false, pendingReturnsLoading: true })
+    if (!session.loggedIn || !session.customerId) { this.setData({ pendingReturnsLoading: false }); return }
+    try {
+      const res = await getPendingReturnConfirmations()
+      if (!current()) return
+      const validId = value => /^[1-9]\d*$/.test(String(value))
+      if (!res || res.code !== 0 || !Array.isArray(res.data)
+        || !res.data.every(r => r && validId(r.recordId) && validId(r.stationId))) throw new Error('invalid pending return response')
+      this._pendingReturnsSession = session
+      this.setData({ pendingReturns: res.data })
+    } catch (_) { if (current()) this.setData({ pendingReturnsError: true }) }
+    finally { if (current()) this.setData({ pendingReturnsLoading: false }) }
+  },
+
+  onPendingReturnTap(e) {
+    if (this._homeHidden || this.data.pendingReturnsLoading || this.data.pendingReturnsError) return
+    const row = this.data.pendingReturns.find(r => String(r.recordId) === String(e.currentTarget.dataset.id))
+    if (!row || !isCurrentSession(this._pendingReturnsSession)) return
+    wx.navigateTo({ url: '/pages/barrel/index?stationId=' + encodeURIComponent(row.stationId)
+      + '&returnId=' + encodeURIComponent(row.recordId), fail: () => wx.showToast({ title: '打开退还申请失败，请重试', icon: 'none' }) })
   },
 
   /** 一次展示本次读取的全部未读提醒；只有确认阅读后才按原方式标已读。 */

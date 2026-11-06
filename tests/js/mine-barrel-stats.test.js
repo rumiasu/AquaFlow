@@ -85,6 +85,23 @@ test('late quantities cannot replace a new read or cross a changed staff session
     assert.deepEqual(t.values(), ['1 桶', '2 桶', '3 桶'])
   }
 })
+test('loading, failure, and success have distinct visible states', async () => {
+  const t = fixture(); let reject
+  t.source.delivery = () => new Promise((resolve, fail) => { reject = fail })
+  const pending = t.page.loadStats(false)
+  assert.deepEqual(t.values(), ['加载中…', '加载中…', '加载中…'])
+  reject(Error('合成断网')); await pending
+  assert.deepEqual(t.values(), ['待核实', '待核实', '待核实']); assert(t.page.data.statsError)
+  t.source.delivery = async () => ok({ deliveringBarrels: 0, completedBarrels: 1, returnBarrels: 2 })
+  await t.page.onRetryStats(); assert.deepEqual(t.values(), ['0 桶', '1 桶', '2 桶'])
+})
+test('manager overview shows loading while reads are pending, then verified values', async () => {
+  const t = fixture(true), slow = deferred(); t.source.profit = () => slow.promise
+  const pending = t.page.loadStats(true)
+  assert.deepEqual(t.values(), ['加载中…', '加载中…'])
+  slow.resolve(ok({ orderCount: 1, barrelCount: 3, totalIncome: 15, costComplete: false }))
+  await pending; assert.deepEqual(t.values(), ['¥15.00', '3 桶'])
+})
 ;(async () => {
   for (const t of tests) { await t.run(); console.log('PASS ' + t.name) }
   done(); console.log('AQUAFLOW_SUITE_OK ' + tests.length)

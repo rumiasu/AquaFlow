@@ -32,6 +32,7 @@ public class BarrelReturnDetail {
         };
     }
     public String getPickupModeText() { return "PICKUP".equals(pickupMode)?"单独上门":"COMBINED".equals(pickupMode)?"随送水订单收桶":"到店退桶"; }
+    private transient String stationName;
     private Long recordId;
     private Long customerId;
     private Long stationId;

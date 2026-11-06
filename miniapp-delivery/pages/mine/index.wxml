@@ -86,14 +86,15 @@
   -->
   <view class="stats-card" wx:if="{{isLogin && canAccessBusiness}}">
     <text class="stats-heading">{{isManager ? '本站概况' : '今日配送'}}</text>
+    <!-- 2026-11-06：读取中原先与失败都显示待核实；加载时明确提示，失败仍保留待核实与重试。 -->
     <!-- Cost-complete profit and known revenue keep their original data contract. -->
     <view class="stats-row manager-stats-row" wx:if="{{isManager}}">
       <view class="stats-item v2-money-stat" bindtap="onGoTodayProfit">
-        <text class="stats-value stats-money {{todayProfit.netProfitWarn ? 'stats-warn' : ''}}">{{managerStatsLoading ? '待核实' : todayProfit.netProfitText}}</text>
-        <text class="stats-label">{{todayProfit.metricLabel || '今日收入'}}</text>
+        <text class="stats-value stats-money {{todayProfit && todayProfit.netProfitWarn ? 'stats-warn' : ''}}">{{managerStatsLoading ? '加载中…' : ((todayProfit && todayProfit.netProfitText) || '待核实')}}</text>
+        <text class="stats-label">{{(todayProfit && todayProfit.metricLabel) || '今日收入'}}</text>
       </view>
       <view class="stats-item" bindtap="onGoTodayProfit">
-        <text class="stats-value">{{managerStatsLoading ? '待核实' : (todayProfit.barrelCountText || '待核实')}}</text>
+        <text class="stats-value">{{managerStatsLoading ? '加载中…' : ((todayProfit && todayProfit.barrelCountText) || '待核实')}}</text>
         <text class="stats-label">今日下单桶数</text>
       </view>
     </view>
@@ -101,17 +102,17 @@
     <!-- 配送员：自己的活（口径全部按人统计，见 /api/delivery/stats/today） -->
     <view class="stats-row" wx:else>
       <view class="stats-item role-stat-current" bindtap="onOpenTaskStat" data-tab="delivering" aria-role="button">
-        <text class="stats-value">{{statsReady && todayStats.deliveringBarrels !== null && todayStats.deliveringBarrels !== undefined ? todayStats.deliveringBarrels + ' 桶' : '待核实'}}</text>
+        <text class="stats-value">{{statsLoading ? '加载中…' : (statsReady && todayStats.deliveringBarrels !== null && todayStats.deliveringBarrels !== undefined ? todayStats.deliveringBarrels + ' 桶' : '待核实')}}</text>
         <text class="stats-label">配送中</text><text class="stats-link">查看 ›</text>
       </view>
       <view class="stats-divider"></view>
       <view class="stats-item" bindtap="onOpenTaskStat" data-tab="completed" aria-role="button">
-        <text class="stats-value">{{statsReady && todayStats.completedBarrels !== null && todayStats.completedBarrels !== undefined ? todayStats.completedBarrels + ' 桶' : '待核实'}}</text>
+        <text class="stats-value">{{statsLoading ? '加载中…' : (statsReady && todayStats.completedBarrels !== null && todayStats.completedBarrels !== undefined ? todayStats.completedBarrels + ' 桶' : '待核实')}}</text>
         <text class="stats-label">今日送达</text><text class="stats-link">查看 ›</text>
       </view>
       <view class="stats-divider"></view>
       <view class="stats-item role-stat-physical" bindtap="onBarrelRecords" aria-role="button">
-        <text class="stats-value">{{statsReady && todayStats.returnBarrels !== null && todayStats.returnBarrels !== undefined ? todayStats.returnBarrels + ' 桶' : '待核实'}}</text>
+        <text class="stats-value">{{statsLoading ? '加载中…' : (statsReady && todayStats.returnBarrels !== null && todayStats.returnBarrels !== undefined ? todayStats.returnBarrels + ' 桶' : '待核实')}}</text>
         <text class="stats-label">回桶数</text><text class="stats-link">全部记录 ›</text>
       </view>
     </view>
@@ -119,10 +120,10 @@
     <!-- Hide only verified zero counts. Unknown and failed reads stay actionable. -->
     <view class="mine-risk-summary" wx:if="{{isManager && (managerStatsLoading || risk.barrelExceptionFailed || risk.owedCustomerFailed || risk.barrelExceptionCount !== 0 || risk.owedCustomerCount !== 0)}}">
       <view class="mine-risk-entry" bindtap="onGoBarrelException" wx:if="{{managerStatsLoading || risk.barrelExceptionFailed || risk.barrelExceptionCount !== 0}}">
-        <icon name="barrel" size="20px" color="#1264D6" /><text>桶异常</text><text class="mine-risk-count">{{managerStatsLoading || risk.barrelExceptionFailed || risk.barrelExceptionCount === null || risk.barrelExceptionCount === undefined ? '待核实' : risk.barrelExceptionCount}}</text><text class="mine-risk-arrow">›</text>
+        <icon name="barrel" size="20px" color="#1264D6" /><text>桶异常</text><text class="mine-risk-count">{{managerStatsLoading ? '加载中…' : (risk.barrelExceptionFailed || risk.barrelExceptionCount === null || risk.barrelExceptionCount === undefined ? '待核实' : risk.barrelExceptionCount)}}</text><text class="mine-risk-arrow">›</text>
       </view>
       <view class="mine-risk-entry" catchtap="onGoOwedBarrels" wx:if="{{managerStatsLoading || risk.owedCustomerFailed || risk.owedCustomerCount !== 0}}">
-        <icon name="barrel" size="20px" color="#1264D6" /><text>欠桶</text><text class="mine-risk-count">{{managerStatsLoading || risk.owedCustomerFailed || risk.owedCustomerCount === null || risk.owedCustomerCount === undefined ? '待核实' : risk.owedCustomerCount}}<text wx:if="{{!managerStatsLoading && !risk.owedCustomerFailed && risk.owedCustomerCount !== null && risk.owedCustomerCount !== undefined}}"> 户</text></text><text class="mine-risk-arrow">›</text>
+        <icon name="barrel" size="20px" color="#1264D6" /><text>欠桶</text><text class="mine-risk-count">{{managerStatsLoading ? '加载中…' : (risk.owedCustomerFailed || risk.owedCustomerCount === null || risk.owedCustomerCount === undefined ? '待核实' : risk.owedCustomerCount)}}<text wx:if="{{!managerStatsLoading && !risk.owedCustomerFailed && risk.owedCustomerCount !== null && risk.owedCustomerCount !== undefined}}"> 户</text></text><text class="mine-risk-arrow">›</text>
       </view>
     </view>
   </view>

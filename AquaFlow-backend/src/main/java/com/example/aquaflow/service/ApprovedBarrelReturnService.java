@@ -48,6 +48,19 @@ public class ApprovedBarrelReturnService {
     @Autowired private com.example.aquaflow.payment.MockPaymentPolicy mockPolicy;
 
     public BarrelReturnDetail detail(Long recordId) { return policy.hasSchema()?detailMapper.get(recordId):null; }
+
+    /** 当前待办只投影本人申请，不生成已读消息；确认规则与详情页共用。 */
+    public List<Map<String,Object>> customerPendingConfirmations(Long customerId) {
+        if (!policy.hasSchema()) throw new BusinessException("退还申请状态暂未就绪，请稍后重试");
+        return detailMapper.approvedForCustomer(customerId).stream()
+            .filter(d -> d.getCustomerConfirmationRequired() && !d.getCustomerConfirmationCurrent())
+            .map(d -> {
+                Map<String,Object> item = new LinkedHashMap<>();
+                item.put("recordId", d.getRecordId()); item.put("stationId", d.getStationId());
+                item.put("stationName", d.getStationName());
+                return item;
+            }).toList();
+    }
     @Autowired private CustomerBarrelLotMapper refundLots;
     @Autowired private CustomerDepositAccountMapper refundAccounts;
     @Autowired private PlatformTransactionManager transactionManager;

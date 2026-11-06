@@ -26,6 +26,9 @@
     <text class="load-error-retry" bindtap="onRetryLoad">重新加载</text>
   </view>
 
+  <!-- 2026-11-06：读取中原先无提示，刷新看似无响应；明确显示读取状态。 -->
+  <view class="payment-loading" wx:if="{{loading}}"><text>正在读取收款记录…</text></view>
+
   <view class="record-card" wx:for="{{list}}" wx:key="id">
     <view class="card-header"><view class="record-icon"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /></view><text class="payment-person">{{item.customerName || ('客户编号：' + item.customerId)}}</text><text class="status pending" wx:if="{{view === 'pending'}}">待确认</text><text class="status history-status" wx:else>{{item.statusText}}</text></view>
     <view class="info-row amount-row"><text class="label">{{view === 'pending' ? '本笔待确认金额' : '流水金额'}}</text><text class="amount">¥{{item.amountText}}</text></view>

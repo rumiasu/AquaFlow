@@ -1,5 +1,7 @@
 const assert = require('assert')
 const path = require('path')
+const fs = require('fs')
+const { parseWxml, renderElements } = require('./wxml-tree')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
 const done = armWatchdog(30000)
 const event = (field, value) => ({ currentTarget: { dataset: { field, id: value, key: value } }, detail: { value } })
@@ -19,6 +21,17 @@ function filter(page) { page.onPaymentHistoryDate(event('startDate', '2026-10-06
 let passed = 0, failed = 0
 async function test(name, fn) { try { await fn(); passed++; console.log('PASS ' + name) } catch (e) { failed++; console.error('FAIL ' + name + ': ' + e.message) } }
 ;(async () => {
+  await test('reading feedback shows during initial load and refresh, then clears on success or failure', async () => {
+    const tree = parseWxml(fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/payments/index.wxml'), 'utf8'))
+    let current = deferred()
+    const { page } = fixture(() => current.promise)
+    const visible = () => renderElements(tree, page.data, { includeText: true }).some(n => n.text === '正在读取收款记录…')
+    let pending = page.loadData(); assert.equal(visible(), true)
+    current.resolve({ data: rows(7) }); await pending; assert.equal(visible(), false)
+    current = deferred(); pending = page.loadData(); assert.equal(visible(), true)
+    current.reject(new Error('refresh failed')); await pending
+    assert.equal(visible(), false); assert.equal(page.data.loadError, 'refresh failed')
+  })
   await test('failed customer switch cannot re-show previous rows or erase failure through date actions', async () => {
     const { page } = fixture(async url => { if (url.endsWith('/7')) return { data: rows(7) }; throw new Error('synthetic B unavailable') })
     await page.loadData(); await select(page, 8); filter(page)

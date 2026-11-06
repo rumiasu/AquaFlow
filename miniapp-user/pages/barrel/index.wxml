@@ -127,7 +127,7 @@
       </view>
       <text class="local-empty" wx:if="{{!showAllRecords && !processingRecordsCount && !recordsFailed}}">当前没有待办理记录，可查看全部历史。</text>
       <view class="bucket-list" wx:if="{{records.length > 0}}">
-        <view class="bucket-item barrel-record" wx:for="{{records}}" wx:key="id" wx:if="{{showAllRecords || item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED' || item.returnDetail.status === 'RECEIVED' || item.refundProgress.remaining > 0 || item.refundProgress.verified === false || (item.type === 2 && !item.returnDetail && item.status !== 3 && item.status !== 4)}}">
+        <view id="return-record-{{item.id}}" class="bucket-item barrel-record" wx:for="{{records}}" wx:key="id" wx:if="{{showAllRecords || item.returnDetail.status === 'APPLIED' || item.returnDetail.status === 'APPROVED' || item.returnDetail.status === 'RECEIVED' || item.refundProgress.remaining > 0 || item.refundProgress.verified === false || (item.type === 2 && !item.returnDetail && item.status !== 3 && item.status !== 4)}}">
           <view class="record-header">
             <view class="bucket-info">
               <view class="bucket-icon"><icon name="barrel" size="40rpx" color="#1677FF" /></view>

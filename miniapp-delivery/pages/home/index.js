@@ -223,6 +223,8 @@ Page({
         const summary = summaryOf(o)
         return {
           ...o,
+          // 目的地只认下单快照；缺失时提示核实，不借用可能已修改的地址。
+          addressText: o.addressSnapshot || '订单地址快照缺失，请核实',
           customerNotePreview: employeeCustomerNotePreview(o),
           amountText: moneyText(o.needCollect && o.paymentMethod === 3 ? o.collectAmount : o.totalAmount) || '金额待核实',
           // 「已付 / 需收 ¥X」：判据只用后端投影 —— needCollect（现金且还没收到钱）
@@ -239,7 +241,8 @@ Page({
           // 后端下发了这两个字段的有：派给我的 / 全站未分配 / 配送中 / 今日完成 ——
           // 「待收款」那条（listByStationIdAndStatus）**没有**，于是它是空串、整行不显示，
           // 这里不替它硬凑（卡 §1.2）。
-          floorText: buildFloorText(o)
+          // 楼层/电梯来自当前地址，不是下单快照，且只在地址文本一致时显示。
+          floorText: o.addressSnapshot && o.addressDetail === o.addressSnapshot ? buildFloorText(o) : ''
         }
       }
 
@@ -251,8 +254,8 @@ Page({
       // 更不该让他接走（后端 acceptOrder 同步加了闸门：配送员只能接派给自己的单）。
       const assignedSet = new Set()
       const mergedAssigned = [
-        ...(assignedRes.data || []),
-        ...(pendingRes.data || [])
+        ...(assignedRes.data || []).map(o => o && ({ ...o, assignmentLabel: '派给我' })),
+        ...(pendingRes.data || []).map(o => o && ({ ...o, assignmentLabel: o.deliveryStaffId == null && o.transferPendingKind !== 'DIRECTED' ? '未分配' : '待处理' }))
       ].filter(o => {
         if (assignedSet.has(o.id)) return false
         assignedSet.add(o.id)
@@ -321,6 +324,31 @@ Page({
   onOrderTap(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({ url: `/pages/order/detail?id=${id}` })
+  },
+
+  // 导航只使用订单快照坐标。无坐标时让员工按快照地址手动确认选点。
+  onNavigateOrder(e) {
+    const { id, field } = e.currentTarget.dataset
+    if (!['assignedOrders', 'deliveringOrders'].includes(field)) return
+    const context = this._taskActionContext(field, id)
+    if (!context) return
+    const order = (this.data[field] || []).find(row => String(row.id) === String(id))
+    const address = order && order.addressSnapshot
+    if (!address) { wx.showToast({ title: '订单地址快照缺失，请核实', icon: 'none' }); return }
+    const lat = Number(order.addressSnapshotLat), lng = Number(order.addressSnapshotLng)
+    if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      wx.openLocation({ latitude: lat, longitude: lng, name: address, address, scale: 18 })
+      return
+    }
+    wx.showModal({ title: '需手动选择位置', content: '此订单没有可用的快照坐标，请按订单地址核对选点：' + address,
+      confirmText: '选择位置', success: result => {
+        if (!result.confirm || !this._taskActionCurrent(context)) return
+        wx.chooseLocation({ success: location => {
+          if (!this._taskActionCurrent(context)) return
+          wx.openLocation({ latitude: location.latitude, longitude: location.longitude,
+            name: location.name, address: location.address, scale: 18 })
+        } })
+      } })
   },
 
   /**

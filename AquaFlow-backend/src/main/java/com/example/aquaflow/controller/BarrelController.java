@@ -36,6 +36,11 @@ public class BarrelController {
         approvedReturnService.withdraw(id,AuthContext.getUserId()); return Result.success();
     }
 
+    @GetMapping("/return/pending-confirmations")
+    public Result<List<Map<String,Object>>> pendingConfirmations() {
+        return Result.success(approvedReturnService.customerPendingConfirmations(AuthContext.requireCustomerId()));
+    }
+
     @Autowired
     private BarrelService barrelService;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;

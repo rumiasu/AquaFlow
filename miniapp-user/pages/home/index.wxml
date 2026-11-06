@@ -63,6 +63,15 @@
     </view>
   </view>
 
+  <view class="pending-returns" wx:if="{{isLogin && (pendingReturns.length || pendingReturnsError)}}">
+    <text class="pending-returns-title">退桶申请待确认</text>
+    <text wx:if="{{pendingReturnsError}}">退桶待确认事项暂未核实。</text>
+    <button wx:if="{{pendingReturnsError}}" class="af-action af-action--quiet" bindtap="checkPendingReturns" disabled="{{pendingReturnsLoading}}">重新加载</button>
+    <button wx:for="{{pendingReturns}}" wx:key="recordId" class="pending-return-row" data-id="{{item.recordId}}" bindtap="onPendingReturnTap">
+      <text>{{item.stationName || ('水站 #' + item.stationId)}} · 退还申请 #{{item.recordId}}</text><text>核对费用或新安排 ›</text>
+    </button>
+  </view>
+
   <view class="home-loading" wx:if="{{loading}}" role="status">
     <view class="home-loading-mark" aria-hidden="true"></view>
     <text class="home-loading-title">{{currentStationId ? '正在加载订水信息' : '正在查找服务水站'}}</text>

@@ -49,3 +49,6 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 .card-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--af2-line); }.load-error-retry,.history-more { display:flex; align-items:center; min-height:44px; padding:0 8px; color:var(--af-primary); }.history-more { justify-content:center; }.empty { display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; padding:32px 16px; }
 .record-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 .record-link-error { margin-top:8px; color:var(--af2-ink-danger); font-size:13px; line-height:20px; overflow-wrap:anywhere; }
+
+/* 读取期间明确反馈，避免空白页被误认为没有响应。 */
+.payment-loading { padding:20px 12px; color:var(--af2-muted); font-size:14px; line-height:22px; text-align:center; }

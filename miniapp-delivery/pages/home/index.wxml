@@ -87,8 +87,8 @@
         </view>
         <text class="order-id">#{{item.id}}</text>
       </view>
-      <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
-        <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+      <view class="address-info">
+        <text class="address-text">{{item.addressText}}</text>
       </view>
       <view class="product-info">
         <text class="product-name">{{item.itemSummaryText}}</text>
@@ -112,15 +112,16 @@
       <view class="card-header">
         <view class="tag-row">
           <text class="status-tag status-pending">待配送</text>
+          <text class="aux-tag {{item.assignmentLabel === '派给我' ? 'aux-target' : 'aux-offline'}}" wx:if="{{isManager}}">{{item.assignmentLabel}}</text>
         </view>
         <text class="order-id">#{{item.id}}</text>
       </view>
-      <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
-        <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+      <view class="address-info">
+        <text class="address-text">{{item.addressText}}</text>
       </view>
       <!-- 楼层/电梯：出车前就知道要不要上楼（文案按三态算好，不确定时整行不显示） -->
       <view class="address-info" wx:if="{{item.floorText}}">
-        <text class="address-text floor-text">{{item.floorText}}</text>
+        <text class="address-text floor-text">当前地址信息：{{item.floorText}}</text>
       </view>
       <view class="product-info">
         <text class="product-name">{{item.itemSummaryText}}</text>
@@ -137,6 +138,7 @@
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">
+        <button catchtap="onNavigateOrder" data-id="{{item.id}}" data-field="assignedOrders" disabled="{{loading || !readReady.assignedActions}}" class="af-action af-action--secondary">导航</button>
         <button catchtap="onAcceptOrder" data-id="{{item.id}}" disabled="{{loading || !readReady.assignedActions}}" class="af-action af-action--primary">接单配送</button>
       </view>
     </view>
@@ -160,12 +162,12 @@
         </view>
         <text class="order-id">#{{item.id}}</text>
       </view>
-      <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
-        <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+      <view class="address-info">
+        <text class="address-text">{{item.addressText}}</text>
       </view>
       <!-- 楼层/电梯：正在送的这一单要不要上楼 -->
       <view class="address-info" wx:if="{{item.floorText}}">
-        <text class="address-text floor-text">{{item.floorText}}</text>
+        <text class="address-text floor-text">当前地址信息：{{item.floorText}}</text>
       </view>
       <view class="product-info">
         <text class="product-name">{{item.itemSummaryText}}</text>
@@ -182,6 +184,7 @@
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">
+        <button catchtap="onNavigateOrder" data-id="{{item.id}}" data-field="deliveringOrders" disabled="{{loading || !readReady.delivering}}" class="af-action af-action--secondary">导航</button>
         <button catchtap="onCompleteOrder" data-id="{{item.id}}" disabled="{{loading || !readReady.delivering}}" class="af-action af-action--primary af-action--final af-action--grow">完成配送</button>
         <button catchtap="onMediateOrder" data-id="{{item.id}}" class="af-action af-action--secondary">配送遇到问题</button>
       </view>
@@ -205,8 +208,8 @@
         <text class="order-id">#{{item.id}}</text>
         <text class="order-time">{{item.deliveryTime || '送达日期待核实'}}</text>
       </view>
-      <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
-        <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+      <view class="address-info">
+        <text class="address-text">{{item.addressText}}</text>
       </view>
       <view class="product-info">
         <text class="product-name">{{item.itemSummaryText}}</text>
@@ -251,8 +254,8 @@
           </view>
           <text class="order-id">#{{item.id}}</text>
         </view>
-        <view class="address-info" wx:if="{{item.addressDetail || item.addressSnapshot}}">
-          <text class="address-text">{{item.addressDetail || item.addressSnapshot}}</text>
+        <view class="address-info">
+          <text class="address-text">{{item.addressText}}</text>
         </view>
         <view class="product-info">
           <text class="product-name">{{item.itemSummaryText}}</text>

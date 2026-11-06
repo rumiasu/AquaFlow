@@ -457,7 +457,8 @@ Page({
           isOffline: !!order.needCollect,
           labels,
           isTransfer: !!order.transferPending,
-          floorText: buildFloorText(order),
+          // 当前地址的楼层信息并非订单快照，文本不一致时不能混在目的地下。
+          floorText: order.addressSnapshot && order.addressDetail === order.addressSnapshot ? buildFloorText(order) : '',
           // 事实卡金额行（2026-10-07 #19 R4）：金额只做定长格式化，口径是后端 totalAmount；
           // 收款章的文案是后端 payStateText，章的配色（need/paid/plain）由后端投影
           // needCollect / payState 选出 —— 与完成配送页 _moneyView 同一套判据，前端不自推。
@@ -533,7 +534,7 @@ Page({
 
   // 复制地址
   onCopyAddress() {
-    const address = this.data.order.addressSnapshot || this.data.order.addressDetail
+    const address = this.data.order.addressSnapshot
     if (address) {
       wx.setClipboardData({
         data: address,
@@ -541,6 +542,8 @@ Page({
           wx.showToast({ title: '地址已复制', icon: 'success' })
         }
       })
+    } else {
+      wx.showToast({ title: '订单地址快照缺失，请核实', icon: 'none' })
     }
   },
 
@@ -589,34 +592,29 @@ Page({
     })
   },
 
-  // 导航（优先使用下单时地址快照，避免客户改地址后导错）
+  // 导航使用下单快照；没有可用坐标时，先让员工核对地址再手动选点。
   onNavigate() {
     const order = this.data.order
-    const lat = Number(order.addressSnapshotLat)
-    const lng = Number(order.addressSnapshotLng)
-    const addressText = order.addressSnapshot || order.addressDetail || ''
-    if (lat && lng) {
-      wx.openLocation({
-        latitude: lat,
-        longitude: lng,
-        name: addressText,
-        address: addressText,
-        scale: 18
-      })
-    } else {
-      // 如果没有坐标，使用地址搜索
-      wx.chooseLocation({
-        success: (res) => {
-          wx.openLocation({
-            latitude: res.latitude,
-            longitude: res.longitude,
-            name: res.name,
-            address: res.address,
-            scale: 18
-          })
-        }
-      })
+    if (this.data.loading || this.data.detailError || !order.id || String(order.id) !== String(this.data.orderId) ||
+        (this._orderContext && !this._isCurrent(this._orderContext))) return
+    const context = { ...this._context(), readVersion: this._detailVersion || 0 }
+    if (!this._isCurrent(context)) return
+    const address = order.addressSnapshot
+    if (!address) { wx.showToast({ title: '订单地址快照缺失，请核实', icon: 'none' }); return }
+    const lat = Number(order.addressSnapshotLat), lng = Number(order.addressSnapshotLng)
+    if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      wx.openLocation({ latitude: lat, longitude: lng, name: address, address, scale: 18 })
+      return
     }
+    wx.showModal({ title: '需手动选择位置', content: '此订单没有可用的快照坐标，请按订单地址核对选点：' + address,
+      confirmText: '选择位置', success: result => {
+        if (!result.confirm || !this._isCurrent(context)) return
+        wx.chooseLocation({ success: location => {
+          if (!this._isCurrent(context)) return
+          wx.openLocation({ latitude: location.latitude, longitude: location.longitude,
+            name: location.name, address: location.address, scale: 18 })
+        } })
+      } })
   },
 
   // 完成配送

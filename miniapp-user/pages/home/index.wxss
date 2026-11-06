@@ -886,3 +886,8 @@
   .checkout .sum { flex:1 0 100%; }
   .checkout .cta { margin-left:auto; }
 }
+
+.pending-returns { margin: 20rpx 28rpx; padding: 24rpx; border-radius: 20rpx; background: #fff8e8; color: #563700; }
+.pending-returns-title { display: block; font-weight: 600; font-size: 30rpx; margin-bottom: 12rpx; }
+.pending-return-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6rpx; width: 100%; margin: 10rpx 0; padding: 16rpx; border-radius: 12rpx; background: #fff; color: #563700; font-size: 26rpx; line-height: 1.5; text-align: left; }
+.pending-return-row::after { border: 0; }

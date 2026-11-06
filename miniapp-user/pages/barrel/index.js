@@ -101,7 +101,11 @@ Page({
     submitting: false
   },
 
-  onLoad(options) { assetViewStation.init(this, options) },
+  onLoad(options) {
+    assetViewStation.init(this, options)
+    const id = returnDisplayId(options && options.returnId)
+    this._returnArrival = id ? { id, stationId: assetViewStation.id(this), session: captureSession() } : null
+  },
 
   onShow() {
     assetViewStation.activate(this)
@@ -273,7 +277,18 @@ Page({
       this.setData({ stationReturnQty, maxReturnQty: stationReturnQty })
       if (this.data.returnForm.productId) this.setData({ maxReturnQty: this.returnProductLimit(this.data.returnForm.productId) })
     } finally {
-      if (assetViewStation.current(this, context)) this.setData({ loading: false, refreshing: false })
+      if (assetViewStation.current(this, context)) {
+        this.setData({ loading: false, refreshing: false }, () => {
+          const arrival = this._returnArrival
+          if (!arrival || !isCurrentSession(arrival.session) || arrival.stationId !== context.stationId || this.data.recordsFailed) return
+          this._returnArrival = null
+          const row = this.data.records.find(r => String(r.id) === arrival.id)
+          if (!row) { wx.showToast({ title: '原申请状态已变化，请查看最新记录', icon: 'none' }); return }
+          this.setData({ showAllRecords: true }, () => {
+            if (assetViewStation.current(this, context)) wx.pageScrollTo({ selector: '#return-record-' + arrival.id, duration: 0 })
+          })
+        })
+      }
     }
   },
 
@@ -331,6 +346,7 @@ Page({
   },
   onAssetStationChange(e) {
     if (!assetViewStation.select(this, e.detail)) return
+    this._returnArrival = null
     this.readUiDraft()
     this.setData({ showReturnModal: false, preview: null, previewReady: false, previewHint: '', previewing: false, expandedProductId: null })
     return this.loadData()

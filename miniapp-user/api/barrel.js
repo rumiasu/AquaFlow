@@ -14,6 +14,8 @@ const getBarrelSummaryByType = (stationId) => {
 }
 
 // GET /api/barrels/records (customerId 从 JWT 获取)
+const getPendingReturnConfirmations = () => get('/api/barrels/return/pending-confirmations', {})
+
 const getBarrelRecords = (stationId) => {
   return get(API.BARREL_RECORDS, stationId ? { stationId } : {})
 }
@@ -43,5 +45,5 @@ const confirmBarrelReturn = (id, expectedVersion) => put(API.BARREL_RETURN_CONFI
 // 顾客本人明确选择原申请的新安排；不自动挑单或修改资产/金额。
 const changeBarrelReturnArrangement = (id, body) => put(API.BARREL_RETURN_ARRANGEMENT(id), body)
 const withdrawBarrelReturn = (id) => put(API.BARREL_RETURN_WITHDRAW(id), {})
-module.exports = { getBarrelSummary, getBarrelSummaryByType, getBarrelRecords, requestBarrelReturn, previewBarrelReturn,
+module.exports = { getBarrelSummary, getBarrelSummaryByType, getBarrelRecords, getPendingReturnConfirmations, requestBarrelReturn, previewBarrelReturn,
   quoteBarrelRight, purchaseBarrelRight, getBarrelRightPurchases, confirmBarrelReturn, changeBarrelReturnArrangement, withdrawBarrelReturn, withdrawBarrelRightPurchase }

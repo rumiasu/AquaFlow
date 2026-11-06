@@ -5,6 +5,9 @@ import com.example.aquaflow.dto.DeliveryOrderActionDTO;
 import com.example.aquaflow.entity.OrderBarrelException;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.exception.BusinessException;
+import com.example.aquaflow.mapper.BarrelRecordMapper;
+import com.example.aquaflow.mapper.CaseHandlingMapper;
+import com.example.aquaflow.mapper.CustomerBarrelOverMapper;
 import com.example.aquaflow.mapper.OrderBarrelExceptionMapper;
 import com.example.aquaflow.mapper.OrderMapper;
 import com.example.aquaflow.service.impl.OrderBarrelExceptionServiceImpl;
@@ -35,6 +38,10 @@ class DeliveryReportIdempotencyTest {
         verify(f.alerts, times(1)).stationFault(any(), anyString(), anyString(), anyString(), anyString(), anyString(), any());
         assertEquals(first.getId(), retry.getId());
         assertEquals(0, first.getDiscrepancy());
+        assertFalse(first.isCanReturnEmpty());
+        assertFalse(first.isCanVerifyReturn());
+        assertEquals("", first.getHandlingHint());
+        verifyNoInteractions(f.barrelRecords, f.handlingActions, f.overs);
         var sequence = inOrder(f.orders, f.exceptions);
         sequence.verify(f.orders).getByIdForUpdate(1L);
         sequence.verify(f.exceptions).reportReceiptsForUpdate(eq(20L), startsWith("report:"));
@@ -152,6 +159,9 @@ class DeliveryReportIdempotencyTest {
     static final class Fixture {
         final OrderMapper orders = mock(OrderMapper.class);
         final OrderBarrelExceptionMapper exceptions = mock(OrderBarrelExceptionMapper.class);
+        final BarrelRecordMapper barrelRecords = mock(BarrelRecordMapper.class);
+        final CaseHandlingMapper handlingActions = mock(CaseHandlingMapper.class);
+        final CustomerBarrelOverMapper overs = mock(CustomerBarrelOverMapper.class);
         final AuditLogService audit = mock(AuditLogService.class);
         final AlertService alerts = mock(AlertService.class);
         final OrderBarrelExceptionServiceImpl service = new OrderBarrelExceptionServiceImpl();
@@ -172,6 +182,9 @@ class DeliveryReportIdempotencyTest {
                     .when(audit).log(anyString(), anyString(), anyString(), anyString(), isNull());
             ReflectionTestUtils.setField(service, "orderMapper", orders);
             ReflectionTestUtils.setField(service, "exceptionMapper", exceptions);
+            // 2026-11-06: manual fixtures must wire the real recovery collaborator, just like Spring.
+            ReflectionTestUtils.setField(service, "exceptionRecovery",
+                    new BarrelExceptionRecoveryService(exceptions, orders, barrelRecords, handlingActions, overs));
             ReflectionTestUtils.setField(service, "auditLogService", audit);
             ReflectionTestUtils.setField(service, "alertService", alerts);
             ReflectionTestUtils.setField(service, "barrelPolicy", mock(BarrelBusinessPolicy.class));

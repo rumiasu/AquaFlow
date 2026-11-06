@@ -121,11 +121,20 @@ class RecordDisplayNameServiceTest {
 
     @Test void exceptionListActuallyAttachesNamesAfterItsStationScopedPageRead() {
         var s = new OrderBarrelExceptionServiceImpl(); var exceptions = mock(OrderBarrelExceptionMapper.class);
+        var orders = mock(OrderMapper.class); var barrelRecords = mock(BarrelRecordMapper.class);
+        var handlingActions = mock(CaseHandlingMapper.class); var overs = mock(CustomerBarrelOverMapper.class);
         var ex = new OrderBarrelException(); ex.setId(1L); ex.setStationId(11L); ex.setCustomerId(7L); ex.setStatus("STAFF_RECORDED");
         when(exceptions.listByStation(eq(11L), any(), any(), any(), anyInt(), anyInt())).thenReturn(List.of(ex));
         when(mapper.exceptionNames(11L, List.of(1L))).thenReturn(List.of(label(1)));
         ReflectionTestUtils.setField(s, "exceptionMapper", exceptions); ReflectionTestUtils.setField(s, "displayNames", names);
+        // 2026-11-06: exercise real recovery eligibility even in this manually assembled read-only fixture.
+        ReflectionTestUtils.setField(s, "exceptionRecovery",
+                new BarrelExceptionRecoveryService(exceptions, orders, barrelRecords, handlingActions, overs));
         var page = s.listExceptions(11L, new OrderBarrelExceptionService.ExceptionQuery());
+        assertFalse(page.getRecords().get(0).isCanReturnEmpty());
+        assertFalse(page.getRecords().get(0).isCanVerifyReturn());
+        assertEquals("", page.getRecords().get(0).getHandlingHint());
+        verifyNoInteractions(orders, barrelRecords, handlingActions, overs);
         assertEquals("本站客户", page.getRecords().get(0).getCustomerName()); verify(mapper).exceptionNames(11L, List.of(1L));
     }
     @Test void historicalUndeliveredReturnsKeepAmountsAndReceiveNamesInOneBatch() {

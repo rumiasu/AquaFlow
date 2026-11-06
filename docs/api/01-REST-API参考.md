@@ -394,6 +394,7 @@
 | `GET` | `/api/barrels/refund-undelivered` | "STATION_MANAGER" | `BarrelController.refundUndelivered` —— 「已核销未交付」**违规数据**只读清单（口径：`type=2 且 status=3 且 refund_paid_time IS NULL`） |
 | `POST` | `/api/barrels/return` | {"STATION_MANAGER"} | `BarrelController.requestReturn` |
 | `POST` | `/api/barrels/return-empty` | {"STATION_MANAGER"} | `BarrelController.returnEmpty` |
+| `GET` | `/api/barrels/return/pending-confirmations` | 客户会话 | `BarrelController.pendingConfirmations`；只读当前登录客户本人各站已批准且仍需确认的退桶申请，返回 `recordId`、`stationId`、`stationName`；空数组表示当前没有待确认事项，不自动确认或修改申请。 |
 | `GET` | `/api/barrels/return/preview` | {"STATION_MANAGER"} | `BarrelController.previewReturn` |
 | `GET` | `/api/barrels/summary` | {"STATION_MANAGER"} | `BarrelController.getBarrelSummary` |
 | `GET` | `/api/barrels/summary-by-type` | {"STATION_MANAGER"} | `BarrelController.getBarrelSummaryByType` |

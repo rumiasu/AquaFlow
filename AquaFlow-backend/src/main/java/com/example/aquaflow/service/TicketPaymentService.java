@@ -61,14 +61,11 @@ public class TicketPaymentService {
         jdbc.update("update orders set total_amount=water_amount+?,payment_status=?,update_time=NOW() where id=? and payment_status in (0,1)",cash,cash.signum()>0 && Objects.equals(cashMethod,PayMethod.CASH)?PaymentStatus.PENDING:order.getPaymentStatus(),order.getId());
         return get(order.getId());
     }
+    /** Classifies the cash collection method; water refunds do not waive unpaid service fees. */
     public boolean cod(Orders order) {
-        if (order == null || Objects.equals(order.getPaymentStatus(), PaymentStatus.REFUNDED)
-                || Objects.equals(order.getPaymentStatus(), PaymentStatus.CANCELLED)) return false;
-        if (Objects.equals(order.getPaymentMethod(), PayMethod.CASH)) return true;
-        if (!Objects.equals(order.getPaymentMethod(), PayMethod.TICKET)) return false;
         Split s = get(order.getId());
-        return s != null && Objects.equals(s.cashMethod(), PayMethod.CASH)
-                && Set.of("HELD", "CONSUMED").contains(s.state());
+        return Objects.equals(order.getPaymentMethod(), PayMethod.CASH)
+                || s != null && Objects.equals(s.cashMethod(), PayMethod.CASH) && !"CANCELLED".equals(s.state());
     }
     public void validateRecord(Orders order,PaymentRecord record) {
         Split s=get(order.getId());

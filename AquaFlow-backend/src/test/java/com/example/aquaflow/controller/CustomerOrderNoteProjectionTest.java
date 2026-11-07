@@ -58,6 +58,25 @@ class CustomerOrderNoteProjectionTest {
         assertFalse(body.toString().contains("内部私语")); assertFalse(body.toString().contains("配送内部差异"));
         assertFalse(body.toString().contains("上报人ID"));
     }
+    @Test void employeeMvcReadsPaidOrderAndRejectsPendingNonCashFixture() throws Exception {
+        AuthContext.set(new AuthContext.AuthUser(9L, "staff", "STATION_MANAGER", 11L));
+        Orders original = source("请放门口");
+        original.setPaymentMethod(1); original.setPaymentStatus(1);
+        when(orders.getById(20L)).thenReturn(original);
+        assertFalse(com.example.aquaflow.util.OrderTaskAccess.visibleToEmployee(original));
+        assertThrows(com.example.aquaflow.exception.BusinessException.class, () -> controller.getById(20L));
+        original.setPaymentStatus(2);
+        assertTrue(com.example.aquaflow.util.OrderTaskAccess.visibleToEmployee(original));
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller)
+                .setMessageConverters(new org.springframework.http.converter.json.JacksonJsonHttpMessageConverter()).build();
+        var response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/orders/20"))
+                .andReturn().getResponse();
+        assertEquals(200, response.getStatus());
+        var body = JsonMapper.builder().build().readTree(response.getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals(0, body.path("code").asInt());
+        assertTrue(body.path("data").path("specialNote").asString().contains("内部私语"));
+        assertEquals("配送内部差异", body.path("data").path("barrelDiscrepancyNote").asString());
+    }
     @Test void unknownLegacyNoteIsNotGuessedAndEmployeeStillSeesIt() {
         Orders legacy = source(null); when(orders.getById(20L)).thenReturn(legacy);
         AuthContext.set(new AuthContext.AuthUser(7L, "customer", null, null));

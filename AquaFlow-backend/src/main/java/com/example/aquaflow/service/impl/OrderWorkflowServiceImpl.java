@@ -171,13 +171,13 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 || Integer.valueOf(PaymentStatus.CANCELLED).equals(order.getPaymentStatus())) {
             return false;
         }
-        if (Integer.valueOf(PaymentStatus.PAID).equals(order.getPaymentStatus())) {
-            if (Integer.valueOf(PayMethod.TICKET).equals(order.getPaymentMethod())) {
-                var split = ticketPayments.get(order.getId());
-                if (split != null && ("REFUNDED".equals(split.state()) || "CANCELLED".equals(split.state()))) {
-                    return false;
-                }
+        if (Integer.valueOf(PayMethod.TICKET).equals(order.getPaymentMethod())) {
+            var split = ticketPayments.get(order.getId());
+            if (split != null && ("REFUNDED".equals(split.state()) || "CANCELLED".equals(split.state()))) {
+                return false;
             }
+        }
+        if (Integer.valueOf(PaymentStatus.PAID).equals(order.getPaymentStatus())) {
             return true;
         }
         return ticketPayments.cod(order);

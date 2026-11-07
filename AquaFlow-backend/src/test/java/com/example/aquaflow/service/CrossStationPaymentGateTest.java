@@ -55,7 +55,7 @@ class CrossStationPaymentGateTest {
         verify(f.mapper).getByIdForUpdate(1L);
     }
 
-    @Test void ticketCodRequiresAnActiveCashSplit() {
+    @Test void ticketCodClassifiesCashEvenAfterWaterRefund() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         TicketPaymentService tickets = new TicketPaymentService(jdbc, mock(TicketLotService.class),
                 mock(TicketDeliveryBenefitService.class), mock(OrderItemMapper.class));
@@ -63,6 +63,8 @@ class CrossStationPaymentGateTest {
         String sql = "select * from order_ticket_payment where order_id=?";
         when(jdbc.queryForList(sql, 1L)).thenReturn(List.of(Map.of("cash_method", PayMethod.CASH, "state", "HELD")));
         assertTrue(tickets.cod(order));
+        when(jdbc.queryForList(sql, 1L)).thenReturn(List.of(Map.of("cash_method", PayMethod.CASH, "state", "REFUNDED")));
+        assertTrue(tickets.cod(order)); // Water returned, but the service-fee cash due may remain.
         when(jdbc.queryForList(sql, 1L)).thenReturn(List.of(Map.of("cash_method", PayMethod.CASH, "state", "CANCELLED")));
         assertFalse(tickets.cod(order));
         when(jdbc.queryForList(sql, 1L)).thenReturn(List.of(Map.of("cash_method", PayMethod.WECHAT, "state", "HELD")));
@@ -128,6 +130,39 @@ class CrossStationPaymentGateTest {
         assertTrue(ReflectionTestUtils.<Boolean>invokeMethod(service, "isPaidOrPayOnDelivery", order));
         order.setPaymentMethod(PayMethod.WECHAT);
         assertTrue(ReflectionTestUtils.<Boolean>invokeMethod(service, "isPaidOrPayOnDelivery", order));
+    }
+
+    @Test void refundedCashOrderCannotBeCollectedAgainAndReportsRefund() throws Exception {
+        Fixture f = new Fixture(Route.EXTERNAL, Payment.CASH);
+        Orders order = f.mapper.getByIdForUpdate(1L);
+        order.setStatus(OrderStatus.DELIVERED); order.setPaymentStatus(PaymentStatus.REFUNDED);
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.queryForList("select * from order_ticket_payment where order_id=?", 1L)).thenReturn(List.of());
+        ReflectionTestUtils.setField(f.service, "ticketPayments", new TicketPaymentService(jdbc,
+                mock(TicketLotService.class), mock(TicketDeliveryBenefitService.class), mock(OrderItemMapper.class)));
+        BusinessException ex = assertThrows(BusinessException.class, () -> f.service.confirmOfflinePay(1L));
+        assertTrue(ex.getMessage().contains("已退款"));
+        verify(f.mapper, never()).markPaidIfCollectable(any());
+        verifyNoInteractions(f.payments);
+    }
+
+    @Test void returnedTicketWaterDoesNotWaiveOutstandingCashServiceFee() throws Exception {
+        Fixture f = new Fixture(Route.EXTERNAL, Payment.CASH);
+        Orders order = f.mapper.getByIdForUpdate(1L);
+        order.setStatus(OrderStatus.DELIVERED); order.setPaymentStatus(PaymentStatus.PENDING);
+        order.setPaymentMethod(PayMethod.TICKET);
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.queryForList("select * from order_ticket_payment where order_id=?", 1L))
+                .thenReturn(List.of(Map.of("cash_method", PayMethod.CASH, "state", "REFUNDED", "cash_due", 7)));
+        ReflectionTestUtils.setField(f.service, "ticketPayments", new TicketPaymentService(jdbc,
+                mock(TicketLotService.class), mock(TicketDeliveryBenefitService.class), mock(OrderItemMapper.class)));
+        when(f.mapper.markPaidIfCollectable(1L)).thenReturn(1);
+        when(f.mapper.updateStatusIf(1L, OrderStatus.DELIVERED, OrderStatus.COMPLETED)).thenReturn(1);
+        f.service.confirmOfflinePay(1L);
+        verify(f.mapper).markPaidIfCollectable(1L);
+        verify(f.mapper).updateStatusIf(1L, OrderStatus.DELIVERED, OrderStatus.COMPLETED);
+        verify(f.payments).recordCashCollection(1L);
+        verify(f.payments).applyDepositOnPaid(1L);
     }
 
     @Test void rejectionWithoutPoolStillAllowsCancellationOfUnpaidOrder() throws Exception {

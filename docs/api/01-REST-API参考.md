@@ -450,6 +450,7 @@
 | `GET` | `/api/stations/mine ／ /api/station/mine` | {"STATION_MANAGER"} | `StationController.getMyStation` |
 | `PUT` | `/api/stations/mine/coordinates ／ /api/station/mine/coordinates` | {"STATION_MANAGER"} | `StationController.updateCoordinates` |
 | `GET` | `/api/stations/mine/list ／ /api/station/mine/list` | {"STATION_MANAGER"} | `StationController.listMyStations` |
+| `GET` | `/api/stations/discover ／ /api/station/discover` | 无（公开） | `StationController.discover`：按坐标或完整省市发现可配送新站，参数与范围见上方公开白名单 |
 | `GET` | `/api/stations/public ／ /api/station/public` | {"STATION_MANAGER"} | `StationController.listPublic` |
 | `GET` | `/api/stations/search ／ /api/station/search` | {"STATION_MANAGER"} | `StationController.search` |
 | `DELETE` | `/api/stations/{id} ／ /api/station/{id}` | {"STATION_MANAGER"} | `StationController.delete` |

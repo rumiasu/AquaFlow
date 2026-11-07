@@ -3,13 +3,14 @@ package com.example.aquaflow.mapper;
 import com.example.aquaflow.constant.OrderStatus;
 import com.example.aquaflow.entity.Orders;
 import com.example.aquaflow.entity.OrderTransfer;
+import com.example.aquaflow.mapper.fragment.OrderArrangementEvidenceQueries;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 import java.util.Map;
 
 @Mapper
-public interface OrderMapper {
+public interface OrderMapper extends OrderArrangementEvidenceQueries {
 
     // 2026-10-24：update_time 会被补收款/备注改写；只用送达凭据定日期。
     // COMPLETE 覆盖零回桶和非桶订单，type=8 兼容尚无该审计事件的桶流水；无凭据保持未知。
@@ -47,39 +48,6 @@ public interface OrderMapper {
     @Select("select * from order_transfer where order_id=#{orderId} and kind='STAFF' "
             + "and status='PENDING' order by id for update")
     List<OrderTransfer> listPendingStaffRequestsForUpdate(@Param("orderId") Long orderId);
-
-    /** 服务端操作凭据，只用于指定退回的历史状态核实与只读安排提示。 */
-    @Select("select id, action, detail from audit_log where module='ORDER' and target=concat('order:',#{orderId}) "
-            + "and action='DIRECTED_RETURN' order by id desc limit 1")
-    Map<String, Object> latestDirectedReturnEvent(@Param("orderId") Long orderId);
-
-    /**
-     * 站内退回申请的操作凭据。新申请在 detail 里带 sourceStatus/transferId；
-     * 旧申请没有这两个字段，只能按申请前的接单/分配审计核实，证据不足不得猜。
-     */
-    @Select("select id, action, detail, create_time eventTime from audit_log where module='ORDER' and target=concat('order:',#{orderId}) "
-            + "and action='RETURN_TO_STATION' order by id desc limit 1")
-    Map<String, Object> latestStaffReturnEvent(@Param("orderId") Long orderId);
-
-    /** 申请创建后是否又发生接单/分配/改派等履约变化；有则旧申请不得再审批。 */
-    @Select("select id, action, detail, create_time eventTime from audit_log where module='ORDER' and target=concat('order:',#{orderId}) "
-            + "and create_time >= #{since} and action in ('ACCEPT','CLAIM_POOL','ASSIGN','DISPATCH','OUTSOURCE_DIRECT',"
-            + "'OUTSOURCE','CANCEL_DISPATCH','DIRECTED_RETURN_APPROVE','DIRECTED_RETURN_REJECT','STATION_REJECT') "
-            + "order by id desc limit 1")
-    Map<String, Object> latestFulfillmentEventSince(@Param("orderId") Long orderId,
-                                                    @Param("since") java.time.LocalDateTime since);
-
-    @Select("select id, action, detail from audit_log where module='ORDER' and target=concat('order:',#{orderId}) "
-            + "and id < #{eventId} and action in ('ACCEPT','CLAIM_POOL','ASSIGN','DISPATCH','OUTSOURCE_DIRECT',"
-            + "'OUTSOURCE','STATION_REJECT','RETURN_TO_STATION','RETURN_APPROVE','RETURN_REJECT','CANCEL_DISPATCH',"
-            + "'DIRECTED_RETURN_APPROVE','DIRECTED_RETURN_REJECT','COMPLETE') order by id desc limit 1")
-    Map<String, Object> orderStateEventBefore(@Param("orderId") Long orderId, @Param("eventId") Long eventId);
-
-    @Select("select id, action, detail from audit_log where module='ORDER' and target=concat('order:',#{orderId}) "
-            + "and action in ('DIRECTED_RETURN','DIRECTED_RETURN_APPROVE','DIRECTED_RETURN_REJECT','CANCEL_DISPATCH',"
-            + "'ACCEPT','CLAIM_POOL','ASSIGN','DISPATCH','OUTSOURCE_DIRECT','OUTSOURCE','STATION_REJECT',"
-            + "'RETURN_TO_STATION','RETURN_APPROVE','RETURN_REJECT','COMPLETE') order by id desc limit 1")
-    Map<String, Object> latestOrderArrangementEvent(@Param("orderId") Long orderId);
 
     @Update("update orders set special_note=replace(coalesce(special_note,''),'[指定退回待确认]',''), "
             + "update_time=now() where id=#{id} and status=#{expectedStatus}")

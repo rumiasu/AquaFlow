@@ -1,8 +1,9 @@
 // 水站相关接口（后端: StationController）
 const { get } = require('../utils/request')
 const { API } = require('../config/api')
+const { discoveryScope } = require('../utils/station-discovery')
 
-// GET /api/stations/public 公开可选水站列表（无需登录）
+// GET /api/stations/public 历史资产认领的公开目录（无需登录）；客户找站改走 discover。
 const getPublicStations = () => {
   return get(API.STATIONS_PUBLIC)
 }
@@ -24,4 +25,11 @@ const getStationStatus = (id) => {
 // 之前 fetchStationPhone 误用 getStationById，导致站点电话恒定取不到、被 try 兜底成「请咨询客服」，
 // 排查成本很高；把这类"顾客端却打站长路由"的死导出删掉，避免下一颗同样的雷。
 
-module.exports = { getPublicStations, getStationPublicPhone, getStationStatus }
+// Customer discovery only. No scope means no request, not permission to fetch the global directory.
+const getDiscoverStations = (value) => {
+  const scope = discoveryScope(value)
+  if (!scope) return Promise.reject(new Error('请先选择城市或地图位置'))
+  return get(`${API.STATIONS}/discover`, scope)
+}
+
+module.exports = { getPublicStations, getDiscoverStations, getStationPublicPhone, getStationStatus }

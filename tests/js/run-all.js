@@ -15,6 +15,7 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'station-discovery.test.js', name: 'scoped station discovery, map city controls and stale context boundaries' },
   { file: 'customer-pending-return.test.js', name: 'customer return confirmation reminders and direct entry' },
   { file: 'delivery-home-address-navigation.test.js', name: 'delivery home snapshot address and navigation' },
   { file: 'delivery-detail-address-navigation.test.js', name: 'delivery detail snapshot address and navigation' },

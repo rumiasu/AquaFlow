@@ -3,6 +3,7 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "loading": "../../components/Loading/index",
-    "guest-station-guide": "../../components/GuestStationGuide/index"
+    "guest-station-guide": "../../components/GuestStationGuide/index",
+    "station-discovery-scope": "../../components/StationDiscoveryScope/index"
   }
 }

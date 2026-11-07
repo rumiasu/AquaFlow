@@ -1,3 +1,4 @@
+const { discoveryScope, discoveryKey } = require('../../utils/station-discovery')
 const uiScene = require('../../utils/ui-scene')
 const { showBusinessModal } = require('../../utils/business-dialog')
 // 首页 · Step4 锁稿落地（2026-09-11）
@@ -9,7 +10,7 @@ const { getOrders, getOrderDetail, getMyLatestStation } = require('../../api/ord
 const { getAddresses } = require('../../api/address')
 const { getBarrelSummary, getBarrelSummaryByType, getPendingReturnConfirmations } = require('../../api/barrel')
 const { getUnreadNotifications, markAllRead } = require('../../api/notification')
-const { getPublicStations, getStationStatus } = require('../../api/station')
+const { getDiscoverStations, getStationStatus } = require('../../api/station')
 const { getQuote } = require('../../api/payment')
 const { storage, stationStorage, payMethodStorage, selectedAddressStorage } = require('../../utils/storage')
 const { captureSession, isCurrentSession } = require('../../utils/token')
@@ -27,6 +28,8 @@ const fmtMoney = (n) => {
 
 Page({
   data: {
+    stationDiscoveryScope: null,
+    stationDiscoveryReady: false,
     sceneImageUrl: uiScene.LOCAL,
     loading: true,
     // 数据没加载出来时的提示（空串 = 全部正常）。见 _noteLoadError 的说明。
@@ -97,6 +100,7 @@ Page({
   onShow() {
     uiScene.show(this, 'posterArtFailed')
     this._homeHidden = false
+    if (this.data.showStationList) this.loadStationList()
     if (this.data.posterArtFailed) this.setData({ posterArtFailed: false })
     this.invalidateHomeQuote()
     this.refreshDerived(undefined, false)
@@ -143,7 +147,7 @@ Page({
     this._stationCheckSeq = (this._stationCheckSeq || 0) + 1
     this._stationListSeq = (this._stationListSeq || 0) + 1
     this._stationStatusSeq = (this._stationStatusSeq || 0) + 1
-    this.setData({ showStationList: false, stationListLoading: false, notificationsLoading: false, homeRetrying: false })
+    this.setData({ showStationList: !!this._stationLocationOpen && this.data.showStationList, stationListLoading: false, notificationsLoading: false, homeRetrying: false })
     this.invalidateHomeQuote()
     this.refreshDerived(undefined, false)
   },
@@ -405,19 +409,32 @@ Page({
     }
   },
 
+  // 2026-11-07: Native map selection may hide this page; only that round may keep the selector open.
+  onStationLocationStart() { this._stationLocationOpen = true },
+  onStationLocationEnd() { this._stationLocationOpen = false },
+  onStationDiscoveryChange(event) {
+    const scope = discoveryScope(event && event.detail)
+    this.setData({ stationDiscoveryScope: scope, stationDiscoveryReady: !!scope, stationList: [], stationListError: '' })
+    return this.loadStationList()
+  },
+
   async loadStationList() {
     if (this._homeDestroyed || this._homeHidden) return
     const session = captureSession()
     const sequence = this._stationListSeq = (this._stationListSeq || 0) + 1
+    const scope = discoveryScope(this.data.stationDiscoveryScope), scopeKey = discoveryKey(scope)
+    this.setData({ stationDiscoveryReady: !!scope })
+    if (!scope) { this.setData({ stationListLoading: false, stationList: [], stationListError: '' }); return }
     const current = () => !this._homeDestroyed && !this._homeHidden
       && sequence === this._stationListSeq && isCurrentSession(session)
+      && scopeKey === discoveryKey(this.data.stationDiscoveryScope)
     // 2026-10-22：首次请求未完成曾显示“暂无水站”，重试还可点旧行；加载、失败和真实空结果分开。
     this.setData({ stationListLoading: true, stationList: [], stationListError: '' })
     // [2026-09-20 真机联调] 原来是 `.catch(() => null)` + 外层只 console.error：
     // 接口失败时列表为空，弹窗渲染成「暂无可用水站」—— 把"没查到"说成了"平台真的没有水站"，
     // 客户会以为整个平台都没水站可选。现在把失败原因记进 stationListError，由 wxml 分开说。
     try {
-      const res = await getPublicStations()
+      const res = await getDiscoverStations(scope)
       if (!current()) return
       // 业务失败仍是 HTTP 200，一律判 body.code（AGENTS §8.1）；code!=0 也要出声，不能沿用旧列表
       if (res && res.code === 0 && Array.isArray(res.data)) {
@@ -450,11 +467,13 @@ Page({
     const session = captureSession()
     const sequence = this._stationSelectSeq = (this._stationSelectSeq || 0) + 1
     const checkSequence = this._stationCheckSeq
+    const listSequence = this._stationListSeq, scopeKey = discoveryKey(this.data.stationDiscoveryScope)
     const selectedId = stationStorage.getId()
     // 2026-10-20：切站弹窗的确认也可能迟到；旧会话/旧页面/已刷新范围不能再保存下单站。
     const current = () => !this._homeDestroyed && !this._homeHidden && isCurrentSession(session)
       && sequence === this._stationSelectSeq && checkSequence === this._stationCheckSeq
       && selectedId === stationStorage.getId()
+      && listSequence === this._stationListSeq && scopeKey === discoveryKey(this.data.stationDiscoveryScope)
     try {
       const station = this.data.stationList.find(s => s.id === stationId)
       if (!station) {
@@ -499,7 +518,10 @@ Page({
   },
 
   onCloseStationList() {
-    this.setData({ showStationList: false })
+    this._stationLocationOpen = false
+    this._stationListSeq = (this._stationListSeq || 0) + 1
+    this._stationSelectSeq = (this._stationSelectSeq || 0) + 1
+    this.setData({ showStationList: false, stationListLoading: false })
   },
 
   onUnload() {

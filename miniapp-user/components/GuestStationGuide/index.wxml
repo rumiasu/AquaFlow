@@ -4,13 +4,14 @@
   <button class="guest-guide-browse" wx:if="{{!open}}" bindtap="open">查看水站</button>
   <block wx:else>
     <view class="guest-guide-head"><text>可选水站</text><button class="guest-guide-close" bindtap="close">收起</button></view>
+    <station-discovery-scope active="{{open}}" scope="{{scope}}" bind:scopechange="onScopeChange" bind:locationstart="onLocationStart" bind:locationend="onLocationEnd" />
     <text class="guest-guide-state" wx:if="{{loading}}">正在加载水站…</text>
     <view class="guest-guide-state" wx:elif="{{error}}">
       <text>水站列表暂未加载，请重试</text>
       <button class="guest-guide-retry" bindtap="retry">重新加载</button>
     </view>
-    <text class="guest-guide-state" wx:elif="{{stations.length === 0}}">暂无可用水站</text>
-    <scroll-view wx:else class="guest-guide-list" scroll-y="true">
+    <text class="guest-guide-state" wx:elif="{{scopeReady && stations.length === 0}}">所选范围内暂无可选水站，可换个位置或城市再试。</text>
+    <scroll-view wx:elif="{{stations.length > 0}}" class="guest-guide-list" scroll-y="true">
       <view class="guest-guide-row" wx:for="{{stations}}" wx:key="id">
         <text class="guest-guide-name">{{item.name}}</text>
         <text class="guest-guide-address" wx:if="{{item.address}}">{{item.address}}</text>

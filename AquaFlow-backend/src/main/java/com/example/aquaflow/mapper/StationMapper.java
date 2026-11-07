@@ -1,6 +1,7 @@
 package com.example.aquaflow.mapper;
 
 import com.example.aquaflow.entity.Station;
+import com.example.aquaflow.vo.StationDiscoveryVO;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -87,6 +88,12 @@ public interface StationMapper {
     @Select("SELECT * FROM station WHERE status = 1 "
             + "AND (operating_status IS NULL OR operating_status <> 3)")
     List<Station> listPublic();
+
+    /** 一次读取公开候选和半径，缺配置行保留 null；不得先 limit 再按位置过滤。 */
+    @Select("SELECT s.id, s.name, s.address, s.status, s.operating_status, s.lat, s.lng, c.delivery_radius_m "
+            + "FROM station s LEFT JOIN station_delivery_config c ON c.station_id = s.id "
+            + "WHERE s.status = 1 AND (s.operating_status IS NULL OR s.operating_status <> 3) ORDER BY s.id")
+    List<StationDiscoveryVO> listDiscoveryCandidates();
 
     @Select("SELECT * FROM station WHERE id IN (SELECT station_id FROM staff WHERE id = #{creatorId} AND role = 'STATION_MANAGER')")
     List<Station> listByCreator(@Param("creatorId") Long creatorId);

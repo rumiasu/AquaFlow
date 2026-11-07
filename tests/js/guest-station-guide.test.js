@@ -12,15 +12,18 @@ function fixture(read) {
   vm.runInNewContext(script, {
     Component: c => { config = c }, console,
     require: id => {
-      if (id === '../../api/station') return { getPublicStations: read }
+      if (id === '../../api/station') return { getDiscoverStations: read }
       if (id === '../../utils/token') return { captureSession: () => epoch, isCurrentSession: s => s === epoch }
       if (id === '../../utils/station-view') return { stationName, stationText }
+      if (id === '../../utils/station-discovery') return require('../../miniapp-user/utils/station-discovery')
       throw Error('unexpected dependency ' + id)
     }
   })
   const events = []
   const component = { data: JSON.parse(JSON.stringify(config.data)), setData(v) { Object.assign(this.data, v) },
     triggerEvent(name) { events.push(name) }, ...config.methods }
+  component.data.scope = { province: '山东省', city: '济南市' }
+  component.data.scopeReady = true
   config.lifetimes.attached.call(component)
   return { component, events, changeSession: () => { epoch++ },
     hide: () => config.pageLifetimes.hide.call(component), detach: () => config.lifetimes.detached.call(component) }
@@ -62,5 +65,5 @@ function fixture(read) {
   assert.equal(homeConfig.usingComponents['guest-station-guide'], '../../components/GuestStationGuide/index')
   assert.match(homeMarkup, /<guest-station-guide\s+bind:login="onLogin"\s*\/>/)
   assert.match(homeMarkup, /wx:if="{{!isLogin}}"/)
-  console.log('AQUAFLOW_SUITE_OK guest station guide')
+  console.log('AQUAFLOW_SUITE_OK 1 guest station guide')
 })().catch(error => { console.error(error); process.exitCode = 1 })

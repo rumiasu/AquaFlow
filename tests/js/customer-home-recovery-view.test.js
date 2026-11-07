@@ -16,12 +16,12 @@ function fixture(overrides = {}) {
     'api/order': { getMyLatestStation: async () => ok(null), getOrders: overrides.orders || (async () => ok([])), getOrderDetail: async () => ok(null) },
     'api/address': { getAddresses: overrides.addresses || (async () => ok([{ id: 12, detail: '当前地址', isDefault: 1 }])) },
     'api/barrel': { getBarrelSummary: async () => ok({}), getBarrelSummaryByType: id => { calls.rights.push(id); return overrides.rights ? overrides.rights(id) : Promise.resolve(ok([])) } },
-    'api/station': { getStationStatus: async () => ok({}), getPublicStations: () => { calls.stations.push(true); return overrides.stations ? overrides.stations() : Promise.resolve(ok([])) } },
+    'api/station': { getStationStatus: async () => ok({}), getDiscoverStations: () => { calls.stations.push(true); return overrides.stations ? overrides.stations() : Promise.resolve(ok([])) } },
     'api/notification': { getUnreadNotifications: () => { calls.notifications.push(true); return overrides.notifications ? overrides.notifications() : Promise.resolve(ok([])) }, markAllRead: async () => ok(null) },
     'api/payment': { getQuote: overrides.quote || (async () => ok({ independentRights: true, barrelPurchases: [] })) }
   } })
   wx.setStorageSync('selectedStation', station(1))
-  page.setData({ isLogin: true, currentStationId: 1, currentStation: station(1), loading: false })
+  page.setData({ stationDiscoveryScope: { province: '山东省', city: '济南市' }, stationDiscoveryReady: true, isLogin: true, currentStationId: 1, currentStation: station(1), loading: false })
   return { page, wx, app, carts, calls }
 }
 for (const [status, statusText, expected] of [[1, '水站已受理，待配送', '水站已受理，待配送'], [2, '本单正在配送', '本单正在配送'], [2, undefined, '订单状态待核实']]) {

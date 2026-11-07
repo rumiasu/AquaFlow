@@ -102,6 +102,7 @@
       </view>
     </view>
     <view class="station-picker-list">
+      <station-discovery-scope active="{{showStationPicker}}" scope="{{stationDiscoveryScope}}" bind:scopechange="onStationDiscoveryChange" bind:locationstart="onStationLocationStart" bind:locationend="onStationLocationEnd" />
       <checkbox-group class="switch-remember" bindchange="onSwitchRememberChange"><label><checkbox value="remember" checked="{{rememberSwitchNotice}}" />确认切换后不再提示资产隔离</label></checkbox-group>
 
       <text class="station-picker-empty" wx:if="{{stationListLoading}}">正在读取水站列表…</text>
@@ -118,9 +119,9 @@
         于是"没查到"被说成"平台确实没有水站"（AGENTS §8.22）。
         stationListError 由 loadStationList 在失败时写入（含可读原因）。
       -->
-      <view class="station-picker-empty" wx:if="{{!stationListLoading && stationList.length === 0}}">
+      <view class="station-picker-empty" wx:if="{{stationDiscoveryReady && !stationListLoading && stationList.length === 0}}">
         <text wx:if="{{stationListError}}">水站列表没加载出来（{{stationListError}}），请稍后重试</text>
-        <text wx:else>暂无可用水站</text>
+        <text wx:else>所选范围内暂无可选水站，可换个位置或城市再试。</text>
       </view>
       <button class="af-action af-action--quiet" wx:if="{{stationListError}}" bindtap="loadStationList" disabled="{{stationListLoading}}"><text class="af-action__face">重新加载水站</text></button>
     </view>

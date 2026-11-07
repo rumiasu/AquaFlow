@@ -108,6 +108,7 @@
 | `/api/auth/login`、`/api/auth/test-login`、`/api/auth/wx-login`、`/api/auth/wx-login-staff`、`/api/auth/dev-login`、`/api/auth/refresh`、`/api/auth/bind-staff` | 登录与续期 |
 | `/api/agreements/current`、`/api/agreements/documents/{versionId}` | 打包协议目录/指定正文只读；确认记录与资料请求仍须认证 |
 | `/api/ui-assets/scene-home-water` | 固定场景图临时地址；公开读取、仅固定对象，受公开接口限流 |
+| `/api/stations/discover`、`/api/station/discover` | 客户找新站；`lat/lng/province/city`，无有效条件返回空；范围见[配送范围 §3.1](../design/17-配送计费与配送范围.md#31-客户找新站的发现范围2026-11-07) |
 | `/api/stations/public`、`/api/station/public` | 选站列表 |
 | `/api/stations/search`、`/api/station/search` | 搜站 |
 | `/api/stations/{id}/public-phone`、`/api/station/{id}/public-phone` | 水站公开电话 |

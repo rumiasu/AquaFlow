@@ -54,7 +54,7 @@
   ],
   "permission": {
     "scope.userLocation": {
-      "desc": "用于获取您的收货地址，方便配送"
+      "desc": "用于选择送水位置和查找附近水站"
     }
   },
   "usingComponents": {

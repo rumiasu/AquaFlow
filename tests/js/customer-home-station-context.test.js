@@ -17,10 +17,11 @@ function fixture(api = {}) {
       markAllRead: async () => { readMarks.push(app.globalData.customerId) }
     },
     'api/station': {
-      getPublicStations: async () => { publicReads.push(true); return api.list ? api.list() : { code: 0, data: [] } },
+      getDiscoverStations: async () => { publicReads.push(true); return api.list ? api.list() : { code: 0, data: [] } },
       getStationStatus: api.status || (async () => status('SYNTH current'))
     }
   } })
+  page.setData({ stationDiscoveryScope: { province: '山东省', city: '济南市' }, stationDiscoveryReady: true })
   // Keep the actual discovery/selection handlers; unrelated overview reads are observed at their entry.
   page.loadData = async () => { loaded.push(page.data.currentStationId); page.setData({ state: 'ready', loading: false }) }
   return { page, wx, app, loaded, publicReads, readMarks }

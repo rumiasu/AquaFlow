@@ -1,6 +1,7 @@
+const { discoveryScope, discoveryKey } = require('../../utils/station-discovery')
 const { showBusinessModal } = require('../../utils/business-dialog')
 const { getStationProducts } = require('../../api/product')
-const { getPublicStations, getStationStatus } = require('../../api/station')
+const { getDiscoverStations, getStationStatus } = require('../../api/station')
 const { getBaseUrl, API } = require('../../config/api')
 const { getAccessToken, captureSession, isCurrentSession } = require('../../utils/token')
 const { stationStorage } = require('../../utils/storage')
@@ -15,6 +16,8 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
 
 Page({
   data: {
+    stationDiscoveryScope: null,
+    stationDiscoveryReady: false,
     loading: true, isLogin: false, allProducts: [], visibleProducts: [], keywords: '',
     stationListLoading: false,
     rememberSwitchNotice: false,
@@ -43,11 +46,14 @@ Page({
     const app = getApp()
     const session = captureSession(), scope = session.epoch + ":" + session.customerId + ":" + stationStorage.getId()
     if (this._shopQuantityScope !== scope) { this._shopQuantityScope = scope; this._shopQuantityDrafts = {} }
-    this.setData({ isLogin: app.globalData.isLogin, showStationPicker: false })
+    const resumePicker = !!this._resumeStationPicker
+    this._resumeStationPicker = false
+    this.setData({ isLogin: app.globalData.isLogin, showStationPicker: resumePicker })
     this.updateCartCount()
-    return this.loadData()
+    return this.loadData().then(() => { if (resumePicker) return this.loadStationList() })
   },
   onHide() {
+    this._resumeStationPicker = !!this._stationLocationOpen && this.data.showStationPicker
     this._shopHidden = true
     this._shopLoadSeq = (this._shopLoadSeq || 0) + 1
   },
@@ -180,16 +186,29 @@ Page({
     }
   },
 
+  // 2026-11-07: Native map selection may hide this page; only that round may keep the selector open.
+  onStationLocationStart() { this._stationLocationOpen = true },
+  onStationLocationEnd() { this._stationLocationOpen = false },
+  onStationDiscoveryChange(event) {
+    const scope = discoveryScope(event && event.detail)
+    this.setData({ stationDiscoveryScope: scope, stationDiscoveryReady: !!scope, stationList: [], stationListError: '' })
+    return this.loadStationList()
+  },
+
   async loadStationList() {
     const context = this._captureShopContext(stationStorage.getId())
     if (!this._isShopContextCurrent(context)) return
     const sequence = this._shopListSeq = (this._shopListSeq || 0) + 1
+    const scope = discoveryScope(this.data.stationDiscoveryScope), scopeKey = discoveryKey(scope)
+    this.setData({ stationDiscoveryReady: !!scope })
+    if (!scope) { this.setData({ stationListLoading: false, stationList: [], stationListError: '' }); return }
     const current = () => sequence === this._shopListSeq && this._isShopContextCurrent(context)
-    this.setData({ stationListLoading: true, stationListError: '' })
+      && scopeKey === discoveryKey(this.data.stationDiscoveryScope)
+    this.setData({ stationListLoading: true, stationList: [], stationListError: '' })
     try {
       // [2026-09-20 真机联调] 原来是 `.catch(() => null)` + 外层只 console.error：失败时列表为空，
       // 弹窗渲染成「暂无可用水站」—— 把"没查到"说成"平台真的没有水站"。
-      const res = await getPublicStations()
+      const res = await getDiscoverStations(scope)
       if (!current()) return
       if (res && res.code === 0 && Array.isArray(res.data)) {
         const activeStations = res.data.filter(s => s.status === 1)
@@ -211,9 +230,12 @@ Page({
     this.loadStationList()
   },
   onStationPickerBeforeLeave() {
+    if (this._stationLocationOpen) return
     if (this.data.showStationPicker) this.onCloseStationPicker()
   },
   onCloseStationPicker() {
+    this._stationLocationOpen = false
+    this._resumeStationPicker = false
     this._shopSelectSeq = (this._shopSelectSeq || 0) + 1
     this._shopListSeq = (this._shopListSeq || 0) + 1
     this.setData({ showStationPicker: false, stationListLoading: false })

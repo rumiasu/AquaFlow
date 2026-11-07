@@ -26,7 +26,7 @@ test('public chooser labels are sanitized without changing response names or IDs
 test('technical station notes remain explicit read errors while real English notes are preserved', async () => {
   const wx = createWx(), app = createApp()
   const p = loadPage('miniapp-user/pages/home/index.js', { wx, app, stubs: { 'api/station': {
-    getPublicStations: async () => ({ code: 0, data: [] }),
+    getDiscoverStations: async () => ({ code: 0, data: [] }),
     getStationStatus: async () => ({ code: 0, data: { statusText: '正常营业', note: 'request:fail timeout', customerHint: 'Closed for lunch' } })
   } } })
   p.setData({ currentStationId: 7 }); await p.loadStationStatus(7)

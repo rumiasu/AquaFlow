@@ -14,10 +14,10 @@ function fixture(api = {}) {
     getCartCount: () => 0, addToCart: (stationId, productId, quantity) => writes.push({ owner: app.globalData.customerId, stationId, productId, quantity }) })
   const page = loadPage('miniapp-user/pages/shop/index.js', { wx, app, stubs: {
     'api/product': { getStationProducts: id => { reads.push(id); return api.products ? api.products(id) : Promise.resolve(response([product(id)])) } },
-    'api/station': { getPublicStations: () => api.list ? api.list() : Promise.resolve(response([station(1), station(2), station(3)])),
+    'api/station': { getDiscoverStations: () => api.list ? api.list() : Promise.resolve(response([station(1), station(2), station(3)])),
       getStationStatus: id => api.status ? api.status(id) : Promise.resolve(response({ customerHint: 'SYNTH hint ' + id })) }
   } })
-  page.setData({ isLogin: true, currentStationId: 1, currentStation: station(1), stationList: [station(1), station(2), station(3)] })
+  page.setData({ stationDiscoveryScope: { province: '山东省', city: '济南市' }, stationDiscoveryReady: true, isLogin: true, currentStationId: 1, currentStation: station(1), stationList: [station(1), station(2), station(3)] })
   return { page, app, wx, writes, reads }
 }
 

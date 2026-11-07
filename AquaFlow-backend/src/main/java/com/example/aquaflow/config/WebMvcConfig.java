@@ -52,6 +52,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(publicRateLimitInterceptor).addPathPatterns(
                 "/api/ui-assets/scene-home-water",
                 "/api/stations/public", "/api/station/public",
+                "/api/stations/discover", "/api/station/discover",
                 "/api/stations/search", "/api/station/search",
                 "/api/stations/{id}/public-phone", "/api/station/{id}/public-phone",
                 "/api/stations/{id}/status", "/api/station/{id}/status");
@@ -70,6 +71,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         // Only packaged public text. Evidence/request routes remain authenticated; no UNSELECTED expansion.
                         "/api/agreements/current",
                         "/api/agreements/documents/{versionId}",
+                        "/api/stations/discover",
+                        "/api/station/discover",
                         "/api/stations/public",
                         "/api/station/public",
                         "/api/stations/search",

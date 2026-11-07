@@ -10,6 +10,8 @@ import com.example.aquaflow.dto.StationUpdateDTO;
 import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.StationService;
+import com.example.aquaflow.service.StationDiscoveryService;
+import com.example.aquaflow.vo.StationDiscoveryVO;
 import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +24,7 @@ import java.util.stream.Collectors;
 /**
  * 水站接口 —— <b>同一个前缀下混装了"顾客可用"与"员工专属"两类端点，务必逐方法看注解</b>。
  *
- * <p><b>顾客可用</b>（无注解）：{@code /public} 营业中水站列表、{@code /search} 公开搜索、
+ * <p><b>顾客可用</b>（无注解）：{@code /discover} 按位置找新站、{@code /public} 兼容列表、{@code /search} 公开搜索、
  * {@code /{id}/public-phone} 取水站电话。
  * <b>员工专属</b>：{@code /mine}、{@code /mine/list} 以及全部写接口。</p>
  *
@@ -41,6 +43,9 @@ public class StationController {
 
     @Autowired
     private StationService stationService;
+
+    @Autowired
+    private StationDiscoveryService stationDiscoveryService;
 
     @Autowired
     private StationMapper stationMapper;
@@ -75,6 +80,18 @@ public class StationController {
         info.put("name", s.getName());
         info.put("phone", s.getPhone());
         return Result.success(info);
+    }
+
+    /**
+     * 顾客端公开找新站（无需登录）；只影响发现列表，不裁剪历史订单或资产站。
+     * 缺少有效定位和完整省市时返回空列表，禁止回退全国站点。
+     */
+    @GetMapping("/discover")
+    public Result<List<StationDiscoveryVO>> discover(@RequestParam(required = false) java.math.BigDecimal lat,
+                                                    @RequestParam(required = false) java.math.BigDecimal lng,
+                                                    @RequestParam(required = false) String province,
+                                                    @RequestParam(required = false) String city) {
+        return Result.success(stationDiscoveryService.discover(lat, lng, province, city));
     }
 
     /**

@@ -209,3 +209,12 @@ button.af-entry::after { border:0; }
  #status-operation,#status-notices { background:var(--af2-surface); border-radius:14px; box-shadow:none; } .options { gap:8px; } .options .af-choice { flex:1 1 110px; } .notice { border-radius:0; border-bottom:1px solid var(--af-border); box-shadow:none; } .modal { border-radius:20px 20px 0 0; max-height:90vh; overflow-y:auto; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
 
 .b3-on-save-status { margin-top:16px; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.card-header,.notice-head { flex-wrap:wrap; align-items:flex-start; gap:16rpx; }
+.notice-title { font-size:32rpx; font-weight:600; white-space:normal; overflow-wrap:anywhere; }
+.notice-content,.preview-text { font-size:28rpx; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; }
+.notice-foot { flex-wrap:wrap; gap:16rpx; align-items:flex-start; }
+.notice-actions { display:flex; flex-wrap:wrap; gap:12rpx; }
+.modal { box-sizing:border-box; }
+.ui-state { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }

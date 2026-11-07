@@ -83,3 +83,10 @@
 .form-section { border-radius:14px; }
 .form-item { min-height:52px; }
 .form-input { min-height:44px; box-sizing:border-box; }
+
+/* K3.1: 标签置上，完整输入宽度。 */
+.form-item { flex-direction:column; align-items:stretch; gap:12rpx; padding:24rpx 0; }
+.form-label { width:auto; font-size:var(--text-body); }
+.form-input { flex:none; width:100%; min-height:44px; padding:0 20rpx; border:1rpx solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-gray); }
+.form-section { border-color:var(--border-light); }
+.save-error { overflow-wrap:anywhere; }

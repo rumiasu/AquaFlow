@@ -399,3 +399,17 @@
 .phone-tool-label { flex:0 0 auto; font-size:14px; line-height:22px; }
 .phone-tool-number { min-width:0; font-size:14px; line-height:22px; white-space:normal; overflow-wrap:anywhere; word-break:break-all; }
 .card-actions .af-action--final { min-height:52px; }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.b2-d08 .order-card,.b2-d08 .transfer-in-card { border:0; box-shadow:none; padding:32rpx; margin-bottom:24rpx; }
+.b2-d08 .address-text { display:block; font-size:36rpx; line-height:1.55; font-weight:600; color:var(--text-primary); white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.b2-d08 .floor-text { font-size:28rpx; font-weight:400; color:var(--text-regular); }
+.b2-d08 .product-info { padding:20rpx 0; border-bottom:1rpx solid var(--border-color); flex-wrap:wrap; gap:8rpx; }
+.b2-d08 .product-name,.b2-d08 .product-qty { white-space:normal; overflow:visible; overflow-wrap:anywhere; min-width:0; }
+.b2-d08 .pay-line { padding:20rpx 0; flex-wrap:wrap; gap:12rpx; align-items:baseline; }
+.b2-d08 .pay-amount { font-size:36rpx; font-weight:700; white-space:normal; overflow-wrap:anywhere; }
+.b2-d08 .card-actions { display:flex; flex-wrap:wrap; gap:16rpx; align-items:stretch; }
+.b2-d08 .card-actions .af-action--primary { flex:1 1 260rpx; min-height:52px; min-height:max(52px,var(--control-h-main)); }
+.b2-d08 .card-actions .task-problem-action { flex-basis:100%; justify-content:flex-start; border-top:1rpx solid var(--border-color); }
+.b2-d08 .home-read-feedback { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }
+.b2-d08 .card-header { flex-wrap:wrap; gap:12rpx; }

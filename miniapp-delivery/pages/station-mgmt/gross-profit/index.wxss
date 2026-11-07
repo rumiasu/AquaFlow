@@ -51,3 +51,12 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 .profit-chart-row { display:flex; align-items:center; gap:8px; padding:8px 0; }.profit-chart-label { flex:0 0 64px; font-size:14px; }.profit-chart-track { flex:1; min-width:16px; height:8px; border-radius:4px; overflow:hidden; background:var(--af2-surface-neutral); }.profit-chart-bar { height:100%; border-radius:4px; background:var(--af2-ink-money); }.chart-cost { background:var(--af2-muted); }.chart-profit { background:var(--af2-ink-money); }.profit-chart-bar.chart-negative { background:var(--af2-ink-danger); }.profit-chart-value { flex:0 1 100px; min-width:0; text-align:right; font-size:14px; overflow-wrap:anywhere; }.profit-chart-note { display:block; margin-top:12px; font-size:13px; line-height:20px; color:var(--af2-muted); }
 .profit-help-entry,.profit-help-toggle { display:flex; justify-content:space-between; align-items:center; gap:12px; min-height:52px; }.profit-help-entry-title,.profit-help-title { font-size:16px; color:var(--af2-ink); }.profit-help-action { flex:none; color:var(--af2-muted); font-size:14px; }.profit-help-body { padding:0 0 12px; }.profit-help-note { display:block; padding:6px 0; font-size:14px; line-height:22px; color:var(--af2-muted); }.profit-help-group { border-top:1px solid var(--af2-line); }.profit-help-all { display:flex; align-items:center; min-height:44px; font-size:14px; color:var(--af2-muted); }
 @media screen and (max-width: 359px) { .ledger-value { max-width:55%; }.period-card > picker { flex-basis:100%; } }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.gross-profit-page .hero-num { font-size:40rpx; line-height:1.4; font-weight:700; overflow-wrap:anywhere; }
+.gross-profit-page .hero-label { font-size:26rpx; line-height:1.6; }
+.ledger-row { padding:24rpx 0; gap:24rpx; align-items:flex-start; border-bottom:1rpx solid var(--border-light); }
+.ledger-label { flex:1; min-width:0; overflow-wrap:anywhere; }
+.ledger-value { max-width:65%; overflow-wrap:anywhere; text-align:right; }
+.gross-profit-page .profit-chart-label { font-size:26rpx; color:var(--text-regular); }
+.gross-profit-page .ui-state { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }

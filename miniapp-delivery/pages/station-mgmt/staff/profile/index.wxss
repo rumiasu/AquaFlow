@@ -174,3 +174,12 @@ button.af-entry::after { border:0; }
 .metric { gap:8px; }
 .metric-value { line-height:32px; }
 .name-row { gap:8px; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.profile-header { background:var(--bg-white); border-bottom:1rpx solid var(--border-light); }
+.profile-header .name { font-size:36rpx; font-weight:700; line-height:1.5; }
+.order-item { padding:28rpx 0; border-bottom:1rpx solid var(--border-light); gap:24rpx; }
+.order-address { color:var(--text-regular); font-size:28rpx; line-height:1.65; white-space:normal; overflow:visible; text-overflow:clip; }
+.order-amount { color:var(--af2-ink-money); font-size:32rpx; font-weight:700; }
+.section .value { overflow-wrap:anywhere; }
+.error-banner { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); color:var(--text-regular); }

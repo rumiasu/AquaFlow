@@ -1,10 +1,10 @@
 /* AquaFlow B0 v1: opt-in action families. Legacy pages keep their current skin. */
 page, :host {
-  --af-primary:#1264D6; --af-primary-pressed:#1152A5; --af-on-primary:#FFFFFF;
-  --af-ink:#223247; --af-strong:#223247; --af-text-secondary:#5D6B7D;
-  --af-canvas:#F3F6FA; --af-surface:#FFFFFF; --af-soft:#EAF2FF; --af-border:#DDE5EF;
-  --af-disabled-bg:#E6EBF0; --af-disabled-text:#59677A;
-  --af-danger:#BD3545; --af-danger-soft:#FFF4F2; --af-positive:#24734F;
+  --af-primary:#1264D6; --af-primary-pressed:#0D4FA8; --af-on-primary:#FFFFFF;
+  --af-ink:#182230; --af-strong:#182230; --af-text-secondary:#4B596A;
+  --af-canvas:#F5F6F7; --af-surface:#FFFFFF; --af-soft:#EAF3FF; --af-border:#E8ECF1;
+  --af-disabled-bg:#F0F2F5; --af-disabled-text:#4B596A;
+  --af-danger:#BD3328; --af-danger-soft:#FFF0EE; --af-positive:#24734F;
 }
 /* 2026-10-29: nonshrinking actions previously had no width ceiling; long labels could overflow narrow cards. Keep intrinsic short actions and wrap only at the containing width. */
 .af-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; box-sizing:border-box; min-width:0; max-width:100%; }

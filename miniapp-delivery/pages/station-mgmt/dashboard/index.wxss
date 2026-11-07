@@ -251,3 +251,12 @@ button.af-entry::after { border:0; }
 .care-empty { display:flex; flex-direction:column; align-items:center; gap:12rpx; padding:24rpx 8rpx; text-align:center; }
 .care-title { font-size:28rpx; color:var(--text-secondary); line-height:1.6; }
 .care-note { font-size:24rpx; color:var(--text-secondary); line-height:1.6; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.section .section-title { font-size:34rpx; line-height:1.5; }
+.metric-card .metric-value { font-size:40rpx; font-weight:700; line-height:1.35; overflow-wrap:anywhere; }
+.metric-card .metric-label { font-size:26rpx; color:var(--text-regular); }
+.rank-name,.hbar-label { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.rank-item { padding:24rpx 0; border-bottom:1rpx solid var(--border-light); }
+.error-banner { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); color:var(--text-regular); }
+@media(max-width:350px) { .two-col { display:flex; flex-direction:column; } .two-col .col { width:100%; box-sizing:border-box; } }

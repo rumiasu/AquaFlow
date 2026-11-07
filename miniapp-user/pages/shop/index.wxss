@@ -488,3 +488,13 @@
   .product-img { width:68px; min-width:68px; }
   .btn-row { flex-basis:100%; width:100%; margin-left:0; }
 }
+
+/* K3.1: 商品阅读与选购分行，服务水站完整展示。 */
+.station-bar { background:var(--bg-white); border-bottom:1rpx solid var(--border-light); }
+.station-name,.station-picker-item-name,.station-picker-item-addr,.product-name { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.product-price { color:var(--price-color); overflow-wrap:anywhere; }
+.section { border:1rpx solid var(--border-light); }
+.station-picker { max-height:80vh; }
+.station-picker-header { flex-shrink:0; }
+.station-picker-list { min-height:0; overflow-y:auto; }
+.catalog-note { padding-bottom:16rpx; border-bottom:1rpx solid var(--border-light); }

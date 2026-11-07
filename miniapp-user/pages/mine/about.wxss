@@ -99,3 +99,11 @@
 .af-brand-name { display:block; color:#102a43; font-size:28px; line-height:36px; font-weight:700; }
 .af-brand-english { display:block; color:#1264d6; font-size:16px; line-height:22px; font-weight:600; }
 .af-brand-function { display:block; color:#637083; font-size:14px; line-height:22px; margin-top:8px; }
+
+/* K3.1: 低频信任入口合并阅读边界。 */
+.about-section { margin:0; padding:32rpx 24rpx; }
+.info-section { margin-bottom:24rpx; border-color:var(--border-light); }
+.info-item { gap:24rpx; }
+.info-label { flex:1; min-width:0; overflow-wrap:anywhere; }
+.app-version { display:block; margin-top:16rpx; }
+.container > .section { margin:0 24rpx; padding:24rpx; background:var(--bg-white); border-radius:var(--radius-lg); overflow-wrap:anywhere; }

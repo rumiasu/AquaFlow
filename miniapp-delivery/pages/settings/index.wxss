@@ -163,3 +163,12 @@ button:not(.af-action):not(.af-choice) { min-height:44px; height:auto; line-heig
 
 /* 2026-11-02：本页业务数字、记录和说明的窄屏阅读层级。 */
 .lv2-settings .section-title,.lv2-settings .setting-sub { font-size:14px; line-height:22px; }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.lv2-settings .info-row { flex-wrap:wrap; align-items:baseline; }
+.lv2-settings .info-value { flex:1 1 240rpx; white-space:normal; }
+.lv2-settings .setting-text { flex:1; min-width:0; }
+.lv2-settings .setting-sub { display:block; overflow-wrap:anywhere; }
+.lv2-settings .b2-setting-row switch { flex-shrink:0; }
+.lv2-settings .section-title { font-weight:600; color:var(--text-primary); }
+.lv2-settings .version-info { padding:24rpx 0; }

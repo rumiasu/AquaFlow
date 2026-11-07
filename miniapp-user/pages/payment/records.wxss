@@ -172,3 +172,13 @@
 .record-amount { color:var(--af2-ink-money); overflow-wrap:anywhere; }
 
 .record-date { padding:10px 16px; background:var(--af2-surface-neutral); color:var(--af2-ink-neutral); font-size:13px; line-height:1.5; font-weight:600; }
+
+/* K3.1: 付款记录按日期收据分组。 */
+.record-list { margin:0; border-color:var(--border-light); }
+.record-date { background:var(--bg-gray); color:var(--text-secondary); }
+.record-item { gap:24rpx; }
+.record-right { margin-left:0; max-width:48%; }
+.record-amount { color:var(--price-color); font-size:36rpx; }
+.error-card { background:var(--bg-gray); border:0; border-left:4rpx solid var(--primary-color); }
+.error-title { color:var(--text-primary); }
+@media (max-width:340px) { .record-item { flex-wrap:wrap; } .record-right { flex:1 0 100%; max-width:100%; } }

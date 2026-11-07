@@ -46,3 +46,13 @@ button::after { border: 0; }
 .info-row { gap:12px; }
 .value { min-width:0; overflow-wrap:anywhere; }
 .input { min-height:44px; box-sizing:border-box; }
+
+/* K3.1: 企业资料编辑标签置上，小屏保留字段宽度。 */
+.container { background:var(--bg-color); }
+.company-card { border-color:var(--border-light); padding:32rpx; }
+.info-row { flex-wrap:wrap; align-items:flex-start; }
+.info-row .input { flex:1 0 100%; width:100%; text-align:left; padding:0 20rpx; background:var(--bg-gray); border-radius:var(--radius-sm); }
+.label { width:auto; max-width:45%; }
+.value { flex:1; white-space:normal; }
+.company-name-row { flex-wrap:wrap; }
+.state-error { background:var(--bg-gray); border:0; border-left:4rpx solid var(--primary-color); }

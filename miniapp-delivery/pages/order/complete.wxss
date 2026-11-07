@@ -383,3 +383,18 @@
 .lv2-complete .section { border-radius:16px; }
 .lv2-complete .lv2-return-section, .lv2-complete .section-collect, .lv2-complete .lv2-money-standalone { border-radius:0 0 16px 16px; }
 .lv2-complete .money-amount, .lv2-complete .money-amount-muted, .lv2-complete .collect-sub-text { min-width:0; max-width:100%; white-space:normal; word-break:break-all; overflow-wrap:anywhere; }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.lv2-complete .money-card { background:var(--bg-white); border-top:4rpx solid var(--primary-color); box-shadow:none; }
+.lv2-complete .money-line { flex-wrap:wrap; gap:16rpx; align-items:baseline; }
+.lv2-complete .money-amount { font-size:40rpx; line-height:1.4; font-weight:700; overflow-wrap:anywhere; }
+.lv2-complete .collect-selector { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16rpx; align-items:stretch; }
+.lv2-complete .b2-collect-option { min-width:0; margin:0; display:flex; flex-direction:column; }
+.lv2-complete .b2-collect-option .af-choice__face { width:100%; min-height:52px; min-height:max(52px,var(--control-h-main)); box-sizing:border-box; }
+.lv2-complete .collect-option-desc { display:block; padding:12rpx 8rpx; font-size:26rpx; line-height:1.6; color:var(--text-regular); overflow-wrap:anywhere; }
+.lv2-complete .barrel-row { flex-wrap:wrap; }
+.lv2-complete .step-btn,.lv2-complete .step-input { min-width:48px; min-width:max(48px,88rpx); min-height:48px; min-height:max(48px,88rpx); box-sizing:border-box; }
+.lv2-complete .item-name,.lv2-complete .section-tip { overflow-wrap:anywhere; white-space:normal; }
+.lv2-complete .photo-remove { width:44px; width:max(44px,88rpx); height:44px; height:max(44px,88rpx); display:flex; align-items:center; justify-content:center; }
+.lv2-complete .modal-list { max-height:56vh; overflow-y:auto; }
+@media(max-width:340px) { .lv2-complete .collect-selector { grid-template-columns:minmax(0,1fr); } }

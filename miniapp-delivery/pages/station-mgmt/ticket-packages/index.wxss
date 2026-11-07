@@ -268,3 +268,11 @@ button.af-entry::after { border:0; }
 
 /* Action spacing is owned by its form container. */
 .layout-submit-group { margin-top:16px; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.product-identity .product-name { font-size:32rpx; font-weight:600; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.row .row-amount { color:var(--af2-ink-money); font-size:36rpx; font-weight:700; overflow-wrap:anywhere; }
+.row .row-sub { color:var(--text-regular); font-size:26rpx; line-height:1.65; }
+.preset-row { flex-wrap:wrap; gap:16rpx; }
+.field-error { color:var(--error-color); font-size:26rpx; line-height:1.65; }
+.picker-footer { padding-bottom:calc(24rpx + env(safe-area-inset-bottom)); }

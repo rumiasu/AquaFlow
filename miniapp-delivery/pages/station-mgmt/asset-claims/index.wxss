@@ -92,3 +92,11 @@ button.af-entry::after { border:0; }
 .claim-select .claim-amount { padding:0; background:transparent; color:var(--af2-ink-money); }
 
 .s-claim-section-head { display:flex; align-items:center; gap:8px; } .s-claim-section-head .b3-section-heading { flex:1; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.claim-page .work-head { padding:12rpx 0 24rpx; background:transparent; }
+.claim-page .claim-card { border:1rpx solid var(--border-light); border-radius:var(--radius-lg); padding:32rpx; box-shadow:none; }
+.claim-page .claim-amount { display:block; font-size:36rpx; line-height:1.5; color:var(--af2-ink-money); overflow-wrap:anywhere; }
+.claim-page .claim-line { padding:24rpx 0; border-bottom:1rpx solid var(--border-light); border-radius:0; background:transparent; }
+.claim-material,.claim-row { white-space:normal; overflow-wrap:anywhere; line-height:1.65; }
+.claim-page .claim-error { background:var(--bg-gray); color:var(--text-regular); border-left:4rpx solid var(--primary-color); }

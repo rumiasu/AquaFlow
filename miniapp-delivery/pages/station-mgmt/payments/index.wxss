@@ -52,3 +52,11 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 
 /* 读取期间明确反馈，避免空白页被误认为没有响应。 */
 .payment-loading { padding:20px 12px; color:var(--af2-muted); font-size:14px; line-height:22px; text-align:center; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.payments-page .record-card { border:1rpx solid var(--border-light); border-radius:var(--radius-lg); padding:32rpx; box-shadow:none; }
+.payments-page .record-card .amount-row { padding:24rpx 0; margin:16rpx 0; border-top:1rpx solid var(--border-light); border-bottom:1rpx solid var(--border-light); }
+.payments-page .amount { color:var(--af2-ink-money); font-size:40rpx; font-weight:700; overflow-wrap:anywhere; }
+.payment-person { flex:1; min-width:0; overflow-wrap:anywhere; }
+.record-links { flex-wrap:wrap; gap:16rpx; }
+.payments-page .load-error { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }

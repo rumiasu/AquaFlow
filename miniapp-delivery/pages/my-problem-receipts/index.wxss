@@ -1,3 +1,20 @@
-.page { padding: 28rpx; color: #25344a; }
-.hint, .state { color: #637083; font-size: 26rpx; line-height: 1.6; margin-bottom: 24rpx; }
-.card { background: white; border-radius: 16rpx; margin-bottom: 20rpx; padding: 24rpx; line-height: 1.8; font-size: 28rpx; }
+.receipt-page { min-height:100vh; padding:32rpx 28rpx calc(48rpx + env(safe-area-inset-bottom)); box-sizing:border-box; background:var(--bg-color); color:var(--text-primary); font-size:28rpx; line-height:1.6; }
+.receipt-heading { margin-bottom:24rpx; }
+.receipt-title { display:block; font-size:40rpx; font-weight:600; }
+.receipt-subtitle { display:block; margin-top:8rpx; color:var(--text-secondary); font-size:26rpx; }
+.receipt-page .hint { padding:24rpx; margin-bottom:24rpx; background:var(--bg-gray); color:var(--text-regular); border-radius:var(--radius-md); font-size:26rpx; }
+.receipt-page .state { padding:32rpx; margin:24rpx 0; background:var(--bg-white); border-radius:var(--radius-lg); overflow-wrap:anywhere; }
+.receipt-page .receipt-error { border-left:4rpx solid var(--primary-color); }
+.receipt-error button { margin-top:20rpx; min-height:44px; min-height:max(44px,88rpx); }
+.receipt-empty text { display:block; }
+.receipt-empty-title { font-size:32rpx; font-weight:600; margin-bottom:16rpx; }
+.receipt-page .card { padding:32rpx; margin-bottom:24rpx; background:var(--bg-white); border-radius:var(--radius-lg); }
+.receipt-card-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16rpx; padding-bottom:24rpx; border-bottom:1rpx solid var(--border-color); }
+.receipt-ref { color:var(--text-secondary); font-size:24rpx; overflow-wrap:anywhere; }
+.receipt-status { padding:6rpx 16rpx; background:var(--primary-bg); color:var(--primary-color); border-radius:var(--radius-sm); font-size:26rpx; overflow-wrap:anywhere; }
+.receipt-content { padding:24rpx 0; }
+.receipt-label { display:block; font-size:24rpx; color:var(--text-secondary); margin-bottom:8rpx; }
+.receipt-note { display:block; white-space:pre-wrap; overflow-wrap:anywhere; }
+.receipt-timeline { border-left:2rpx solid var(--border-color); padding-left:24rpx; }
+.receipt-event { display:flex; flex-wrap:wrap; gap:8rpx 24rpx; padding:12rpx 0; color:var(--text-regular); font-size:26rpx; overflow-wrap:anywhere; }
+.receipt-event-label { color:var(--text-secondary); }

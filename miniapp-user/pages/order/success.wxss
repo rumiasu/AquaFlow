@@ -350,3 +350,13 @@
 .template-card,.action-card { border-radius:14px; }
 .action-card { min-height:56px; }
 .template-card { background:var(--af2-surface-neutral); }
+
+/* K3.1: 结果为主、继续动作次级，金额不截断。 */
+.success-hero { padding:40rpx 24rpx 32rpx; }
+.success-title { font-size:var(--text-title); line-height:1.45; }
+.success-desc,.success-amount { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+.success-amount { color:var(--price-color); font-weight:700; }
+.template-card { box-shadow:none; border:1rpx solid var(--border-light); }
+.action-row { flex-wrap:wrap; gap:16rpx; }
+.action-card { flex:1 1 120px; min-width:0; }
+.action-title { white-space:normal; overflow-wrap:anywhere; }

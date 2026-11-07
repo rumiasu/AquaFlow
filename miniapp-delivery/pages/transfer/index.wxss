@@ -261,3 +261,9 @@
 
 /* 2026-11-02：本页业务数字、记录和说明的窄屏阅读层级。 */
 .order-date,.transfer-note { font-size:14px; line-height:22px; overflow-wrap:anywhere; }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.lv2-transfer .address-text { font-size:32rpx; line-height:1.6; color:var(--text-primary); white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.lv2-transfer .product-name,.lv2-transfer .note-text { white-space:normal; overflow:visible; overflow-wrap:anywhere; }
+.lv2-transfer .page-state { padding:24rpx; margin-bottom:24rpx; background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }
+.lv2-transfer .lv2-transfer-result { max-width:100%; overflow-wrap:anywhere; }

@@ -139,3 +139,12 @@ button.af-entry::after { border:0; }
 .verification-copy { color:var(--text-regular); }
 .verification-actions { display:flex; flex-direction:column; gap:16rpx; }
 .verification-actions .af-action { width:100%; margin:0; white-space:normal; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.head { padding-bottom:24rpx; border-bottom:1rpx dashed var(--border-color); align-items:flex-start; }
+.adjust-type { font-size:36rpx; line-height:1.5; font-weight:700; }
+.row .value { white-space:normal; overflow-wrap:anywhere; line-height:1.6; }
+.reason { white-space:pre-wrap; overflow-wrap:anywhere; font-size:28rpx; line-height:1.7; }
+.snap-head,.snap-row { gap:16rpx; }
+.snap-row .col { min-width:0; overflow-wrap:anywhere; }
+.verification-copy { padding:24rpx; background:var(--warning-bg); color:var(--warning-color); }

@@ -264,3 +264,9 @@
 
 .history-more { padding:16px 0; text-align:center; }
 .history-more .page-state-error { display:block; margin-bottom:8px; }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.lv2-history .card-header { flex-wrap:wrap; gap:12rpx; }
+.lv2-history .address-text { color:var(--text-primary); font-size:32rpx; line-height:1.6; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.lv2-history .product-name,.lv2-history .product-spec { display:block; white-space:normal; overflow:visible; overflow-wrap:anywhere; }
+.lv2-history .page-state { padding:24rpx; margin-bottom:24rpx; background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }

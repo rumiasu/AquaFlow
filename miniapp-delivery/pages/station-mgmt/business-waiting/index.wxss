@@ -148,3 +148,13 @@ button.af-entry::after { border:0; }
 
 /* 2026-11-02：长页末项与操作保留底部安全区；只调整本页容器，不改变业务分支。 */
 .page { box-sizing:border-box; padding-bottom:calc(32px + env(safe-area-inset-bottom)); }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.waiting-nav { display:flex; flex-wrap:wrap; gap:8rpx; }
+.waiting-nav .af-choice { flex:1 1 180rpx; }
+.work-heading { background:transparent; padding:24rpx 0; }
+.work-title { color:var(--text-primary); font-size:40rpx; }
+.section .task-row { padding:28rpx 0; gap:16rpx; }
+.card-title,.card-amount { min-width:0; max-width:100%; overflow-wrap:anywhere; line-height:1.5; }
+.section .card-amount { color:var(--af2-ink-money); font-weight:700; }
+.ticket-recovery { padding:24rpx; background:var(--warning-bg); border-left:4rpx solid var(--warning-color); }

@@ -94,3 +94,11 @@ button.af-entry::after { border:0; }
 
 /* 2026-11-02：长页末项与操作保留底部安全区；只调整本页容器，不改变业务分支。 */
 .container { box-sizing:border-box; padding-bottom:calc(32px + env(safe-area-inset-bottom)); }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.card-title-row { padding-bottom:24rpx; border-bottom:1rpx solid var(--border-light); }
+.field-label { color:var(--text-primary); font-size:28rpx; font-weight:600; }
+.field-hint { color:var(--text-regular); font-size:26rpx; line-height:1.65; overflow-wrap:anywhere; }
+.field-textarea { line-height:1.65; }
+.draft-status { padding:24rpx; background:var(--primary-bg); border-left:4rpx solid var(--primary-color); }
+.ui-state { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }

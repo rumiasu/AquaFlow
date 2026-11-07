@@ -733,3 +733,13 @@
 
 .stats-care { display:flex; align-items:center; gap:10px; margin:12px 0 0; color:var(--text-secondary); font-size:13px; line-height:21px; }
 .stats-care text { flex:1; min-width:0; }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.b2-d11 .user-info { flex:1; min-width:0; }
+.b2-d11 .nickname,.b2-d11 .bind-text,.b2-d11 .bind-info-value,.b2-d11 .station-name,.b2-d11 .station-address { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.b2-d11 .personal-shortcuts-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16rpx; }
+.b2-d11 .personal-shortcut { min-height:52px; min-height:max(52px,var(--control-h-main)); border:1rpx solid var(--border-color); background:var(--bg-white); color:var(--text-primary); }
+.b2-d11 .stats-value { min-width:0; white-space:normal; overflow-wrap:anywhere; }
+.b2-d11 .stats-item { min-width:0; }
+.b2-d11 .menu-list { box-shadow:none; }
+@media(max-width:340px) { .b2-d11 .stats-row { flex-wrap:wrap; gap:16rpx; } .b2-d11 .stats-item { flex:1 1 150rpx; } }

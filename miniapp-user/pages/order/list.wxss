@@ -82,3 +82,11 @@
 
 .empty-order-art { display:flex; align-items:center; justify-content:center; width:144px; height:96px; margin:0 auto 12px; }
 .empty-order-art image { width:100%; height:100%; }
+
+/* K3.1: 订单筛选与真实空态层级。 */
+.orders-heading { padding-bottom:24rpx; }
+.tab-scroll { background:var(--bg-color); }
+.tab-bar { box-sizing:border-box; }
+.local-empty { margin:24rpx 32rpx; padding:40rpx 24rpx; }
+.list-progress { line-height:1.6; }
+.load-error { margin-left:32rpx; margin-right:32rpx; overflow-wrap:anywhere; }

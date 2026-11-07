@@ -673,3 +673,13 @@
 .lv2-detail .sheet-item-desc { font-size:13px; line-height:20px; margin-top:4px; }
 @media(max-width:340px) { .lv2-sku-thumb { width:48px; height:48px; } .lv2-detail .lv2-product-row { gap:8px; } }
 .lv2-detail .fact-no, .lv2-detail .fact-amount, .lv2-detail .pay-amount { max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:break-all; }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.lv2-detail .contact-card { border-top:4rpx solid var(--primary-color); }
+.lv2-detail .contact-card .info-text { min-width:0; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; font-size:32rpx; line-height:1.6; }
+.lv2-detail .content-name,.lv2-detail .content-spec,.lv2-detail .note-text,.lv2-detail .pay-note { white-space:normal; overflow-wrap:anywhere; }
+.lv2-detail .pay-row,.lv2-detail .pay-line { flex-wrap:wrap; gap:16rpx; }
+.lv2-detail .pay-main { min-width:0; flex:1 1 260rpx; }
+.lv2-detail .action-bar { flex-wrap:wrap; gap:16rpx; }
+.lv2-detail .sheet-item { overflow-wrap:anywhere; }
+.lv2-detail .sheet-actions { min-height:0; }

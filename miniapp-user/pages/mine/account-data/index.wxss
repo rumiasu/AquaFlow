@@ -51,3 +51,12 @@ textarea { width: 100%; height: 180rpx; margin-bottom: 24rpx; font-size: 26rpx;
 
 .account-profile-hint { color:var(--text-regular); }
 .account-intake-status { display:block; padding:12px; margin-bottom:12px; border-radius:10px; background:var(--af2-surface-neutral); color:var(--text-primary); font-size:14px; line-height:1.5; }
+
+/* K3.1: 个人资料申请记录呈现为凭据。 */
+.card { box-shadow:none; border-color:var(--border-light); padding:32rpx; }
+.record { border-radius:0; line-height:1.6; gap:16rpx; overflow-wrap:anywhere; }
+.request-status { display:inline-block; padding:8rpx 16rpx; border-radius:var(--radius-sm); background:var(--primary-bg); color:var(--primary-color); font-size:var(--text-body); }
+.body { word-break:normal; overflow-wrap:anywhere; }
+.error { overflow-wrap:anywhere; }
+.card textarea { font-size:var(--text-body); min-height:160rpx; }
+#request-detail { border-top:4rpx solid var(--primary-color); }

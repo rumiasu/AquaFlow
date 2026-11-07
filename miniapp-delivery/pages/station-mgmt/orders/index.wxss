@@ -99,3 +99,13 @@ button.af-entry::after { border:0; }
 
 .empty { display:flex; flex-direction:column; align-items:center; gap:16rpx; padding:80rpx 24rpx; line-height:1.6; }
 .care-note { font-size:24rpx; color:var(--text-secondary); }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.order-list { border-radius:var(--radius-lg); overflow:hidden; }
+.order-card { padding:28rpx; }
+.order-card .customer-name { font-size:32rpx; font-weight:600; }
+.order-card .customer-info,.cross-row-addr { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; line-height:1.65; }
+.order-card .product-info { padding:20rpx 0; border-bottom:1rpx solid var(--border-light); }
+.order-card .amount-info { padding-top:20rpx; }
+.order-card .order-amount { color:var(--af2-ink-money); font-size:36rpx; font-weight:700; }
+.customer-note-preview { color:var(--text-regular); line-height:1.65; }

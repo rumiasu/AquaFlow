@@ -137,3 +137,12 @@ button.af-entry::after { border:0; }
 
 /* Visual v2: page-specific information and action grouping. */
  .scope-banner { padding:12px 16px; border-radius:14px; background:var(--af2-surface-current); color:var(--af2-ink-current); } .customer-card { border:0; border-bottom:1px solid var(--af-border); border-radius:0; box-shadow:none; } .stat-row { gap:12px; } .stat-val { font-size:16px; } .modal-body { border-radius:20px 20px 0 0; max-height:90vh; overflow-y:auto; box-sizing:border-box; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.customer-list { background:var(--bg-white); border-radius:var(--radius-lg); overflow:hidden; }
+.customer-card { padding:28rpx 24rpx; }
+.customer-card .customer-name { font-size:32rpx; font-weight:600; white-space:normal; overflow-wrap:anywhere; }
+.customer-card .customer-address { color:var(--text-regular); white-space:normal; overflow:visible; text-overflow:clip; line-height:1.6; }
+.customer-card .stat-row { flex-wrap:wrap; gap:16rpx 32rpx; }
+.customer-card .card-actions { border-top:1rpx solid var(--border-light); padding-top:12rpx; flex-wrap:wrap; }
+.modal-body .scope-line,.modal-body .modal-tip { overflow-wrap:anywhere; line-height:1.65; }

@@ -273,3 +273,14 @@
 .category-item { flex:0 1 auto; }
 .field-label { margin-top:20px; }
 .content-input { box-sizing:border-box; }
+
+/* K3.1: 联系方式与反馈表单边界，长说明完整。 */
+.service-section { box-shadow:none; border-color:var(--border-light); }
+.service-value-row { flex-wrap:wrap; gap:16rpx; }
+.service-value { flex:1 1 180px; min-width:0; overflow-wrap:anywhere; }
+.call-btn { flex-shrink:0; }
+.service-label,.refund-purpose-note { white-space:normal; overflow-wrap:anywhere; }
+.refund-purpose { padding:24rpx; background:var(--bg-gray); border-radius:var(--radius-sm); margin:24rpx 0; }
+.dispute-reason { width:100%; box-sizing:border-box; font-size:var(--text-body); }
+.category-list { flex-wrap:wrap; }
+.service-tabs { margin-top:24rpx; margin-bottom:24rpx; }

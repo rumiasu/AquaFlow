@@ -48,3 +48,13 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 .aftercare-section .aftercare-status { display:inline-block; padding:4px 8px; border-radius:6px; background:var(--af2-surface-money); color:var(--af2-ink-money); }.aftercare-section .aftercare-error { padding:12px; background:var(--af2-surface-danger); color:var(--af2-ink-danger); border-radius:10px; }
 .aftercare-history { margin:12px 0 0 6px; border-left:2px solid var(--af2-line); padding:0 0 8px 14px; font-size:14px; line-height:22px; }.aftercare-history text { display:block; }.history-meta { color:var(--af2-muted); font-size:13px; }.aftercare-form .finance-section-head { margin-bottom:12px; }.aftercare-form .af-action--block { margin-top:16px; }
 @media(max-width:350px) { .sum-value { font-size:24px; }.sum-card { padding:12px; } }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.inter-station-page .sum-card { background:var(--bg-white); border:1rpx solid var(--border-light); }
+.inter-station-page .sum-value { color:var(--af2-ink-money); font-size:40rpx; }
+.inter-station-page .card { padding:32rpx; border-radius:var(--radius-lg); box-shadow:none; }
+.inter-station-page .row-main { font-weight:600; overflow-wrap:anywhere; }
+.inter-station-page .row-amount { color:var(--af2-ink-money); max-width:65%; }
+.inter-station-page .sub-text { display:block; line-height:1.65; overflow-wrap:anywhere; }
+.inter-station-page .actions { border-top:1rpx solid var(--border-light); padding-top:20rpx; }
+.inter-station-page .ui-state { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }

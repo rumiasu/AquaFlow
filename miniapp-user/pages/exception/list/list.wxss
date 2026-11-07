@@ -61,3 +61,16 @@ button::after { border: 0; }
 .card-header { gap:12px; }
 .order-info,.value { min-width:0; overflow-wrap:anywhere; }
 .detail-link { min-height:44px; display:flex; align-items:center; }
+
+/* K3.1: 异常原单与处理凭证分层。 */
+.exception-card { box-shadow:none; border-color:var(--border-light); }
+.card-header { flex-wrap:wrap; gap:16rpx; }
+.order-info { min-width:0; }
+.order-id,.time,.detail-order { overflow-wrap:anywhere; }
+.info-row { align-items:flex-start; gap:20rpx; }
+.value { min-width:0; white-space:normal; overflow-wrap:anywhere; }
+.card-footer { border-top:1rpx solid var(--border-light); padding-top:16rpx; }
+.detail-panel { padding-bottom:env(safe-area-inset-bottom); }
+.detail-heading { flex-shrink:0; gap:16rpx; }
+.detail-scroll { min-height:0; }
+.state-error { background:var(--bg-gray); border:0; border-left:4rpx solid var(--primary-color); }

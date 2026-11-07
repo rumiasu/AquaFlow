@@ -422,3 +422,12 @@ page{background:#f5f7fa}.page{padding-bottom:calc(24px + env(safe-area-inset-bot
 .exception-list .ex > .af-action--primary { min-height:48px; }
 .exception-list .ex-handling-hint { display:block; margin-top:12px; color:#375a85; font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
 .exception-list .b3-on-ignore { flex:none; margin-left:auto; padding:8px 0; color:#475569; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.exception-list .ex { padding:28rpx 0; border-bottom:1rpx solid var(--border-light); }
+.ex-head { flex-wrap:wrap; gap:16rpx; align-items:flex-start; }
+.ex-id,.ex-time { color:var(--text-secondary); font-size:24rpx; line-height:1.6; }
+.ex-value { min-width:0; white-space:normal; overflow-wrap:anywhere; text-align:right; }
+.ex-handling-hint { padding:24rpx; background:var(--warning-bg); color:var(--warning-color); line-height:1.65; }
+.ex-actions { display:flex; flex-wrap:wrap; gap:16rpx; }
+.alert-card .content { line-height:1.7; overflow-wrap:anywhere; }

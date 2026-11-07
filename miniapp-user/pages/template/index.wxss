@@ -415,3 +415,14 @@
 
 /* 编辑弹层标题与操作稳定，内容区独立滚动。 */
 .modal-header { flex-shrink:0; }
+
+/* K3.1: 常用配置展示为可编辑清单。 */
+.template-item { border:1rpx solid var(--border-light); }
+.template-name,.template-note { white-space:normal; overflow-wrap:anywhere; }
+.template-items { padding:16rpx 0; border-top:1rpx solid var(--border-light); border-bottom:1rpx solid var(--border-light); }
+.template-item-row { align-items:flex-start; }
+.template-item-row .item-qty { flex-shrink:0; }
+.template-actions { justify-content:flex-end; }
+.modal-close { min-width:44px; justify-content:center; }
+.form-label-row { flex-wrap:wrap; gap:12rpx; }
+.form-input { font-size:var(--text-body); }

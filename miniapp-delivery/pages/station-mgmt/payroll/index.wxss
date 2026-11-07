@@ -74,3 +74,12 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 .menu-action,.menu-cancel { display:flex; align-items:center; width:100%; min-height:48px; padding:12px; margin:0; font-size:16px; line-height:24px; border:0; border-top:1px solid var(--af2-line); border-radius:0; background:var(--af2-surface); color:var(--af2-ink); box-sizing:border-box; text-align:left; }.menu-danger { color:var(--af2-ink-danger); }.menu-cancel { justify-content:center; margin-top:12px; background:var(--af2-surface-neutral); border-radius:9px; }.menu-hint { display:block; font-size:13px; line-height:20px; margin:8px 0; color:var(--af2-muted); }
 
 .menu-action::after,.menu-cancel::after { border:0; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.payroll-page .slip { margin:24rpx 0; padding:28rpx; border:1rpx solid var(--border-light); border-radius:var(--radius-lg); }
+.payroll-page .slip-label { display:block; color:var(--text-secondary); font-size:24rpx; line-height:1.6; margin-bottom:8rpx; }
+.payroll-page .slip-money { padding:24rpx 0; border-top:1rpx dashed var(--border-color); border-bottom:1rpx dashed var(--border-color); }
+.payroll-page .slip-amount { color:var(--af2-ink-money); font-size:40rpx; font-weight:700; }
+.payroll-page .slip-actions { flex-wrap:wrap; gap:16rpx; }
+.payroll-page .pay-caution { color:var(--text-regular); font-size:26rpx; line-height:1.65; }
+.payroll-page .load-error { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }

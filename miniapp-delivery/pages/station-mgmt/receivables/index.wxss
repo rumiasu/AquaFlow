@@ -60,3 +60,14 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 .collection-method { margin-top:6px; color:var(--af2-ink); }
 .collection-status,.collection-next-step { margin-top:4px; color:var(--af2-muted); }
 .collection-status--ready { color:var(--af2-ink-success); }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.receivable-overview { border-radius:var(--radius-lg); padding:32rpx; }
+.receivable-amount { font-size:48rpx; line-height:1.35; font-weight:700; overflow-wrap:anywhere; }
+.receivable-customer { border:1rpx solid var(--border-light); border-radius:var(--radius-lg); box-shadow:none; }
+.receivable-customer .row-title { font-size:32rpx; font-weight:600; }
+.receivable-customer .row-amount { color:var(--af2-ink-money); font-size:36rpx; }
+.collection-method,.collection-next-step,.collection-status { font-size:26rpx; line-height:1.65; }
+.settlement-bar { border-top:1rpx solid var(--border-color); box-shadow:none; }
+.risk-line { flex-wrap:wrap; gap:12rpx 24rpx; }
+.risk-value { min-width:0; max-width:100%; }

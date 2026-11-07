@@ -1,8 +1,8 @@
 /* Visual v2: opt-in presentation; af-action semantics remain in actions.wxss. */
 page, :host {
-  --af2-page:#F3F6FA; --af2-top:#EAF2FF; --af2-surface:#FFFFFF;
-  --af2-ink:#223247; --af2-muted:#5D6B7D; --af2-strong:#223247;
-  --af2-primary:#1264D6; --af2-primary-pressed:#174A80; --af2-icon-fill:#EAF2FF; --af2-line:#DDE5EF;
+  --af2-page:#F5F6F7; --af2-top:#EAF3FF; --af2-surface:#FFFFFF;
+  --af2-ink:#182230; --af2-muted:#4B596A; --af2-strong:#182230;
+  --af2-primary:#1264D6; --af2-primary-pressed:#0D4FA8; --af2-icon-fill:#EAF3FF; --af2-line:#E8ECF1;
   --af2-shadow:0 3px 14px rgba(29,67,101,.05);
 }
 .af2-page { box-sizing:border-box; min-height:100vh; background:var(--af2-page); color:var(--af2-ink); }
@@ -13,18 +13,18 @@ page, :host {
 .af2-empty { display:flex; align-items:center; flex-direction:column; gap:8px; padding:24px 16px; color:var(--af2-muted); font-size:14px; line-height:22px; text-align:center; }
 .af2-empty__image { display:block; width:176px; max-width:100%; height:117px; }
 .af2-empty__title { color:var(--af2-ink); font-size:16px; line-height:24px; font-weight:600; }
-.af2-icon-tile { display:flex; align-items:center; justify-content:center; flex:none; width:44px; height:44px; background:#EAF2FF; border-radius:12px; }
+.af2-icon-tile { display:flex; align-items:center; justify-content:center; flex:none; width:44px; height:44px; background:#EAF3FF; border-radius:12px; }
 
 /* Astra 25: semantic surfaces; labels/icons/units remain mandatory. */
 page, :host {
-  --af2-surface-order:#EAF2FF; --af2-ink-order:#223247;
-  --af2-surface-physical:#FFFFFF; --af2-ink-physical:#223247;
-  --af2-surface-money:#FFFFFF; --af2-ink-money:#223247;
-  --af2-surface-current:#EAF2FF; --af2-ink-current:#223247;
-  --af2-surface-neutral:#F3F6FA; --af2-ink-neutral:#223247;
-  --af2-surface-success:#E7F1EB; --af2-ink-success:#24734F;
-  --af2-surface-danger:#F8E9E8; --af2-ink-danger:#BD3545;
-  --af2-disabled-bg:#E8EDF2; --af2-disabled-ink:#5D6A7C;
+  --af2-surface-order:#EAF3FF; --af2-ink-order:#182230;
+  --af2-surface-physical:#FFFFFF; --af2-ink-physical:#182230;
+  --af2-surface-money:#FFFFFF; --af2-ink-money:#182230;
+  --af2-surface-current:#EAF3FF; --af2-ink-current:#182230;
+  --af2-surface-neutral:#F5F6F7; --af2-ink-neutral:#182230;
+  --af2-surface-success:#EAF6EE; --af2-ink-success:#24734F;
+  --af2-surface-danger:#FFF0EE; --af2-ink-danger:#BD3328;
+  --af2-disabled-bg:#F0F2F5; --af2-disabled-ink:#4B596A;
 }
 .af2-tone-order { --af2-tone-bg:var(--af2-surface-order); --af2-tone-ink:var(--af2-ink-order); }
 .af2-tone-physical { --af2-tone-bg:var(--af2-surface-physical); --af2-tone-ink:var(--af2-ink-physical); }

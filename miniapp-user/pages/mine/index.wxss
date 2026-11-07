@@ -62,3 +62,13 @@
 .asset-label,.asset-unit,.asset-refresh-note { color:#5D6B7D; }
 .asset-entry,.scene-entry-link { color:#1264D6; }
 button.logout { width:auto; min-width:120px; min-height:48px; margin:20px auto 0; padding:8px 24px; color:#5D6B7D; background:#FFFFFF; border:1px solid #7C8A9C; }
+
+/* K3.1: 资产优先、常用入口紧凑，身份信息不截断。 */
+.nickname { white-space:normal; overflow-wrap:anywhere; text-overflow:clip; }
+.assets-card { box-shadow:none; border-color:var(--border-light); }
+.asset-main { gap:12rpx; min-width:0; }
+.asset-value { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+.asset-entry { flex-shrink:0; }
+.quick-label,.asset-note-text,.assets-unloaded-text { white-space:normal; overflow-wrap:anywhere; }
+.assets-unloaded-tip { flex-wrap:wrap; gap:12rpx; min-height:44px; }
+.group-title { color:var(--text-secondary); font-size:var(--text-note); }

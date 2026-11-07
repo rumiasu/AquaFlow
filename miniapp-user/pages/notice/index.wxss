@@ -36,3 +36,13 @@ button::after { border: 0; }
 .notice-item { min-height:64px; box-sizing:border-box; }
 .notice-title { min-width:0; overflow-wrap:anywhere; }
 .notice-time { color:var(--af2-muted); }
+
+/* K3.1: 公告列表去除双重缩进，类型与正文分层。 */
+.container { background:var(--bg-color); }
+.notice-list { margin:0; border-color:var(--border-light); }
+.notice-item-top { flex-wrap:wrap; gap:12rpx; }
+.notice-title { flex:1 1 180px; }
+.notice-type { color:var(--primary-color); background:var(--primary-bg); }
+.notice-item { padding:28rpx; }
+.state-error { background:var(--bg-gray); border:0; border-left:4rpx solid var(--primary-color); }
+.state-banner { background:var(--bg-gray); color:var(--text-regular); }

@@ -96,3 +96,11 @@
 .doc-head,.doc-section { background:var(--af2-surface); }
 .doc-title { line-height:1.4; overflow-wrap:anywhere; }
 .doc-body { line-height:1.8; overflow-wrap:anywhere; }
+
+/* K3.1: 条款标题与版本记录形成文档层级。 */
+.doc-head { padding-top:16rpx; border-bottom:1rpx solid var(--border-color); }
+.doc-heading { padding-top:12rpx; font-size:32rpx; }
+.doc-updated { font-size:var(--text-note); color:var(--text-secondary); }
+.doc-body { word-break:normal; overflow-wrap:anywhere; }
+.doc-notice-tag { color:var(--text-primary); }
+.doc-foot { background:var(--bg-gray); padding:24rpx; border:0; border-radius:var(--radius-sm); }

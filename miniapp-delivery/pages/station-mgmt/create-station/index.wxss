@@ -205,3 +205,10 @@
 .lv2-create .location-sub { font-size:13px; line-height:20px; color:var(--af2-muted); }
 .lv2-create .secondary-actions { margin:16px 0; display:flex; flex-wrap:wrap; gap:8px 16px; }
 .lv2-create .footer { padding:12px 16px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--af2-line); }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.lv2-create .form-header { border-bottom:1rpx solid var(--border-light); padding-bottom:24rpx; }
+.lv2-create .lv2-form-group-title { color:var(--text-primary); font-size:30rpx; font-weight:600; }
+.lv2-create .location-text { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; font-size:28rpx; line-height:1.6; }
+.lv2-create .form-input { font-size:32rpx; min-height:96rpx; }
+.lv2-create .location-error { color:var(--error-color); line-height:1.6; overflow-wrap:anywhere; }

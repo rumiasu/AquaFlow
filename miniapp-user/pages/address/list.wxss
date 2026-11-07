@@ -43,3 +43,12 @@ button.address-add { position:fixed; left:12px; right:12px; bottom:calc(12px + e
 .address-detail { overflow-wrap:anywhere; line-height:1.6; }
 .address-actions { min-height:44px; }
 .default-tag { background:var(--af2-surface-order); color:var(--af2-ink-order); }
+
+/* K3.1: 地址正文优先，辅助操作不另占一大片。 */
+.address-item { border-color:var(--border-light); }
+.address-header { gap:8rpx 16rpx; margin-bottom:12rpx; }
+.address-actions { margin-top:8rpx; padding-top:0; border:0; }
+.select-hint { padding-top:0; }
+.address-name,.address-phone,.address-label { min-width:0; white-space:normal; overflow-wrap:anywhere; }
+.state-error { background:var(--bg-gray); border:0; border-left:4rpx solid var(--primary-color); }
+.container { padding-bottom:calc(100px + env(safe-area-inset-bottom)); }

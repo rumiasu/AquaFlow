@@ -273,3 +273,12 @@ button.address-save { min-width:120px; margin:0; }
 .bottom-bar { flex-wrap:wrap; gap:8px 12px; }
 .default-toggle { min-width:0; flex:0 1 auto; }
 .default-text { overflow-wrap:anywhere; }
+
+/* K3.1: 地址表单分组和标签置上。 */
+.field-row { flex-wrap:wrap; align-items:flex-start; gap:12rpx; padding:24rpx 0; }
+.field-row .field-label { width:100%; flex:0 0 100%; color:var(--text-primary); }
+.field-input { flex:1 0 100%; width:100%; padding:0 20rpx; background:var(--bg-gray); border:1rpx solid var(--border-color); border-radius:var(--radius-sm); }
+.label-options { min-width:0; max-width:100%; flex-wrap:wrap; }
+.group-title { padding-top:32rpx; }
+.field-help { margin-top:8rpx; overflow-wrap:anywhere; }
+.state-error { background:var(--bg-gray); border:0; border-left:4rpx solid var(--primary-color); }

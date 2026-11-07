@@ -710,3 +710,15 @@ button.recovery-btn[disabled] {
 /* 抬高键盘或文案变长时，优先保留标题与底部操作，列表占剩余空间。 */
 .modal-header,.modal-footer { flex-shrink:0; }
 .modal-scroll { flex:1 1 auto; min-height:0; }
+
+/* K3.1: 票余额和真实套餐报价，余费规则可读。 */
+.ticket-balance-card { background:var(--bg-white); border-color:var(--border-light); }
+.balance-total,.ticket-name,.ticket-spec,.record-name,.pkg-title { white-space:normal; overflow-wrap:anywhere; }
+.ticket-info,.record-info,.method-info { min-width:0; }
+.ticket-quantity,.record-quantity { min-width:0; max-width:42%; overflow-wrap:anywhere; }
+.pkg-price { color:var(--price-color); font-size:36rpx; overflow-wrap:anywhere; }
+.pkg-item { border-color:var(--border-light); }
+.pkg-item.active { border-color:var(--primary-color); background:var(--primary-bg); }
+.modal-footer { padding-bottom:calc(20rpx + env(safe-area-inset-bottom)); }
+.stale-note { border-left-color:var(--primary-color); color:var(--text-regular); }
+.purchase-copies-error { color:var(--error-color); }

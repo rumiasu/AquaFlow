@@ -433,3 +433,12 @@ button.af-entry::after { border:0; }
 .order-item .order-status { min-width:0; }
 .order-item .order-amount { min-width:0; max-width:100%; overflow-wrap:anywhere; }
 .order-item > text:last-child { margin-left:auto; flex:none; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.profile-header { border-bottom:1rpx solid var(--border-light); background:var(--bg-white); }
+.profile-header .name { font-size:36rpx; line-height:1.5; overflow-wrap:anywhere; }
+.asset-item-main { flex:1; min-width:0; }
+.asset-item-name,.asset-item-sub { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; line-height:1.65; }
+.record-item { padding:24rpx 0; align-items:flex-start; gap:20rpx; }
+.record-left,.record-right { min-width:0; overflow-wrap:anywhere; }
+.error-banner,.asset-error { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); color:var(--text-regular); }

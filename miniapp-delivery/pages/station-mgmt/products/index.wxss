@@ -946,3 +946,12 @@ button.af-entry::after { border:0; }
 .card .action .b3-on-open-inventory { flex:0 1 auto; width:auto; min-width:88px; min-height:44px; padding:9px 12px; border-radius:10px; font-size:14px; }
 .card .action .b3-on-open-setting,.card .action .b3-on-select-product,.card .action .b3-on-restore-product { flex:0 1 auto; width:auto; min-width:88px; min-height:44px; padding:9px 12px; border-radius:10px; font-size:14px; }
 .card .action .b3-on-request-remove-product { flex:none; min-width:48px; min-height:44px; margin-left:auto; padding:8px 6px; color:#5D6B7D; background:transparent; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.list .card { border:1rpx solid var(--border-light); border-radius:var(--radius-lg); box-shadow:none; padding:28rpx; }
+.list .name { font-size:32rpx; font-weight:600; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; line-height:1.5; }
+.list .sub { color:var(--text-regular); font-size:26rpx; line-height:1.6; }
+.list .card .action { border-top-color:var(--border-light); gap:16rpx; padding-top:24rpx; }
+.list .card .action .b3-on-request-remove-product { color:var(--error-color); }
+.inventory-summary { border-radius:var(--radius-lg); padding:28rpx; }
+.work-read-error { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); line-height:1.65; }

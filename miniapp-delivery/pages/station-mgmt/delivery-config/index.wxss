@@ -275,3 +275,11 @@ button.af-entry::after { border:0; }
 .s-fee-marker { position:absolute; left:0; top:10px; display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:8px; background:var(--af2-surface); color:var(--af2-ink-order); font-size:13px; font-weight:600; }
 .fee-rule-summary-copy { display:block; margin-top:4px; }
 
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.fee-rules-heading { align-items:flex-start; flex-wrap:wrap; gap:16rpx; }
+.fee-rule-summary { border:1rpx solid var(--border-light); background:var(--bg-white); padding:28rpx; }
+.fee-rule-summary-title { font-size:30rpx; line-height:1.5; }
+.fee-rule-summary-copy,.fee-threshold-note { color:var(--text-regular); font-size:26rpx; line-height:1.65; overflow-wrap:anywhere; }
+.fee-section-heading { flex-wrap:wrap; gap:16rpx; }
+.fee-field-error { color:var(--error-color); font-size:26rpx; line-height:1.65; }
+.fee-save-actions { padding-bottom:calc(24rpx + env(safe-area-inset-bottom)); }

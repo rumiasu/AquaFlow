@@ -108,3 +108,11 @@ button:not(.af-action):not(.af-choice) { min-height:44px; height:auto; line-heig
 /* 2026-11-02：本页业务数字、记录和说明的窄屏阅读层级。 */
 .lv2-barrels .summary-label { font-size:14px; line-height:22px; }
 .lv2-barrels .record-time,.lv2-barrels .record-meta { font-size:14px; line-height:22px; }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.lv2-barrels .record-top,.lv2-barrels .record-meta,.lv2-barrels .record-bottom { flex-wrap:wrap; gap:12rpx; }
+.lv2-barrels .record-time { min-width:0; overflow-wrap:anywhere; }
+.lv2-barrels .record-address { color:var(--text-primary); font-size:30rpx; }
+.lv2-barrels .discrepancy-note { white-space:normal; overflow-wrap:anywhere; }
+.lv2-barrels .page-state { padding:24rpx; margin-bottom:24rpx; border-left:4rpx solid var(--primary-color); background:var(--bg-gray); }
+.lv2-barrels .record-detail-link { min-height:44px; min-height:max(44px,88rpx); display:flex; align-items:center; justify-content:flex-end; }

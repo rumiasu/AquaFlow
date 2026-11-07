@@ -425,3 +425,10 @@
 .lv2-apply .b2-join-action { align-self:flex-end; }
 .lv2-apply .station-map-link { min-height:44px; padding:4px 0; font-size:13px; }
 .lv2-apply .footer { padding:12px 16px calc(12px + env(safe-area-inset-bottom)); display:flex; flex-wrap:wrap; gap:8px 16px; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.lv2-apply .station-item { padding:28rpx 0; border-bottom:1rpx solid var(--border-light); align-items:flex-start; }
+.lv2-apply .station-name { font-size:32rpx; line-height:1.5; }
+.lv2-apply .station-address { display:block; white-space:normal; overflow:visible; text-overflow:clip; color:var(--text-regular); font-size:28rpx; line-height:1.6; }
+.lv2-apply .station-distance { font-size:24rpx; color:var(--text-secondary); }
+.history-note,.history-station { overflow-wrap:anywhere; line-height:1.6; }

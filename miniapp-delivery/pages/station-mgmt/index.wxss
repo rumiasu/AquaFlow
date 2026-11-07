@@ -113,3 +113,14 @@ button.af-entry::after { border:0; }
 
 /* 2026-11-02：长页末项与操作保留底部安全区；只调整本页容器，不改变业务分支。 */
 .container { box-sizing:border-box; padding-bottom:calc(32px + env(safe-area-inset-bottom)); }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.v2-management-overview { background:var(--bg-white); border-bottom:1rpx solid var(--border-light); border-radius:0; padding:16rpx 0 24rpx; }
+.v2-management-title { color:var(--text-primary); font-size:40rpx; line-height:1.35; }
+.v2-management-scene { width:160rpx; height:108rpx; }
+.v2-management .pending-card { padding:24rpx 12rpx; gap:16rpx; }
+.v2-management .entry-title { color:var(--text-regular); font-size:28rpx; }
+.v2-management .pending-value { font-size:36rpx; }
+.v2-management .management-grid { gap:16rpx; }
+.v2-management .group-toggle { border-radius:var(--radius-lg); }
+.badge-error { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); color:var(--text-regular); padding:24rpx; min-height:88rpx; box-sizing:border-box; }

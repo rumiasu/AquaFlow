@@ -49,3 +49,11 @@
 .logo-section { display:flex; flex-direction:column; align-items:center; }
 .logo-wrap { width:116px; height:85px; margin:0 0 8px; background:transparent; border:0; }
 .logo { width:100px; height:85px; }
+
+/* K3.1: 登录与条款阅读保持分层。 */
+.login-content { padding-bottom:calc(32rpx + env(safe-area-inset-bottom)); }
+.login-error { background:var(--bg-gray); color:var(--text-regular); border-left:4rpx solid var(--primary-color); padding:24rpx; border-radius:var(--radius-sm); line-height:1.6; overflow-wrap:anywhere; }
+.agreement { flex-wrap:wrap; }
+.agreement-link { display:inline-flex; align-items:center; min-height:44px; }
+.test-login { border-top:1rpx solid var(--border-color); padding-top:24rpx; }
+.test-login-input { box-sizing:border-box; min-height:44px; }

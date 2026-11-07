@@ -199,6 +199,7 @@
     <view class="collect-selector">
       <view class="af-choice b2-collect-option {{collected === true ? 'af-choice--selected' : ''}}" catchtap="onSelectCollected" data-value="true">
         <view class="af-choice__face"><text>已收齐</text><text wx:if="{{collected === true}}"> ✓</text></view>
+        <text class="collect-option-desc">仅在款项实际到手后选择</text>
       </view>
       <view class="af-choice b2-collect-option {{collected === false ? 'af-choice--selected' : ''}}" catchtap="onSelectCollected" data-value="false">
         <view class="af-choice__face"><text>未收款</text><text wx:if="{{collected === false}}"> ✓</text></view>

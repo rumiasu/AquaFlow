@@ -313,3 +313,13 @@
 
 .info-section .contact-actions { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 12px; }
 .info-section .contact-actions .af-action { min-height:44px; }
+
+/* K3.1: 费用和配送凭据清楚分组，完整显示金额。 */
+.status-card { border-radius:var(--radius-lg); box-shadow:none; }
+.info-section { box-shadow:none; border-color:var(--border-light); }
+.info-row { align-items:flex-start; gap:24rpx; }
+.info-row .label { flex:0 1 40%; min-width:0; overflow-wrap:anywhere; }
+.info-row .value { flex:1; min-width:0; white-space:normal; overflow-wrap:anywhere; }
+.fee-total { padding-top:24rpx; margin-top:12rpx; border-top:1rpx solid var(--border-color); }
+.item-price,.item-qty,.pay-hint { white-space:normal; overflow-wrap:anywhere; }
+@media (max-width:340px) { .item-row { flex-wrap:wrap; } .item-right { max-width:100%; margin-left:auto; } }

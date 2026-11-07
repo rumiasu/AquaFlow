@@ -166,3 +166,11 @@ button.af-entry::after { border:0; }
 .card-head,.card-foot { flex-wrap:wrap; gap:8px 12px; }
 .who,.content,.foot-item { min-width:0; max-width:100%; overflow-wrap:anywhere; }
 .time { font-size:14px; line-height:22px; }
+
+/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
+.work-head { padding:16rpx 0 24rpx; }
+.fb-card { padding:32rpx; border:1rpx solid var(--border-light); }
+.fb-card .content { font-size:30rpx; line-height:1.75; white-space:pre-wrap; overflow-wrap:anywhere; }
+.fb-card .category { font-size:24rpx; color:var(--text-secondary); }
+.b3-dispute-history { padding:16rpx 0 24rpx 28rpx; margin-left:8rpx; border-left:2rpx solid var(--border-color); line-height:1.65; }
+.state.error { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); color:var(--text-regular); }

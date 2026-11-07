@@ -92,3 +92,10 @@ button:not(.af-action):not(.af-choice).submit-btn { color:#fff; font-size:var(--
 .lv2-edit .form-input { width:100%; flex:none; min-height:48px; font-size:16px; line-height:24px; padding:10px 12px; box-sizing:border-box; border:1px solid var(--af2-line); border-radius:10px; }
 .lv2-edit .edit-error { font-size:14px; line-height:22px; margin:0 0 16px; }
 .lv2-edit > .af-action--primary { margin-top:8px; }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.lv2-edit .form-section { background:var(--bg-white); box-shadow:none; }
+.lv2-edit .form-item + .form-item { border-top:1rpx solid var(--border-color); }
+.lv2-edit .form-label { color:var(--text-primary); font-weight:600; }
+.lv2-edit .edit-error { display:block; padding:24rpx; border-left:4rpx solid var(--primary-color); background:var(--bg-gray); overflow-wrap:anywhere; }
+.lv2-edit { padding-bottom:calc(64rpx + env(safe-area-inset-bottom)); }

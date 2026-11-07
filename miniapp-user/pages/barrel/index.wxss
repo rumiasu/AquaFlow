@@ -875,3 +875,12 @@
 .barrel-assets-page .preview-hint text,.barrel-assets-page .preview-blocked text,.barrel-assets-page .preview-warn text,.barrel-assets-page .stale-note { color:#244D7D; }
 
 .companion-orders-loading { display:block; padding:10px 12px; color:#1F5EA8; font-size:14px; line-height:22px; }
+
+/* K3.1: 桶数资产与风险保留独立层级。 */
+.barrel-assets-page .stat-number { white-space:normal; overflow-wrap:anywhere; }
+.barrel-assets-page .stat-label { overflow-wrap:anywhere; }
+.barrel-assets-page .stats-card { border-color:var(--border-light); }
+.barrel-assets-page .section { border-color:var(--border-light); }
+.owed-tip { border-left:4rpx solid var(--warning-color); color:var(--warning-color); overflow-wrap:anywhere; }
+.modal-close { min-width:44px; min-height:44px; }
+@media (max-width:340px) { .barrel-assets-page .stats-card { flex-wrap:wrap; } .barrel-assets-page .stat-col { flex:1 1 100px; } .barrel-assets-page .stat-divider { display:none; } }

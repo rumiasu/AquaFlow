@@ -186,7 +186,7 @@
       <view class="card-actions">
         <button catchtap="onNavigateOrder" data-id="{{item.id}}" data-field="deliveringOrders" disabled="{{loading || !readReady.delivering}}" class="af-action af-action--secondary">导航</button>
         <button catchtap="onCompleteOrder" data-id="{{item.id}}" disabled="{{loading || !readReady.delivering}}" class="af-action af-action--primary af-action--final af-action--grow">完成配送</button>
-        <button catchtap="onMediateOrder" data-id="{{item.id}}" class="af-action af-action--secondary">配送遇到问题</button>
+        <button catchtap="onMediateOrder" data-id="{{item.id}}" class="af-action af-action--quiet task-problem-action">配送遇到问题</button>
       </view>
     </view>
     <view class="empty-state" wx:if="{{!loading && readReady.delivering && deliveringOrders.length === 0}}">

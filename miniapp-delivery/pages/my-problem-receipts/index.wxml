@@ -1,14 +1,16 @@
-<view class="page">
+<view class="page receipt-page">
+  <view class="receipt-heading"><text class="receipt-title">我的现场反馈</text><text class="receipt-subtitle">查看原反馈与处理进展</text></view>
   <view class="hint">显示当前水站最近 100 条本人现场反馈。历史记录或转至其他站的订单可能无法显示，请联系站长核实。</view>
-  <view wx:if="{{loading}}" class="state">加载中…</view>
-  <view wx:elif="{{error}}" class="state">{{error}}<button bindtap="load">重新加载</button></view>
-  <view wx:elif="{{items.length === 0}}" class="state">暂无可显示的反馈</view>
+  <view wx:if="{{loading}}" class="state">正在读取反馈记录…</view>
+  <view wx:elif="{{error}}" class="state receipt-error"><text>{{error}}</text><button bindtap="load" class="af-action af-action--secondary">重新加载</button></view>
+  <view wx:elif="{{items.length === 0}}" class="state receipt-empty"><text class="receipt-empty-title">暂无可显示的反馈</text><text>现场反馈提交后，可在这里查看处理进展。历史或跨站记录请联系站长核实。</text></view>
   <view class="card" wx:for="{{items}}" wx:key="id">
-    <view>反馈 #{{item.id}} · 订单 #{{item.orderId}}</view>
-    <view>反馈内容：{{item.staffNote || '未记录'}}</view>
-    <view>处理状态：{{item.statusText}}</view>
-    <view wx:if="{{item.createdAt}}">上报时间：{{item.createdAt}}</view>
-    <view wx:if="{{item.decidedAt}}">处理时间：{{item.decidedAt}}</view>
-    <view wx:if="{{item.executedAt}}">执行时间：{{item.executedAt}}</view>
+    <view class="receipt-card-head"><text class="receipt-ref">反馈 #{{item.id}} · 订单 #{{item.orderId}}</text><text class="receipt-status">处理状态：{{item.statusText}}</text></view>
+    <view class="receipt-content"><text class="receipt-label">反馈内容</text><text class="receipt-note">{{item.staffNote || '未记录'}}</text></view>
+    <view class="receipt-timeline">
+      <view class="receipt-event" wx:if="{{item.createdAt}}"><text class="receipt-event-label">上报时间</text><text>{{item.createdAt}}</text></view>
+      <view class="receipt-event" wx:if="{{item.decidedAt}}"><text class="receipt-event-label">处理时间</text><text>{{item.decidedAt}}</text></view>
+      <view class="receipt-event" wx:if="{{item.executedAt}}"><text class="receipt-event-label">执行时间</text><text>{{item.executedAt}}</text></view>
+    </view>
   </view>
 </view>

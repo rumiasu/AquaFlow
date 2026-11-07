@@ -163,3 +163,11 @@
 
 .record-type-row { display:flex; align-items:center; gap:8px; }
 .record-direction-mark { flex:none; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--af2-surface-money); color:var(--af2-ink-money); font-size:16px; }
+
+/* K3.1: 押金流水凭证化，方向和金额完整。 */
+.record-list { margin:0; border-color:var(--border-light); }
+.record-date { background:var(--bg-gray); color:var(--text-secondary); padding:20rpx 24rpx; }
+.record-item { align-items:flex-start; gap:24rpx; }
+.record-note,.record-order { white-space:normal; overflow-wrap:anywhere; }
+.record-amount { min-width:0; max-width:48%; white-space:normal; overflow-wrap:anywhere; text-align:right; }
+@media (max-width:340px) { .record-item { flex-wrap:wrap; } .record-amount { flex-basis:100%; max-width:100%; } }

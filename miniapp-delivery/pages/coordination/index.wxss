@@ -930,3 +930,14 @@
 .v2-overview-title { font-size:16px; line-height:24px; }
 .v2-delivery-scene, .v2-scene-fallback { width:64px; height:40px; }
 @media screen and (max-width:359px) { .v2-work-overview { padding:8px 12px; } .v2-overview-title { font-size:16px; line-height:24px; } .v2-delivery-scene, .v2-scene-fallback { width:64px; height:40px; } }
+
+/* 2026-11-07: K3.1 page-specific reading order and narrow-screen safeguards. */
+.v2-workbench .v2-work-overview { min-height:0; padding:24rpx 32rpx; }
+.v2-workbench .v2-delivery-scene { width:160rpx; height:96rpx; }
+.v2-workbench .order-card { box-shadow:none; border:0; }
+.v2-workbench .info-row { flex-wrap:wrap; gap:8rpx 16rpx; align-items:baseline; }
+.v2-workbench .info-value { min-width:0; overflow:visible; white-space:normal; text-overflow:clip; overflow-wrap:anywhere; }
+.v2-workbench .info-address .info-value { color:var(--text-primary); font-size:32rpx; line-height:1.6; }
+.v2-workbench .card-actions { flex-wrap:wrap; gap:16rpx; }
+.v2-workbench .card-actions .af-action--primary { min-height:52px; min-height:max(52px,var(--control-h-main)); }
+.v2-workbench .no-auth { padding:48rpx 32rpx; background:var(--bg-white); border-radius:var(--radius-lg); }

@@ -1,0 +1,21 @@
+<view class="guest-guide">
+  <text class="guest-guide-title">先看看有哪些水站</text>
+  <text class="guest-guide-hint">不同水站的商品和价格可能不同，登录并选择水站后可查看该站商品。</text>
+  <button class="guest-guide-browse" wx:if="{{!open}}" bindtap="open">查看水站</button>
+  <block wx:else>
+    <view class="guest-guide-head"><text>可选水站</text><button class="guest-guide-close" bindtap="close">收起</button></view>
+    <text class="guest-guide-state" wx:if="{{loading}}">正在加载水站…</text>
+    <view class="guest-guide-state" wx:elif="{{error}}">
+      <text>水站列表暂未加载，请重试</text>
+      <button class="guest-guide-retry" bindtap="retry">重新加载</button>
+    </view>
+    <text class="guest-guide-state" wx:elif="{{stations.length === 0}}">暂无可用水站</text>
+    <scroll-view wx:else class="guest-guide-list" scroll-y="true">
+      <view class="guest-guide-row" wx:for="{{stations}}" wx:key="id">
+        <text class="guest-guide-name">{{item.name}}</text>
+        <text class="guest-guide-address" wx:if="{{item.address}}">{{item.address}}</text>
+      </view>
+    </scroll-view>
+  </block>
+  <button class="guest-guide-login" bindtap="login">登录后选择水站</button>
+</view>

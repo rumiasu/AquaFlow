@@ -634,8 +634,21 @@ public interface OrderMapper {
             "left join customer c on o.customer_id = c.id " +
             "left join address a on o.address_id = a.id " +
             "where o.delivery_staff_id = #{staffId} and o.status = #{status} " +
-            "order by o.create_time desc")
+            "order by o.create_time desc, o.id desc")
     List<Orders> listHistoryByDeliveryStaffId(@Param("staffId") Long staffId, @Param("status") Integer status);
+
+    // 2026-11-06：仅按时间分页会漏掉同秒订单；以时间和 id 组成稳定游标。
+    @Select({"<script>",
+            "select o.*, " + TICKET_FIELDS + " c.name as customerName, c.phone as customerPhone,",
+            "(select oi.product_name_snapshot from order_item oi where oi.order_id=o.id order by oi.id limit 1) as firstProductName,",
+            "a.detail as addressDetail from orders o left join customer c on o.customer_id=c.id",
+            "left join address a on o.address_id=a.id",
+            "where o.delivery_staff_id=#{staffId} and o.status=#{status}",
+            "<if test='beforeTime != null'> and (o.create_time &lt; #{beforeTime} or (o.create_time=#{beforeTime} and o.id &lt; #{beforeId})) </if>",
+            "order by o.create_time desc, o.id desc limit #{limit}", "</script>"})
+    List<Orders> listHistoryPage(@Param("staffId") Long staffId, @Param("status") Integer status,
+                                 @Param("beforeTime") java.time.LocalDateTime beforeTime,
+                                 @Param("beforeId") Long beforeId, @Param("limit") int limit);
 
     // ⚠️ 补 itemSummary / itemKindCount（2026-09-27）：这是「待收款」页签的取数，
     //    原先只给 firstProductName，前端只好回落成「第一款 × 件数」——混合单会漏商品。

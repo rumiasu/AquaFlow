@@ -12,7 +12,7 @@
     <view class="status-main">{{statusText}}</view>
     <view class="status-sub">
       <text class="pay-badge {{payStatusClass}}">{{payStatusText}}</text>
-      <text wx:if="{{order.amount}}"> · 金额 ¥{{order.amount}}</text>
+      <text wx:if="{{fee}}"> · {{fee.statusAmountLabel}} {{fee.statusAmountText === '待核实' ? '待核实' : '¥' + fee.statusAmountText}}</text>
     </view>
   </view>
 

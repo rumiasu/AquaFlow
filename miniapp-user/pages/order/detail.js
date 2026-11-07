@@ -167,6 +167,11 @@ Page({
         deliveryFeeText: yuan(order.deliveryFee),
         floorFeeText: yuan(order.floorFee),
         totalText: yuan(order.totalAmount),
+        // 2026-11-06：原状态栏读不存在的 amount 且用真值判断，零元会消失；水票单原总额也不是实际需付的其他费用。
+        // 历史水票单缺现金快照时不推算，以免把原总额误当作应付款。
+        statusAmountText: order.ticketCashAmount != null ? yuan(order.ticketCashAmount)
+          : Number(order.paymentMethod) === 3 ? '待核实' : yuan(order.totalAmount),
+        statusAmountLabel: order.ticketCashAmount != null ? '本单其他费用' : Number(order.paymentMethod) === 3 ? '应付金额' : '订单金额',
         hasDeposit: order.depositAmount == null || Number(order.depositAmount) !== 0,
         hasDeliveryFee: true,
         hasFloorFee: true

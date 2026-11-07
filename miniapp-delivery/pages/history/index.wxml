@@ -52,6 +52,11 @@
       </view>
     </view>
 
+    <view class="history-more" wx:if="{{loaded && hasMore}}">
+      <text class="page-state-error" wx:if="{{moreError}}">{{moreError}}</text>
+      <button bindtap="onLoadMore" disabled="{{loading || loadingMore}}" class="af-action af-action--quiet"><view class="af-action__face">{{loadingMore ? '加载中…' : '加载更多'}}</view></button>
+    </view>
+
     <!-- 空状态 -->
     <view class="empty-state" wx:if="{{loaded && !loading && !error && orders.length === 0}}">
       <image class="af2-empty__image" wx:if="{{!emptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onEmptyImageError" /><view class="af2-icon-tile lv2-neutral-tile" wx:else><icon name="order" size="32px" color="#4A5B70" variant="duotone" fill-color="#EDF1F5" /></view><text class="empty-text">暂无配送历史</text>

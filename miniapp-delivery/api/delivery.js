@@ -77,8 +77,8 @@ const getCompletedToday = () => {
 }
 
 // 配送历史
-const getDeliveryHistory = () => {
-  return get(API.DELIVERY_HISTORY)
+const getDeliveryHistory = (params = {}) => {
+  return get(API.DELIVERY_HISTORY, params)
 }
 
 // 转让记录

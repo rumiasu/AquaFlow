@@ -257,7 +257,7 @@ Page({
       if (holdingsOK) this.setData({ customerBarrelAsset, returnProductOptions: customerBarrelAsset.filter(item => (item.independentRights ? item.availableRights : item.occupiedQty) > 0).map(item => ({
         id: item.productId, name: item.productName || '商品名称待确认',
         spec: item.productSpec || '',
-        priceText: '可退 ' + (item.independentRights ? item.availableRights + ' 份权益' : item.occupiedQty + ' 桶') + ' · '
+        priceText: '可退 ' + (item.independentRights ? item.availableRights + ' 份' : item.occupiedQty + ' 桶') + ' · '
           + (item.deposit == null ? '当前押金未加载' : '当前押金 ¥' + item.deposit + '/桶'), image: item.imageUrl || '' })), pendingReturnProductText: this.returnProductText(this.data.pendingReturn, customerBarrelAsset) })
       if (holdingsOK) this._loadAssetPhotos(customerBarrelAsset, context)
       this._lastAssetScope = context

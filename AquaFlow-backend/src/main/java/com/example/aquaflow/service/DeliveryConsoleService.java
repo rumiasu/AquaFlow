@@ -41,6 +41,9 @@ public interface DeliveryConsoleService {
     /** 我的历史完成单。 */
     List<Orders> listHistory(Long staffId);
 
+    /** 我的历史完成单游标页；多取一条只为判断是否还有下一页。 */
+    Map<String, Object> listHistoryPage(Long staffId, java.time.LocalDateTime beforeTime, Long beforeId, int pageSize);
+
     /** 转给我的（待我确认的）单。 */
     List<Orders> listIncomingTransfers(Long staffId);
 

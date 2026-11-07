@@ -257,7 +257,7 @@ test('WB-04 selected non-default address survives actual onShow refresh and chec
   t.page.onSubmit()
   const query = new URL('https://synthetic.invalid' + t.wx.__calls.nav.at(-1).url).searchParams
   assert.equal(query.get('addressId'), '13')
-  assert.equal(query.get('addressDetail'), '更新后的已选地址')
+  assert.equal(query.has('addressDetail'), false) // 结算页按 ID 重新读取地址，不把完整地址放进 URL
 })
 test('removed selected address remains unselected across retries and cannot silently fall back to another default', async () => {
   const t = fixture(); require('../../miniapp-user/utils/storage').selectedAddressStorage.set({ id: 13 })

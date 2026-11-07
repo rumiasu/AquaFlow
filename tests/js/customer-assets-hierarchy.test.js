@@ -37,6 +37,13 @@ test('water tickets lead, deposit and barrels remain distinct actionable facts',
  assert(hasClass(cards[0],'asset-cell-primary'))
  assert.deepStrictEqual(rendered.filter(e=>hasClass(e,'asset-value')).map(e=>e.text),['28','¥300','3'])
 })
+test('customer-facing copy distinguishes recorded barrels from usable barrel capacity', async () => {
+ const {page}=setup();await page.onShow()
+ const rendered=renderElements(mine,page.data,{includeText:true})
+ assert(rendered.some(e=>e.text.includes('按押金和借还记录计算，可能与手中实物不同')))
+ const wxml=fs.readFileSync(path.join(ROOT,'miniapp-user/pages/barrel/index.wxml'),'utf8')
+ assert(wxml.includes('用桶份数')); assert(wxml.includes('未领桶也计入')); assert(wxml.includes('与按借还记录计算的“我的桶”数量可能不同'))
+})
 test('all three cards carry the asset station without changing the order station',async()=>{
  const {page,wx}=setup();await page.onShow();await page.onAssetStationChange({detail:{id:22,name:'历史资产站'}})
  const cards=renderElements(mine,page.data).filter(e=>hasClass(e,'asset-cell'))

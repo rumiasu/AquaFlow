@@ -30,7 +30,7 @@
         
       </view>
       <image class="v2-delivery-scene" wx:if="{{!v2SceneFailed}}" src="/assets/ui/scene-station-delivery.webp" mode="aspectFit" binderror="onV2SceneError" aria-hidden="true" />
-      <view class="v2-scene-fallback" wx:else><icon name="truck" variant="duotone" size="72px" color="#FFFFFF" fill-color="#526D89" /></view>
+      <view class="v2-scene-fallback" wx:else><icon name="truck" variant="duotone" size="32px" color="#526D89" fill-color="#EDF1F5" /></view>
     </view>
     <view class="ui-state" wx:if="{{queuesLoading}}"><text class="ui-state-copy">正在核对调度清单…</text></view>
 

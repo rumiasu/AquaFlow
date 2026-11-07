@@ -178,7 +178,7 @@ Page({
       v.deposit = assetNumber(summary.depositBalance)
       v.barrel = assetCount(summary.independentRights ? summary.occupiedBuckets : summaryRes.data.heldBuckets)
       // 新路径 H=E+over，不含数量占用 R；旧 held 含遗留配送中桶，故两者均保留中性「我的桶」。
-      barrelHint = summary.independentRights ? '账面桶数，非实物盘点' : '账面汇总，含遗留配送中'
+      barrelHint = summary.independentRights ? '按押金和借还记录计算，可能与手中实物不同' : '按记录汇总，含此前配送中的桶'
     }
 
     if (ticketsRes && ticketsRes.code === 0 && Array.isArray(ticketsRes.data)) {

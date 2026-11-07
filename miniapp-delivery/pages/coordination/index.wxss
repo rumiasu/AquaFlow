@@ -924,3 +924,9 @@
 .v2-workbench .v2-queue-tab .tab-count { position:static; display:block; flex:none; height:auto; max-width:100%; line-height:32px; margin:0 0 8px; white-space:normal; word-break:break-all; }
 .v2-workbench .v2-queue-label { position:static; display:block; flex:none; line-height:22px; white-space:nowrap; }
 .v2-workbench .v2-queue-tab { min-width:0; box-sizing:border-box; }
+
+/* 2026-11-06：原装饰横幅抢占调度清单空间，保留标题和插画但降低视觉权重。 */
+.v2-work-overview { min-height:0; margin:8px 16px; padding:8px 12px; background:var(--af2-surface-neutral); color:var(--af2-ink); border-radius:12px; }
+.v2-overview-title { font-size:16px; line-height:24px; }
+.v2-delivery-scene, .v2-scene-fallback { width:64px; height:40px; }
+@media screen and (max-width:359px) { .v2-work-overview { padding:8px 12px; } .v2-overview-title { font-size:16px; line-height:24px; } .v2-delivery-scene, .v2-scene-fallback { width:64px; height:40px; } }

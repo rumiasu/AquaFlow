@@ -19,7 +19,7 @@ function validId(value) { return /^[1-9][0-9]*$/.test(String(value)) }
 function validTime(value) { return value == null || value === '' || (typeof value === 'string' && Number.isFinite(new Date(value).getTime())) }
 
 Page({
-  data: { emptyImageFailed: false, orders: [], loading: true, loaded: false, error: '',  },
+  data: { emptyImageFailed: false, orders: [], loading: true, loaded: false, error: '', loadingMore: false, moreError: '', hasMore: false },
 
   // A missing empty-state illustration must not change list loading or access.
   onEmptyImageError() { this.setData({ emptyImageFailed: true }) },
@@ -42,24 +42,23 @@ Page({
     if (!app.canAccessStationBusiness()) {
       this._requestVersion = (this._requestVersion || 0) + 1
       this._dataContext = null
-      this.setData({ orders: [], loaded: false, loading: false, error: '请先完成身份及水站绑定，再重新进入。' })
+      this._cursor = null
+      this.setData({ orders: [], loaded: false, loading: false, loadingMore: false, hasMore: false, moreError: '', error: '请先完成身份及水站绑定，再重新进入。' })
       app.routeByRole(true)
       return
     }
     const context = this._context(), version = this._requestVersion = (this._requestVersion || 0) + 1
     // 2026-10-02：旧筛选/身份响应曾覆盖新页；先清跨上下文数据，再守 success/catch/finally。
-    if (this._dataContext !== context) this.setData({ orders: [], loaded: false })
+    if (this._dataContext !== context) { this._cursor = null; this.setData({ orders: [], loaded: false, hasMore: false }) }
     this._dataContext = context
-    this.setData({ loading: true, error: '' })
+    this.setData({ loading: true, loadingMore: false, error: '', moreError: '' })
     try {
-      const res = await getDeliveryHistory()
+      const res = await getDeliveryHistory({ pageSize: 20 })
       if (!this._current(version, context)) return
-      if (!res || (res.code !== 0 && res.code !== 200) || !Array.isArray(res.data)
-          || !res.data.every(r => r && typeof r === 'object' && !Array.isArray(r) && validId(r.id) && validTime(r.createTime))) {
-        throw new Error('收到的数据不完整，请重试。')
-      }
-      const orders = res.data.map(order => ({ ...order, ...productView(order), createTime: this.formatTime(order.createTime) }))
-      this.setData({ orders, loaded: true })
+      const page = this._readPage(res)
+      this._cursor = page.cursor
+      const orders = page.rows.map(order => ({ ...order, ...productView(order), createTime: this.formatTime(order.createTime) }))
+      this.setData({ orders, loaded: true, hasMore: !!page.cursor })
     } catch (err) {
       if (!this._current(version, context)) return
       const reason = err && typeof err.message === 'string' && err.message.trim() ? err.message : '暂时无法加载，请重试。'
@@ -71,8 +70,43 @@ Page({
         if (this._current(version, context)) this.setData({ loading: false })
         else {
           this._dataContext = null
-          this.setData({ orders: [], loaded: false, loading: false, error: '身份或水站已变化，请重试或重新进入。' })
+          this._cursor = null
+          this.setData({ orders: [], loaded: false, loading: false, loadingMore: false, hasMore: false, moreError: '', error: '身份或水站已变化，请重试或重新进入。' })
         }
+      }
+    }
+  },
+  _readPage(res) {
+    if (!res || (res.code !== 0 && res.code !== 200)) throw new Error('收到的数据不完整，请重试。')
+    // 旧服务忽略分页参数并返回完整数组；保留可用性，不把数组误当成第一页。
+    const data = res.data, legacy = Array.isArray(data)
+    const rows = legacy ? data : data && data.orders
+    if (!Array.isArray(rows) || !rows.every(r => r && typeof r === 'object' && !Array.isArray(r) && validId(r.id) && validTime(r.createTime))) throw new Error('收到的数据不完整，请重试。')
+    if (!legacy && (typeof data.hasMore !== 'boolean' || (data.hasMore && (!rows.length || !validId(data.nextBeforeId) || !data.nextBeforeTime || !validTime(data.nextBeforeTime))))) throw new Error('收到的数据不完整，请重试。')
+    return { rows, cursor: !legacy && data.hasMore ? { beforeTime: data.nextBeforeTime, beforeId: data.nextBeforeId } : null }
+  },
+  async onLoadMore() {
+    if (this._unloaded || this.data.loading || this.data.loadingMore || !this.data.hasMore || !this._cursor) return
+    const context = this._context(), cursor = this._cursor
+    if (!getApp().canAccessStationBusiness() || context !== this._dataContext) return this.loadData()
+    const version = this._requestVersion = (this._requestVersion || 0) + 1
+    this.setData({ loadingMore: true, moreError: '' })
+    try {
+      const res = await getDeliveryHistory({ pageSize: 20, ...cursor })
+      if (!this._current(version, context)) return
+      const page = this._readPage(res)
+      if (page.cursor && String(page.cursor.beforeId) === String(cursor.beforeId) && page.cursor.beforeTime === cursor.beforeTime) throw new Error('收到的数据不完整，请重试。')
+      // 同一订单可能在翻页期间发生变化；不让重复卡片出现。
+      const seen = new Set(this.data.orders.map(row => String(row.id)))
+      const next = page.rows.filter(row => !seen.has(String(row.id))).map(order => ({ ...order, ...productView(order), createTime: this.formatTime(order.createTime) }))
+      this._cursor = page.cursor
+      this.setData({ orders: this.data.orders.concat(next), hasMore: !!page.cursor })
+    } catch (err) {
+      if (this._current(version, context)) this.setData({ moreError: '加载更多失败，请重试。' })
+    } finally {
+      if (!this._unloaded && version === this._requestVersion) {
+        if (this._current(version, context)) this.setData({ loadingMore: false })
+        else { this._cursor = null; this._dataContext = null; this.setData({ orders: [], loaded: false, loadingMore: false, hasMore: false, error: '身份或水站已变化，请重试或重新进入。' }) }
       }
     }
   },

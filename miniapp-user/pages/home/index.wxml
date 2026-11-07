@@ -80,8 +80,7 @@
   <block wx:else>
     <!-- ══ 游客态 ══ -->
     <view class="card guest-card" wx:if="{{!isLogin}}">
-      <!-- 主按钮：蓝色合法出现处 ② -->
-      <view class="cta guest-cta af-action af-action--primary" bindtap="onLogin">登录后下单</view>
+      <guest-station-guide bind:login="onLogin" />
     </view>
 
     <block wx:if="{{isLogin}}">

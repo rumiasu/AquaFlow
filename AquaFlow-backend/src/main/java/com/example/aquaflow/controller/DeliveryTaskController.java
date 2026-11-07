@@ -315,9 +315,16 @@ public class DeliveryTaskController {
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})
     @GetMapping("/history")
-    public Result<?> getDeliveryHistory() {
+    public Result<?> getDeliveryHistory(@RequestParam(required = false) Integer pageSize,
+                                        @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime beforeTime,
+                                        @RequestParam(required = false) Long beforeId) {
         Long staffId = AuthContext.getUserId();
-        return Result.success(deliveryConsoleService.listHistory(staffId));
+        // 无参数的老版本继续取得数组；新版本显式请求有界游标页。
+        if (pageSize == null && beforeTime == null && beforeId == null) return Result.success(deliveryConsoleService.listHistory(staffId));
+        if (pageSize == null || pageSize < 1 || pageSize > 100 || (beforeTime == null) != (beforeId == null) || (beforeId != null && beforeId <= 0)) {
+            throw new BusinessException("分页参数无效");
+        }
+        return Result.success(deliveryConsoleService.listHistoryPage(staffId, beforeTime, beforeId, pageSize));
     }
 
     @RequireRole({"DELIVERY", "STATION_MANAGER"})

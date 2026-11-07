@@ -228,9 +228,14 @@ Page({
     const patch = { [`formData.${field}`]: value }
     if (mainAddressChanged) {
       this._invalidateLocation()
+      // 2026-11-06: 手改地点后，旧地图区域和坐标可能属于另一处；保留会误导地址与距离判断。
+      // 只在改主要地点时清除，联系人和门牌补充仍保留原区域与坐标。
+      const hadLocation = this.data.formData.lat != null || this.data.formData.lng != null ||
+        this.data.formData.province || this.data.formData.city || this.data.formData.district
       Object.assign(patch, { 'formData.lat': null, 'formData.lng': null, locating: false,
-        locationMessage: this.data.formData.lat != null || this.data.formData.lng != null
-          ? '主要地址已修改，原地图位置已清除；可重新选择地图位置。' : '可选择地图位置，也可继续手动填写。' })
+        ...(field === 'detail' ? { 'formData.province': '', 'formData.city': '', 'formData.district': '' } : {}),
+        locationMessage: hadLocation || this.data.locationMessage.includes('原地图位置和记录区域已清除')
+          ? '粗略地址已修改，原地图位置和记录区域已清除；可重新选择地图位置。' : '可选择地图位置，也可继续手动填写。' })
     }
     this.setData(patch, () => this.updateLeaveWarning())
   },
@@ -363,7 +368,7 @@ Page({
 
     if (!formData.province && !formData.city && !formData.district) {
       if (!formData.detail) {
-        this.setData({ saveMessage: '请输入详细地址。' })
+        this.setData({ saveMessage: '请输入粗略地址。' })
         return
       }
     }

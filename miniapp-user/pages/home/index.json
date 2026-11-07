@@ -2,6 +2,7 @@
   "navigationStyle": "custom",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "loading": "../../components/Loading/index"
+    "loading": "../../components/Loading/index",
+    "guest-station-guide": "../../components/GuestStationGuide/index"
   }
 }

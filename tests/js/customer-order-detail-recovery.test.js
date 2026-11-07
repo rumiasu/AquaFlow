@@ -18,6 +18,21 @@ function fixture(api = {}) {
   } })
   return { page, wx, app, calls }
 }
+test('status amount keeps zero and uses actual ticket other-fee snapshot, not original total', async () => {
+  for (const [fields, label, amount] of [
+    [{ paymentMethod: 1, totalAmount: 0 }, '订单金额', '0.00'],
+    [{ paymentMethod: 3, totalAmount: 35, ticketCashAmount: 0 }, '本单其他费用', '0.00'],
+    [{ paymentMethod: 3, totalAmount: 35, ticketCashAmount: 5.5 }, '本单其他费用', '5.50'],
+    [{ paymentMethod: 3, totalAmount: 35 }, '应付金额', '待核实'],
+    [{ paymentMethod: 1, totalAmount: null }, '订单金额', '待核实']
+  ]) {
+    const t = fixture({ order: async () => ({ data: { ...order(), ...fields } }) })
+    await t.page.loadOrder(20)
+    assert.equal(t.page.data.fee.statusAmountLabel, label); assert.equal(t.page.data.fee.statusAmountText, amount)
+  }
+  const wxml = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/detail.wxml'), 'utf8')
+  assert(wxml.includes('fee.statusAmountText')); assert(!wxml.includes('wx:if="{{order.amount}}"'))
+})
 test('opening a pending detail shows loading and keeps the requested id', async () => {
   const d = deferred(), t = fixture({ order: () => d.promise }), pending = t.page.onLoad({ id: '20' })
   try { assert.equal(t.page.data.detailState, 'loading'); assert.equal(String(t.page._orderId), '20') }

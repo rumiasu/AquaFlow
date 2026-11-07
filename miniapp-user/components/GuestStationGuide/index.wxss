@@ -1,0 +1,15 @@
+.guest-guide { display: flex; flex-direction: column; gap: 16rpx; }
+.guest-guide-title { color: #172b4d; font-size: 36rpx; font-weight: 600; line-height: 1.4; }
+.guest-guide-hint { color: #52647a; font-size: 28rpx; line-height: 1.6; }
+.guest-guide-browse, .guest-guide-login, .guest-guide-retry, .guest-guide-close { min-height: 44px; font-size: 30rpx; line-height: 44px; box-sizing: border-box; }
+.guest-guide-browse, .guest-guide-login { width: 100%; border-radius: 16rpx; }
+.guest-guide-browse { color: #1258b5; background: #eef5ff; }
+.guest-guide-login { color: #fff; background: #1264d6; }
+.guest-guide-head { display: flex; align-items: center; justify-content: space-between; font-size: 30rpx; font-weight: 600; }
+.guest-guide-close, .guest-guide-retry { margin: 0; padding: 0 16rpx; color: #1258b5; background: transparent; }
+.guest-guide-close::after, .guest-guide-retry::after { border: 0; }
+.guest-guide-list { max-height: 45vh; }
+.guest-guide-row { padding: 20rpx 0; border-bottom: 1rpx solid #dce4ee; }
+.guest-guide-name, .guest-guide-address, .guest-guide-state { display: block; overflow-wrap: anywhere; }
+.guest-guide-name { color: #172b4d; font-size: 30rpx; }
+.guest-guide-address, .guest-guide-state { color: #52647a; font-size: 28rpx; line-height: 1.6; }

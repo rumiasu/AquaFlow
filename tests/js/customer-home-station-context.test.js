@@ -28,6 +28,14 @@ function fixture(api = {}) {
 const tests = []
 const test = (name, run) => tests.push({ name, run })
 
+test('barrel entry opens the order station even after viewing another asset station', async () => {
+  const t = fixture(); t.wx.setStorageSync('selectedStation', station(11))
+  const scope = require('../../miniapp-user/utils/asset-view-station')
+  scope.select(t.page, station(22)); t.page.setData({ currentStationId: 11 })
+  t.page.onGoBarrel()
+  assert.equal(t.wx.__calls.nav.at(-1).url, '/pages/barrel/index?stationId=11')
+  assert.equal(t.wx.getStorageSync('selectedStation').id, 11)
+})
 test('late automatic restore cannot replace the station the customer just selected', async () => {
   const old = deferred(), t = fixture({ restore: () => old.promise })
   const pending = t.page.checkStation()

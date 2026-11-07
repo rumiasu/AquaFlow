@@ -31,6 +31,7 @@
         <view class="asset-cell asset-physical" data-url="/pages/barrel/index" bindtap="onMenuTap" aria-role="button" aria-label="查看我的桶与管理办理">
           <view class="asset-heading"><view class="asset-icon"><icon name="barrel" size="20px" color="#1264D6" variant="duotone" fill-color="#EAF2FF" /></view><text class="asset-label">我的桶</text></view>
           <view class="asset-main"><text class="asset-value {{barrelLoaded ? '' : 'asset-value-unloaded'}}">{{barrelText}}<text class="asset-unit" wx:if="{{barrelLoaded}}"> 个</text></text><text class="asset-entry">管理 ›</text></view>
+          <text class="asset-note-text" wx:if="{{barrelLoaded && barrelHint}}">{{barrelHint}}</text>
         </view>
       </view>
       <view class="asset-note" wx:if="{{assetStationRequired}}">

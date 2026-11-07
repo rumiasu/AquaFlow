@@ -261,3 +261,6 @@
 
 /* 2026-11-02：本页业务数字、记录和说明的窄屏阅读层级。 */
 .order-date { font-size:14px; line-height:22px; overflow-wrap:anywhere; }
+
+.history-more { padding:16px 0; text-align:center; }
+.history-more .page-state-error { display:block; margin-bottom:8px; }

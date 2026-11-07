@@ -985,7 +985,9 @@ Page({
   },
 
   onGoBarrel() {
-    wx.navigateTo({ url: '/pages/barrel/index' })
+    // 2026-11-06：首页显示的是下单站的桶账；此前未传站号会沿用资产页上次选择的别站，造成账目与入口不一致。
+    const stationId = this.data.currentStationId
+    wx.navigateTo({ url: '/pages/barrel/index' + (stationId ? '?stationId=' + encodeURIComponent(stationId) : '') })
   },
 
   // 顶部水光只作装饰；失败回到原底色，不影响选水和结算。
@@ -1115,15 +1117,8 @@ Page({
     this.refreshDerived(undefined, false)
     const items = this.collectCartItems()
     const itemsParam = items.map(it => ({ productId: it.productId, quantity: it.quantity }))
-    // [2026-09-27 走查 U01 定位] **url 太长会让 wx.navigateTo 直接失败**（小程序对页面路径+
-    // 参数有长度上限，超限时既不跳转也没有任何提示）。本页把整份商品清单 + 地址文本塞进 query，
-    // 实测口径：3 件商品约 60 字符，而 `addressDetail` 是**未截断**的用户地址（中文经
-    // encodeURIComponent 后每字 9 字符），长地址 + 大车就能把整串顶到上限附近。
-    // 现象与走查 U01 记录的"点击后暂不跳转 / 无业务错误"完全一致，而本地没有任何门禁能发现。
-    // 两条处置（不动 create.js —— 它被另一条工作流占着）：
-    //   ① 加 `fail` 回调：真失败时**出声**（toast + console），不再静默无反应；
-    //   ② 打一行 url 长度与商品行数，下一次走查能把"点了没反应"直接对上号（只记长度，不记地址内容）。
-    const url = `/pages/order/create?items=${encodeURIComponent(JSON.stringify(itemsParam))}&addressId=${address.id}&addressDetail=${encodeURIComponent(address.detail || '')}&source=3&stationId=${this.data.currentStationId || ''}&cartOrigin=1`
+    // 2026-11-06：结算页只用 addressId 重新读取地址；以前多传完整地址会拉长 URL，长地址可能导致跳转失败。
+    const url = `/pages/order/create?items=${encodeURIComponent(JSON.stringify(itemsParam))}&addressId=${address.id}&source=3&stationId=${this.data.currentStationId || ''}&cartOrigin=1`
     console.log('[home] 去结算：url 长度=' + url.length + '，商品行=' + itemsParam.length)
     wx.navigateTo({
       url,

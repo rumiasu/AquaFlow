@@ -153,6 +153,23 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
                 orderMapper.listHistoryByDeliveryStaffId(staffId, OrderStatus.COMPLETED)));
     }
 
+    @Override
+    public Map<String, Object> listHistoryPage(Long staffId, java.time.LocalDateTime beforeTime, Long beforeId, int pageSize) {
+        List<Orders> fetched = orderMapper.listHistoryPage(staffId, OrderStatus.COMPLETED, beforeTime, beforeId, pageSize + 1);
+        boolean hasMore = fetched.size() > pageSize;
+        List<Orders> rows = new ArrayList<>(fetched.subList(0, Math.min(pageSize, fetched.size())));
+        attachListItemSummaries(maskCrossStationProfiles(rows));
+        Map<String, Object> result = new HashMap<>();
+        result.put("orders", rows);
+        result.put("hasMore", hasMore);
+        if (hasMore) {
+            Orders last = rows.get(rows.size() - 1);
+            result.put("nextBeforeTime", last.getCreateTime());
+            result.put("nextBeforeId", last.getId());
+        }
+        return result;
+    }
+
     /** 只补已获准返回的订单，保留列表原顺序/状态/画像屏蔽，不调用逐单详情。 */
     private List<Orders> attachListItemSummaries(List<Orders> rows) {
         if (rows == null || rows.isEmpty()) return rows;

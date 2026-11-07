@@ -3,6 +3,7 @@ const assert=require('assert'),fs=require('fs'),path=require('path')
 const {loadPage,createWx,createApp,armWatchdog,ROOT}=require('./harness')
 const {parseWxml,renderElements}=require('./wxml-tree')
 const event={currentTarget:{dataset:{id:77}}},tests=[],test=(name,run)=>tests.push({name,run})
+const findNode=(node,predicate)=>predicate(node)?node:(node.children || []).map(child=>findNode(child,predicate)).find(Boolean)
 function setup(extra={}) {
   const wx=createWx(),app=createApp(),calls={change:[],confirm:[],orders:[],sheets:[],reads:0}
   const row={id:77,stationId:1,quantity:2,depositRefund:60,returnDetail:{status:'APPROVED',pickupMode:'COMBINED',pickupModeText:'随送水订单收桶',companionOrderId:99,arrangementVersion:2,pickupFee:0,requiredBarrels:2,customerConfirmationRequired:false,customerConfirmationCurrent:false,...extra.detail}}
@@ -47,14 +48,21 @@ test('fee or station-proposed arrangement confirmation sends the visible version
 })
 test('WXML exposes current arrangement, change entry and only required consent',()=>{
   const tree=parseWxml(fs.readFileSync(path.join(ROOT,'miniapp-user/pages/barrel/index.wxml'),'utf8'))
+  const rules=findNode(tree,n=>n.attrs?.class==='preview-hint' && n.attrs['wx:if']?.includes('showReturnRules'))
+  assert(rules, 'return rules must have their own visible section')
   for(const required of [false,true]) {
     const t=setup({detail:{customerConfirmationRequired:required}});const nodes=renderElements(tree,{...t.page.data,loading:false,showReturnModal:true,showReturnRules:true,summary:{independentRights:true},customerBarrelAsset:[]},{includeText:true})
     assert(nodes.some(n=>n.attrs.bindtap==='onReturnArrangement'));assert.equal(nodes.some(n=>n.attrs.bindtap==='onReturnConfirm'),required)
     assert(nodes.some(n=>n.text.includes('关联送水单 #99')))
     // The request hint must describe the same free/required boundary as the action above.
-    const hint=nodes.find(n=>n.tag==='text' && n.text.includes('未领桶的权益也可申请退还'))
+    const rulesData={...t.page.data,summary:{independentRights:true},showReturnRules:true}
+    const hint=renderElements({children:[rules]},rulesData,{includeText:true}).find(n=>n.tag==='text')
     assert(hint && hint.text.includes('免费原安排无需再次确认'))
     assert(hint.text.includes('收费或水站新安排须先确认'))
+    assert(hint.text.includes('未领桶也可申请退还押金'))
+    assert(hint.text.includes('当前未被订单占用的份数'))
+    assert(hint.text.includes('需交回的实物桶仍按批准安排交回'))
+    assert.deepEqual(renderElements({children:[rules]},{...rulesData,showReturnRules:false}),[])
   }
 })
 ;(async()=>{const done=armWatchdog();let n=0;for(const t of tests){await t.run();console.log('PASS '+t.name);n++}done();console.log('AQUAFLOW_SUITE_OK '+n)})().catch(e=>{console.error(e);process.exit(1)})

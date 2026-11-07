@@ -25,14 +25,16 @@ function home(summary = async () => ok({}), products = [], productResponse) {
   page.setData({ isLogin: true, state: 'ready', currentStationId: 11, currentStation: {id:11,name:'当前选择水站'} })
   return { page, wx, productCalls }
 }
-test('zero assets retain the selected-station explanation and existing barrel route', async () => {
+test('zero assets retain the selected-station explanation and open that station barrel account', async () => {
   const {page,wx}=home(async()=>({data:{rightBuckets:0,owedBuckets:0,depositBalance:0}}))
   await page.loadData()
   assert.equal(page.data.barrelVisible,true)
   assert.equal(page.data.barrelLine2,'')
   assert.ok(!page.data.barrelLine2.includes('可退'))
   page.onGoBarrel()
-  assert.equal(wx.__calls.nav.at(-1).url,'/pages/barrel/index')
+  assert.equal(wx.__calls.nav.at(-1).url,'/pages/barrel/index?stationId=11')
+  page.setData({currentStationId:12}); page.onGoBarrel()
+  assert.equal(wx.__calls.nav.at(-1).url,'/pages/barrel/index?stationId=12')
 })
 test('failed asset reading is not treated as a successful zero balance', async () => {
   const {page}=home(async()=>{throw new Error('synthetic network failure')})

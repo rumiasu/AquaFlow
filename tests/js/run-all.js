@@ -42,6 +42,8 @@ const SUITES = [
   { file: 'dispatch-offer-consent.test.js', name: '外派报价原确认版本与旧服务能力拒绝' },
   { file: 'address-explicit-clear.test.js', name: '地址显式清空、版本路由与真实回执' },
   { file: 'save-result-feedback.test.js', name: '资料写入成功、缓存失败与结果未知读回' },
+  { file: 'delivery-history-pagination.test.js', name: 'delivery history pagination and stale response recovery' },
+  { file: 'guest-station-guide.test.js', name: 'guest station guide loading and session isolation' },
   { file: 'suite-registration.test.js', name: 'suite discovery, exclusions and completion negative controls' },
   { file: 'secret-scan-fail-closed.test.js', name: 'secret scanner distinguishes clean grep from execution failure' },
   { file: 'approved-asset-pages.test.js', name: 'approved asset page contracts' },

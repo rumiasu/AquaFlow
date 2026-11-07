@@ -251,10 +251,10 @@ for (const independentRights of [true, false]) {
     const tip = t.elements().find(e => e.text.startsWith('当前可退')).text.replace(/\s+/g, ' ')
     assert.strictEqual(t.elements().find(e => e.className === 'highlight').text, '3')
     const labels = t.elements().filter(e => e.className === 'form-label').map(e => e.text)
-    assert.strictEqual(tip, independentRights ? '当前可退 份权益' : '当前可退 桶')
-    assert(labels.includes(independentRights ? '退还权益数量' : '退桶数量'))
+    assert.strictEqual(tip, independentRights ? '当前可退 份' : '当前可退 桶')
+    assert(labels.includes(independentRights ? '退还押金份数' : '退桶数量'))
     const title = t.elements().find(e => e.className === 'modal-title').text
-    assert.strictEqual(title, independentRights ? '申请退还权益' : '申请退桶')
+    assert.strictEqual(title, independentRights ? '申请退还桶押金' : '申请退桶')
     assert.strictEqual(t.page.data.returnForm.pickupMode, 'STORE')
     assert.strictEqual(t.page.data.returnForm.pickupModeText, independentRights ? '到店办理' : '到店退桶')
     if (independentRights) {

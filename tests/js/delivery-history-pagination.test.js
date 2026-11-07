@@ -30,6 +30,6 @@ async function main() {
   assert.deepStrictEqual(race.page.data.orders.map(x => x.id), [7]); assert.equal(race.page.data.loadingMore, false)
   const bad = setup(() => ({ code: 0, data: { orders: [row(1)], hasMore: true, nextBeforeId: 1 } }))
   await bad.page.onShow(); assert.equal(bad.page.data.loaded, false); assert(bad.page.data.error)
-  console.log('AQUAFLOW_SUITE_OK delivery-history-pagination')
+  console.log('AQUAFLOW_SUITE_OK 1 delivery-history-pagination')
 }
 main().catch(e => { console.error(e); process.exitCode = 1 })

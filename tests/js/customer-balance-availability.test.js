@@ -1,7 +1,7 @@
 const { registeredPages } = require('../../scripts/miniapp-pages')
 const assert=require('assert'),fs=require('fs'),path=require('path')
 const { loadPage,createWx,createApp,armWatchdog,ROOT }=require('./harness')
-const { parseWxml }=require('./wxml-tree')
+const { parseWxml,renderElements }=require('./wxml-tree')
 const done=armWatchdog(30000),tests=[]
 const test=(name,run)=>tests.push({name,run})
 const tick=()=>new Promise(r=>setImmediate(r))
@@ -31,7 +31,24 @@ for(const value of [undefined,null,'','bad',{},true])test('missing or malformed 
 test('summary business error cannot supply invented asset zeros',async()=>{const t=fixture({summary:async()=>({code:1,data:{depositBalance:0,heldBuckets:0}})});await t.page.loadAssets();assert.equal(t.page.data.depositLoaded,false);assert.equal(t.page.data.barrelLoaded,false)})
 test('missing required bucket count is unavailable rather than zero',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,independentRights:true,heldBuckets:99}})});await t.page.loadAssets();assert.equal(t.page.data.deposit,12);assert.equal(t.page.data.barrel,null);assert.equal(t.page.data.barrelLoaded,false)})
 test('malformed ticket account shape and missing counts are unavailable',async()=>{for(const data of [{},[{remainQuantity:null}],[{remainQuantity:'bad'}]]){const t=fixture({tickets:async()=>({code:0,data})});await t.page.loadAssets();assert.equal(t.page.data.ticket,null);assert.equal(t.page.data.ticketLoaded,false)}})
-test('new bucket model uses accounting E plus over projection without substituting rights or reservations',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,independentRights:true,occupiedBuckets:1,heldBuckets:9,rightBuckets:7,availableRights:5}})});await t.page.loadAssets();assert.equal(t.page.data.barrel,1);assert.ok(t.page.data.barrelHint.includes('账面桶数'));assert.ok(t.page.data.barrelHint.includes('非实物盘点'));assert.ok(!t.page.data.barrelHint.includes('领到手'));assert.ok(source().includes('我的桶'))})
+// 2026-11-07: The old technical wording was intentionally replaced with plain
+// language. Preserve the accounting/physical distinction and verify it is visible.
+test('new bucket model uses accounting E plus over projection without substituting rights or reservations',async()=>{
+ const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,independentRights:true,occupiedBuckets:1,heldBuckets:9,rightBuckets:7,availableRights:5}})})
+ await t.page.loadAssets()
+ assert.equal(t.page.data.barrel,1)
+ const hint='按押金和借还记录计算，可能与手中实物不同'
+ assert.equal(t.page.data.barrelHint,hint)
+ assert.ok(!t.page.data.barrelHint.includes('领到手'))
+ const findBarrel=node=>node.attrs?.['data-url']==='/pages/barrel/index'?node:(node.children || []).map(findBarrel).find(Boolean)
+ const barrel=findBarrel(parseWxml(source()))
+ assert.ok(barrel,'我的桶入口必须存在')
+ const rendered=renderElements({children:[barrel]},t.page.data,{includeText:true})
+ const textOf=cls=>rendered.find(node=>node.className.split(/\s+/).includes(cls))?.text
+ assert.equal(textOf('asset-label'),'我的桶')
+ assert.equal(textOf('asset-value'),'1')
+ assert.equal(textOf('asset-note-text'),hint)
+})
 test('legacy held total remains neutral and explains included pending delivery',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,independentRights:false,occupiedBuckets:1,heldBuckets:9,pendingDeliveryBuckets:2}})});await t.page.loadAssets();assert.equal(t.page.data.barrel,9);assert.ok(t.page.data.barrelHint.includes('配送中'))})
 test('late previous-customer summary cannot overwrite current assets',async()=>{const d=deferred();let n=0;const t=fixture({summary:()=>++n===1?d.promise:Promise.resolve({code:0,data:{depositBalance:22,heldBuckets:3}})});const p=t.page.loadAssets();t.app.globalData.customerId=8;await t.page.loadAssets();d.resolve({code:0,data:{depositBalance:999,heldBuckets:99}});await p;assert.equal(t.page.data.deposit,22);assert.equal(t.page.data.barrel,3)})
 test('late previous-station success is discarded',async()=>{const d=deferred(),t=fixture({summary:()=>d.promise});const p=t.page.loadAssets();t.wx.setStorageSync('selectedStation',{id:2,name:'新站'});d.resolve({code:0,data:{depositBalance:999,heldBuckets:99}});await p;assert.equal(t.page.data.deposit,null);assert.equal(t.page.data.ticket,null)})

@@ -80,7 +80,7 @@ class DispatchPoolAgreementLifecycleTest {
             }
             OrderMapper mapper = mock(OrderMapper.class);
             order.setId(1L); order.setStationId(8L); order.setDeliveryStationId(8L); order.setStatus(1);
-            order.setCustomerId(7L); order.setPaymentMethod(2); order.setPaymentStatus(1);
+            order.setCustomerId(7L); order.setPaymentMethod(2); order.setPaymentStatus(2);
             when(mapper.getById(1L)).thenReturn(order);
             when(mapper.getByIdForUpdate(1L)).thenReturn(order);
             when(mapper.outsourceToPoolIf(1L, 1, 1)).thenReturn(1);

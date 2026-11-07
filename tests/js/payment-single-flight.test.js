@@ -61,6 +61,18 @@ async function main() {
     notify({ status: 2 }); assert.equal(toast[1].title, '支付成功')
     assert.equal(notify({ status: 4 }), false)
   })
+  await test('unknown and unpaid receipts never claim that payment was submitted', () => {
+    const modal = [], toast = [], context = { module: { exports: {} }, require: name => name.endsWith('business-dialog')
+      ? { showBusinessModal: x => modal.push(x) } : { isReleaseEnv: () => false }, wx: { showToast: x => toast.push(x) } }
+    vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'miniapp-user/utils/pay.js'), 'utf8'), context)
+    const notify = context.module.exports.notifyPayResult
+    for (const value of [null, {}, {status: null}, {status: ''}, {status: false}, {status: 'bad'}, {status: 9}, {status: 0}]) {
+      assert.equal(notify(value), false); assert(!modal.at(-1).content.includes('已提交'))
+      assert(!modal.at(-1).content.includes('支付成功'))
+    }
+    notify({status: 1}); assert(modal.at(-1).content.includes('已提交'))
+    assert.equal(toast.length, 0)
+  })
   console.log('AQUAFLOW_SUITE_OK ' + passed)
 }
 main().catch(error => { console.error(error); process.exitCode = 1 })

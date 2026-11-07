@@ -96,6 +96,12 @@ function previewNodes(file, data) {
   return findNodes(file, n => n.attrs && n.attrs.class === 'customer-note-preview').flatMap(n => render(n, data))
 }
 const tests = [], test = (name, run) => tests.push({ name, run })
+test('delivery order notes preserve customer text even when it resembles system metadata', async () => {
+  const t = detailFixture(), customerText = '[配送异常] 这是客户原话（上报人ID=123）', other = '[接单] 客户自己的原话'
+  t.setRow(noteRow({ customerNote: customerText, specialNote: customerText + '\n' + other }))
+  await t.page.loadOrderDetail(81)
+  assert.deepStrictEqual(t.page.data.order.notes, [customerText, other])
+})
 test('both packages read only customerNote; normalize display whitespace and retain the raw source', () => {
   for (const value of [null, undefined, '', ' \r\n\t　 ', 42, {}, [], true]) {
     assert.strictEqual(customerNotePreview({ customerNote: value, specialNote: '内部记录' }), '')

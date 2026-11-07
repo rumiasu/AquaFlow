@@ -22,4 +22,13 @@ const markAllRead = () => {
   return post(API.CUSTOMER_NOTIFICATIONS_READ_ALL, {})
 }
 
-module.exports = { getUnreadNotifications, getNotifications, getUnreadCount, markAllRead }
+// Acknowledge one displayed notification using the existing ownership-checked endpoint.
+const markRead = (id) => {
+  const value = String(id)
+  if (!/^[1-9]\d*$/.test(value) || (typeof id === 'number' && !Number.isSafeInteger(id))) {
+    return Promise.reject(new Error('Invalid notification id'))
+  }
+  return post(API.CUSTOMER_NOTIFICATIONS + '/' + value + '/read', {})
+}
+
+module.exports = { getUnreadNotifications, getNotifications, getUnreadCount, markAllRead, markRead }

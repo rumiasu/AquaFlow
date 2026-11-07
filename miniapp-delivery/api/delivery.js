@@ -108,7 +108,10 @@ const getAssignedToMe = () => {
 
 // 响应转单（同意/拒绝）
 const respondTransfer = (id, data) => {
-  const action = data.accept ? 'claim' : 'reject'
+  // 2026-11-07: 页面传 action；旧代码读取不存在的 accept 会把同意转单误发成拒绝。
+  // 只接受明确动作，未知输入不发请求。
+  const action = data && data.action
+  if (action !== 'claim' && action !== 'reject') throw new Error('转单操作无效，请刷新后重试')
   // #50: 传递data参数到后端
   return post(`${API.DELIVERY_TRANSFER}/${id}/${action}`, data)
 }

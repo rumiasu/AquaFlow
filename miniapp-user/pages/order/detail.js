@@ -45,10 +45,29 @@ Page({
   },
 
   onShow() {
+    this._visible = true
     if (this._detailContext && !isCurrentSession(this._detailContext.session)) {
       this._detailSeq = (this._detailSeq || 0) + 1
-      this.clearDetail('error', '登录状态已变化，请重新加载')
+      this._returnRefreshNeeded = false
+      this.clearDetail('error', '登录状态已变化，请重新进入')
+      return
     }
+    if (!this._hasShown) { this._hasShown = true; return }
+    return this.refreshAfterReturn()
+  },
+
+  onHide() {
+    this._visible = false
+    this._returnRefreshNeeded = true
+    this._detailSeq = (this._detailSeq || 0) + 1
+    if (this.data.order) this.setData({ refreshNotice: '返回后将重新核对订单。', canCancel: false, canRepay: false })
+  },
+
+  refreshAfterReturn() {
+    if (!this._visible || !this._returnRefreshNeeded || this._destroyed || !this._orderId
+      || this.data.paying || this._cancelFlight) return
+    this._returnRefreshNeeded = false
+    return this.loadOrder(this._orderId)
   },
 
   onUnload() {
@@ -178,7 +197,7 @@ Page({
       }
 
       const deliveryArrangementHint = typeof order.deliveryArrangementHint === 'string' ? order.deliveryArrangementHint : ''
-      this.setData({ detailState: 'ready', loadError: '', refreshNotice: '', order, items, statusText, payStatusText, payStatusClass, canCancel, cancelLabel, canRepay, repayLabel, payHint, deliveryArrangementHint, deliveredAwaitingCollection, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: !order.customerNote && !!order.specialNote })
+      this.setData({ detailState: 'ready', loadError: '', refreshNotice: '', order, items, statusText, payStatusText, payStatusClass, canCancel, cancelLabel, canRepay, repayLabel, payHint, deliveryArrangementHint, deliveredAwaitingCollection, bucketInfo, fee, callPhone: '', legacyNoteUnavailable: order.legacyNoteUnavailable === true })
       await Promise.allSettled([
         this.loadCallableStationPhone(order, context),
         this.loadItemImages(items, context, this.stationIdOfOrder),
@@ -319,7 +338,7 @@ Page({
       await this.loadOrder(order.id)
     } catch (e) {
       if (!this._destroyed && isCurrentSession(context.session)) this.setData({ paymentError: errorText(e, '支付结果尚未确认，请先重新查询原订单') })
-    } finally { if (!this._destroyed) this.setData({ paying: false }) }
+    } finally { if (!this._destroyed) { this.setData({ paying: false }); this.refreshAfterReturn() } }
   },
 
   onCancel() {
@@ -330,7 +349,9 @@ Page({
     const current = () => this._cancelFlight === flight && this.isDetailCurrent(context)
       && this.data.order && String(this.data.order.id) === String(order.id)
       && this.data.order.status === order.status && this.data.order.canCancel === true
-    const release = () => { if (this._cancelFlight === flight) this._cancelFlight = null }
+    const release = () => {
+      if (this._cancelFlight === flight) { this._cancelFlight = null; this.refreshAfterReturn() }
+    }
     showBusinessModal({ cancelColor: '#637083',
       title: view.title,
       content: view.content,

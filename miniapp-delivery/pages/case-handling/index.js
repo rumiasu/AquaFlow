@@ -84,7 +84,8 @@ Page({
       const url=this.data.kind==='EXCEPTION'?'/api/manager/exceptions/'+this.data.id+'/resolve':'/api/feedback/'+this.data.id+(saved.action==='CLOSE'?'/close':'/reply')
       const r=await post(url,intent.payload(saved)),d=r&&r.data
       if(!current())return
-      if(!r||r.code!==0||!d||d.kind!==this.data.kind||String(d.caseId)!==this.data.id||d.action!==saved.action||Number(d.version)!==saved.expectedVersion+1)throw new Error('办理结果尚未确认，请核对原请求')
+      // 2026-11-07: 核实结案请求为 VERIFY，后端有归还凭据时回执为 RETURN_EMPTY；旧的严格相等误判成功为未知。
+      if(!r||r.code!==0||!d||d.kind!==this.data.kind||String(d.caseId)!==this.data.id||!(d.action===saved.action||(this.data.kind==='EXCEPTION'&&saved.action==='VERIFY'&&d.action==='RETURN_EMPTY'))||Number(d.version)!==saved.expectedVersion+1)throw new Error('办理结果尚未确认，请核对原请求')
       intent.clear(saved);if(intent.read(this._owner,this._object,saved.action))throw new Error('结果已收到，原记录清理尚未完成，请重试核对')
       this._pending=null;this.setData({pending:false,reason:'',result:saved.action==='REPLY'?'回复已保存，顾客可在我的反馈中查看':'已登记结果并结案'})
     }catch(e){

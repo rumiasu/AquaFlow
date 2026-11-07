@@ -291,10 +291,9 @@ function refreshSession(session) {
       success: res => {
         if (superseded()) return
         const error = responseError(res)
-        if (error) { clearAndRedirect(session); reject(error); return }
+        if (error) { reject(error); return }
         if (res.statusCode === 200 && res.data.code === 0) {
           if (!validRefreshData(res.data.data)) {
-            if (!res.data.data) clearAndRedirect(session) // 保留原来缺少 payload 时的失效清理。
             reject(malformedResponseError()); return
           }
           const { accessToken, refreshToken } = res.data.data
@@ -305,12 +304,17 @@ function refreshSession(session) {
             resolve(accessToken)
           } catch (error) { reject(new Error('登录信息保存失败，请重新登录')) }
         } else {
-          clearAndRedirect(session); reject(new Error('登录已过期'))
+          // code=1 is generic. Only the backend's explicit authentication failures end a session.
+          const invalid = res.statusCode === 401 || (res.statusCode === 200 && (res.data.code === 401
+            || (res.data.code === 1 && ['refreshToken已过期，请重新登录', '无效的refreshToken',
+              '令牌已失效，请重新登录', '测试登录已失效，请重新登录', '用户不存在', '该账号已停用'].includes(res.data.message))))
+          if (invalid) clearAndRedirect(session)
+          reject(responseFailure(new Error(invalid ? '登录已过期' : '登录验证暂时不可用，请稍后重试'), res))
         }
       },
       fail: err => {
         if (superseded()) return
-        clearAndRedirect(session); reject(toNetworkError(err))
+        reject(toNetworkError(err))
       }
     })
   })

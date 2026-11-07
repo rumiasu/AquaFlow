@@ -33,6 +33,12 @@ test('status amount keeps zero and uses actual ticket other-fee snapshot, not or
   const wxml = fs.readFileSync(path.join(ROOT, 'miniapp-user/pages/order/detail.wxml'), 'utf8')
   assert(wxml.includes('fee.statusAmountText')); assert(!wxml.includes('wx:if="{{order.amount}}"'))
 })
+test('legacy note uncertainty uses the safe server flag and preserves customer note', async () => {
+  const t = fixture({ order: async () => ({ data: { ...order(), customerNote: null, specialNote: null, legacyNoteUnavailable: true } }) })
+  await t.page.loadOrder(20); assert.equal(t.page.data.legacyNoteUnavailable, true)
+  const current = fixture({ order: async () => ({ data: { ...order(), customerNote: '请放门口', specialNote: '请放门口', legacyNoteUnavailable: false } }) })
+  await current.page.loadOrder(20); assert.equal(current.page.data.legacyNoteUnavailable, false); assert.equal(current.page.data.order.customerNote, '请放门口')
+})
 test('opening a pending detail shows loading and keeps the requested id', async () => {
   const d = deferred(), t = fixture({ order: () => d.promise }), pending = t.page.onLoad({ id: '20' })
   try { assert.equal(t.page.data.detailState, 'loading'); assert.equal(String(t.page._orderId), '20') }
@@ -156,6 +162,48 @@ test('a slower failed proof request cannot erase the successful local retry', as
 test('an unexpected response id never turns into another actionable order', async () => {
   const t = fixture({ order: async () => ({ data: order(99) }) }); await t.page.loadOrder(20)
   assert.equal(t.page.data.detailState, 'error'); assert.equal(t.page.data.order, null); assert.equal(t.page.data.canCancel, false)
+})
+test('first onShow does not duplicate initial pending read; return invalidates old read', async () => {
+  const old = deferred(); let n = 0
+  const t = fixture({ order: () => ++n === 1 ? old.promise : Promise.resolve({ data: { ...order(), addressDetail: 'new' } }) })
+  const first = t.page.onLoad({ id: '20' }); t.page.onShow(); assert.equal(n, 1)
+  t.page.onHide(); await t.page.onShow(); assert.equal(n, 2)
+  old.resolve({ data: { ...order(), addressDetail: 'old' } }); await first
+  assert.equal(t.page.data.order.addressDetail, 'new')
+})
+test('return refresh keeps stale facts non-actionable until a current result, and handles repeated shows', async () => {
+  const next = deferred(); let n = 0
+  const t = fixture({ order: () => ++n === 1 ? Promise.resolve({data: order()}) : next.promise })
+  await t.page.onLoad({ id: '20' }); t.page.onShow(); t.page.onHide(); const returning = t.page.onShow(); t.page.onShow()
+  assert.equal(n, 2); assert.equal(t.page.data.canCancel, false); assert.equal(t.page.data.canRepay, false)
+  next.resolve({data: {...order(), status: 4, canCancel: false, canRepay: false}}); await returning
+  assert.equal(t.page.data.order.status, 4); assert.equal(t.page.data.refreshNotice, '')
+})
+test('return with a changed login clears prior order without fetching as another customer', async () => {
+  const t = fixture(); await t.page.onLoad({ id: '20' }); t.page.onShow(); t.page.onHide()
+  t.app.globalData.customerId = 8; t.page.onShow()
+  assert.equal(t.calls.orders.length, 1); assert.equal(t.page.data.order, null); assert.equal(t.page.data.canCancel, false)
+})
+test('return waits for cancel dialog to settle and does not dispatch stale intent', async () => {
+  const t = fixture(); await t.page.onLoad({id: '20'}); t.page.onShow()
+  let modal; t.wx.showModal = options => { modal = options }; t.page.onCancel()
+  assert(modal)
+  t.page.onHide(); t.page.onShow(); assert.equal(t.calls.orders.length, 1)
+  await modal.success({confirm: true}); await tick()
+  assert.equal(t.calls.orders.length, 2); assert.equal(t.page.data.detailState, 'ready')
+})
+
+test('return waits for pending payment, then refreshes once after it settles', async () => {
+  const pay = deferred(); let count = 0
+  // Stub payment through the module harness on a dedicated page.
+  const wx = createWx(), app = createApp()
+  const page = loadPage('miniapp-user/pages/order/detail.js', { wx, app, stubs: {
+    'api/order': {getOrderDetail: async () => { count++; return {data: order()} }, createPayment: () => pay.promise},
+    'api/orderImage': {getOrderImages: async () => ({data: []})}, 'api/product': {getProductDetail: async () => ({data: {}})},
+    'api/station': {getStationPublicPhone: async () => ({data: {}})} } })
+  await page.onLoad({id: '20'}); page.onShow(); const pending = page.onPayNow(); page.onHide(); page.onShow()
+  assert.equal(count, 1); pay.resolve({data: {status: 1}}); await pending; await tick()
+  assert.equal(count, 2); assert.equal(page.data.paying, false)
 })
 ;(async () => {
   let passed = 0, failed = 0

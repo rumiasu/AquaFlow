@@ -73,6 +73,50 @@ test('the rendered coordination buttons carry the inspected request identifier',
     assert.equal(vm.runInNewContext(binding[1], { item: t.page.data.lists.pending[0] }), 101)
   }
 })
+// Exercise the real delivery API module from the real home page, with only transport stubbed.
+for (const [handler, action] of [['onAcceptTransfer', 'claim'], ['onRejectTransfer', 'reject']]) {
+  test('home ' + action + ' confirmation reaches the matching transfer endpoint', async () => {
+    const wx = createWx(), calls = [], modals = []
+    wx.showModal = options => modals.push(options)
+    const { createApp } = require('./harness')
+    const app = createApp({ _loginGeneration: 1, globalData: { isLogin: true, userInfo: { staffId: 7, stationId: 3, role: 'DELIVERY', bindStatus: 'BOUND' } } })
+    delete require.cache[require.resolve('../../miniapp-delivery/api/delivery')]
+    const page = loadPage('miniapp-delivery/pages/home/index.js', { wx, app, stubs: {
+      'utils/request': { get: async url => ({ code: 0, data: url.endsWith('/incoming') ? [{ id: 91, items: [] }] : [] }),
+        post: async (url, body) => { calls.push({ url, body }); return { code: 0 } }, put: async () => ({ code: 0 }) }
+    } })
+    await page.loadData(false)
+    await page[handler]({ currentTarget: { dataset: { id: 91 } } })
+    assert.equal(modals.length, 1)
+    await modals[0].success({ confirm: true })
+    assert.deepStrictEqual(calls, [{ url: '/api/delivery/orders/transfer/91/' + action, body: { action } }])
+  })
+}
+test('invalid transfer action is rejected without sending a request', async () => {
+  const t = fixture()
+  const api = require('../../miniapp-delivery/api/delivery')
+  assert.throws(() => api.respondTransfer(91, { action: 'unexpected' }))
+  assert.equal(t.calls.length, 0)
+})
+test('all home list call controls use receiver phone first with customer fallback', () => {
+  const source = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/home/index.wxml'), 'utf8')
+  const tree = parseWxml(source), controls = []
+  const visit = node => { if (node.attrs && node.attrs.catchtap === 'onCallCustomer') controls.push(node); (node.children || []).forEach(visit) }
+  visit(tree); const orderControls = controls.filter(c => c.attrs['data-phone'].includes('customerPhone'))
+  assert.equal(orderControls.length, 4)
+  for (const control of orderControls) {
+    for (const row of [{ receiverPhone: '111', customerPhone: '222' }, { receiverPhone: '', customerPhone: '222' }]) {
+      const expected = row.receiverPhone || row.customerPhone
+      for (const key of ['wx:if', 'data-phone']) {
+        const binding = /^{{([\s\S]*)}}$/.exec(control.attrs[key]); assert(binding)
+        assert.equal(vm.runInNewContext(binding[1], { item: row }), expected)
+      }
+      const number = control.children.find(x => x.attrs && x.attrs.class === 'phone-tool-number')
+      const binding = /{{([\s\S]*?)}}/.exec(number.children[0].value); assert(binding)
+      assert.equal(vm.runInNewContext(binding[1], { item: row }), expected)
+    }
+  }
+})
 ;(async () => {
   let failed = 0
   for (const t of tests) {

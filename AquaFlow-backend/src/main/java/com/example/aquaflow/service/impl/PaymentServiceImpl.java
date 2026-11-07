@@ -866,6 +866,18 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException(OrderStatus.notCancellableReason(currentStatus));
         }
 
+        // 取消会同步撤销资产并把原款标记为已退款。真实或来源不明的微信原款
+        // 尚无退款渠道，也没有可靠的退款待处理状态，必须在任何写操作之前闭锁。
+        // 当前开关不能证明历史原款是模拟款；只认持久模拟标识及当前授权。
+        List<PaymentRecord> activePayments = paymentRecordMapper.activeByOrderForUpdate(orderId);
+        for (PaymentRecord original : activePayments) {
+            if (Objects.equals(original.getStatus(), PaymentStatus.PAID)
+                    && Objects.equals(original.getPaymentMethod(), PayMethod.WECHAT)
+                    && !mockPolicy.canRefund(original)) {
+                throw new BusinessException("微信原款尚无法自动退款，本单暂不能取消，请联系水站核实处理");
+            }
+        }
+
         var split=ticketPayments.get(orderId);
         if(split!=null) {
             PaymentRecord paid=paymentRecordMapper.getByOrderId(orderId);
@@ -876,7 +888,6 @@ public class PaymentServiceImpl implements PaymentService {
         // 2026-11-04：取消曾只关闭订单，留下现金 PENDING，继续占据活跃原款并显示待收款。
         // 在释放水票预留前保存到付事实；仅终止未收现金，不把未知微信结果猜成取消或退款。
         boolean cashOnDelivery = ticketPayments.cod(order);
-        List<PaymentRecord> activePayments = paymentRecordMapper.activeByOrderForUpdate(orderId);
         if (cashOnDelivery) {
             for (PaymentRecord original : activePayments) {
                 if (Objects.equals(original.getPaymentMethod(), PayMethod.CASH)
@@ -938,14 +949,13 @@ public class PaymentServiceImpl implements PaymentService {
                 //   ① 站长在支付流水里看到一笔"已付款"，而钱其实已退回客户；
                 //   ② 对账等式2 的 p2b 项（订单非已付款却存在 status=2 的流水）会持续报差异。
                 // 正确顺序是 (id, 目标状态, 期望状态)。
-                paymentRecordMapper.updateStatusTo(r.getId(), PaymentStatus.REFUNDED, PaymentStatus.PAID);
+                if (paymentRecordMapper.updateStatusTo(r.getId(), PaymentStatus.REFUNDED, PaymentStatus.PAID) != 1) {
+                    throw new BusinessException("支付状态已变化，本次取消已回滚，请刷新后重试");
+                }
 
                 // 生成退款记录（形状与站长手工退款共用同一个私有方法，见 insertRefundRecord）
-                if (mockWechatPay || paymentTestMode || r.isSimulated()) mockPolicy.requireRefund(r);
+                mockPolicy.requireRefund(r);
                 insertRefundRecord(r, refundNoteForOrder(r, reason));
-                // 微信渠道未接入（PayMethod.availableMethods() 里该项恒 disabled），这里**没有**任何
-                // API 调用会发生。注释从原文的 `// TODO: 微信支付退款 - 若 paymentMethod=1，调用微信退款 API`
-                // 改写成结论：TODO 会被下一次读到它的人当成"已经处理过"，而实际口径是**永不自动退**。
             }
 
             // AQ-022: 退款后支付状态应为 REFUNDED 而非 UNPAID，反映"已退款"而非"从未付款"
@@ -1051,11 +1061,8 @@ public class PaymentServiceImpl implements PaymentService {
      *       （{@code PayMethod.availableMethods()} 里该项恒 disabled），钱一分没退。</li>
      * </ol>
      *
-     * <h3>刻意与 {@link #refundOrder} 不一致的一处（不是疏漏）</h3>
-     * <p>微信（method=1）在本方法<b>直接拒绝</b>，在 {@code refundOrder} 里<b>只记流水 + 写清"需线下退款"</b>。
-     * 理由：本方法的唯一产出就是"钱"，钱退不出去时它没有任何有意义的下半场，装作成功等于制造
-     * "界面说退了、账上没退"；而订单取消链必须跑完（还要连退押金 / 回补库存 / 清配送中桶），
-     * 为一笔退不出去的钱把整条取消链卡死，会让历史微信单永远取消不掉。</p>
+     * <p>真实或来源不明的微信原款在本入口和订单取消入口均被拒绝，
+     * 直到存在可靠的渠道退款或待处理闭环；不能只凭备注把未退款标成已退款。</p>
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -1254,7 +1261,7 @@ public class PaymentServiceImpl implements PaymentService {
      * 订单取消链的退款备注。
      *
      * <p>[2026-09-18] 基数文案与抽取前完全一致（{@code "退款：" + reason}），只是按支付方式追加了
-     * 一句渠道说明：微信追加「未接入，需线下退款并登记」，现金追加「钱由站长当面退还」。
+     * 一句渠道说明：模拟微信标明模拟，现金追加「钱由站长当面退还」。
      * 这两句是给人看的凭据说明 —— 站长在支付流水里必须能一眼看出"这笔钱到底有没有真的退出去"。</p>
      *
      * <p>微信退款文案必须看原款的持久模拟标识与授权，不能只看当前开关。
@@ -1270,15 +1277,7 @@ public class PaymentServiceImpl implements PaymentService {
                 // 备注必须写明是模拟，否则日后翻流水会把测试数据当成真实资金记录。
                 base = base + "（模拟微信渠道，原路退回亦为模拟）";
             } else {
-                // [2026-09-18] 微信渠道未接入，本链**不会**自动原路退回（渠道未接入，
-                // PayMethod.availableMethods() 里该项恒 disabled）。但不阻断取消：
-                // 取消还要连锁退押金 / 回补库存 / 清配送中桶，为一笔退不出去的钱卡死整条链，
-                // 会让历史微信单永远取消不掉。所以这里只记流水 + 写清"需线下退款"，让站长看得见。
-                // 对比：站长手工退款（refundPayment）对 method=1 直接拒绝 —— 那个方法的唯一产出就是"钱"，
-                // 退不出去时没有有意义的下半场，不能假装成功。
-                log.warn("[退款] 微信渠道未接入，本条退款流水仅为凭据，需线下退款: orderId 见流水, paymentMethod={}, reason={}",
-                        paymentMethod, reason);
-                base = base + "（微信渠道未接入，需线下退款并登记）";
+                throw new BusinessException("微信原款尚无法自动退款，本单暂不能取消，请联系水站核实处理");
             }
         } else if (Integer.valueOf(PayMethod.CASH).equals(paymentMethod)) {
             // 现金退款没有线上渠道可言，钱由站长当面退还；写进备注，对账/客服才有依据。

@@ -267,6 +267,7 @@
 | `GET` | `/api/delivery/earnings/payrolls` | {"DELIVERY","STATION_MANAGER"} | `DeliveryEarningController.payrolls` |
 | `GET` | `/api/delivery/earnings/payrolls/{id}` | {"DELIVERY","STATION_MANAGER"} | `DeliveryEarningController.payrollDetail` |
 | `GET` | `/api/delivery/history` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getDeliveryHistory` |
+| `GET` | `/api/delivery/my-problem-receipts` | {"DELIVERY","STATION_MANAGER"} | `DeliveryProblemReadController.listMine`；本人配送反馈只读回执 |
 | `POST` | `/api/delivery/orders/assign/{id}` | "STATION_MANAGER" | `StationDeliveryConsoleController.assignOrder` |
 | `GET` | `/api/delivery/orders/assigned-to-me` | {"DELIVERY","STATION_MANAGER"} | `DeliveryTaskController.getAssignedToMeOrders` |
 | `POST` | `/api/delivery/orders/cancel-request/{id}/approve` | "STATION_MANAGER" | `StationDeliveryConsoleController.approveCancelRequest` |
@@ -867,3 +868,7 @@ quoted 新路径让旧后端明确拒绝，不会把 token 当未知字段忽略
 `GET /api/manager/gross-profit` 新增 `barrelCount`，与原 `orderCount` 使用相同订单集合：当前登录站长的结算站（沿用结算站、配送站、归属站的既有回退顺序）、创建日期范围、排除已取消订单。员工端我的页传当天日期，显示“今日下单桶数”；待配送、配送中、已送达及已完成均沿用原下单统计规则，不把它解释为今日实际送达量。现金退款或退货不另减这一原下单数量，订单变为取消状态后才从该集合排除。
 
 桶数不取订单头总件数，也不把瓶装水、设备或购票数量当作实物桶数；商品分类沿用现有 `BarrelScope` 的当前商品分类口径，无新增历史分类快照或数据库迁移。旧订单数字段保持兼容；新员工端遇旧后端缺失桶数字段时显示“待核实”，不会将单数换单位冒充桶数。后端与员工端应配套更新，本说明不代表部署已完成。
+
+### 客户订单备注投影（2026-11-07）
+
+顾客读取 `GET /api/orders` 和 `GET /api/orders/{id}` 时，`specialNote` 仅呈现明确保存的客户下单备注 `customerNote`，不返回员工内部混合备注、桶差异备注或客户风险备注原文。历史订单没有客户备注快照但存在旧混合备注时，`legacyNoteUnavailable` 为 true；旧文本不推测拆分。员工读取仍按原有权限返回原有视图。`POST /api/order-templates/from-order` 新建模板时仅复制客户备注快照，不复制来源不明的旧混合备注。

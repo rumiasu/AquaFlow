@@ -1077,7 +1077,10 @@ Page({
     try {
       const res = await businessRules.refundPreview(paymentId)
       const scopes = res.data.scopes || []
-      if (!scopes.length) { wx.showToast({ title: '消费费用已经退完', icon: 'none' }); return }
+      if (!scopes.length) {
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083', confirmText: '知道了', title: '暂不能退款', content: res.data.notice || '消费费用已经退完', showCancel: false })
+        return
+      }
       wx.showActionSheet({ itemList: scopes.map(s => s.label), success: (picked) => {
         const selected = scopes[picked.tapIndex]
         if (!selected) return

@@ -64,13 +64,15 @@ Component({
       }
       const cancel = cancelView(order)
       // 展示只读已有金额：有效零值仍显示，缺失或畸形值不冒充0元。
-      const amount = order.amount != null ? order.amount : order.totalAmount
+      const isTicket = order.ticketCashAmount != null || Number(order.paymentMethod) === 3
+      const amount = isTicket ? order.ticketCashAmount : (order.amount != null ? order.amount : order.totalAmount)
       const numeric = typeof amount === 'number' || (typeof amount === 'string' && /^-?\d+(?:\.\d+)?$/.test(amount.trim()))
       const amountKnown = numeric && Number.isFinite(Number(amount)) && Math.abs(Number(amount)) < 1e21
       const date = order.createTime ? new Date(order.createTime) : null
       this.setData({
         displayItems: withItemUnits(order.items),
         amountKnown, amountText: amountKnown ? Number(amount).toFixed(2) : '',
+        amountLabel: isTicket ? '其他费用合计' : '',
         createTimeText: date && Number.isFinite(date.getTime()) ? formatTime(order.createTime) : '',
         customerNotePreview: customerNotePreview(order),
         statusText: order.statusText || '',

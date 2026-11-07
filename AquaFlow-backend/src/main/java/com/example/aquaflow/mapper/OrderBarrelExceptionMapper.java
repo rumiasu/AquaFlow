@@ -46,6 +46,14 @@ public interface OrderBarrelExceptionMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(OrderBarrelException exception);
 
+    // 只返回本人现场反馈，且记录站和订单当前履约站都属于当前站。历史站点不明时宁可不显示。
+    @Select("select e.id, e.order_id, e.staff_note, e.status, e.created_at, e.decided_at, e.executed_at " +
+            "from order_barrel_exception e join orders o on o.id=e.order_id " +
+            "where e.type='DELIVERY_PROBLEM' and e.delivery_staff_id=#{staffId} " +
+            "and e.station_id=#{stationId} and coalesce(o.delivery_station_id,o.station_id)=#{stationId} " +
+            "order by e.created_at desc, e.id desc limit 100")
+    List<OrderBarrelException> listMyDeliveryProblems(@Param("staffId") Long staffId, @Param("stationId") Long stationId);
+
     @Select("select * from order_barrel_exception where id = #{id}")
     OrderBarrelException getById(@Param("id") Long id);
 

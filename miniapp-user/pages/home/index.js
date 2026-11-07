@@ -9,7 +9,7 @@ const { getStationProducts } = require('../../api/product')
 const { getOrders, getOrderDetail, getMyLatestStation } = require('../../api/order')
 const { getAddresses } = require('../../api/address')
 const { getBarrelSummary, getBarrelSummaryByType, getPendingReturnConfirmations } = require('../../api/barrel')
-const { getUnreadNotifications, markAllRead } = require('../../api/notification')
+const { getUnreadNotifications, markRead } = require('../../api/notification')
 const { getDiscoverStations, getStationStatus } = require('../../api/station')
 const { getQuote } = require('../../api/payment')
 const { storage, stationStorage, payMethodStorage, selectedAddressStorage } = require('../../utils/storage')
@@ -397,9 +397,14 @@ Page({
         // 标记已读是**写操作**、不是"我们向用户断言了某个事实"，所以只留日志不弹提示：
         // 它失败的后果是"同一批提醒下次进首页会再弹一遍"，用户当场无从处置，弹 toast 只会添乱。
         // 但不能继续空 catch（原来是 `.catch(() => {})`）—— 否则排查时连"写失败"都看不见。
-        await markAllRead().catch((e) => {
-          console.warn('[home] 标记通知已读失败（下次进页面会重复提醒）:', e && (e.message || e.errMsg))
-        })
+        // Only acknowledge the snapshot presented in this dialog. A later arrival stays unread.
+        for (const notification of notifications) {
+          if (!current()) break
+          try { await markRead(notification.id) }
+          catch (e) {
+            console.warn('[home] Failed to acknowledge notification; it may be shown again:', e && (e.message || e.errMsg))
+          }
+        }
       }
     } catch (e) {
       console.error('检查通知失败:', e)

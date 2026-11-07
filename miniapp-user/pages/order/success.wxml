@@ -29,7 +29,7 @@
     <text class="success-title" wx:if="{{heroTitle}}">{{heroTitle}}</text>
     <text class="success-desc" wx:else>订单状态尚未核实，请重新查询原订单。</text>
     <text class="success-desc" wx:if="{{heroDesc}}">{{heroDesc}}</text>
-    <text class="success-amount" wx:if="{{heroTitle && amountText}}">本单金额 {{amountText}}</text>
+    <text class="success-amount" wx:if="{{heroTitle && amountText}}">{{amountLabel}} {{amountText}}</text>
   </view>
 
   <!-- 付款说明区：两种形态二选一 ——

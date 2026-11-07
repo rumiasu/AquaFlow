@@ -62,7 +62,13 @@ public class TicketPaymentService {
         return get(order.getId());
     }
     public boolean cod(Orders order) {
-        Split s=get(order.getId());return Objects.equals(order.getPaymentMethod(),PayMethod.CASH) || s!=null && Objects.equals(s.cashMethod(),PayMethod.CASH) && !"CANCELLED".equals(s.state());
+        if (order == null || Objects.equals(order.getPaymentStatus(), PaymentStatus.REFUNDED)
+                || Objects.equals(order.getPaymentStatus(), PaymentStatus.CANCELLED)) return false;
+        if (Objects.equals(order.getPaymentMethod(), PayMethod.CASH)) return true;
+        if (!Objects.equals(order.getPaymentMethod(), PayMethod.TICKET)) return false;
+        Split s = get(order.getId());
+        return s != null && Objects.equals(s.cashMethod(), PayMethod.CASH)
+                && Set.of("HELD", "CONSUMED").contains(s.state());
     }
     public void validateRecord(Orders order,PaymentRecord record) {
         Split s=get(order.getId());

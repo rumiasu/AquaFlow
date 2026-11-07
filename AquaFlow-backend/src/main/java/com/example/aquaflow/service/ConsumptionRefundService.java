@@ -121,6 +121,10 @@ public class ConsumptionRefundService {
         }
         if(p.getOrderId()==null)return Map.of("notice","资产押金须走退桶申请，服务款退款须核实原款", "scopes",List.of(Map.of("scope","SERVICE","label","核实原服务款退款")));
         Orders order=orders.getById(p.getOrderId());
+        // 取消预览也不得承诺当前不能执行的微信退款；提交时仍以锁定的原款复核。
+        if (OrderStatus.isCancellable(order.getStatus()) && Objects.equals(p.getStatus(), PaymentStatus.PAID)
+                && Objects.equals(p.getPaymentMethod(), PayMethod.WECHAT) && !mockPolicy.canRefund(p))
+            return Map.of("notice", "微信原款尚无法自动退款，本单暂不能取消，请联系水站核实处理", "scopes", List.of());
         if(ticketPayments.get(order.getId())!=null)return previewSplit(order,p);
         Map<String,Object> prior=receipts.refunded(paymentId);
         if(p.getPaymentMethod()==PayMethod.TICKET)return Map.of("notice","水票整笔回补，不折现金，不撤桶权益", "scopes",List.of(Map.of("scope","WATER","label","整笔回补水票")));

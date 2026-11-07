@@ -146,9 +146,9 @@ test('U05 enterprise application is entered explicitly and a late response after
 test('U01 multiple unread notices share one complete dialog and cancelled reading never marks them read',async()=>{
   for(const confirm of [false,true]) {
     let marks=0
-    const t=fixture('miniapp-user/pages/home/index.js',{'api/notification':{getUnreadNotifications:async()=>ok([{title:'订单提醒甲',content:'内容甲'},{title:'订单提醒乙',content:'内容乙'}]),markAllRead:async()=>{marks++}}})
+    const t=fixture('miniapp-user/pages/home/index.js',{'api/notification':{getUnreadNotifications:async()=>ok([{id:1,title:'订单提醒甲',content:'内容甲'},{id:2,title:'订单提醒乙',content:'内容乙'}]),markRead:async()=>{marks++}}})
     t.wx.__modalAutoConfirm=confirm;await t.page.checkNotifications()
-    assert.equal(t.wx.__calls.modal.length,1);assert.match(t.wx.__calls.modal[0].content,/内容甲[\s\S]*内容乙/);assert.equal(marks,confirm?1:0)
+    assert.equal(t.wx.__calls.modal.length,1);assert.match(t.wx.__calls.modal[0].content,/内容甲[\s\S]*内容乙/);assert.equal(marks,confirm?2:0)
   }
 })
 test('U01 late shared quantity events after login, station change or hide cannot write a cart',()=>{

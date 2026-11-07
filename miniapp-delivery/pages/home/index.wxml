@@ -100,8 +100,8 @@
       </view>
       <view class="contact-row">
         <text class="customer-name">{{item.customerName || item.receiverName}}</text>
-        <view wx:if="{{item.customerPhone || item.receiverPhone}}"
-              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.customerPhone || item.receiverPhone}}</text></view>
+        <view wx:if="{{item.receiverPhone || item.customerPhone}}"
+              catchtap="onCallCustomer" data-phone="{{item.receiverPhone || item.customerPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.receiverPhone || item.customerPhone}}</text></view>
       </view>
       <view class="card-actions">
         <button catchtap="onAcceptTransfer" data-id="{{item.id}}" disabled="{{loading || !readReady.transfers}}" class="af-action af-action--primary">同意，我来送</button>
@@ -133,8 +133,8 @@
       </view>
       <view class="contact-row">
         <text class="customer-name">{{item.customerName || item.receiverName}}</text>
-        <view wx:if="{{item.customerPhone || item.receiverPhone}}"
-              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.customerPhone || item.receiverPhone}}</text></view>
+        <view wx:if="{{item.receiverPhone || item.customerPhone}}"
+              catchtap="onCallCustomer" data-phone="{{item.receiverPhone || item.customerPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.receiverPhone || item.customerPhone}}</text></view>
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">
@@ -179,8 +179,8 @@
       </view>
       <view class="contact-row">
         <text class="customer-name">{{item.customerName || item.receiverName}}</text>
-        <view wx:if="{{item.customerPhone || item.receiverPhone}}"
-              catchtap="onCallCustomer" data-phone="{{item.customerPhone || item.receiverPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.customerPhone || item.receiverPhone}}</text></view>
+        <view wx:if="{{item.receiverPhone || item.customerPhone}}"
+              catchtap="onCallCustomer" data-phone="{{item.receiverPhone || item.customerPhone}}" class="af-action af-action--quiet b2-phone-tool"><icon class="phone-tool-icon" name="phone" size="18px" color="#5D6B7D" /><text class="phone-tool-label">联系</text><text class="phone-tool-number">{{item.receiverPhone || item.customerPhone}}</text></view>
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
       <view class="card-actions">

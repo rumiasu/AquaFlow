@@ -281,7 +281,7 @@ for (const outcome of ['success', 'business failure', 'network failure']) {
 test('续期失败且存储删除抛错，队列仍逐个settle且不复用旧令牌', async () => {
   const t = setup(), a = observed(t.request.get('/tickets')), b = observed(t.request.get('/ticket-records'))
   expired(t.sent[0]); expired(t.sent[1]); t.wx.removeStorageSync = () => { throw new Error('storage failure') }
-  t.sent[2].fail({ errMsg: 'request:fail' })
+  t.sent[2].success({ statusCode: 401 })
   assert((await a).error); assert((await b).error)
   assert.strictEqual(t.app.globalData.isLogin, false)
   const loggedOut = observed(t.request.get('/tickets'))
@@ -300,6 +300,26 @@ test('真实onLaunch旧ME的401晚于页面成功续期，不重送旧refresh或
   assert.strictEqual(t.wx.getStorageSync(t.K.REFRESH_TOKEN), 'refresh-A2')
   assert.strictEqual(t.app.globalData.isLogin, true)
   assert.strictEqual(t.wx.__calls.nav.length, 0)
+})
+
+test('启动暂时故障保留会话，明确续期凭据失效才清理', async () => {
+  for (const response of [null, { statusCode: 500, data: { code: 401 } }, { statusCode: 200, data: { code: 500 } },
+    { statusCode: 200, data: { code: 1 } }, { statusCode: 200, data: null },
+    { statusCode: 200, data: { code: 0, data: null } }]) {
+    const t = setup(); t.app.validateToken(); t.sent[0].success(response); await flush()
+    assert.strictEqual(t.sent.length, 1); assert.strictEqual(t.app.globalData.isLogin, true)
+    assert.strictEqual(t.wx.getStorageSync(t.K.ACCESS_TOKEN), 'access-A'); assert.strictEqual(t.wx.__calls.nav.length, 0)
+  }
+  for (const response of [{ statusCode: 500, data: null }, { statusCode: 200, data: { code: 500 } },
+    { statusCode: 200, data: null }, { statusCode: 200, data: { code: 0, data: null } }]) {
+    const t = setup(); t.app.validateToken(); expired(t.sent[0]); t.sent[1].success(response); await flush()
+    assert.strictEqual(t.app.globalData.isLogin, true); assert.strictEqual(t.wx.getStorageSync(t.K.ACCESS_TOKEN), 'access-A')
+    assert.strictEqual(t.wx.__calls.nav.length, 0)
+  }
+  for (const response of [{ statusCode: 401 }, { statusCode: 200, data: { code: 1, message: '令牌已失效，请重新登录' } }]) {
+    const t = setup(); t.app.validateToken(); expired(t.sent[0]); t.sent[1].success(response); await flush()
+    assert.strictEqual(t.app.globalData.isLogin, false); assert.strictEqual(t.wx.__calls.nav.length, 1)
+  }
 })
 
 for (const first of ['startup', 'page']) {
@@ -332,8 +352,8 @@ for (const first of ['startup', 'page']) {
         else t.sent[3].fail({ errMsg: 'request:fail timeout' })
         assert((await a).error); assert((await b).error); await flush()
         assert.strictEqual(t.sent.length, 4)
-        assert.strictEqual(t.app.globalData.isLogin, false)
-        assert.strictEqual(t.wx.__calls.nav.length, 1)
+        assert.strictEqual(t.app.globalData.isLogin, true)
+        assert.strictEqual(t.wx.__calls.nav.length, 0)
       }
       assert.strictEqual(settled, 2)
       assert.strictEqual(t.sent.filter(o => o.url.endsWith('/auth/refresh')).length, 1)
@@ -442,7 +462,7 @@ test('启动与页面共用刷新失败且删除存储抛错，全部等待者�
   const a = observed(t.request.get('/tickets')), b = observed(t.request.get('/ticket-records'))
   expired(t.sent[0]); expired(t.sent[1]); expired(t.sent[2])
   t.wx.removeStorageSync = () => { throw new Error('storage failure') }
-  t.sent[3].fail({ errMsg: 'request:fail timeout' })
+  t.sent[3].success({ statusCode: 401 })
   assert((await a).error); assert((await b).error); await flush()
   assert.strictEqual(t.sent.length, 4)
   assert.strictEqual(t.app.globalData.isLogin, false)

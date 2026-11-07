@@ -115,7 +115,8 @@ Page({
    * 页面照旧渲染"尽快配送"）；② 已取消 / 已退款 / 支付已取消一律换暖色，不用绿勾暗示成功。</p>
    */
   applyOrderFacts(order) {
-    const amount = order.totalAmount != null ? order.totalAmount : order.amount
+    const isTicket = order.ticketCashAmount != null || Number(order.paymentMethod) === 3
+    const amount = isTicket ? order.ticketCashAmount : (order.totalAmount != null ? order.totalAmount : order.amount)
 
     const statusText = order.statusText || ''
     const payHint = order.payHint || ''
@@ -131,7 +132,8 @@ Page({
     this.setData({
       loadState: 'ok',
       paymentStatus: order.paymentStatus == null ? null : Number(order.paymentStatus),
-      orderAmount: amount,
+      orderAmount: order.totalAmount != null ? order.totalAmount : order.amount,
+      amountLabel: isTicket ? '其他费用合计' : '本单金额',
       orderPaymentMethod: order.paymentMethod == null ? null : Number(order.paymentMethod),
       ticketFeePaymentMethod: order.ticketFeePaymentMethod,
       canRepay: order.canRepay === true,

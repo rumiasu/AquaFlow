@@ -25,7 +25,9 @@ const notifyPayResult = (record) => {
   if (record && record.simulated === true && isReleaseEnv()) {
     wx.showToast({ title: '当前版本不可使用模拟付款', icon: 'none' }); return false
   }
-  const status = record && record.status != null ? Number(record.status) : PAY_STATUS.PENDING
+  const rawStatus = record && record.status
+  const status = (typeof rawStatus === 'number' || (typeof rawStatus === 'string' && /^[0-4]$/.test(rawStatus)))
+    ? Number(rawStatus) : NaN
 
   if (status === PAY_STATUS.PAID) {
     wx.showToast({ title: record.simulated ? (record.simulationResultText || record.methodText) : '支付成功', icon: record.simulated ? 'none' : 'success' })
@@ -39,10 +41,13 @@ const notifyPayResult = (record) => {
     wx.showToast({ title: '该笔已取消', icon: 'none' })
     return false
   }
-  // PENDING / UNPAID：款项尚未到账，明确告知客户接下来会发生什么
+  const pending = status === PAY_STATUS.PENDING
+  const unpaid = status === PAY_STATUS.UNPAID
   showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-    title: '等待收款确认',
-    content: '付款信息已提交，需水站确认收款后订单才算完成。如长时间未确认请联系水站。',
+    title: pending ? '等待收款确认' : unpaid ? '尚未收款' : '支付结果未确认',
+    content: pending ? '付款信息已提交，需水站确认收款后订单才算完成。如长时间未确认请联系水站。'
+      : unpaid ? '该笔款项尚未确认收款，请查看订单或联系水站核对。'
+        : '暂时无法确认支付结果，请先查看原订单或联系水站核对，避免重复付款。',
     showCancel: false,
     confirmText: '知道了'
   })

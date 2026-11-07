@@ -435,6 +435,10 @@ Page({
     wx.navigateTo({ url: '/pages/mine/edit' })
   },
 
+  onMyProblemReceipts() {
+    wx.navigateTo({ url: '/pages/my-problem-receipts/index' })
+  },
+
   onHistory() {
     wx.navigateTo({ url: '/pages/history/index' })
   },

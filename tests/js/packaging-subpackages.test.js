@@ -4,12 +4,13 @@ const { registeredPages } = require('../../scripts/miniapp-pages')
 const { analyzeProject } = require('../../scripts/check-miniapp-requires')
 const repo = path.resolve(__dirname, '../..')
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]) }
-for (const [name, expected] of [['miniapp-user', 27], ['miniapp-delivery', 47]]) {
+for (const [name, expected] of [['miniapp-user', 27], ['miniapp-delivery', 48]]) {
   const root = path.join(repo, name), cfg = require(path.join(root, 'app.json'))
   const routes = registeredPages(cfg)
   assert.equal(routes.length, expected, name + ' must retain all registered routes')
   assert.equal(new Set(routes).size, routes.length, name + ' duplicate page route')
   assert.ok(routes.includes('pages/case-handling/index'), 'new handling route must be packaged')
+  if (name === 'miniapp-delivery') assert.ok(cfg.pages.includes('pages/my-problem-receipts/index'), 'personal feedback route must stay in the delivery main package')
   for (const route of routes) for (const ext of ['.js', '.json', '.wxml', '.wxss']) assert.ok(fs.existsSync(path.join(root, route + ext)), name + '/' + route + ext)
   for (const tab of cfg.tabBar.list) assert.ok(cfg.pages.includes(tab.pagePath), name + ' tab must stay in main package')
   const files = walk(root), tracked = new Set(files.map(file => path.relative(repo, file).split(path.sep).join('/')))

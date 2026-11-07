@@ -36,6 +36,7 @@ const SUITES = [
   { file: 'account-history-entry.test.js', name: '两端低频历史申请入口、只读视图和身份隔离' },
   { file: 'self-payroll-history.test.js', name: '本人历史收益日期、工资单游标分页与只读明细、身份隔离' },
   { file: 'night-workflow-regressions.test.js', name: '补偿单次编排、未知结果核对、画像刷新与无需补偿结案' },
+  { file: 'delivery-problem-receipts.test.js', name: 'delivery problem receipt state, errors and session guards' },
   { file: 'case-handling-page.test.js', name: '核实结案与顾客可见反馈、版本与未知结果恢复' },
   { file: 'barrel-exception-entry-refresh.test.js', name: '桶异常真实办理入口、按钮对比度、角色与返回刷新' },
   { file: 'workflow-entry-regression.test.js', name: '异常与欠桶办理入口及首页统计间距' },

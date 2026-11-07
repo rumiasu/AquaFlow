@@ -36,7 +36,7 @@
   <view class="customer-note-preview" wx:if="{{customerNotePreview}}">备注：{{customerNotePreview}}</view>
   <view class="card-footer">
     <view class="footer-left">
-      <text class="amount" wx:if="{{amountKnown}}">¥{{amountText}}</text>
+      <text class="amount" wx:if="{{amountKnown}}">{{amountLabel ? amountLabel + ' ' : ''}}¥{{amountText}}</text>
       <text class="amount-unknown" wx:else>金额待核实</text>
     </view>
     <view class="footer-actions">

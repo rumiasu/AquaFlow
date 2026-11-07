@@ -143,8 +143,11 @@ public class OrderController {
         List<Orders> rows = orderService.list(stationId, customerId, status, createTimeStart, createTimeEnd,
                 size, offset, staffScope);
         // Same customer-facing channel capability as detail; employee visibility is unchanged.
-        if (!staffScope && rows != null) rows.forEach(order ->
-                order.setSelfPayAllowed(paymentService.canSelfPay(order)));
+        if (!staffScope && rows != null) {
+            rows.forEach(order -> order.setSelfPayAllowed(paymentService.canSelfPay(order)));
+            rows = rows.stream().map(com.example.aquaflow.vo.CustomerOrderView::of)
+                    .map(order -> (Orders) order).toList();
+        }
         return Result.success(rows);
     }
 
@@ -170,7 +173,8 @@ public class OrderController {
         // 能否自助支付由**服务端按当前渠道能力**投影（契约 A3）：实体自己不知道这个部署开了哪些渠道，
         // 一律 false 会让"模拟渠道开着时未付微信单"没有入口，一律 true 又会给出现金单的假支付按钮。
         order.setSelfPayAllowed(paymentService.canSelfPay(order));
-        return Result.success(order);
+        return Result.success("customer".equals(userType)
+                ? com.example.aquaflow.vo.CustomerOrderView.of(order) : order);
     }
 
     /*

@@ -132,7 +132,8 @@ public class OrderTemplateServiceImpl implements OrderTemplateService {
         template.setCustomerId(customerId);
         template.setStationId(stationId);
         template.setName(null);
-        template.setSpecialNote(order.getSpecialNote());
+        // customer_note 是明确的下单快照；历史混合 special_note 无法安全拆分，不能复制到客户模板。
+        template.setSpecialNote(order.getCustomerNote());
         template.setEnabled(1);
         template.setIsDefault(0);
         template.setCreateTime(LocalDateTime.now());

@@ -198,7 +198,7 @@ test('manager summary preserves income/cost and barrel uncertainty instead of sh
 test('personal shortcuts remain accessible to both roles and precede station administration', () => {
   for (const role of ['DELIVERY', 'STATION_MANAGER']) {
     const t = mine(role), result = mineSection('personal-shortcuts', t.page.data)
-    assert.deepEqual(result.filter(n => n.attrs.bindtap).map(n => n.attrs.bindtap), ['onMyEarnings', 'onBarrelRecords', 'onHistory'])
+    assert.deepEqual(result.filter(n => n.attrs.bindtap).map(n => n.attrs.bindtap), ['onMyEarnings', 'onBarrelRecords', 'onMyProblemReceipts', 'onHistory'])
     assert.equal(result.some(n => n.text === '我的配送'), role === 'STATION_MANAGER')
     t.page.setData({ canAccessBusiness: false })
     assert.equal(mineSection('personal-shortcuts', t.page.data).length, 0)
@@ -214,8 +214,8 @@ test('workbench stays manager-only with original handler; salary/barrel/history 
   assert.equal(rendered({ children: entry }, delivery.page.data).length, 0)
   assert(rendered({ children: entry }, manager.page.data).length > 0)
   delivery.page.onGoStationMgmt(); assert.equal(delivery.page.__wx.__calls.nav.length, 0)
-  manager.page.onMyEarnings(); manager.page.onBarrelRecords(); manager.page.onHistory()
-  assert.deepEqual(manager.page.__wx.__calls.nav.map(n => n.url), ['/pages/my-earnings/index', '/pages/barrel-records/index', '/pages/history/index'])
+  manager.page.onMyEarnings(); manager.page.onBarrelRecords(); manager.page.onMyProblemReceipts(); manager.page.onHistory()
+  assert.deepEqual(manager.page.__wx.__calls.nav.map(n => n.url), ['/pages/my-earnings/index', '/pages/barrel-records/index', '/pages/my-problem-receipts/index', '/pages/history/index'])
 })
 test('all binding states retain their individual action and only BOUND gets compact presentation', () => {
   const root = nodes(mineTree, n => (n.attrs || {}).class?.startsWith('bind-action-card'))[0]
@@ -230,8 +230,8 @@ test('contact tools keep full phone, catchtap, and the existing phone priority; 
   const contacts = nodes(root, n => (n.attrs || {}).catchtap === 'onCallCustomer')
   assert.equal(contacts.length, 5)
   assert.deepEqual(contacts.map(n => n.attrs['data-phone']), [
-    '{{item.customerPhone || item.receiverPhone}}', '{{item.customerPhone || item.receiverPhone}}',
-    '{{item.customerPhone || item.receiverPhone}}', '{{item.receiverPhone || item.customerPhone}}', '{{item.receiverPhone}}'
+    '{{item.receiverPhone || item.customerPhone}}', '{{item.receiverPhone || item.customerPhone}}',
+    '{{item.receiverPhone || item.customerPhone}}', '{{item.receiverPhone || item.customerPhone}}', '{{item.receiverPhone}}'
   ])
   for (const n of contacts) {
     const result = rendered({ children: [n] }, { item: { customerPhone: '010-1234567890123456789', receiverPhone: '999' } })
@@ -239,6 +239,10 @@ test('contact tools keep full phone, catchtap, and the existing phone priority; 
     const expected = n.attrs['data-phone'].startsWith('{{item.customerPhone') ? '010-1234567890123456789' : '999'
     assert(result.some(n => n.text === expected))
     assert(result.some(n => n.tag === 'icon' && n.attrs.name === 'phone'))
+    if (n.attrs['data-phone'].includes('||')) {
+      const fallback = rendered({ children: [n] }, { item: { customerPhone: '010-1234567890123456789', receiverPhone: '' } })
+      assert(fallback.some(row => row.text === '010-1234567890123456789'))
+    }
   }
   const complete = nodes(root, n => (n.attrs || {}).catchtap === 'onCompleteOrder')
   assert.equal(complete.length, 1)

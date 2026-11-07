@@ -1,0 +1,14 @@
+<view class="page">
+  <view class="hint">显示当前水站最近 100 条本人现场反馈。历史记录或转至其他站的订单可能无法显示，请联系站长核实。</view>
+  <view wx:if="{{loading}}" class="state">加载中…</view>
+  <view wx:elif="{{error}}" class="state">{{error}}<button bindtap="load">重新加载</button></view>
+  <view wx:elif="{{items.length === 0}}" class="state">暂无可显示的反馈</view>
+  <view class="card" wx:for="{{items}}" wx:key="id">
+    <view>反馈 #{{item.id}} · 订单 #{{item.orderId}}</view>
+    <view>反馈内容：{{item.staffNote || '未记录'}}</view>
+    <view>处理状态：{{item.statusText}}</view>
+    <view wx:if="{{item.createdAt}}">上报时间：{{item.createdAt}}</view>
+    <view wx:if="{{item.decidedAt}}">处理时间：{{item.decidedAt}}</view>
+    <view wx:if="{{item.executedAt}}">执行时间：{{item.executedAt}}</view>
+  </view>
+</view>

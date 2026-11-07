@@ -1,39 +1,35 @@
 const { validId } = require('./cart-storage')
 
-function cartKey(cart) {
-  if (!cart || typeof cart !== 'object' || Array.isArray(cart)) return null
-  const rows = []
-  for (const id of Object.keys(cart).sort()) {
-    const value = cart[id], quantity = typeof value === 'number' || typeof value === 'string' ? Number(value) : NaN
-    if (!validId(id) || !Number.isSafeInteger(quantity) || quantity <= 0) return null
-    rows.push([String(id), quantity])
-  }
-  return rows.length ? JSON.stringify(rows) : null
-}
-
-// A result-page URL is never a cart receipt. Only a fresh cart-origin submission can capture one.
+// Only the cart-origin request can capture a receipt. Each item is checked independently.
 function captureSubmittedCart(app, stationId, items) {
-  if (!app || typeof app.getCart !== 'function' || !validId(stationId) || !Array.isArray(items)) return null
-  const expected = {}
-  for (const item of items) {
-    if (!item || !validId(item.productId) || !Number.isSafeInteger(item.quantity) || item.quantity <= 0) return null
-    const id = String(item.productId)
-    if (expected[id] != null) return null
-    expected[id] = item.quantity
-  }
+  if (!app || typeof app.getCart !== 'function' || typeof app.getCartItemToken !== 'function'
+    || typeof app.setCartQty !== 'function' || !validId(stationId) || !Array.isArray(items) || !items.length) return null
   try {
-    const key = cartKey(app.getCart(stationId))
-    return key && key === cartKey(expected) ? { stationId, key, consumed: false } : null
+    const cart = app.getCart(stationId), rows = [], seen = new Set()
+    for (const item of items) {
+      if (!item || !validId(item.productId) || !Number.isSafeInteger(item.quantity) || item.quantity <= 0) return null
+      const id = String(item.productId), before = Number(cart[id])
+      if (seen.has(id)) return null
+      seen.add(id)
+      // An order may include a non-cart item; it cannot authorize removal here.
+      if (!Number.isSafeInteger(before) || before < item.quantity) continue
+      const token = app.getCartItemToken(stationId, id)
+      if (!token) return null
+      rows.push({ id, before, submitted: item.quantity, token })
+    }
+    return rows.length ? { stationId, rows, consumed: false } : null
   } catch (_) { return null }
 }
 
 function consumeSubmittedCart(app, proof, current) {
   try {
     if (!proof || proof.consumed || typeof current !== 'function' || !current()) return false
-    if (cartKey(app.getCart(proof.stationId)) !== proof.key || typeof app.clearCart !== 'function') return false
-    proof.consumed = true
-    app.clearCart(proof.stationId)
-    return true
+    const cart = app.getCart(proof.stationId)
+    const eligible = proof.rows.filter(row => Number(cart[row.id]) === row.before
+      && app.getCartItemToken(proof.stationId, row.id) === row.token)
+    proof.consumed = true // A partial storage failure must not permit duplicate consumption.
+    for (const row of eligible) app.setCartQty(proof.stationId, row.id, row.before - row.submitted)
+    return eligible.length > 0
   } catch (_) { return false } // Cart persistence must never change an already confirmed order result.
 }
 module.exports = { captureSubmittedCart, consumeSubmittedCart }

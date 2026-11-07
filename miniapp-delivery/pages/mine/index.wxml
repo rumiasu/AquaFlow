@@ -140,6 +140,7 @@
       <view bindtap="onBarrelRecords" class="personal-shortcut personal-shortcut-physical" aria-role="button">
         <icon name="barrel" variant="duotone" size="20px" color="#1264D6" fill-color="#EAF2FF" /><text>空桶记录</text>
       </view>
+      <view bindtap="onMyProblemReceipts" class="personal-shortcut" aria-role="button"><text>我的反馈</text></view>
       <view bindtap="onHistory" class="personal-shortcut personal-shortcut-history" aria-role="button">
         <view class="b2-line-clock personal-history-icon"><view class="b2-clock-hand"></view></view><text>配送历史</text>
       </view>

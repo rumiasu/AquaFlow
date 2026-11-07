@@ -14,7 +14,7 @@ function fixture(api = {}) {
     'api/order': { getMyLatestStation: api.restore || (async () => ({ code: 0, data: null })) },
     'api/notification': {
       getUnreadNotifications: api.notifications || (async () => ({ code: 0, data: [] })),
-      markAllRead: async () => { readMarks.push(app.globalData.customerId) }
+      markRead: api.markRead || (async id => { readMarks.push([app.globalData.customerId, id]) })
     },
     'api/station': {
       getDiscoverStations: async () => { publicReads.push(true); return api.list ? api.list() : { code: 0, data: [] } },
@@ -203,7 +203,7 @@ test('an obsolete public response cannot release the newest loading state', asyn
 
 for (const change of ['identity', 'hide', 'unload']) {
   test('notification modal callbacks cannot continue or mark another context after ' + change, async () => {
-    const t = fixture({ notifications: async () => ({ code: 0, data: [{ title: 'first' }, { title: 'second' }] }) })
+    const t = fixture({ notifications: async () => ({ code: 0, data: [{ id: 1, title: 'first' }, { id: 2, title: 'second' }] }) })
     t.wx.showModal = options => t.wx.__calls.modal.push(options)
     const pending = t.page.checkNotifications()
     await new Promise(resolve => setImmediate(resolve))
@@ -218,17 +218,42 @@ for (const change of ['identity', 'hide', 'unload']) {
 }
 
 test('notification display failure settles and does not mark unseen messages read', async () => {
-  const t = fixture({ notifications: async () => ({ code: 0, data: [{ title: 'first' }] }) })
+  const t = fixture({ notifications: async () => ({ code: 0, data: [{ id: 1, title: 'first' }] }) })
   t.wx.showModal = options => options.fail({ errMsg: 'SYNTH modal unavailable' })
   await t.page.checkNotifications()
   assert.deepStrictEqual(t.readMarks, [])
 })
 
-test('all notification contents share one dialog and acknowledge once after confirmation', async () => {
-  const t = fixture({ notifications: async () => ({ code: 0, data: [{ title: 'first' }, { title: 'second' }] }) })
+test('all notification contents share one dialog and acknowledge each displayed ID after confirmation', async () => {
+  const t = fixture({ notifications: async () => ({ code: 0, data: [{ id: 1, title: 'first' }, { id: 2, title: 'second' }] }) })
   await t.page.checkNotifications()
   assert.strictEqual(t.wx.__calls.modal.length, 1)
-  assert.deepStrictEqual(t.readMarks, [7])
+  assert.deepStrictEqual(t.readMarks, [[7, 1], [7, 2]])
+})
+
+test('notification arriving while the dialog is open remains unread', async () => {
+  const rows = [{ id: 1, title: 'first', unread: true }, { id: 2, title: 'second', unread: true }]
+  const t = fixture({ notifications: async () => ({ code: 0, data: rows.filter(row => row.unread).map(row => ({ ...row })) }),
+    markRead: async id => { rows.find(row => row.id === id).unread = false } })
+  t.wx.showModal = options => t.wx.__calls.modal.push(options)
+  const pending = t.page.checkNotifications()
+  await new Promise(resolve => setImmediate(resolve))
+  rows.push({ id: 3, title: 'later', unread: true })
+  t.wx.__calls.modal[0].success({ confirm: true })
+  await pending
+  assert.deepStrictEqual(rows.filter(row => row.unread).map(row => row.id), [3])
+})
+
+test('account switch during acknowledgement prevents further writes', async () => {
+  const gate = deferred(), marks = []
+  const t = fixture({ notifications: async () => ({ code: 0, data: [{ id: 1 }, { id: 2 }] }),
+    markRead: async id => { marks.push(id); await gate.promise } })
+  const pending = t.page.checkNotifications()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepStrictEqual(marks, [1])
+  t.app.globalData.customerId = 8
+  gate.resolve(); await pending
+  assert.deepStrictEqual(marks, [1])
 })
 
 ;(async () => {

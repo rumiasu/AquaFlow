@@ -167,10 +167,26 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (order == null) {
             return false;
         }
+        if (Integer.valueOf(PaymentStatus.REFUNDED).equals(order.getPaymentStatus())
+                || Integer.valueOf(PaymentStatus.CANCELLED).equals(order.getPaymentStatus())) {
+            return false;
+        }
         if (Integer.valueOf(PaymentStatus.PAID).equals(order.getPaymentStatus())) {
+            if (Integer.valueOf(PayMethod.TICKET).equals(order.getPaymentMethod())) {
+                var split = ticketPayments.get(order.getId());
+                if (split != null && ("REFUNDED".equals(split.state()) || "CANCELLED".equals(split.state()))) {
+                    return false;
+                }
+            }
             return true;
         }
         return ticketPayments.cod(order);
+    }
+
+    private void requireFulfillmentPayment(Orders order) {
+        if (!isPaidOrPayOnDelivery(order)) {
+            throw new BusinessException("该订单尚未支付，暂不能转交履约，请客户先完成支付");
+        }
     }
 
     /** 强制当前水站非空（未绑站直接拒绝，fail-closed），并严格比对履约站 */
@@ -1057,6 +1073,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
                 throw new BusinessException("该单涉及押金/桶权益，不能放入抢单池（本次拒单也未执行）："
                         + DEPOSIT_BARREL_RISK_TEXT);
             }
+            requireFulfillmentPayment(order);
             // 原子：清空履约站与配送员、状态回到待配送（原实现是先 update 再 clearDispatchStation 两次写）
             int changed = orderMapper.outsourceToPoolIf(orderId, OrderStatus.PENDING, cur);
             if (changed == 0) {
@@ -1199,6 +1216,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         }
         // [2026-09-18] 押金/桶权益单：定向外派前必须由**外派方显式确认**风险（产品：双方都特别提醒后同意）。
         // 校验放在任何写操作之前 —— 被拒时订单状态/履约站/备注一律不动。
+        requireFulfillmentPayment(order);
         boolean risky = involvesDepositOrBarrelRights(order);
         if (risky && !riskAcknowledged) {
             throw new BusinessException("外派该单前必须先确认风险，本次操作未执行：" + DEPOSIT_BARREL_RISK_TEXT);
@@ -1238,6 +1256,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (cur != OrderStatus.PENDING && cur != OrderStatus.DELIVERING) {
             throw new BusinessException("当前状态不可外派");
         }
+        requireFulfillmentPayment(order);
         boolean risky = involvesDepositOrBarrelRights(order);
 
         if (targetStationId != null) {
@@ -1376,6 +1395,7 @@ public class OrderWorkflowServiceImpl implements OrderWorkflowService {
         if (involvesDepositOrBarrelRights(order)) {
             throw new BusinessException("该单涉及押金/桶权益，不能跨站抢单：" + DEPOSIT_BARREL_RISK_TEXT);
         }
+        requireFulfillmentPayment(order);
         Staff target = requireDelivery(targetStaffId, stationId);
 
         // [AQ-020] 原子 CAS：仅当订单仍在池中（delivery_station_id 为空）且状态=待配送时才算抢到

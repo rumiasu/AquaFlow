@@ -59,21 +59,24 @@ App({
       },
       success: (res) => {
         if (!isCurrentCredentials(session)) return
-        if (res.statusCode === 200 && res.data && res.data.code === 0) {
+        if (!res || typeof res !== 'object') {
+          console.warn('[App] 登录验证响应不完整，保留本地状态')
+          return
+        }
+        if (res.statusCode === 200 && res.data && res.data.code === 0 && res.data.data
+          && typeof res.data.data === 'object' && !Array.isArray(res.data.data)) {
           this.globalData.isLogin = true
           this.globalData.userInfo = res.data.data
-        } else if (res.statusCode === 401 || (res.data && res.data.code === 401)) {
+        } else if (res.statusCode === 401 || (res.statusCode === 200 && res.data && res.data.code === 401)) {
           this.tryRefresh(session).then(() => {
             if (!isCurrentSession(session)) return
             this.globalData.isLogin = true
           }).catch(() => {
-            if (!isCurrentCredentials(session)) return
-            this.clearLoginInfo()
-            wx.redirectTo({ url: '/pages/login/index' })
+            // 续期入口只在确定凭据失效时清理；网络或服务故障保留本地会话。
+            if (isCurrentCredentials(session)) console.warn('[App] 暂时无法验证登录状态')
           })
         } else {
-          this.clearLoginInfo()
-          wx.redirectTo({ url: '/pages/login/index' })
+          console.warn('[App] 暂时无法验证登录状态，保留本地状态')
         }
       },
       fail: (error) => {
@@ -143,8 +146,19 @@ App({
   getCart(stationId) {
     this.ensureCartOwner()
     const sid = String(stationId)
-    if (!this.globalData.cart[sid]) {
-      this.globalData.cart[sid] = {}
+    if (!this.globalData.cart[sid]) this.globalData.cart[sid] = {}
+    // getCart historically exposes a mutable object. Track even direct edits and
+    // change-then-revert sequences so an in-flight receipt cannot erase them.
+    this._cartProxies = this._cartProxies || {}
+    const current = this.globalData.cart[sid]
+    if (typeof Proxy !== 'function') return current // Cart remains usable; receipts fail closed.
+    if (!this._cartProxies[sid] || this._cartProxies[sid] !== current) {
+      const app = this
+      this._cartProxies[sid] = new Proxy(current, {
+        set(target, key, value) { target[key] = value; app.touchCartItem(sid, key); return true },
+        deleteProperty(target, key) { delete target[key]; app.touchCartItem(sid, key); return true }
+      })
+      this.globalData.cart[sid] = this._cartProxies[sid]
     }
     return this.globalData.cart[sid]
   },
@@ -158,11 +172,30 @@ App({
       this.persistCart()
       this.globalData.cart = owner ? readCart(owner) : {}
       this._cartOwner = owner
+      // Ephemeral tokens distinguish edits even when a quantity is changed back.
+      this._cartItemTokens = {}
+      this._cartProxies = {}
     }
   },
 
   persistCart() {
     return saveCart(this._cartOwner, this.globalData.cart)
+  },
+
+  getCartItemToken(stationId, productId) {
+    if (typeof Proxy !== 'function') return null
+    this.getCart(stationId) // Resolve owner before reading a token.
+    const sid = String(stationId), pid = String(productId)
+    this._cartItemTokens = this._cartItemTokens || {}
+    const station = this._cartItemTokens[sid] || (this._cartItemTokens[sid] = {})
+    return station[pid] || (station[pid] = {})
+  },
+
+  touchCartItem(stationId, productId) {
+    const sid = String(stationId), pid = String(productId)
+    this._cartItemTokens = this._cartItemTokens || {}
+    const station = this._cartItemTokens[sid] || (this._cartItemTokens[sid] = {})
+    station[pid] = {}
   },
 
   getCartCount(stationId) {
@@ -174,12 +207,14 @@ App({
     const cart = this.getCart(stationId)
     const pid = String(productId)
     cart[pid] = (parseInt(cart[pid]) || 0) + qty
+    this.touchCartItem(stationId, pid)
     this.persistCart()
   },
 
   removeFromCart(stationId, productId) {
     const cart = this.getCart(stationId)
     delete cart[String(productId)]
+    this.touchCartItem(stationId, productId)
     this.persistCart()
   },
 
@@ -191,6 +226,7 @@ App({
     } else {
       cart[pid] = qty
     }
+    this.touchCartItem(stationId, pid)
     this.persistCart()
   },
 
@@ -198,6 +234,7 @@ App({
     this.ensureCartOwner()
     const sid = String(stationId)
     this.globalData.cart[sid] = {}
+    if (this._cartItemTokens) delete this._cartItemTokens[sid]
     this.persistCart()
   },
 

@@ -129,6 +129,11 @@ test('金额变化拒绝后显示原因，重新预览确认才提交新金额',
   t.wx.__calls.modal.at(-1).success({confirm:true});await flush()
   assert.equal(t.sent.length,2);assert.equal(t.sent[0].body.expectedRefundAmount,20);assert.equal(t.sent[1].body.expectedRefundAmount,70)
 })
+test('不可取消的微信原款显示服务端原因且不发起退款',async()=>{
+  const notice='微信原款尚无法自动退款，本单暂不能取消，请联系水站核实处理'
+  const t=refundPage({notice,scopes:[]});await t.page.chooseRefundScope(11)
+  assert.equal(t.wx.__calls.modal.at(-1).content,notice);assert.equal(t.sent.length,0)
+})
 test('历史无随单押金凭据的退款继续原路径，不伪造确认金额',async()=>{
   const t=refundPage({notice:'历史原路径',scopes:[{scope:'WATER',label:'退该笔付款'}]});await t.page.chooseRefundScope(11)
   t.wx.__calls.modal.at(-1).success({confirm:true});await flush()

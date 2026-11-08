@@ -30,7 +30,7 @@ test('manager labels each source without calling a directed pending row unassign
   assert.deepStrictEqual(page.data.assignedOrders.map(x => x.assignmentLabel), ['派给我', '未分配', '待处理'])
   assert.strictEqual(page.data.assignedOrders[0].addressText, '下单地址')
   assert.strictEqual(page.data.assignedOrders[0].floorText, '')
-  assert.strictEqual(page.data.assignedOrders[2].addressText, '订单地址快照缺失，请核实')
+  assert.strictEqual(page.data.assignedOrders[2].addressText, '本单地址未提供，请核实')
   const delivery = await fixture(false)
   assert.deepStrictEqual(delivery.page.data.assignedOrders.map(x => x.id), [5])
 })

@@ -106,7 +106,7 @@ test('detail page receives complete and optional ticket facts through a frontend
   assert.equal(ticket.route, productRoute)
   assert.equal(ticket.levelText, '选填')
   assert(ticket.completionEvidence.includes('水票是选填'))
-  assert(ticket.suggestion.includes('已开水票'))
+  assert(ticket.suggestion.includes('水票可在商品编辑中启用并设置在售档位'))
   assert.equal(patch.moduleSetupReady, true)
   assert.equal(h.api.moduleTaskPatch(null, productRoute).moduleSetupReady, false)
 })
@@ -177,7 +177,7 @@ test('coordinate warning is limited to missing coordinates', () => {
   const source = fs.readFileSync(path.join(repo, 'miniapp-delivery/pages/station-mgmt/station-info/index.wxml'), 'utf8')
   const tree = parseWxml(source)
   const view = coord => renderElements(tree, {loading: false, loadError: '', origin: {id: 1}, coord, settingsSections: [], form: {}}, {includeText: true})
-  const warning = '未设置坐标，无法计算配送距离。'
+  const warning = '未设置地图位置，无法计算配送距离。'
   assert(view({lat: null, lng: null}).some(node => node.text === warning))
   assert(view({lat: 1, lng: null}).some(node => node.text === warning))
   assert(!view({lat: 1, lng: 2}).some(node => node.text === warning))

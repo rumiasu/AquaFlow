@@ -19,7 +19,7 @@ test('display and copying do not fall back to the changed current address',async
  assert.strictEqual(t.calls.copy.length,0);assert.strictEqual(t.calls.open.length,0);assert.strictEqual(t.calls.choose.length,0)
  const w=fs.readFileSync(path.join(ROOT,'miniapp-delivery/pages/order/detail.wxml'),'utf8')
  assert.ok(!w.includes('order.addressSnapshot || order.addressDetail'))
- assert.ok(w.includes('订单地址快照缺失，请核实'))
+ assert.ok(w.includes('本单地址未提供，请核实'))
 })
 test('snapshot coordinates and text agree even after the customer changed address',async()=>{
  const t=await fixture({addressSnapshot:'下单地址',addressDetail:'新地址',addressSnapshotLat:30,addressSnapshotLng:120})

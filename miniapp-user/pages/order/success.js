@@ -79,7 +79,7 @@ Page({
       if (!order || !order.id || String(order.id) !== String(orderId)) {
         this.setData({
           loadState: 'failed',
-          loadErrorText: '没有取到这张订单的信息，可能是订单号不对或网络问题。可以先到「我的订单」核对。'
+          loadErrorText: '未查到本单信息，请到“我的订单”核对下单结果。'
         })
         return
       }
@@ -90,7 +90,7 @@ Page({
       console.warn('loadOrderStatus error:', e)
       this.setData({
         loadState: 'failed',
-        loadErrorText: errorText(e, '没能读取这张订单，请重新查询，或到「查看订单」核对。')
+        loadErrorText: errorText(e, '本单信息未能加载，请重试或到“我的订单”核对。')
       })
     } finally {
       if (!this._destroyed && seq === this._readSeq && !isCurrentSession(session)) {

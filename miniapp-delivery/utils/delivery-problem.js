@@ -82,10 +82,10 @@ function reportDeliveryProblem(orderId, opts) {
         if (!picked || !current()) return
       }
       const answer = await dialog(retrying ? {
-        title: '重试原反馈', content: '原反馈原因：' + payload.reason + '\n\n将按原记录核实并重试，不改原因、不另建一条反馈。订单仍按当前安排配送。', confirmText: '重试反馈'
+        title: '重试原反馈', content: '原反馈原因：' + payload.reason + '\n\n沿用原记录核实并重试，不重复上报，原配送安排不变。', confirmText: '重试反馈'
       } : {
         title: '上报配送问题',
-        content: '反馈原因：' + picked.label + '\n\n会记一条异常，站长那边能看到并处置。\n不会把订单转给别人，也不改订单状态。', confirmText: '上报'
+        content: '反馈原因：' + picked.label + '\n\n提交后站长可查看并处理，原配送安排和订单状态不变。', confirmText: '上报'
       })
       if (!answer.confirm || !current()) return
       token = retrying ? recovery.retryReport(orderId) : recovery.beginReport(orderId, options.order || {}, picked)

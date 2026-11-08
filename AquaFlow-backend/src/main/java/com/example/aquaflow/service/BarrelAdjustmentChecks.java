@@ -91,13 +91,13 @@ final class BarrelAdjustmentChecks {
 
     static void requireManualPhysicalBalance(int right, int over, int qty) {
         if (qty <= 0 || (long) right + over - qty < 0) {
-            throw new BusinessException("撤销后客户实物桶数不能为负；未领取容量请走权益退还申请");
+            throw new BusinessException("撤销后客户实物桶数不能为负；未领桶退款请提交退押金申请");
         }
     }
 
     static void requireManualAvailableRights(int right, int busy, long legacy, int qty) {
         if (qty > (long) right - busy - legacy) {
-            throw new BusinessException("该部分权益仍被配送或退还占用，请先处理原单");
+            throw new BusinessException("该部分桶数仍被订单或退还申请占用，请先处理原单");
         }
     }
 
@@ -107,7 +107,7 @@ final class BarrelAdjustmentChecks {
                 || (restore && ((long) asset.getQuantity() + quantity > Integer.MAX_VALUE
                 || asset.getRightAmount().add(amount).compareTo(new BigDecimal("99999999.99")) > 0))
                 || (!restore && (asset.getQuantity() < quantity || asset.getRightAmount().compareTo(amount) < 0))) {
-            throw new BusinessException("原批次与桶权益汇总不一致，请核对资产流水");
+            throw new BusinessException("原批次与拥有桶数不一致，请核对资产流水");
         }
     }
 
@@ -126,8 +126,7 @@ final class BarrelAdjustmentChecks {
 
     static void requireOverPhysicalBalance(int right, int before, int after) {
         if (right + after < 0) {
-            throw new BusinessException("该调整会使占用为负（权益 " + right + " + 调整后 over " + after
-                    + " < 0）；核销欠桶的数量不能超过（权益 + 当前 over）=" + (right + before));
+            throw new BusinessException("本次扣减超过实际在手桶数（当前 " + (right + before) + " 个），请核对交桶记录");
         }
     }
 }

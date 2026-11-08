@@ -185,7 +185,7 @@ public class OrderServiceImpl implements OrderService {
             Long days = com.example.aquaflow.vo.OwedBarrelVO.owedDays(o.getOwedSince());
             out.add("欠桶提醒：您有 " + owed + " 个空桶未归还（" + pname
                     + (days == null ? "" : "，已 " + days + " 天")
-                    + "），请记得还桶 —— 配送员上门时把空桶一并交回");
+                    + "），送水时请一并交回空桶");
         }
         return out;
     }
@@ -230,11 +230,11 @@ public class OrderServiceImpl implements OrderService {
         // ⚠️ 命中幂等的时机见下面「幂等命中」块 —— **在鉴权之后**（报告 §5.5：先鉴权再命中幂等）。
         String idempotencyKey = dto.getIdempotencyKey();
         if (idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
-            throw new BusinessException("缺少幂等键（idempotencyKey），请由客户端生成并在重试时复用");
+            throw new BusinessException("下单编号缺失，请重新打开下单页");
         }
         idempotencyKey = idempotencyKey.trim();
         if (idempotencyKey.length() > 64) {
-            throw new BusinessException("幂等键过长（最多 64 个字符）");
+            throw new BusinessException("下单编号不能超过64个字符");
         }
 
         Customer customer = customerMapper.getById(dto.getCustomerId());
@@ -305,7 +305,7 @@ public class OrderServiceImpl implements OrderService {
                 List<String> warnings = buildOwedWarnings(dto.getCustomerId(), stationId);
                 return OrderCreateResult.success(existing.getId(), warnings, false);
             }
-            throw new BusinessException("该幂等键已用于另一笔内容不同的下单请求，请重新发起");
+            throw new BusinessException("本次下单编号已用于其他内容，请核对原订单");
         }
 
         // [2026-09-15] 这里原本是 [AQ-030]/[DEF-3] 的欠桶硬拦（Σ max(0, over) ≥ 5 即拒绝下单）。
@@ -625,7 +625,7 @@ public class OrderServiceImpl implements OrderService {
             // 必须抛出、不能吞：走到这里时本事务已经写过配送中桶等行，只有回滚才干净
             //（吞掉后继续提交会因事务被标记 rollback-only 而抛 UnexpectedRollbackException，
             //  把一次正常的并发拒绝伪装成 500 —— PaymentServiceImpl 里有同形的教训）。
-            throw new BusinessException("该请求已提交过（同一幂等键），请到订单列表查看结果");
+            throw new BusinessException("该请求已提交，请到订单列表查看结果");
         }
 
         // 更新配送中桶资产记录的关联订单ID（仅关联本次创建的配送中桶记录）
@@ -945,7 +945,7 @@ public class OrderServiceImpl implements OrderService {
     public void transitionPaymentStatus(Long id, Integer expected, Integer target) {
         int affected = orderMapper.updatePaymentStatusIf(id, expected, target);
         if (affected == 0) {
-            throw new BusinessException("支付状态已被并发修改，请刷新后重试");
+            throw new BusinessException("付款状态已变化，请刷新后重试");
         }
     }
 }

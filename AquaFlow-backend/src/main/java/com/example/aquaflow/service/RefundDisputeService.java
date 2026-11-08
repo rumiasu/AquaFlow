@@ -92,7 +92,7 @@ public class RefundDisputeService {
         }
         if(changed!=1)throw new BusinessException("争议状态已变化，请刷新后核对");
         if(mapper.appendAction(dto.getRefundType(),dto.getRefundId(),scope.customerId(),scope.stationId(),actor,AuthContext.getUserId(),action,input.reason(),input.key(),input.digest(),version)!=1)
-            throw new BusinessException("处理记录未保存，本次办理已回滚");
+            throw new BusinessException("处理记录未保存，本次办理未生效");
         return ExceptionActionEvidence.receipt(mapper.action(actor,dto.getRefundType(),dto.getRefundId(),input.key()));
     }
 }

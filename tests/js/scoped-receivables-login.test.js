@@ -146,7 +146,7 @@ test('unknown registration outcomes and malformed receipts clear selection and v
     prompt(t).success({ confirm: true }); await work
     const modal = t.wx.__calls.modal.find(m => m.title === '登记结果待核实')
     assert(modal, JSON.stringify(metadata)); assert(modal.content.includes('只登记已收到的钱'))
-    assert(modal.content.includes('请勿再次向客户收款')); assert(modal.content.includes('不会自动重发登记'))
+    assert(modal.content.includes('请勿再次向客户收款')); assert(modal.content.includes('不会重复提交登记'))
     assert(!t.wx.__calls.modal.some(m => ['核销未完成', '核销完成'].includes(m.title)))
     assert.equal(t.calls.length, 1); assert.equal(t.page.data.selectedCount, 0); assert.deepEqual(t.page.data.orders, [])
     assert(t.state.reads.includes('/api/manager/receivables'))

@@ -204,9 +204,9 @@ Page({
   buildGreeting() {
     const h = new Date().getHours()
     if (h < 6) return '夜深了'
-    if (h < 11) return '早上好，该喝水了'
-    if (h < 14) return '中午好，该喝水了'
-    if (h < 18) return '下午好，该喝水了'
+    if (h < 11) return '早上好'
+    if (h < 14) return '中午好'
+    if (h < 18) return '下午好'
     return '晚上好'
   },
 
@@ -375,12 +375,12 @@ Page({
       const res = await getUnreadNotifications().catch((e) => {
         if (!current()) return null
         console.warn('[home] 未读通知拉取失败:', e && (e.message || e.errMsg))
-        this._noteLoadError('订单提醒暂未加载，可能暂时收不到最新通知，可重试。', 'notifications')
+        this._noteLoadError('订单提醒暂未加载，请重试。', 'notifications')
         return null
       })
       if (!current()) return
       if (!res || res.code !== 0 || !Array.isArray(res.data)) {
-        if (res) this._noteLoadError('订单提醒暂未加载，可能暂时收不到最新通知，可重试。', 'notifications')
+        if (res) this._noteLoadError('订单提醒暂未加载，请重试。', 'notifications')
         return
       }
       this._noteLoadError('', 'notifications')
@@ -408,7 +408,7 @@ Page({
       }
     } catch (e) {
       console.error('检查通知失败:', e)
-      if (current()) this._noteLoadError('订单提醒暂未加载，可能暂时收不到最新通知，可重试。', 'notifications')
+      if (current()) this._noteLoadError('订单提醒暂未加载，请重试。', 'notifications')
     } finally {
       if (current()) this.setData({ notificationsLoading: false })
     }
@@ -874,7 +874,7 @@ Page({
           const missing = quote.barrelPurchases.find(it => String(it.productId) === String(p.id))
           if (missing) deposit += Number(missing.amount)
           depositNote = missing
-            ? `容量不足 ${missing.quantity} 份，本次新增押金 ¥${fmtMoney(missing.amount)}；结算时确认` + (missing.busyRights > 0 ? '，也可等待已有容量释放' : '')
+            ? `可用桶数不足 ${missing.quantity} 个，预计新增押金 ¥${fmtMoney(missing.amount)}` + (missing.busyRights > 0 ? '；也可等待占用的桶数释放' : '')
             : '本次无需加收桶押金'
         } else if (Number(p.category) === 1 && !legacy) {
           depositNote = '桶押金办理方式未核实，请到结算页确认'
@@ -1132,8 +1132,8 @@ Page({
     if (!address) {
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: this._homeChosenAddressId != null ? '请重新选择配送地址' : '还没有配送地址',
-        content: this._homeChosenAddressId != null ? '先前选择的地址已不可用，请重新选择后再确认订单' : '先设置一个收货地址，水才能送到家',
-        confirmText: '去设置',
+        content: this._homeChosenAddressId != null ? '先前选择的地址已不可用，请重新选择后再确认订单' : '请选择本次送水地址。',
+        confirmText: '选择地址',
         success: (r) => {
           if (r.confirm) wx.navigateTo({ url: '/pages/address/list?from=home' })
         }

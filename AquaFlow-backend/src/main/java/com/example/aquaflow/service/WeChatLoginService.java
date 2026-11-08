@@ -131,8 +131,7 @@ public class WeChatLoginService {
 
     /** 员工端未配置时的统一提示：说清"改哪里"，否则只看到一句无信息量的登录失败 */
     private static final String STAFF_NOT_CONFIGURED =
-            "员工端微信登录未配置：请配置 wechat.miniapp.staff-appid / staff-secret"
-                    + "（环境变量 WX_STAFF_APP_ID / WX_STAFF_APP_SECRET）";
+            "员工端微信登录暂不可用，请稍后重试";
 
     /** 员工换码的错误分类；仅调用微信，不写数据库，不返回可继续办理的失败状态。 */
     public Map<String, Object> staffCode2Session(String code) {
@@ -143,7 +142,7 @@ public class WeChatLoginService {
             throw e;
         } catch (RuntimeException e) {
             // 保留员工端原有的业务错误分类；认证事务收到异常后必须整笔回滚。
-            throw new BusinessException("微信登录失败: " + e.getMessage());
+            throw new BusinessException("微信登录暂不可用，请稍后重试");
         }
     }
 
@@ -313,7 +312,7 @@ public class WeChatLoginService {
         }
         if (isBlank(customerAppid)) {
             // RequiredConfigChecker 已把这条挡在启动前；留着是为了"有人绕过校验"时也给出可读错误
-            throw new BusinessException("客户端微信登录未配置：缺少 WX_APP_ID");
+            throw new BusinessException("微信登录暂不可用，请稍后重试");
         }
         return customerAppid;
     }
@@ -326,7 +325,7 @@ public class WeChatLoginService {
             return staffSecret;
         }
         if (isBlank(customerSecret)) {
-            throw new BusinessException("客户端微信登录未配置：缺少 WX_APP_SECRET");
+            throw new BusinessException("微信登录暂不可用，请稍后重试");
         }
         return customerSecret;
     }

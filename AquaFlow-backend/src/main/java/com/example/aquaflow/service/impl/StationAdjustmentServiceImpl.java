@@ -375,7 +375,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         // [2026-09-16] 缺单价时按**本站押金**推断（inventory.deposit_price 优先），与下单/补录同口径
         BigDecimal dep = PriceUtil.calcDeposit(p, inventoryMapper.getByStationAndProduct(a.getStationId(), productId));
         if (dep.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("补录桶权益必须能确定单价：请指定单价，或先为该商品设置押金");
+            throw new BusinessException("补录拥有桶数须明确押金单价，可填写单价或使用商品已设押金");
         }
         return dep;
     }
@@ -600,7 +600,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         // 2026-10-08：schema.sql 两列均为 DECIMAL(10,2)，隐式舍入会让原请求重试与存储内容不一致。
         if (value != null && (value.stripTrailingZeros().scale() > 2
                 || value.abs().compareTo(new BigDecimal("99999999.99")) > 0)) {
-            throw new BusinessException(label + "须可按分无损保存，且不能超过数据库支持范围");
+            throw new BusinessException(label + "须精确到分，且不能超过支持的金额范围");
         }
     }
 
@@ -682,7 +682,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
             throw new BusinessException("商品不存在或不属于本水站可用商品");
         }
         if ((AdjustType.isBarrel(adjustType) || AdjustType.isDeposit(adjustType)) && !BarrelScope.isBarrel(product)) {
-            throw new BusinessException("桶权益、欠桶和商品押金只能调整桶装水商品");
+            throw new BusinessException("拥有桶数、欠桶和商品押金仅适用于桶装水");
         }
     }
 

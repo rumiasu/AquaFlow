@@ -12,8 +12,8 @@
             data="{{title: '首页', statusBarHeight: statusBarHeight, navBarHeight: navBarHeight, navTitleRight: navTitleRight, navTitleLeft: navTitleLeft, navLeftMax: navLeftMax, stationStatusText: stationStatusText, stationStatusNote: stationStatusNote, stationStatusHint: stationStatusHint, stationStatusError: stationStatusError, stationPendingCount: stationPendingCount, rightPad: true, stationPanelShow: stationPanelShow, stationPanelLoading: stationPanelLoading, stationPanelItems: stationPanelItems, stationPanelPending: stationPanelPending, stationPanelDone: stationPanelDone, stationPanelShowAll: stationPanelShowAll, stationPanelSummary: stationPanelSummary, stationPanelOnlineHint: stationPanelOnlineHint, stationPanelError: stationPanelError, stationPanelReadReady: stationPanelReadReady, stationPanelRefreshing: stationPanelRefreshing}}" />
   <!-- 无权限提示 -->
   <view class="no-auth" wx:if="{{!isManager}}">
-    <text class="no-auth-title">您无权限</text>
-    <text class="no-auth-desc">首页仅站长可访问</text>
+    <text class="no-auth-title">仅站长可访问</text>
+    <text class="no-auth-desc">当前身份无法查看水站调度</text>
     <button bindtap="onGoBack" class="af-action af-action--cancel">返回配送页</button>
   </view>
 
@@ -139,8 +139,8 @@
             <button catchtap="onCancelTransferRow" data-id="{{item.id}}" class="af-action af-action--danger-quiet">撤回转单</button>
           </block>
           <block wx:elif="{{item.transferPending}}">
-            <button catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}" class="af-action af-action--primary">同意转单</button>
-            <button catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}" class="af-action af-action--secondary">拒绝转单</button>
+            <button catchtap="onApproveReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}" class="af-action af-action--primary">同意退回</button>
+            <button catchtap="onRejectReturn" data-id="{{item.id}}" data-kind="{{item.transferKind}}" data-request-id="{{item.transferPendingRequestId}}" class="af-action af-action--secondary">拒绝退回</button>
           </block>
           <block wx:else>
             <button catchtap="onShowAssign" data-id="{{item.id}}" class="af-action af-action--primary">分配配送员</button>
@@ -325,7 +325,7 @@
         </view>
       </view>
       <view class="empty" wx:if="{{!queuesLoading && sectionRead && sectionRead.pool && lists.pool.length === 0}}"><image class="v2-empty-image" wx:if="{{!v2EmptyImageFailed}}" src="/assets/ui/empty-order.webp" mode="aspectFit" binderror="onV2EmptyImageError" aria-hidden="true" /><icon wx:else name="bill" variant="duotone" size="48px" color="#1F5EA8" />
-        <text>暂无可抢单订单</text>
+        <text>暂无可抢订单</text>
       </view>
       </block>
       <block wx:else>
@@ -497,7 +497,7 @@
           <view class="dispatch-info" wx:elif="{{item._inPool}}">
             <view class="dispatch-row">
               <text class="dispatch-label">当前</text>
-              <text class="dispatch-value">在抢单池里，等别站来抢</text>
+              <text class="dispatch-value">等待其他水站接单</text>
             </view>
           </view>
           <view class="dispatch-info" wx:else>
@@ -654,7 +654,7 @@
         <view class="guide-step">审批：退回、取消各走对应入口；同事转让由当事人接手、拒绝或撤回，不占本站审批。</view>
         <view class="guide-step">接单前查看报酬、桶折款和结算去向；押金风险需双方确认。</view>
       </scroll-view>
-      <button bindtap="onCloseGuide" class="af-action af-action--cancel">跳过 / 知道了</button>
+      <button bindtap="onCloseGuide" class="af-action af-action--cancel">知道了</button>
     </view>
   </view>
 </root-portal>

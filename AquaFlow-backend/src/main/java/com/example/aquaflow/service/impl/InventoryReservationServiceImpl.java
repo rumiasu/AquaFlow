@@ -176,7 +176,7 @@ public class InventoryReservationServiceImpl implements InventoryReservationServ
         for(InventoryReservation r:orderedByBusinessNeed(active)) {
             int before=nz(r.getReservedQty()),after=Math.min(left,before); left-=after;
             if(before==after)continue;
-            if(reservationMapper.reduceIfActive(r.getId(),before,after)!=1)throw new BusinessException("预留已变化，本次盘亏回滚，请刷新后重试");
+            if(reservationMapper.reduceIfActive(r.getId(),before,after)!=1)throw new BusinessException("订单占用库存已变化，本次盘亏未生效，请刷新后重试");
             syncDeductedQty(r.getOrderItemId(),after);
             affected.add(Map.of("orderId",r.getOrderId(),"lostReservation",before-after));
         }
@@ -487,8 +487,8 @@ public class InventoryReservationServiceImpl implements InventoryReservationServ
         if (need == null || need <= 0) {
             log.error("[库存预留] 凭据缺少需求量快照：reservationId={} orderId={} itemId={} needQty={}",
                     r.getId(), r.getOrderId(), r.getOrderItemId(), need);
-            throw new BusinessException("库存预留凭据缺少需求量快照（数据异常），"
-                    + "请先跑对账 E15/迁移修复后再操作库存");
+            throw new BusinessException("备货数量记录不完整，"
+                    + "请联系负责人核对库存与原订单后再操作");
         }
         return need;
     }
@@ -546,7 +546,7 @@ public class InventoryReservationServiceImpl implements InventoryReservationServ
         if (!before.equals(now)) {
             log.warn("[库存预留] {}：资源集合在发现与加锁之间发生变化（发现={} 当前={}），拒绝执行",
                     op, before, now);
-            throw new BusinessException("该订单的库存凭据刚刚被其他操作变更（并发换站/取消），"
+            throw new BusinessException("该订单的备货安排已变化，"
                     + "本次" + op + "未执行，请刷新后重试");
         }
     }

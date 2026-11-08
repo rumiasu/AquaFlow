@@ -238,7 +238,7 @@ for (const outcome of [
     assert(report.url.endsWith('/feedback')); assert.strictEqual(report.header.Authorization, 'Bearer access-A')
     if (outcome.network) report.fail(outcome.network)
     else report.success(outcome.response)
-    assert(!t.wx.__calls.toast.some(o => o.title.includes('已上报')))
+    assert(!t.wx.__calls.toast.some(o => o.title.includes('错误信息已提交给水站')))
     assert(t.wx.__calls.toast.some(o => o.title.includes(outcome.feedback)))
     if (outcome.name === 'HTTP500') {
       const title = t.wx.__calls.toast.at(-1).title
@@ -248,7 +248,7 @@ for (const outcome of [
     await reportPrompt(t); assert.strictEqual(t.wx.__calls.modal.length, 2)
     assert.strictEqual(t.sent.length, 3, '失败后不得自动发送上报')
     t.wx.__calls.modal[1].success({ confirm: true }); assert.strictEqual(t.sent.length, 4)
-    success(t.sent[3]); assert(t.wx.__calls.toast.some(o => o.title.includes('已上报')))
+    success(t.sent[3]); assert(t.wx.__calls.toast.some(o => o.title.includes('错误信息已提交给水站')))
   })
 }
 for (const code of [0, 200]) {
@@ -258,7 +258,7 @@ for (const code of [0, 200]) {
     t.wx.__calls.modal[0].success({ confirm: true }); await reportPrompt(t)
     assert.strictEqual(t.wx.__calls.modal.length, 1)
     t.sent[2].success({ statusCode: 200, data: { code } })
-    assert.strictEqual(t.wx.__calls.toast.filter(o => o.title.includes('已上报')).length, 1)
+    assert.strictEqual(t.wx.__calls.toast.filter(o => o.title.includes('错误信息已提交给水站')).length, 1)
     await reportPrompt(t); assert.strictEqual(t.wx.__calls.modal.length, 1)
     assert.strictEqual(t.sent.filter(o => o.url.endsWith('/feedback')).length, 1)
   })

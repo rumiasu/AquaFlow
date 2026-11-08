@@ -187,7 +187,7 @@ test('order warnings remain post-create information; synthetic callback complete
   const t = fixture({ warnings: ['合成楼层加收费提示'] }); t.page.setData({ address: B })
   await t.page.refreshQuote(); await t.page.onSubmit()
   assert.equal(t.calls.orders.length, 1); assert.equal(t.calls.orders[0].addressId, B.id)
-  assert.equal(t.wx.__calls.modal.at(-1).title, '下单成功，请注意')
+  assert.equal(t.wx.__calls.modal.at(-1).title, '订单已提交')
   assert.equal(t.wx.__calls.modal.at(-1).showCancel, false); assert.equal(t.calls.payments.length, 1)
 })
 ;(async () => {

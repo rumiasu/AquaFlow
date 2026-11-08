@@ -1,10 +1,10 @@
 <view class="claim-page">
-  <view class="work-head"><text class="work-title">核对历史资产</text><text class="work-desc">客户、商品和历史实收押金分别核对。</text></view>
+  <view class="work-head"><text class="work-title">核对历史资产</text><text class="work-desc">核对客户提交的桶、水票与历史实收押金。</text></view>
   <view class="claim-muted">本站 #{{stationId}} · 客户提交的待核对清单</view>
   <view class="claim-error" wx:if="{{error}}">{{error}}</view>
   <view class="claim-notice" wx:if="{{notice}}">{{notice}}</view>
   <button class="af-action af-action--quiet b3-on-retry" loading="{{loading}}" disabled="{{loading || submitting}}" bindtap="onRetry" hover-class="af-action--pressed"><view class="af-action__face">刷新待核对清单</view></button>
-  <view class="claim-muted" wx:if="{{loading}}">正在核实本站认领信息…</view>
+  <view class="claim-muted" wx:if="{{loading}}">正在加载认领申请…</view>
   <view class="claim-card" wx:if="{{pending}}">
     <text class="claim-title">原处理结果待核实 · 申请 #{{originalId}}</text>
     <text class="claim-row">已保存的决定：{{originalDecision}}</text>
@@ -24,7 +24,7 @@
   <view class="claim-card" wx:if="{{selected}}">
     <button class="af-action af-action--quiet b3-on-close-selection" wx:if="{{!pending}}" bindtap="onCloseSelection" hover-class="af-action--pressed"><view class="af-action__face">返回待核对清单</view></button>
     <view class="b3-claim-state"><text class="b3-state-caption">当前核对状态</text><text class="b3-state-title">{{selected.statusText}}</text></view>
-    <view class="claim-banner">通过后追加原有的桶、押金和水票。此次无需重新收款。</view>
+    <view class="claim-banner">通过后补录清单中的桶、押金和水票，无需重新收款。</view>
     <view class="claim-heading"><text class="claim-title">原清单 #{{selected.id}}</text></view>
     <text class="claim-row">本站 #{{selected.stationId}} · 客户 #{{selected.customerId}}</text>
     <text class="claim-row">提交时间：{{selected.createTime}}</text>
@@ -33,9 +33,9 @@
     <view class="s-claim-section-head"><text class="b3-section-heading">按商品核对资产</text><help-tip title="核对清单" text="原清单不可改写；客户可更正后重新申请。" /></view>
     <view class="claim-line" wx:for="{{selected.items}}" wx:key="productId">
       <text class="claim-title">{{item.name}} {{item.spec}} · 商品 #{{item.productId}}</text>
-      <text class="claim-row">我的桶：{{item.rights}} 个</text>
+      <text class="claim-row">拥有桶数：{{item.rights}} 个</text>
       <text class="claim-row">历史水票：{{item.tickets}} 张</text>
-      <text class="claim-row">以前每桶金额（元/个）：{{item.unitPriceText}}</text>
+      <text class="claim-row">原每桶金额（元/个）：{{item.unitPriceText}}</text>
     </view>
     <text class="claim-error" wx:if="{{selected.assetEmpty && selected.status === 'PENDING'}}">这份旧申请没有可追加资产，请拒绝并让客户重新填写。</text>
     <text class="claim-material">客户说明：{{selected.note}}</text>
@@ -46,7 +46,7 @@
     <view wx:if="{{photoError}}"><text class="claim-error">{{photoError}}</text><button class="af-action af-action--quiet b3-on-retry-photo" bindtap="onRetryPhoto" hover-class="af-action--pressed"><view class="af-action__face">重试照片</view></button></view>
     <text class="claim-material" wx:if="{{selected.reviewNote}}">核对反馈：{{selected.reviewNote}}</text>
     <block wx:if="{{selected.status === 'PENDING' && !pending}}">
-      <text class="claim-muted">有差异请拒绝并说明；已生效差异按资产调整办理。</text>
+      <text class="claim-muted">清单有误请拒绝并说明；已入账的差异可办理资产调整。</text>
       <text class="claim-muted">未提交的核对说明仅在本页保留。</text>
       <textarea class="claim-input claim-textarea" value="{{reviewNote}}" maxlength="500" bindinput="onNote" placeholder="核对说明；拒绝时必填，最多500字" disabled="{{submitting}}" />
       <view class="claim-actions">

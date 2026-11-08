@@ -2,9 +2,9 @@
   <view class="privacy-dialog" aria-role="dialog" aria-label="隐私保护提示">
     <view class="privacy-title">隐私保护提示</view>
     <view class="privacy-content">
-      在使用小程序前，请阅读并同意
+      使用当前功能前，请阅读
       <navigator class="privacy-link" open-type="openPrivacyContract">《隐私保护指引》</navigator>
-      。我们将获取您的位置信息用于收货地址定位。
+      ，了解相关个人信息的处理方式，再决定是否同意。
     </view>
     <view class="privacy-btns">
       <button class="privacy-btn reject af-action af-action--cancel af-action--form" aria-label="拒绝隐私授权" bindtap="onReject">拒绝</button>

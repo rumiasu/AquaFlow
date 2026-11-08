@@ -26,7 +26,7 @@ public class OfflineCosTestConfiguration {
 
     /** 与生产未配置文案保持一致，避免测试依赖不同文案。 */
     public static final String OFFLINE_MESSAGE =
-            "对象存储未配置，图片上传不可用（请补 COS_SECRET_ID / COS_SECRET_KEY）";
+            "图片上传暂不可用，请稍后再试";
 
     @Bean
     @Primary

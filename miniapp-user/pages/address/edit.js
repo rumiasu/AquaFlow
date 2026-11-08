@@ -214,7 +214,7 @@ Page({
       const denied = this.isAccessError(error)
       this.setData({ accessDenied: denied, loadError: denied
         ? '当前账号无法查看此地址，请使用所属客户账号登录。'
-        : '原地址未能读取，请重试。读取成功前无法编辑或保存，原地址不会被空表单覆盖。' })
+        : '原地址暂未加载，请重试后编辑。' })
     } finally {
       if (!this._disposed && readId === this._readId) this.setData({ loading: false })
     }
@@ -447,7 +447,7 @@ Page({
       if (!isEdit && !rejected && !denied) this._lastCreatePayload = JSON.stringify(submitData)
       this.setData({ accessDenied: denied, saveUnknown: false, saveMessage: denied
         ? '当前账号无权保存此地址，输入已保留，请使用客户账号登录。'
-        : serviceMissing ? '地址服务需更新，输入已保留，请更新服务后重试。'
+        : serviceMissing ? '地址服务暂不可用，输入已保留，请稍后重试。'
           : rejected ? '地址未保存，输入已保留，请核对信息后重试。'
           : '暂未收到保存结果，输入已保留，可直接重试。' })
       if (denied) {

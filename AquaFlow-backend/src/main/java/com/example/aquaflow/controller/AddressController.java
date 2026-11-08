@@ -37,7 +37,7 @@ public class AddressController {
     private OrderMapper orderMapper;
 
     private Result<Void> checkCustomerStation(Long customerId) {
-        if (customerId == null) return Result.error("缺少客户ID");
+        if (customerId == null) return Result.error("请选择客户");
         Customer c = customerMapper.getById(customerId);
         if (c == null) return Result.error("客户不存在");
         // 检查客户是否在当前站长的站点有过订单
@@ -82,7 +82,7 @@ public class AddressController {
         }
 
         if (address.getCustomerId() == null) {
-            return Result.error("缺少客户ID");
+            return Result.error("客户信息缺失，请重新选择");
         }
         addressService.save(address);
         return Result.success(address.getId());

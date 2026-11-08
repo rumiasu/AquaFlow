@@ -42,7 +42,7 @@ public final class StationOperatingStatus {
      */
     public static final int PENDING_LAUNCH = 3;
 
-    /** 暂停接单、可预约（今天不送了，订单统一明天处理） */
+    /** 暂停接单、可预约（暂不配送，仍可预约下单） */
     public static final int APPOINTMENT_ONLY = 4;
 
     private StationOperatingStatus() {}
@@ -128,9 +128,9 @@ public final class StationOperatingStatus {
         if (status == null) return "";
         switch (status) {
             case NORMAL: return "照常接单、照常配送";
-            case RESTING: return "暂时打烊，稍后恢复（留言里写恢复时间）";
-            case PENDING_LAUNCH: return "资料还没配齐，尚未正式营业（下方列了待填项）";
-            case APPOINTMENT_ONLY: return "今天不送了，订单统一明天处理";
+            case RESTING: return "暂时休息，仍可下单；可留言说明恢复时间";
+            case PENDING_LAUNCH: return "资料尚未完善，暂不对外营业";
+            case APPOINTMENT_ONLY: return "暂不配送，仍可预约下单";
             default: return "";
         }
     }
@@ -155,10 +155,10 @@ public final class StationOperatingStatus {
             // ⚠️ **待上线的站对顾客不可见**（`StationMapper.listPublic` 与 `StationController.search`
             //    都把 3 滤掉了）—— 顾客根本发现不了这家站，**所以这里不能说"仍可下单"**。
             //    2026-09-24 修：原先把"（仍可下单…）"无条件拼在所有非正常状态后面，对待上线是假话。
-            return base + "（暂不对外营业，顾客在小程序里找不到这家水站）";
+            return base + "（暂不对外营业）";
         }
         // 明确的"不阻断"口径：让客户知道还能下单，避免误以为下不了单
-        return base + "（仍可下单，站长会按上面的说明安排配送）";
+        return base + "（仍可下单，配送时间请与水站确认）";
     }
 
     /**
@@ -172,14 +172,14 @@ public final class StationOperatingStatus {
         if (status == null) return "";
         switch (status) {
             case NORMAL:
-                return "顾客正常下单，商城与下单页都不显示任何提示。";
+                return "正常接单，不额外显示营业状态提醒。";
             case RESTING:
-                return "顾客照常下单，但会在商城与下单页看到「休息中」和你的留言。";
+                return "仍可下单，顾客会看到「休息中」和你的留言。";
             case PENDING_LAUNCH:
-                return "顾客看不到这家水站 —— 选站列表与搜索里都没有它，也就无法下单。"
-                        + "等你把资料配齐、转成「正常运营」之后，它才会出现在顾客面前。";
+                return "顾客暂时无法选到这家水站或下单。"
+                        + "完善必填资料并开始营业后对外显示。";
             case APPOINTMENT_ONLY:
-                return "顾客照常下单，但会看到「暂停配送，可预约」和你的留言。";
+                return "仍可下单，顾客会看到「暂停配送，可预约」和你的留言。";
             default:
                 return "";
         }

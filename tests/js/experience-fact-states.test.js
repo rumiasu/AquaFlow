@@ -213,10 +213,10 @@ test('RETURN: 未领桶权益与实物退还共用提示不强迫无桶交桶，
   ] })
   const visible = t.elements().map(e => e.text).join('\n')
   assert(!visible.includes('确认收到空桶后再处理退款'))
-  assert(visible.includes('核实') && visible.includes('未领桶权益'))
+  assert(visible.includes('核实') && visible.includes('未领桶无需交回'))
   assert(visible.includes('应交回 0 桶') && visible.includes('应交回 2 桶'))
   t.page.onEcoRuleTap(); const content = t.wx.__calls.modal[0].content
-  assert(content.includes('未领桶权益')); assert(content.includes('应交回的空桶') && content.includes('确认收到'))
+  assert(content.includes('未领桶无需交回')); assert(content.includes('已领桶须保持完好并按安排交回') && content.includes('水站核实后办理退款'))
   assert.strictEqual(t.calls.length, 0)
 })
 
@@ -260,7 +260,7 @@ for (const independentRights of [true, false]) {
     if (independentRights) {
       assert(!tip.includes('3 桶'))
       t.page.onToggleReturnRules()
-      assert(t.elements().some(e => e.text.includes('需交回的实物桶仍按批准安排交回')))
+      assert(t.elements().some(e => e.text.includes('水站批准后按安排办理')))
       t.wx.showActionSheet = opts => {
         assert.strictEqual(opts.itemList[0], '到店办理')
         opts.success({ tapIndex: 0 })
@@ -352,7 +352,7 @@ test('CONTRAST: 同名无电话的地址/来源与退款金额/登记核实文�
   assert(userFont, 'refund summary must have an explicit rpx size')
   const userFontRpx = Number(userFont[1])
   assert(userFontRpx >= 24, 'refund summary keeps at least the original readable text size')
-  const nodes = [...t.elements().filter(e => e.text.includes('地址')), ...amounts.elements().filter(e => /^应退押金|^水站登记退款交付时间/.test(e.text))]
+  const nodes = [...t.elements().filter(e => e.text.includes('地址')), ...amounts.elements().filter(e => /^应退押金|^水站登记退款时间/.test(e.text))]
   assert.strictEqual(nodes.length, 4)
   const evidence = nodes.map(e => {
     const staff = e.text.includes('地址'), color = textColor(staff ? staffCss : userCss, e.className, staff ? staffTokens : userTokens)

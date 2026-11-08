@@ -148,7 +148,7 @@ test('asset failed read has Chinese retry copy and remains visible through pendi
   const t = component('AssetStationView', { stations: () => fail ? Promise.reject(Error('NETWORK_TIMEOUT')) : gate.promise })
   await t.p.openPicker(); assert.equal(t.p.data.errorText, '水站列表暂未加载，请重试'); assert(!t.text().includes('NETWORK_TIMEOUT'))
   fail = false; const a = t.p.retry(), b = t.p.retry(); assert.equal(t.calls.length, 2)
-  assert(t.text().includes('水站列表暂未加载')); assert(t.text().includes('正在重试'))
+  assert(t.text().includes('水站列表暂未加载')); assert(t.text().includes('正在重新加载'))
   gate.resolve(ok({ stations: [], hasMore: false, nextStationId: null })); await Promise.all([a, b]); assert.equal(t.p.data.errorText, '')
 })
 test('asset retry keeps successfully loaded rows and uses the original next cursor', async () => {

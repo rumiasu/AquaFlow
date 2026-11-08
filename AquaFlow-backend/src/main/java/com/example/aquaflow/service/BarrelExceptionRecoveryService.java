@@ -148,7 +148,7 @@ public class BarrelExceptionRecoveryService {
                 throw new BusinessException("异常状态已变化，本次还桶未登记，请刷新核对");
             if(actions.append("EXCEPTION",e.getId(),e.getStationId(),actor,1,"RETURN_EMPTY",reason,
                     "return_empty_"+e.getId(),"returned:"+e.getId())!=1)
-                throw new BusinessException("归还处理记录未保存，本次还桶已回滚");
+                throw new BusinessException("归还处理记录未保存，本次还桶登记未生效");
         }
     }
 }

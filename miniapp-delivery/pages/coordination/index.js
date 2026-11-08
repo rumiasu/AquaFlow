@@ -383,7 +383,7 @@ Page({
     const url = this.TODO_ROUTES[key]
     if (!url) {
       // 服务端加了新的待办项而这里还没接页面：出声，不要静默无反应
-      wx.showToast({ title: '该待办暂未接入页面', icon: 'none' })
+      wx.showToast({ title: '该待办暂时无法打开', icon: 'none' })
       return
     }
     wx.navigateTo({ url })
@@ -842,7 +842,7 @@ Page({
     const order = Object.values(this.data.lists || {}).flat().find(row => String(row.id) === String(id))
     const offer = order && order.dispatchAgreement
     if (offer && offer.status === 'OFFERED' && !offer.quoteToken) {
-      wx.showToast({ title: '报价服务需更新，请刷新后重试', icon: 'none' }); return
+      wx.showToast({ title: '本单报价暂未核实，请刷新后重试', icon: 'none' }); return
     }
     // Capture the quote displayed when this dialog opens, not one fetched after confirmation.
     this._assignOffer = { orderId: id, quoteToken: offer && offer.status === 'OFFERED' ? offer.quoteToken : null }
@@ -896,7 +896,7 @@ Page({
         if (res.tapIndex === 0) {
           showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title: '一键外派',
-            content: '将此订单放入抢单池，附近水站可抢单配送。是否继续？',
+            content: '将此订单放入抢单池，其他水站可接单配送。是否继续？',
             confirmText: '确认外派',
             success: async (m) => { if (m.confirm) await this._doOutsource(id, null) }
           })
@@ -974,7 +974,7 @@ Page({
     const order = (this.data.lists.pool || []).find(row => String(row.id) === String(id))
     const offer = order && order.dispatchAgreement
     if (offer && offer.status === 'OFFERED' && !offer.quoteToken) {
-      wx.showToast({ title: '报价服务需更新，请刷新后重试', icon: 'none' }); return
+      wx.showToast({ title: '本单报价暂未核实，请刷新后重试', icon: 'none' }); return
     }
     const quoteToken = offer && offer.status === 'OFFERED' ? offer.quoteToken : null
     const colleagues = this.data.staffList || []
@@ -987,7 +987,7 @@ Page({
       if (this.data.staffListError) {
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '配送员名单没加载出来',
-          content: '本站配送员名单尚未读取，暂不能分配本单。请重新加载后选择配送员。',
+          content: '配送员名单尚未读取，暂不能分配本单。',
           confirmText: '重新加载', cancelText: '暂不分配',
           success: result => { if (result.confirm) this.loadAllData() }
         })
@@ -1069,8 +1069,7 @@ Page({
     const id = e.currentTarget.dataset.id
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '按挂牌价结这一单',
-      content: '改成按挂牌价结后，接单站能拿到更多，多出来的差价由本站承担。'
-        + '系统不会自动改价，也不会改动客户已付的钱。确定要改吗？',
+      content: '本单改按挂牌价结算，增加的差额由本站承担，客户已付金额不变。确认修改？',
       // ⚠️ confirmText 只有 4 个字的位置（微信 showModal 的按钮文案超过 4 字真机上会出问题，
       // 本仓有静态门禁 `modal-copy-limit.test.js` 拦着 —— 它就是把这个改动拦下来的那道闸）。
       confirmText: '按挂牌价',
@@ -1155,8 +1154,8 @@ Page({
       return
     }
     showBusinessModal({ cancelColor: '#637083',
-      title: '同意转单',
-      content: '同意后订单将变为普通待分配状态，届时可分配配送员或外派。',
+      title: '同意退回',
+      content: '同意后订单退回待分配，可重新分配或外派。',
       confirmText: '同意',
       confirmColor: '#1264D6',
       success: async (res) => {
@@ -1189,8 +1188,8 @@ Page({
       return
     }
     showBusinessModal({ cancelColor: '#637083',
-      title: '拒绝转单',
-      content: directed ? '拒绝后保留原配送状态和指派，由履约水站继续处理。' : '拒绝后恢复到申请前的配送状态：未接单仍是待配送，已接单才回到配送中；原指派保留。',
+      title: '拒绝退回',
+      content: directed ? '拒绝后保留原配送状态和安排，仍由接单水站负责。' : '拒绝后恢复申请前的配送状态，仍由原配送员负责。',
       confirmText: '拒绝',
       confirmColor: '#BD3328',
       success: async (res) => {
@@ -1221,7 +1220,7 @@ Page({
     const id = e.currentTarget.dataset.id
     showBusinessModal({ cancelColor: '#637083',
       title: '撤回转单',
-      content: '撤回后订单仍归原配送员配送，对方的待确认列表里也不会再有这条申请。',
+      content: '撤回后仍由原配送员负责，对方将不再收到这条转单申请。',
       confirmText: '撤回',
       confirmColor: '#BD3328',
       success: async (res) => {
@@ -1260,7 +1259,7 @@ Page({
     }
     showBusinessModal({ cancelColor: '#637083',
       title: '退回原水站',
-      content: '本单由别站指定给本站配送。退回后等原水站站长决定：他同意就由原水站重新安排配送，不同意则仍由本站继续配送。',
+      content: '申请需原水站同意；同意后由原水站重新安排，确认前仍由本站负责。',
       confirmText: '确定退回',
       confirmColor: '#A95516',
       success: async (res) => {
@@ -1269,7 +1268,7 @@ Page({
           try {
             await directedReturn(id)
             wx.hideLoading()
-            wx.showToast({ title: '已退回原站，等待对方确认', icon: 'success' })
+            wx.showToast({ title: '已申请退回，等待原站确认', icon: 'success' })
             this.loadAllData()
           } catch (err) {
             wx.hideLoading()

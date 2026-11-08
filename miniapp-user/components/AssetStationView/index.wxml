@@ -27,7 +27,7 @@
     </view>
     <view wx:if="{{errorText}}" aria-role="status">
       <text class="picker-message">{{errorText}}</text>
-      <text class="picker-processing" wx:if="{{loading}}">正在重试，结果尚未确认</text>
+      <text class="picker-processing" wx:if="{{loading}}">正在重新加载…</text>
       <button class="picker-retry af-action af-action--secondary" disabled="{{loading}}" bindtap="retry">{{loading ? '重试中' : '重新加载'}}</button>
     </view>
     <text class="picker-message" wx:elif="{{loading}}">正在加载水站…</text>

@@ -409,7 +409,7 @@ test('both claim screens omit physical and difference fields without renaming as
   for (const path of ['miniapp-user/pages/mine/asset-claims/index.wxml', 'miniapp-delivery/pages/station-mgmt/asset-claims/index.wxml']) {
     const markup = fs.readFileSync(path, 'utf8')
     assert(!/item\.held|item\.over|line\.held|line\.over|data-field="held"|权益|实际持|持桶与|已付押金的桶/.test(markup))
-    assert(markup.includes('我的桶'))
+    assert(markup.includes(path.startsWith('miniapp-user/') ? '我的桶' : '拥有桶数'))
   }
 })
 test('new customer submission strips a stale held field instead of treating it as zero or asset quantity', async () => {

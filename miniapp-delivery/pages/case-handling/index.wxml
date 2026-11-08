@@ -1,16 +1,16 @@
 <view class="case-page">
  <view class="case-head"><text class="case-title">{{kind === 'EXCEPTION' ? '核实异常' : '水站回复'}}</text><text class="case-ref">记录 #{{id}}</text></view>
- <view class="case-note">{{kind === 'EXCEPTION' ? '请核对原事项和实际还桶记录，再按当前可办理的动作处理。结案不代表退款或资产调整。' : '回复与结案记录会显示在顾客的我的反馈中；不代表退款或资产调整。'}}</view>
- <view class="case-card case-subject" wx:if="{{ready}}"><text class="case-label">原事项</text><text class="case-status" wx:if="{{statusText}}">{{statusText}}</text><text class="case-time" wx:if="{{subjectCategory}}">{{subjectCategory}}</text><text class="case-reason">{{subjectText || '原事项摘要暂未提供，可返回原列表核对。'}}</text><text class="case-note" wx:if="{{handlingHint}}">{{handlingHint}}</text><text class="case-note" wx:if="{{blockReason && blockReason !== handlingHint}}">{{blockReason}}</text><button wx:if="{{canReturnEmpty && !pending}}" bindtap="onReturnEmpty" class="af-action af-action--primary af-action--block">办理还桶</button><button wx:if="{{orderId}}" bindtap="onOpenOrder" class="af-action af-action--quiet">查看原订单</button></view>
+ <view class="case-note">{{kind === 'EXCEPTION' ? '核实原事项及实际还桶记录后办理。结案不代表已退款或调整资产。' : '顾客可在“我的反馈”查看回复和结案记录；结案不代表已退款或调整资产。'}}</view>
+ <view class="case-card case-subject" wx:if="{{ready}}"><text class="case-label">原事项</text><text class="case-status" wx:if="{{statusText}}">{{statusText}}</text><text class="case-time" wx:if="{{subjectCategory}}">{{subjectCategory}}</text><text class="case-reason">{{subjectText || '事项摘要未提供，请返回原列表核对。'}}</text><text class="case-note" wx:if="{{handlingHint}}">{{handlingHint}}</text><text class="case-note" wx:if="{{blockReason && blockReason !== handlingHint}}">{{blockReason}}</text><button wx:if="{{canReturnEmpty && !pending}}" bindtap="onReturnEmpty" class="af-action af-action--primary af-action--block">办理还桶</button><button wx:if="{{orderId}}" bindtap="onOpenOrder" class="af-action af-action--quiet">查看原订单</button></view>
  <text wx:if="{{loading}}">正在核对…</text>
  <view class="case-error" wx:if="{{error}}">{{error}}</view><text class="case-result" wx:if="{{result}}">{{result}}</text>
  <view class="case-card" wx:for="{{history}}" wx:key="id"><view class="case-row"><text class="case-status">{{item.label}}</text><text>{{item.stationName || '水站名称待核实'}}</text></view><text class="case-reason">{{item.reason}}</text><text class="case-time">{{item.createTime}}</text></view>
  <text wx:if="{{ready && !history.length}}">暂无办理记录</text>
  <view class="case-card" wx:if="{{(ready && (canReply || canClose || canResolve)) || pending}}">
-  <text class="case-label">{{kind === 'EXCEPTION' ? '核实理由' : '给顾客的回复 / 处理结果'}}</text>
+  <text class="case-label">{{kind === 'EXCEPTION' ? '核实理由' : '回复内容或处理结果'}}</text>
   <textarea value="{{reason}}" bindinput="onReason" disabled="{{busy || pending}}" maxlength="{{kind === 'EXCEPTION' ? 500 : 1000}}" placeholder="请写明核实经过及结果" auto-height />
-  <text class="case-note" wx:if="{{pending}}">原办理结果待核对，重试会沿用原内容，不会另建一次操作。</text>
-  <button wx:if="{{pending}}" bindtap="onRetry" disabled="{{busy}}" loading="{{busy}}" class="af-action af-action--primary">核对 / 重试原办理</button>
+  <text class="case-note" wx:if="{{pending}}">结果待核对，重试沿用原内容，不会重复办理。</text>
+  <button wx:if="{{pending}}" bindtap="onRetry" disabled="{{busy}}" loading="{{busy}}" class="af-action af-action--primary">核对原办理结果</button>
   <block wx:else><button wx:if="{{canResolve}}" bindtap="onResolve" disabled="{{busy}}" loading="{{busy}}" class="af-action af-action--primary">{{resolveActionText}}</button><button wx:if="{{canReply}}" bindtap="onReply" disabled="{{busy}}" loading="{{busy}}" class="af-action af-action--primary">回复顾客</button><button wx:if="{{canClose}}" bindtap="onClose" disabled="{{busy}}" class="af-action af-action--secondary">回复并结案</button></block>
  </view>
  <button wx:if="{{!pending}}" bindtap="onRetry" disabled="{{busy || loading}}" class="af-action af-action--quiet">刷新处理记录</button>

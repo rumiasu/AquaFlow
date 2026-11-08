@@ -38,7 +38,7 @@
       <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/barrel-return/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/returns.png" mode="aspectFit" /><text class="tile-label">退桶审批</text></view>
       <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/customer-feedback/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/feedback.png" mode="aspectFit" /><text class="tile-label">客户反馈</text></view>
       <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/exceptions/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/exception.png" mode="aspectFit" /><text class="tile-label">桶异常处理</text></view>
-      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/waiting.png" mode="aspectFit" /><text class="tile-label">业务待办与退出</text></view>
+      <view class="management-tile af-entry b3-record-entry" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index" hover-class="entry-pressed"><image class="management-icon" src="/assets/management/waiting.png" mode="aspectFit" /><text class="tile-label">业务待办</text></view>
     </view>
   </view>
   <view class="group">

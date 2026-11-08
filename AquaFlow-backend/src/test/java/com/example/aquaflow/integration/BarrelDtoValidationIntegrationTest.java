@@ -69,7 +69,7 @@ class BarrelDtoValidationIntegrationTest extends AbstractIntegrationTest {
         assertFalse(api.isSuccess(), "缺 clientToken 应被拒: " + api);
         // [F-31 2026-09-30] 原来只断言 !isSuccess —— customerId=1 在空库里不存在，
         // 「客户不存在」同样会拒，把 clientToken 的 @NotNull 摘掉这条用例照样绿。现钉住文案。
-        assertTrue(api.message() != null && api.message().contains("缺少幂等 token"),
+        assertTrue(api.message() != null && api.message().contains("提交编号无效，请刷新后重试"),
                 "拒绝必须点名缺的是 clientToken，实际=" + api.message());
     }
 

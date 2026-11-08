@@ -11,13 +11,13 @@ function read(customerId, stationId) {
       || typeof b.note !== 'string' || !['STORE', 'PICKUP', 'COMBINED'].includes(b.pickupMode)
       || (b.pickupMode === 'COMBINED' ? !positive(b.companionOrderId) : b.companionOrderId !== null)
       || typeof b.idempotencyKey !== 'string' || !b.idempotencyKey) {
-      throw new Error('原退还申请凭据无法完整读取，请保留记录并联系原办理水站核对')
+      throw new Error('原退还申请信息未能完整读取，请联系办理水站核对')
     }
   }
   // 旧版没有账号和完整原内容，不能猜归属、补内容或覆盖凭据后发新申请。
   const legacy = wx.getStorageSync('barrel-return-intent')
   if (!saved && legacy && (!legacy.intent || Number(String(legacy.intent).split(':')[0]) === Number(stationId))) {
-    throw new Error('本机有一笔旧退还申请待核对，原账号或内容不完整，请联系原办理水站核对后再办理')
+    throw new Error('有一笔旧退还申请信息不完整，请联系办理水站核对后再申请')
   }
   return saved
 }

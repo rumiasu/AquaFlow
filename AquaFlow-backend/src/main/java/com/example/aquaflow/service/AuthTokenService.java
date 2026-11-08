@@ -341,7 +341,7 @@ public class AuthTokenService {
             throw new BusinessException("该账号已绑定水站，请勿重复创建");
         }
         if (!"STATION_MANAGER".equals(staff.getRole())) {
-            throw new BusinessException("仅 STATION_MANAGER 可创建水站");
+            throw new BusinessException("仅站长可创建水站");
         }
 
         String name = params.getName();
@@ -590,13 +590,13 @@ public class AuthTokenService {
         String refreshToken = params.getRefreshToken();
 
         if (!jwtUtil.validateToken(refreshToken)) {
-            throw new BusinessException("refreshToken已过期，请重新登录");
+            throw new BusinessException("登录已过期，请重新登录");
         }
 
         io.jsonwebtoken.Claims claims = jwtUtil.parseToken(refreshToken);
         String tokenType = claims.get("tokenType", String.class);
         if (!"refresh".equals(tokenType)) {
-            throw new BusinessException("无效的refreshToken");
+            throw new BusinessException("登录信息无效，请重新登录");
         }
 
         TemporaryTestLogin.Account testAccount = null;
@@ -609,7 +609,7 @@ public class AuthTokenService {
         String userType = claims.get("userType", String.class);
 
         if (!"staff".equals(userType) && !"customer".equals(userType)) {
-            throw new BusinessException("无效的refreshToken");
+            throw new BusinessException("登录信息无效，请重新登录");
         }
 
         UserToken storedToken = userTokenMapper.findByRefreshToken(refreshToken);

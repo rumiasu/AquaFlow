@@ -1,6 +1,6 @@
 <view class="guest-guide">
   <text class="guest-guide-title">先看看有哪些水站</text>
-  <text class="guest-guide-hint">不同水站的商品和价格可能不同，登录并选择水站后可查看该站商品。</text>
+  <text class="guest-guide-hint">登录并选择水站后，可查看本站商品与价格。</text>
   <button class="guest-guide-browse" wx:if="{{!open}}" bindtap="open">查看水站</button>
   <block wx:else>
     <view class="guest-guide-head"><text>可选水站</text><button class="guest-guide-close" bindtap="close">收起</button></view>

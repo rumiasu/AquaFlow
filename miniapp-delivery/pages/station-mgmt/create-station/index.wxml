@@ -4,31 +4,31 @@
   <view class="form-card">
     <view class="form-header">
       <view class="lv2-create-head"><view class="af2-icon-tile"><icon name="building" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /></view><text class="form-title">创建水站</text></view>
-      <text class="form-subtitle">未提交内容离页不保存</text>
+      <text class="form-subtitle">未提交的资料仅在本页保留。</text>
     </view>
 
     <text class="lv2-form-group-title">基本资料</text>
     <view class="form-group">
       <text class="form-label">水站名称 <text class="required">*</text></text>
-      <input class="form-input" placeholder="给您的水站起个名字" value="{{stationName}}" bindinput="onStationNameInput" maxlength="30" />
+      <input class="form-input" placeholder="请输入水站名称" value="{{stationName}}" bindinput="onStationNameInput" maxlength="30" />
     </view>
 
     <!-- [2026-09-19] 联系电话改为必填（产品裁定）：客户下单、退桶、催单都靠它，缺了页面只能显示「请咨询客服」。
          此前这里没有输入框，提交时写死 phone:''（见 index.js），后端也不校验。 -->
     <view class="form-group">
       <text class="form-label">联系电话 <text class="required">*</text></text>
-      <input class="form-input" type="number" placeholder="客户联系你用的号码" value="{{phone}}" bindinput="onPhoneInput" maxlength="20" />
+      <input class="form-input" type="number" placeholder="客户可拨打的联系电话" value="{{phone}}" bindinput="onPhoneInput" maxlength="20" />
     </view>
 
     <view bindtap="onChooseLocation" class="form-group location-group {{locationText ? 'location-filled' : ''}} af-entry">
       <view class="lv2-location-label"><icon name="location" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /><text class="form-label">水站位置 <text class="required">*</text></text></view>
       <view class="location-value {{locationText ? '' : 'placeholder'}}">
         <view class="location-text-wrap">
-          <text class="location-text">{{locationText || '点击选择地图位置'}}</text>
+          <text class="location-text">{{locationText || '选择地图位置'}}</text>
           <!-- 省市区由定位结果自动解析回填，不需要站长再手选（见 index.js onChooseLocation） -->
           <text class="location-sub" wx:if="{{regionText}}">省市区：{{regionText}}</text>
           <!-- 标了必填就要真的校验：没坐标 = 算不出距离 = 你设的配送范围整段失效 -->
-          <text class="location-sub warn" wx:else>请选择地图位置，以核对配送范围与距离</text>
+          <text class="location-sub warn" wx:else>配送范围与距离按地图位置计算</text>
         </view>
       </view>
     </view>
@@ -43,7 +43,7 @@
   <view class="secondary-actions">
     <!-- 选择身份只是登记意向，生效前允许改选；生效后后端会拒绝（按钮会给出提示） -->
     <view bindtap="onBackToRoleSelect" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">
-      <text>返回，重新选择身份</text>
+      <text>重新选择身份</text>
     </text></view>
     <view bindtap="onLogout" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">
       <text>退出登录</text>

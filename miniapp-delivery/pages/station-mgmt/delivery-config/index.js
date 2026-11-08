@@ -37,8 +37,8 @@ const LIMIT_MODES = [
 ]
 
 const FLOOR_MODES = [
-  { value: 'PER_ORDER', name: '按单', desc: '每单加收一次，客户更容易接受（推荐）' },
-  { value: 'PER_BUCKET', name: '按桶', desc: '无电梯 2 元/桶这类口头报价，多桶时金额增长快' }
+  { value: 'PER_ORDER', name: '按单', desc: '每单每超出一层收取一次' },
+  { value: 'PER_BUCKET', name: '按桶', desc: '每桶每超出一层分别收取' }
 ]
 
 const THRESHOLD_FIELDS = ['minOrderBuckets', 'minOrderAmount', 'deliveryRadiusM', 'freeDeliveryBuckets', 'freeDeliveryAmount']
@@ -109,11 +109,11 @@ function buildRuleState(form, enabled, configured, savedForm, savedEnabled) {
   if (enabled.freeDeliveryAmount) freeParts.push(Number(form.freeDeliveryAmount) === 0
     ? '0 元门槛（所有非负金额订单都达到）' : `金额 ≥ ${numberText(form.freeDeliveryAmount, ' 元')}`)
   const baseFeeText = form.baseDeliveryFee === '' || form.baseDeliveryFee == null
-    ? '空值保存按现有规则不收费' : Number(form.baseDeliveryFee) === 0 ? '0 元（不收费）' : numberText(form.baseDeliveryFee, ' 元')
+    ? '未填写，保存后不收费' : Number(form.baseDeliveryFee) === 0 ? '0 元（不收费）' : numberText(form.baseDeliveryFee, ' 元')
   const deliveryText = `基础配送费 ${baseFeeText}；${freeParts.length
     ? `达到任一免运费门槛：${freeParts.join('；')}` : '未设置免运费门槛，基础配送费照收'}`
   const floorFree = form.floorFreeLevel === '' || form.floorFreeLevel == null
-    ? '空值保存后按 1 层免费' : `${form.floorFreeLevel} 层免费`
+    ? '未填写，保存后 1 层内免费' : `${form.floorFreeLevel} 层免费`
   const floorFee = Number(form.floorFeePerLevel) > 0
     ? `${numberText(form.floorFeePerLevel, ' 元')}/${form.floorFeeMode === 'PER_BUCKET' ? '桶' : '单'}`
     : '每层费用为空或 0，不收楼层费'
@@ -315,7 +315,7 @@ Page({
       this.setData({
         ...moduleTaskPatch(d, '/pages/station-mgmt/delivery-config/index'),
         rangeHelpText: (pos && !pos.done)
-          ? rangeHelp + '本站还没选点，所以现在这条校验会被跳过、不拦单。'
+          ? rangeHelp + '本站未设置地图位置，暂不限制配送距离。'
           : rangeHelp,
         setup: {
           items,
@@ -548,8 +548,8 @@ Page({
     // 2026-10-26：直接跳到最后一项不等于核对过四项，不能提前给出「四项已核对」。
     this.setData({ completedSections, fieldError: '',
       ...(next ? { activeSection: next, expandedSection: next } : {}),
-      draftNotice: next ? '本项输入已保留，请继续下一项；最后仍需点击底部保存。'
-        : allReviewed ? '四项已核对，请点击底部保存完成上线准备。' : '本项已核对，请继续核对其余项目，最后在底部保存。' },
+      draftNotice: next ? '本项输入已保留，全部修改保存后生效。'
+        : allReviewed ? '四项已核对，保存后生效。' : '本项已核对，其余项目仍待核对。' },
     () => { this.persistFeeDraft(); this.syncFeeExitGuard(); if (next) this.scrollToFeeTarget('#fee-' + next) })
   },
   onFeeFieldConfirm(e) {

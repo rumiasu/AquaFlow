@@ -38,7 +38,7 @@ test('combined view lists product, quantity, unit price, amount and explicit pur
   const full = fs.readFileSync(path.join(repo, 'miniapp-user/pages/order/create.wxml'), 'utf8')
   const source = full.slice(full.lastIndexOf('<!-- ══ 综合确认'), full.lastIndexOf('</view>'))
   const text = renderElements(parseWxml(source), t.page.data, { includeText: true }).map(e => e.text).join('\n')
-  for (const value of ['本次新增桶押金', '清泉水', '新增用桶权益 1 份', '单价 ¥50', '本次桶押金 ¥50', '即同意购买以上用桶权益', '收齐款项后生效']) assert.ok(text.includes(value), value)
+  for (const value of ['本次新增桶押金', '清泉水', '新增桶押金 1 份', '单价 ¥50', '本次桶押金 ¥50', '即同意增交以上桶押金', '收齐后生效']) assert.ok(text.includes(value), value)
 })
 test('cancelling combined consent never authorizes or creates a purchase', async () => {
   const t = fixture(); await t.page.refreshQuote(); await t.page.onSubmit(); t.page.onUnifiedConfirmCancel()
@@ -55,7 +55,7 @@ test('standalone purchase confirmation remains explicit when no combined prompt 
   const t = fixture(1); await t.page.refreshQuote(); await t.page.onSubmit()
   const modal = t.wx.__calls.modal.at(-1)
   assert.ok(modal.title.includes('本次新增桶押金'))
-  for (const text of ['新增用桶权益 1 份', '单价 ¥50.00', '本次桶押金 ¥50.00']) assert.ok(modal.content.includes(text))
+  for (const text of ['新增桶押金 1 份', '单价 ¥50.00', '本次桶押金 ¥50.00']) assert.ok(modal.content.includes(text))
   assert.equal(t.orders.length, 0); modal.success({ confirm: true }); await flush(); assert.equal(t.orders.length, 1)
 })
 test('changed intent cannot use a stale standalone purchase callback', async () => {

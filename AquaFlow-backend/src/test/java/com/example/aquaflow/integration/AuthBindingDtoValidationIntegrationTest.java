@@ -72,7 +72,7 @@ class AuthBindingDtoValidationIntegrationTest extends AbstractIntegrationTest {
         assertTrue(!res.isSuccess(), "缺 staffId 应被拒: " + res);
         // [F-31 2026-09-30] 原来只断言 !isSuccess —— 该站长尚未绑任何配送员，
         // 「找不到员工」同样会拒，摘掉 staffId 的 @NotNull 这条用例仍是绿的。现钉住文案。
-        assertTrue(res.message() != null && res.message().contains("staffId 不能为空"),
+        assertTrue(res.message() != null && res.message().contains("请选择员工"),
                 "拒绝必须来自 staffId 的 @NotNull，实际=" + res.message());
     }
 

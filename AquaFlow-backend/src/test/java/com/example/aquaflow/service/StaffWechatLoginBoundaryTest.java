@@ -97,7 +97,7 @@ class StaffWechatLoginBoundaryTest {
     void providerRuntimeErrorKeepsStaffBusinessClassificationAndStopsBeforeWrites() {
         doThrow(new NumberFormatException("synthetic response code")).when(provider).code2Session(WeChatApp.STAFF, CODE);
         BusinessException failure = assertThrows(BusinessException.class, () -> service.wxLoginStaff(request()));
-        assertEquals("微信登录失败: synthetic response code", failure.getMessage());
+        assertEquals("微信登录暂不可用，请稍后重试", failure.getMessage());
         assertNull(failure.getCause());
         verifyNoInteractions(staffMapper, customerMapper, tokenMapper);
         verify(evidence, never()).recordLogin(anyString(), anyLong(), any());

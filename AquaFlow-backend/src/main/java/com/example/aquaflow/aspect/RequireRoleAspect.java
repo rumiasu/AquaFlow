@@ -75,21 +75,21 @@ public class RequireRoleAspect {
         // （订单图片上传/查看等）。改为按 userType 分派：顾客匹配 "customer"，员工匹配其角色。
         if ("customer".equals(userType)) {
             if (!containsIgnoreCase(allowedSet, "customer")) {
-                throw new BusinessException("权限不足，当前角色：customer");
+                throw new BusinessException("当前客户身份无权使用此功能");
             }
             return joinPoint.proceed();
         }
 
         // 必须是员工类型
         if (!"staff".equals(userType)) {
-            throw new BusinessException("仅员工或客户可访问此接口");
+            throw new BusinessException("请登录后使用此功能");
         }
 
         // 将前端角色名映射回数据库角色名（兼容两套命名）
         String role = mapToFrontendRole(rawRole);
 
         if (!allowedSet.contains(role)) {
-            throw new BusinessException("权限不足，当前角色：" + rawRole);
+            throw new BusinessException("当前身份无权使用此功能");
         }
 
         // 权限通过，执行目标方法

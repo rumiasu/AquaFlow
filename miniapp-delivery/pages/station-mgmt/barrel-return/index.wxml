@@ -53,7 +53,7 @@
     <text class="product-name">{{item.productText}}</text>
     <view class="refund-progress" wx:if="{{item.refundProgress}}"><text>已实退 ¥{{item.paidText}}</text><text>待退 ¥{{item.remainingText}}</text></view>
     <view class="summary-row" wx:if="{{item.isReturn}}">
-      <view class="quantity-summary"><text>{{item.quantity}} 份权益</text><text class="muted">{{item.requiredText}}</text></view>
+      <view class="quantity-summary"><text>退还 {{item.quantity}} 个</text><text class="muted">{{item.requiredText}}</text></view>
       <view class="money-summary"><text class="muted">应退押金</text><text class="refund-amount"><text class="currency">¥</text>{{item.amountText}}</text></view>
     </view>
     <text class="muted" wx:else>数量 {{item.quantity}} 个</text>
@@ -67,7 +67,7 @@
 <view class="sheet-mask" wx:if="{{sheetOpen && selected}}" bindtap="onCloseSheet" catchtouchmove="noop">
   <view class="approval-sheet" catchtap="noop">
     <view class="sheet-grip"></view>
-    <view class="sheet-heading"><view class="flex-text"><text class="sheet-title">办理退还申请</text><text class="record-number">#{{selected.id}} · {{selected.returnDetail ? '申请制退还' : '历史申请'}}</text></view><button class="af-action af-action--cancel b3-on-close-sheet" bindtap="onCloseSheet" disabled="{{actionBusy}}" aria-label="关闭办理详情" hover-class="af-action--pressed">×</button></view>
+    <view class="sheet-heading"><view class="flex-text"><text class="sheet-title">办理退还申请</text><text class="record-number">#{{selected.id}} · {{selected.returnDetail ? '退还申请' : '历史申请'}}</text></view><button class="af-action af-action--cancel b3-on-close-sheet" bindtap="onCloseSheet" disabled="{{actionBusy}}" aria-label="关闭办理详情" hover-class="af-action--pressed">×</button></view>
     <!-- 2026-10-19 M03：就近显示真实角色与办理站，经理一眼分辨「谁在办、办哪个站的哪条申请」 -->
     <view class="sheet-scope" wx:if="{{operatorScopeText}}"><text>{{operatorScopeText}} · {{selected.stationText}}</text></view>
     <scroll-view class="sheet-content" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
@@ -76,7 +76,7 @@
         <view class="card-header"><text class="customer-name flex-text">{{selected.customerText}}</text></view>
         <text class="product-name">{{selected.productText}}</text>
         <view class="sheet-amount"><text class="muted">应退押金</text><text class="large-amount"><text class="currency">¥</text>{{selected.amountText}}</text></view>
-        <view class="summary-chips"><text>{{selected.quantity}} 份权益</text><text>{{selected.requiredText}}</text></view>
+        <view class="summary-chips"><text>退还 {{selected.quantity}} 个</text><text>{{selected.requiredText}}</text></view>
         <view class="refund-progress" wx:if="{{selected.refundProgress}}"><text>已实退 ¥{{selected.paidText}}</text><text>剩余待退 ¥{{selected.remainingText}}</text></view>
       </view>
       <view class="notice error" wx:if="{{loadError}}"><text>{{loadError}}</text><button class="af-action af-action--quiet b3-on-retry" bindtap="onRetry" disabled="{{loading}}" hover-class="af-action--pressed"><view class="af-action__face">重新核对原申请</view></button></view>
@@ -94,7 +94,7 @@
       </view>
       <view class="notice warning" wx:if="{{selected.owedQty > 0}}">该商品欠桶 {{selected.owedQty}} 个，请先核实归还记录。</view>
       <view class="notice" wx:elif="{{selected.storageQty > 0}}">该商品有 {{selected.storageQty}} 个空桶寄存在水站。</view>
-      <view class="notice warning" wx:if="{{selected.physicalBalanceChanged}}"><text>请核对本商品的已有交接与当前实物。已登记的回桶不能重复登记；确有新交回空桶，再办理还空桶后返回原申请。</text><button class="af-action af-action--quiet" bindtap="onReviewReturnEmpty" disabled="{{actionBusy || !recordsReady || recoveryNeeded}}">核对并办理还空桶</button></view>
+      <view class="notice warning" wx:if="{{selected.physicalBalanceChanged}}"><text>请核对本商品交接记录。已登记的空桶勿重复登记；新交回的空桶可办理还空桶。</text><button class="af-action af-action--quiet" bindtap="onReviewReturnEmpty" disabled="{{actionBusy || !recordsReady || recoveryNeeded}}">核对并办理还空桶</button></view>
       <view class="notice warning" wx:if="{{selected.noDeliveryRecord}}">这笔押金没有交付登记。请核实钱是否已交给客户，勿再次退款。</view>
       <view class="timeline">
         <button class="af-action af-action--quiet b3-on-toggle-return-progress" bindtap="onToggleReturnProgress" hover-class="af-action--pressed"><view class="af-action__face">办理记录 · {{returnProgressExpanded ? '收起' : '查看已有记录'}}</view></button>

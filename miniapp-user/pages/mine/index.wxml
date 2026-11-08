@@ -28,7 +28,7 @@
           <view class="asset-heading"><view class="asset-icon"><icon name="wallet" size="20px" color="#1264D6" variant="duotone" fill-color="#EAF2FF" /></view><text class="asset-label">押金余额</text></view>
           <view class="asset-main"><text class="asset-value asset-money {{depositLoaded ? '' : 'asset-value-unloaded'}}">{{depositLoaded ? '¥' + depositText : depositText}}</text><text class="asset-entry">流水 ›</text></view>
         </view>
-        <view class="asset-cell asset-physical" data-url="/pages/barrel/index" bindtap="onMenuTap" aria-role="button" aria-label="查看我的桶与管理办理">
+        <view class="asset-cell asset-physical" data-url="/pages/barrel/index" bindtap="onMenuTap" aria-role="button" aria-label="查看并管理我的桶">
           <view class="asset-heading"><view class="asset-icon"><icon name="barrel" size="20px" color="#1264D6" variant="duotone" fill-color="#EAF2FF" /></view><text class="asset-label">我的桶</text></view>
           <view class="asset-main"><text class="asset-value {{barrelLoaded ? '' : 'asset-value-unloaded'}}">{{barrelText}}<text class="asset-unit" wx:if="{{barrelLoaded}}"> 个</text></text><text class="asset-entry">管理 ›</text></view>
         </view>
@@ -46,13 +46,13 @@
     <!-- 常用操作与低频服务分开，资产流水仍从上方资产卡进入。 -->
     <view class="group-title">常用服务</view>
     <view class="card quick-actions {{isCompany ? 'company-actions' : ''}}">
-      <view class="quick-action" data-url="/pages/payment/records" bindtap="onMenuTap" aria-role="button" aria-label="账单记录"><view class="quick-icon"><icon name="bill" size="20px" color="#1264D6" /></view><text class="quick-label">账单记录</text></view>
+      <view class="quick-action" data-url="/pages/payment/records" bindtap="onMenuTap" aria-role="button" aria-label="付款记录"><view class="quick-icon"><icon name="bill" size="20px" color="#1264D6" /></view><text class="quick-label">付款记录</text></view>
       <view class="quick-action" data-url="/pages/address/list" bindtap="onMenuTap" aria-role="button" aria-label="地址管理"><view class="quick-icon"><icon name="location" size="20px" color="#1264D6" /></view><text class="quick-label">地址管理</text></view>
       <view class="quick-action" data-url="/pages/service/index" bindtap="onMenuTap" aria-role="button" aria-label="意见反馈"><view class="quick-icon"><icon name="chat" size="20px" color="#1264D6" /></view><text class="quick-label">意见反馈</text></view>
       <view class="quick-action" wx:if="{{isCompany}}" data-url="/pages/mine/company" bindtap="onMenuTap" aria-role="button" aria-label="企业资料"><view class="quick-icon"><icon name="building" size="20px" color="#1264D6" /></view><text class="quick-label">企业资料</text></view>
     </view>
     <!-- 3:1 场景位于原生导航下；整卡只有一个点击目标。 -->
-    <view class="scene-entry" data-url="/pages/template/index" bindtap="onMenuTap" aria-role="button" aria-label="常用订水配置">
+    <view class="scene-entry" data-url="/pages/template/index" bindtap="onMenuTap" aria-role="button" aria-label="常用订水清单">
       <image wx:if="{{!entryGraphicFailed}}" class="scene-entry-image" src="{{sceneImageUrl}}" data-src="{{sceneImageUrl}}" mode="aspectFit" binderror="onEntryGraphicError" />
       <view wx:else class="scene-entry-fallback"><icon name="barrel" size="38px" color="#1264D6" /></view>
       <view class="scene-entry-copy"><text class="scene-entry-title">常用订水</text><text class="scene-entry-link">查看清单 ›</text></view>

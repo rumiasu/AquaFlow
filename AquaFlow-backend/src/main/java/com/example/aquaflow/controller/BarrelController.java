@@ -207,12 +207,12 @@ public class BarrelController {
     public Result<?> handleReturn(@PathVariable Long id, @RequestBody(required = false) BarrelRefundDTO dto) {
         Long stationId = AuthContext.requireStationId();
         if (dto == null) {
-            return Result.error("请求体不能为空");
+            return Result.error("提交内容不能为空");
         }
         Integer status = dto.getStatus();
         String handleNote = dto.getHandleNote() != null ? dto.getHandleNote() : "";
         if (status == null) {
-            return Result.error("status 不能为空");
+            return Result.error("请选择处理结果");
         }
 
         // 记录存在性与跨站校验（原先在这里用 Mapper 查）已下沉到 handleBarrelReturn：
@@ -317,7 +317,7 @@ public class BarrelController {
         String clientToken = dto.getClientToken();
         String note = dto.getNote() != null ? dto.getNote() : "";
         if (customerId == null) return Result.error("客户不能为空");
-        if (clientToken == null || clientToken.isEmpty()) return Result.error("缺少幂等 token");
+        if (clientToken == null || clientToken.isEmpty()) return Result.error("提交编号缺失，请重新打开页面");
 
         List<BarrelLedgerService.ItemQty> items = new java.util.ArrayList<>();
         for (BarrelReturnEmptyDTO.BarrelReturnEmptyItemDTO it : dto.getItems()) {

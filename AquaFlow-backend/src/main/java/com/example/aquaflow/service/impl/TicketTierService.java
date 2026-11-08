@@ -207,8 +207,8 @@ public class TicketTierService {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("presets", presets);
         data.put("configured", unifiedConfigured(stationId));
-        data.put("note", "折扣按**各款水自己的水票价**折算：农夫山泉按农夫山泉的价、娃哈哈按娃哈哈的价。"
-                + "某款水自己配了定制票时以定制票为准。");
+        data.put("note", "统一折扣按各商品的水票价计算。"
+                + "商品设有专属档位时，以专属档位为准。");
         return data;
     }
 }

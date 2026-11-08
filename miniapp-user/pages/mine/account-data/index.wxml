@@ -24,7 +24,6 @@
     <text class="title">申请办理范围</text>
     <text class="body">申请查询、更正、导出或删除个人资料，也可申请注销账户。</text>
     <text class="body account-profile-hint">修改昵称或手机号，请在“我的”页面点击顶部个人信息。</text>
-    <view class="account-process" aria-label="办理流程说明"><view class="account-process-step"><text class="account-process-number">1</text><text>登记申请</text></view><text class="account-process-arrow">→</text><view class="account-process-step"><text class="account-process-number">2</text><text>人工核实</text></view><text class="account-process-arrow">→</text><view class="account-process-step"><text class="account-process-number">3</text><text>查看结果</text></view></view>
     <text class="account-process-note">登记后可在“我的记录”查看进度。</text>
     <text class="account-intake-status" wx:if="{{options && !options.intakeEnabled}}">申请暂未开放，可查看已登记记录。</text>
     <text class="body" wx:if="{{options && options.intakeContact}}">受理联系渠道：{{options.intakeContact}}</text>

@@ -20,7 +20,7 @@
          站长若以为"休息中"会挡住下单，就永远不敢用这个功能 —— 那是会做出错决定的信息，
          不能藏进「?」（判据见 components/HelpTip/index.js 边界 1）。
          [2026-09-24] 从 30 字压到 20 字，语义不变。 -->
-    <text class="card-sub">不阻断接单 —— 只改顾客看到的提示，不会拦住下单（「待上线」除外：那种状态下顾客看不到这家站）</text>
+    <text class="card-sub">营业状态仅向顾客显示提示，不限制下单；待上线时水站暂不对顾客展示。</text>
 
     <view class="options">
       <view
@@ -86,7 +86,7 @@
         </view>
       </view>
     </view>
-    <view class="empty" wx:if="{{!noticesLoading && !noticesError && notices.length === 0}}"><text>还没有公告，点右上角「＋ 发公告」</text></view>
+    <view class="empty" wx:if="{{!noticesLoading && !noticesError && notices.length === 0}}"><text>暂无公告</text></view>
     <view class="empty" wx:if="{{noticesLoading}}"><text>加载中...</text></view>
   </view>
 
@@ -103,7 +103,7 @@
 
       <view class="field">
         <text class="label">内容</text>
-        <textarea class="textarea" placeholder="写清楚时间与安排，顾客能看懂为准（点「发布」顾客才看得到）" maxlength="500" value="{{editForm.content}}" data-field="content" bindinput="onNoticeFieldInput"></textarea>
+        <textarea class="textarea" placeholder="填写公告内容，发布后顾客可见" maxlength="500" value="{{editForm.content}}" data-field="content" bindinput="onNoticeFieldInput"></textarea>
       </view>
 
       <!-- [2026-09-26 产品裁定] **一步两键**：右键「发布」= 直接上线（顾客立刻可见）；

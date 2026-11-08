@@ -95,7 +95,7 @@ await test('弹窗文案：说清"发布立刻可见 / 存草稿先留着"，且
 
   const wxml = fs.readFileSync(path.join(__dirname, '..', '..', 'miniapp-delivery',
     'pages', 'station-mgmt', 'station-status', 'index.wxml'), 'utf8')
-  const m = wxml.match(/placeholder="([^"]*顾客能看懂为准[^"]*)"/)
+  const m = wxml.match(/placeholder="([^"]*填写公告内容，发布后顾客可见[^"]*)"/)
   assert.ok(m, '应能找到内容框的 placeholder')
   assert.ok(m[1].indexOf('发布') > -1, '内容提示要提「发布」：' + m[1])
   // 两个按钮的字样

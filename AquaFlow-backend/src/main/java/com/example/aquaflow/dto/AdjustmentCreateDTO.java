@@ -43,7 +43,7 @@ public class AdjustmentCreateDTO {
     private String evidence;
 
     /** 客户端幂等键：同一 token 重复提交返回原单 */
-    @NotBlank(message = "clientToken 不能为空（幂等键）")
-    @Size(max = 64, message = "clientToken 过长")
+    @NotBlank(message = "提交编号无效，请刷新后重试")
+    @Size(max = 64, message = "提交编号无效，请刷新后重试")
     private String clientToken;
 }

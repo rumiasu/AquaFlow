@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "异常订单",
+  "navigationBarTitleText": "桶异常处理",
   "enablePullDownRefresh": true,
   "usingComponents": {}
 }

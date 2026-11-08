@@ -34,13 +34,13 @@ Page({
   onToggleDetails() { this.setData({detailsExpanded:!this.data.detailsExpanded}) },
   data: {
     tab: 'apply', isClosure: false, detailsExpanded:false, checkError:'', options: null, loading: false, error: '', items: [], nextBeforeId: null, selectedIndex: -1,
-    selectedLabel: '请选择请求类型', note: '', submitting: false, pending: false, intentBlocked: false, draftAvailable: false, draftNotice: '', submitNotice: '', detail: null, check: null },
+    selectedLabel: '请选择申请类型', note: '', submitting: false, pending: false, intentBlocked: false, draftAvailable: false, draftNotice: '', submitNotice: '', detail: null, check: null },
   onShow() {
     if (this.data.recordsOnly) return this.loadRecordsOnly()
     if (this._unloaded) return
     if (this._session && !isCurrentSession(this._session)) {
       this._submission = null; this._submissionFlight = null; this._draftGuard = null; this._draftToken = null
-      this.setData({ selectedIndex: -1, selectedLabel: '请选择请求类型', isClosure: false, note: '', items: [], detail: null, check: null, checkError: '' })
+      this.setData({ selectedIndex: -1, selectedLabel: '请选择申请类型', isClosure: false, note: '', items: [], detail: null, check: null, checkError: '' })
     }
     this._session = captureSession(); this._hidden = false; this._epoch = (this._epoch || 0) + 1
     if (this._session.loggedIn && validActor(this._session.customerId)) {
@@ -67,13 +67,13 @@ Page({
     try {
       const res = await api.options()
       if (!this.current(epoch)) return
-      if (!res || !res.data || typeof res.data.intakeEnabled !== 'boolean' || !Array.isArray(res.data.requestTypes)) throw Error('请求设置暂时无法核实')
+      if (!res || !res.data || typeof res.data.intakeEnabled !== 'boolean' || !Array.isArray(res.data.requestTypes)) throw Error('申请设置暂时无法核实')
       const requestTypes = res.data.requestTypes
       const savedIndex = this._submission ? requestTypes.findIndex(t => t.value === this._submission.requestType) : -1
       this.setData({ options: res.data, ...(this._submission ? { selectedIndex: savedIndex, selectedLabel: savedIndex >= 0 ? requestTypes[savedIndex].label : '原申请类型待核实', isClosure: this._submission.requestType === 'CLOSURE' } : {}) })
       await this.loadList(false, epoch)
       if (this.current(epoch)) this._loadedSession = this._session
-    } catch (error) { if (this.current(epoch)) this.setData({ error: (keep ? '刷新失败，以下为上次读取的信息。' : '') + '资料请求信息暂时无法加载，请重试。' }) }
+    } catch (error) { if (this.current(epoch)) this.setData({ error: (keep ? '刷新失败，以下为上次读取的信息。' : '') + '申请信息暂时无法加载，请重试。' }) }
     finally { if (this.current(epoch)) this.setData({ loading: false }) }
   },
   onRetry() { if (!this.data.loading) this.load() },
@@ -131,7 +131,7 @@ Page({
       if (draft.requestType && (index == null || index < 0)) { this.setData({ draftNotice: '原申请类型暂不可选，请稍后重试；草稿仍保留。' }); return }
       const type = index >= 0 && this.data.options.requestTypes[index]
       this._draftBlocked = false; this._draftOwned = true; this._draftLast = draft; this._draftSaved = null
-      this.setData({ selectedIndex: index >= 0 ? index : -1, selectedLabel: type ? type.label : '请选择请求类型', isClosure: !!type && type.value === 'CLOSURE', note: draft.note, draftAvailable: false, draftNotice: '' }, () => this.updateLeaveWarning())
+      this.setData({ selectedIndex: index >= 0 ? index : -1, selectedLabel: type ? type.label : '请选择申请类型', isClosure: !!type && type.value === 'CLOSURE', note: draft.note, draftAvailable: false, draftNotice: '' }, () => this.updateLeaveWarning())
     }
     if (this.data.note || this.data.selectedIndex >= 0) return showBusinessModal({ title: '恢复原输入？', content: '恢复会替换当前填写的内容。', confirmText: '恢复', cancelText: '继续填写', success: res => { if (res.confirm) restore() } })
     restore()
@@ -176,7 +176,7 @@ Page({
     if (this.data.recordsOnly) return
     if (!this.current(this._epoch) || this.data.submitting || this.data.intentBlocked || this.data.loading || !this.data.options || !this.data.options.intakeEnabled) return
     const type = this.data.options.requestTypes[this.data.selectedIndex]
-    if (!this._submission && !type) { wx.showToast({ title: '请选择请求类型', icon: 'none' }); return }
+    if (!this._submission && !type) { wx.showToast({ title: '请选择申请类型', icon: 'none' }); return }
     const payload = this._submission || { requestType: type.value, note: this.data.note.trim(),
       idempotencyKey: 'account-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) }
     this._submission = payload
@@ -194,10 +194,10 @@ Page({
       this._submission = null
       this.clearOwnedDraft()
       if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload()
-      this.setData({ pending: false, note: '', selectedIndex: -1, selectedLabel: '请选择请求类型', isClosure: false, tab: 'records', submitNotice: res.data.notice,
+      this.setData({ pending: false, note: '', selectedIndex: -1, selectedLabel: '请选择申请类型', isClosure: false, tab: 'records', submitNotice: res.data.notice,
         detail: { request: res.data, closureCheck: null, checkNotice: '' } })
       try { await this.loadList(false, epoch) } catch (error) { if (this.current(epoch)) this.setData({ error: '申请已登记，列表暂时无法刷新，可重试查询。' }) }
-    } catch (error) { if (this.current(epoch)) this.setData({ submitNotice: '登记结果尚未确认；重试将使用原提交编号和原申请内容。' }) }
+    } catch (error) { if (this.current(epoch)) this.setData({ submitNotice: '申请结果尚未确认，可重试原申请。' }) }
     finally {
       if (this._submissionFlight === flight) {
         this._submissionFlight = null

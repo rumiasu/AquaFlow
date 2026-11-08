@@ -145,8 +145,8 @@ function offerErrorReport(message, options, session) {
   offeredReports.add(message)
 
   showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-    title: '遇到点问题',
-    content: '系统好像开小差了。要把这个问题告诉水站吗？',
+    title: '服务暂时异常',
+    content: '要将本次错误信息提交给水站吗？',
     confirmText: '上报',
     cancelText: '不用了',
     success: (r) => {
@@ -208,7 +208,7 @@ function submitErrorReport(message, options, session) {
       const error = responseError(res)
       if (error) { failed(error, 'malformed'); return }
       if (res.statusCode === 200 && (res.data.code === 0 || res.data.code === 200)) {
-        wx.showToast({ title: '已上报，水站会尽快处理', icon: 'none' })
+        wx.showToast({ title: '错误信息已提交给水站', icon: 'none' })
       } else if (res.statusCode === 401 || (res.statusCode === 200 && res.data.code === 401)) {
         failed(new Error('登录已过期，请重新登录后上报'), 'expired')
       } else {

@@ -22,9 +22,9 @@ public class AccountClosureCheckService {
     private static final Map<String,String> LABELS=Map.ofEntries(
         Map.entry("ORDER_OPEN","有未完成订单"),Map.entry("DEBT","有待收款订单"),
         Map.entry("PAYMENT_PENDING","有付款或收退款凭据待确认"),Map.entry("DEPOSIT","有押金余额待清结"),
-        Map.entry("BARREL_RIGHTS","有桶权益待清结"),Map.entry("TICKETS","有剩余水票待清结"),
+        Map.entry("BARREL_RIGHTS","有桶资产待退还"),Map.entry("TICKETS","有剩余水票待清结"),
         Map.entry("BARREL_OWED","有欠桶待处理"),Map.entry("BARREL_IN_TRANSIT","有配送中桶待交接"),
-        Map.entry("BARREL_RESERVED","有桶容量用途未结束"),Map.entry("RIGHTS_PURCHASE_PENDING","有押金购买待收款确认"),
+        Map.entry("BARREL_RESERVED","有桶数被订单或退还申请占用"),Map.entry("RIGHTS_PURCHASE_PENDING","有押金购买待收款确认"),
         Map.entry("RETURN_PENDING","有退还申请未完成"),Map.entry("EXCEPTION_OPEN","有服务异常未处理完"),
         Map.entry("MANUAL_REVIEW","有记录需水站人工核实"));
 

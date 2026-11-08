@@ -128,7 +128,7 @@ test('A: 支付接口回应成功但原单回查超时，也只能告知结果�
   assert.strictEqual(t.wx.__calls.modal.length, 1)
   const modal = t.wx.__calls.modal[0]
   assert.match(modal.title, /(?:付款|支付).*待确认|(?:付款|支付)结果未知/)
-  assert(modal.content.includes('订单号 777') && modal.content.includes('暂时查不到是否已付款'))
+  assert(modal.content.includes('订单号 777') && modal.content.includes('付款结果待确认'))
   assert.strictEqual(modal.confirmText, '查原单')
   assert.strictEqual(modal.cancelText, '再试一次')
   assert.strictEqual(t.writes.length, 1); assert.strictEqual(t.payments.length, 1)
@@ -339,7 +339,7 @@ test('F: 原退桶申请在待交接和登记退款后持续展示应退额，�
     const visible = renderElements(root, t.page.data, { includeText: true }).map(e => e.text).join('\n')
     record({ state, visible })
     assert(visible.includes('应退押金') && visible.includes(state.depositRefund), 'the original application must show its own refund amount, including zero')
-    if (state.refundPaidTime) assert(visible.includes('水站登记退款交付时间') && visible.includes('如实际未收到'))
+    if (state.refundPaidTime) assert(visible.includes('水站登记退款时间') && visible.includes('如实际未收到'))
     assert(!/已经到账|实际已到账/.test(visible))
   }
 })

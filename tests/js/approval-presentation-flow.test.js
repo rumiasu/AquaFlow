@@ -81,7 +81,7 @@ function setup(initial, options = {}) {
     assert.equal(t.page.data.selected.requiredText, '无需实际交桶')
     assert.equal(t.page.data.selected.primaryAction, 'receive')
     const action = t.page.onApprove(event(77)); await tick()
-    assert.match(t.calls.modals[0].content, /无需实际收到空桶/)
+    assert.match(t.calls.modals[0].content, /未领用部分，无需收桶。确认后仍须办理押金退款/)
     t.calls.modals[0].success({ confirm: true }); await action
     assert.deepEqual(t.calls.writes.map(w => w.kind), [2]); assert.equal(t.page.data.selected.needsRefund, true)
   })

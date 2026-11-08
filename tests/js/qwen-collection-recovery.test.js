@@ -49,7 +49,7 @@ for (const kind of ['detail', 'home']) {
   test(kind + ' confirmation names exact amount and cash bookkeeping consequence', async () => {
     const t = fixture(kind), { pending, modal } = await start(t)
     assert.ok(modal.content.includes('¥48.25')); assert.ok(modal.content.includes('不会向客户扣款'))
-    assert.ok(modal.content.includes('请勿再次')); modal.success({ confirm: false }); await pending
+    assert.ok(modal.content.includes('请勿重复收款')); modal.success({ confirm: false }); await pending
   })
   for (const value of [null, '', ' ', false, 'garbage', -1, '12.345', Infinity]) {
     test(kind + ' blocks invalid collection amount ' + JSON.stringify(value), async () => {

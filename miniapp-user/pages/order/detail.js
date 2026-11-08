@@ -172,7 +172,7 @@ Page({
       const deliveredAwaitingCollection = order.status === 3 && order.needCollect === true
         && (order.payState === 'PENDING' || order.payState === 'UNPAID')
       const payHint = deliveredAwaitingCollection
-        ? '本单已送达，货款待确认收款。请与配送员或水站核对收款情况。'
+        ? '本单已送达，待确认收款。已付款的，请联系配送员或水站核对。'
         : order.payHint || ''
 
       // 费用明细：全部用后端下发的金额字段，前端口径只做格式化
@@ -208,7 +208,7 @@ Page({
       const message = errorText(err, '订单暂时无法加载，请重试')
       // OrderController.getById 对不存在的订单返回这一精确业务错误；权限错误另行显示。
       if (keep && !/无权|权限|登录|不存在/.test(message)) {
-        this.setData({ refreshNotice: '刷新失败，以下为上次读取的信息，付款与取消需重新核对后操作。' + message, canCancel: false, canRepay: false })
+        this.setData({ refreshNotice: '刷新失败，暂显示上次读取的信息。重新加载后可付款或取消订单。' + message, canCancel: false, canRepay: false })
       } else this.clearDetail(message === '订单不存在' ? 'notfound' : 'error', message)
     } finally {
       if (!this._destroyed && context.seq === this._detailSeq && !isCurrentSession(context.session)) {

@@ -111,7 +111,7 @@ public class DispatchAgreementService {
             if(net!=0)items.add("商品 "+line.getProductId()+"：净送出 "+net+" 个；正数归属站补履约站，负数反向交桶");
         }
         if(mapper.delivered(order.getId(),qty,String.join("；",items),disputed,disputed?"实际收发与预计不同，请两站核实桶来源、数量和责任后确认方案":null)!=1)
-            throw new BusinessException("外派实交桶凭据未保存，本次完成配送回滚");
+            throw new BusinessException("外派交桶记录未保存，本次送达登记未生效");
     }
     @Transactional public void dispute(Long order,Long station,String note) {
         if(note==null || note.isBlank() || note.length()>500)throw new BusinessException("请填写桶来源、损坏或交接争议及凭据，最多500字");

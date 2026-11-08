@@ -17,7 +17,7 @@ public class AuthRequestDTO {
     /** POST /api/auth/wx-login：顾客微信登录 */
     @Data
     public static class WxLogin {
-        @NotBlank(message = "登录code不能为空")
+        @NotBlank(message = "登录凭据已失效，请重新登录")
         private String code;
         @Valid private AgreementLoginDTO agreement;
     }
@@ -25,7 +25,7 @@ public class AuthRequestDTO {
     /** POST /api/auth/wx-login-staff：配送端微信登录（同 WxLogin 形状） */
     @Data
     public static class WxLoginStaff {
-        @NotBlank(message = "登录code不能为空")
+        @NotBlank(message = "登录凭据已失效，请重新登录")
         private String code;
         @Valid private AgreementLoginDTO agreement;
     }
@@ -33,8 +33,8 @@ public class AuthRequestDTO {
     /** POST /api/auth/select-role：首次进入配送端选择角色 */
     @Data
     public static class SelectRole {
-        @NotBlank(message = "角色参数非法")
-        @Pattern(regexp = "STATION_MANAGER|DELIVERY", message = "角色参数非法")
+        @NotBlank(message = "请选择有效的身份")
+        @Pattern(regexp = "STATION_MANAGER|DELIVERY", message = "请选择有效的身份")
         private String role;
 
         private String nickname;
@@ -90,7 +90,7 @@ public class AuthRequestDTO {
     @Data
     public static class BindStaff {
         /** {@code wx.login} 的临时登录凭证（换 openid 用）—— **不是**绑定码。 */
-        @NotBlank(message = "登录code不能为空")
+        @NotBlank(message = "登录凭据已失效，请重新登录")
         private String code;
 
         /** 站长签发的一次性绑定码（6 位数字、10 分钟有效、用一次即废）。 */
@@ -131,7 +131,7 @@ public class AuthRequestDTO {
     /** POST /api/auth/refresh：刷新 token */
     @Data
     public static class Refresh {
-        @NotBlank(message = "refreshToken不能为空")
+        @NotBlank(message = "登录已失效，请重新登录")
         private String refreshToken;
     }
 

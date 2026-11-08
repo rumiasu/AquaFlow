@@ -58,7 +58,7 @@ Page({
   onLogout() {
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
-      content: '退出后可用其他微信账号登录。',
+      content: '确认退出当前登录？',
       confirmText: '退出',
       success: (res) => {
         if (res.confirm) getApp().logout()
@@ -134,7 +134,7 @@ Page({
       return
     }
     if (!locationText) {
-      wx.showToast({ title: '请选择水站位置（配送范围靠它判断）', icon: 'none' })
+      wx.showToast({ title: '请选择水站位置', icon: 'none' })
       return
     }
 

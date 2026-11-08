@@ -74,7 +74,7 @@ public class ManagerStationStatusController {
             //    改成「待上线」）时必然会漏改，而错误提示恰恰是站长唯一能看到的"合法取值说明书"。
             //    ⚠️ 用 isSelectable 而不是 isValid：3「待上线」是**系统状态**，不是可选项
             //    （2026-09-24 产品裁定：只有刚注册的站才可能是它，站长不能自己设）。
-            return Result.error("营业状态取值非法（" + StationOperatingStatus.selectableText() + "）");
+            return Result.error("请选择有效营业状态（" + StationOperatingStatus.selectableText() + "）");
         }
         String note = body.get("note") == null ? null : String.valueOf(body.get("note")).trim();
         if (note != null && note.length() > NOTE_MAX) {
@@ -99,7 +99,7 @@ public class ManagerStationStatusController {
         if (StationOperatingStatus.isPendingLaunch(current.getOperatingStatus())) {
             // ⚠️ NORMAL 是 int 基本类型，写 `NORMAL.equals(status)` 编译不过；直接比数值
             if (status == null || status.intValue() != StationOperatingStatus.NORMAL) {
-                return Result.error("水站还在待上线，配齐资料后才能开始营业");
+                return Result.error("水站尚未上线，完善必填资料后可开始营业");
             }
             Map<String, Object> guide = stationSetupGuideService.guide(stationId);
             // ⚠️ **只卡必填（P0）**，不卡建议/可选（2026-09-24 产品裁定："水票不该强制"）。
@@ -109,7 +109,7 @@ public class ManagerStationStatusController {
                     ? ((Number) guide.get("p0PendingCount")).intValue() : 0;
             if (pending > 0) {
                 // 说清"还差几项"而不是一句"不能设置" —— 站长据此才知道去哪儿补
-                return Result.error("还有 " + pending + " 项必填资料没配好，配齐后才能开始营业（营业状态小框里能看到是哪几项）");
+                return Result.error("还有 " + pending + " 项必填资料未完成，请在营业状态中查看");
             }
         }
 

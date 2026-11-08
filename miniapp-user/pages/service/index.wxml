@@ -36,12 +36,12 @@
     <block wx:if="{{refundRef}}">
       <text class="service-label">{{refundRef.objectText || '正在核对退款记录'}}</text>
       <text class="service-label" wx:if="{{refundLoading}}">正在重新核对退款信息{{refundStale ? '，以下为上次读取的记录' : ''}}…</text>
-      <text class="service-label">仅本人和负责这笔退款的水站可查看，本条沟通需保留身份。</text>
+      <text class="service-label">仅本人及负责此退款的水站可查看，不能匿名提交。</text>
       <view class="load-error" wx:if="{{refundError}}"><text>{{refundError}}</text><view class="af-action af-action--quiet" bindtap="onRetryRefund"><text class="af-action__face">重试</text></view></view>
       <view wx:if="{{(refundReady || refundStale) && dispute}}">
         <text class="service-label">{{dispute.statusText}}</text>
         <text class="service-label" wx:if="{{dispute.lastResult}}">水站已登记结果：{{dispute.lastResult}}</text>
-        <text class="service-label">水站可登记结果并结案，无需你确认；不改变退款资格或实际退款，仍可再次提出异议。</text>
+        <text class="service-label">水站可登记结果并结案，不改变退款资格或实际退款；仍可再次提出异议。</text>
         <!-- 2026-10-23：目的不能只靠 placeholder，输入后仍须区分异议与补充说明。 -->
         <view class="refund-purpose" wx:if="{{dispute.canOpen || pendingDispute}}">
           <text class="refund-purpose-title">提出退款异议</text>
@@ -70,7 +70,7 @@
     <view class="refund-note-toggle" wx:if="{{refundRef}}" bindtap="onToggleRefundNote">{{showRefundNote ? '收起补充说明' : '补充退款说明（选填）'}} {{showRefundNote ? '⌃' : '⌄'}}</view>
     <view class="refund-purpose" wx:if="{{refundRef && (showRefundNote || pendingRefundNote)}}">
       <text class="refund-purpose-title">补充退款说明（选填）</text>
-      <text class="refund-purpose-note">给同一笔退款补充事实或证据；提交只保存说明，不会办理退款或改变金额。</text>
+      <text class="refund-purpose-note">补充本笔退款的事实或证据，不会直接退款或改变金额。</text>
     </view>
     <text class="field-label" wx:if="{{!refundRef}}">问题或建议</text>
     <block wx:if="{{!refundRef || showRefundNote || pendingRefundNote}}">
@@ -93,7 +93,7 @@
     <view class="anonymous-row" wx:if="{{!refundRef}}">
       <view class="anonymous-text">
         <text class="anonymous-label">匿名提交</text>
-        <text class="anonymous-desc" wx:if="{{anonymous}}">匿名后水站无法识别你；填写联系方式仍可联系你。</text>
+        <text class="anonymous-desc" wx:if="{{anonymous}}">不向水站显示你的姓名；填写的联系方式仍会显示。</text>
       </view>
       <switch checked="{{anonymous}}" bindchange="onAnonymousChange" />
     </view>

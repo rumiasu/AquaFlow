@@ -70,8 +70,8 @@ public class AdjustType {
     public static String textOf(String type) {
         if (type == null) return "资产调整";
         switch (type) {
-            case BARREL_GRANT:   return "补录桶权益";
-            case BARREL_REVOKE:  return "撤销桶权益";
+            case BARREL_GRANT:   return "补录桶数";
+            case BARREL_REVOKE:  return "扣减桶数";
             case OVER_ADJUST:    return "订正欠桶";
             case DEPOSIT_GRANT:  return "补录押金";
             case DEPOSIT_DEDUCT: return "扣减押金";

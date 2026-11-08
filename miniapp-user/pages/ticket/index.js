@@ -21,7 +21,7 @@ function viewError(error, fallback = '暂时无法完成，请稍后重试') {
 }
 
 Page({
-  onExitHelp() { showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title:'剩余水票退出',content:'请联系原购买水站，站长核实原购买批次、剩余张数及退款金额后办理。已用票不退；赠票及没有原款来源的批次须另行核实。退票与退桶、退押金分别办理。',showCancel:false }) },
+  onExitHelp() { showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title:'剩余水票退还',content:'请联系购票水站核对剩余张数和退款金额。已用票不退；赠票或缺少付款记录的水票需另行核实。退票与退桶、退押金分别办理。',showCancel:false }) },
   data: {
     loading: true, uiDraftAvailable: false, uiDraftError: '',
     refreshing: false,
@@ -101,7 +101,7 @@ Page({
     assetViewStation.suspend(this)
     // 2026-10-26：旧档位回调离页后会失效，原加载锁却未释放，返回后无法就近重试。
     if (this.data.packagesLoading) this.setData({ packagesLoading: false, packagesLoaded: false,
-      packagesError: '购票档位读取已暂停，请重新加载；所选商品保持不变。' })
+      packagesError: '水票套餐加载已暂停，请重新加载。' })
   },
   onUnload() { this.onHide() },
   async onShow() {
@@ -375,7 +375,7 @@ Page({
         buyProducts: productsOK ? productsRes.data.filter(p => p.ticketEnabled === 1 || p.category === 1) : [],
         buyProductOptions: productsOK ? productsRes.data.filter(p => p.ticketEnabled === 1 || p.category === 1).map(p => ({
           id: p.id, name: p.name, spec: p.spec || '', image: p.imageUrl || '', priceText: '选择后查看水票套餐' })) : [],
-        loadError: !accountsOK || !recordsOK || !productsOK ? '部分水票数据未更新；标记“上次读取”的内容请重新核对，未加载项不代表 0。' : '' })
+        loadError: !accountsOK || !recordsOK || !productsOK ? '部分水票信息未能更新，暂显示上次记录。请重新加载核对。' : '' })
       this._lastAssetScope = context
     } catch (error) {
       if (assetViewStation.current(this, context)) this.setData({ accountsFailed: true, recordsFailed: true, productsFailed: true,
@@ -434,7 +434,7 @@ Page({
     if (result.state !== 'saved') return this.readUiDraft()
     const inputBefore = JSON.stringify({ form: { productId: this.data.buyForm.productId, selectedTierKey: this.data.buyForm.selectedTierKey || '', copies: this.data.buyForm.copies == null ? 1 : this.data.buyForm.copies } })
     this._uiDraftRestoring = true
-    showBusinessModal({ title: '恢复暂存填写', content: '恢复会替换本页尚未提交的输入。仍需按当前商品与金额核实后正式提交。', confirmText: '恢复填写', cancelText: '取消',
+    showBusinessModal({ title: '恢复暂存填写', content: '恢复后将替换本页未提交的内容，金额按当前套餐重新核对。', confirmText: '恢复填写', cancelText: '取消',
       success: async response => {
         if (!response.confirm || this.data.submitting || this.data.recoveringPurchase || this.data.pendingPurchase || this.data.purchaseStorageError || inputBefore !== JSON.stringify({ form: { productId: this.data.buyForm.productId, selectedTierKey: this.data.buyForm.selectedTierKey || '', copies: this.data.buyForm.copies == null ? 1 : this.data.buyForm.copies } })) return
         const latest = guard.read(token)
@@ -512,7 +512,7 @@ Page({
     }
     if (!this.data.buyForm.productId || this.data.pendingPurchase) return close()
     this._closePurchasePrompt = true
-    showBusinessModal({ title: '暂存这次选购？', content: '所选商品、套餐和份数会保留在本页，再次打开可继续。尚未发起购买。',
+    showBusinessModal({ title: '暂存这次选购？', content: '选购内容将暂存，尚未发起购买。',
       confirmText: '暂存关闭', cancelText: '继续选购', success: res => { if (res.confirm) close() },
       complete: () => { this._closePurchasePrompt = false } })
   },
@@ -571,12 +571,12 @@ Page({
     try {
       const res = await getTicketPackages(context.stationId, productId)
       if (!assetViewStation.current(this, context) || String(this.data.buyForm.productId) !== String(productId) || !this.data.showPurchase) return
-      if (!res || res.code !== 0 || !Array.isArray(res.data)) throw new Error('购票档位暂未加载，请重试')
+      if (!res || res.code !== 0 || !Array.isArray(res.data)) throw new Error('水票套餐未能加载，请重试')
       const amountKnown = value => ['number', 'string'].includes(typeof value) && String(value).trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0
       if (res.data.some(row => !row || !Number.isSafeInteger(Number(row.qty)) || Number(row.qty) <= 0
         || !amountKnown(row.price) || !amountKnown(row.unitPrice)
         || !['CUSTOM', 'UNIFIED', 'RETAIL'].includes(row.source) || row.source === 'RETAIL' && Number(row.qty) !== 1
-        || row.source === 'CUSTOM' && !(Number(row.packageId || row.id) > 0))) throw new Error('购票档位金额或张数尚未核实，请重试')
+        || row.source === 'CUSTOM' && !(Number(row.packageId || row.id) > 0))) throw new Error('套餐金额或张数尚未核实，请重试')
       this.setData({ buyPackages: res.data.map(row => ({ ...row, selectionKey: row.source + ':' + (row.packageId || row.id || row.qty) })), packagesLoaded: true })
     } catch (err) {
       if (!assetViewStation.current(this, context) || String(this.data.buyForm.productId) !== String(productId) || !this.data.showPurchase) return
@@ -586,7 +586,7 @@ Page({
       //（AGENTS §8.22）。套餐未核实时保留内容，并提示重新读取后再选择。
       console.warn('[Ticket] load ticket packages failed:', err && err.message)
       this.setData({ packagesError: '购票套餐尚未读取，请重试后选择套餐。' })
-      wx.showToast({ title: '优惠档位没加载出来', icon: 'none' })
+      wx.showToast({ title: '水票套餐未能加载', icon: 'none' })
     } finally {
       if (assetViewStation.current(this, context) && String(this.data.buyForm.productId) === String(productId) && this.data.showPurchase) this.setData({ packagesLoading: false })
     }
@@ -707,7 +707,7 @@ Page({
       if (!replay) {
         const rights = await getBarrelSummaryByType(saved.body.stationId)
         const holding = (rights.data || []).find(h => String(h.productId || h.waterTypeId) === String(productId))
-        if (holding && holding.independentRights && !(holding.assetQty > 0)) throw new Error('请先购买该桶权益')
+        if (holding && holding.independentRights && !(holding.assetQty > 0)) throw new Error('请先交该商品的桶押金')
       }
       if (!isCurrentSession(session) || String(getCustomerId()) !== String(saved.customerId)) throw new Error('登录身份已变化，请重新进入')
       this.savePurchaseIntent(saved)
@@ -726,7 +726,7 @@ Page({
       if (status === 1) {
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '等待到账',
-          content: '水站还没确认收到这笔钱，确认后水票自动到账。如已付款较长时间仍未到账，请联系水站。',
+          content: '水站尚未确认收款，确认后水票到账。如已付款，请联系水站核实。',
           showCancel: false,
           confirmText: '知道了'
         })
@@ -735,7 +735,7 @@ Page({
       if (!isCurrentSession(session)) return
       console.error('Purchase ticket error:', error)
       if ((viewError(error, '')).includes('先') && (viewError(error, '')).includes('桶')) {
-        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '先交桶押金', content: viewError(error, '请先核实该商品的用桶权益。'), confirmText: '交桶押金', success: (r) => {
+        showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '先交桶押金', content: viewError(error, '请先核实该商品的桶押金。'), confirmText: '交桶押金', success: (r) => {
           if (r.confirm) wx.navigateTo({ url: '/pages/barrel/purchase?stationId=' + saved.body.stationId + '&productId=' + productId })
         } })
       } else {

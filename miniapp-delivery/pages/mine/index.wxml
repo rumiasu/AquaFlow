@@ -161,7 +161,7 @@
       <view class="station-info-empty" wx:else>
         <!-- [2026-09-20] 空态分两种：stationInfo 为空可能是"还没建站"，也可能是这次没查到。
              ⚠️ 本页没开 enablePullDownRefresh，所以只能说"切走再切回来"（见 onShow 会重新拉取）。 -->
-        <text wx:if="{{stationInfoError}}">水站信息没加载出来（{{stationInfoError}}），不代表没建站；请重新读取后核对</text>
+        <text wx:if="{{stationInfoError}}">水站资料暂未读取：{{stationInfoError}}</text>
         <text wx:else>暂未创建水站，请前往创建</text><button wx:if="{{stationInfoError}}" bindtap="onRetryRoleData" class="af-action af-action--quiet"><view class="af-action__face">重新读取水站资料</view></button>
       </view>
     </view>
@@ -191,14 +191,14 @@
       <block wx:if="{{staffExpanded}}">
       <view class="mgmt-tabs">
         <text bindtap="onMgmtTabSwitch" data-tab="0" class="af-choice b2-choice {{mgmtActiveTab === 0 ? 'af-choice--selected' : ''}}"><text class="af-choice__face"><text class="af-choice__mark" wx:if="{{mgmtActiveTab === 0}}">✓</text>配送员管理 <text class="tab-count" wx:if="{{staffList.length > 0}}">{{staffList.length}}</text></text></text>
-        <text bindtap="onMgmtTabSwitch" data-tab="1" class="af-choice b2-choice {{mgmtActiveTab === 1 ? 'af-choice--selected' : ''}}"><text class="af-choice__face"><text class="af-choice__mark" wx:if="{{mgmtActiveTab === 1}}">✓</text>绑定申请 <text class="tab-count tab-badge" wx:if="{{bindApplications.length > 0}}">{{bindApplications.length}}</text></text></text>
+        <text bindtap="onMgmtTabSwitch" data-tab="1" class="af-choice b2-choice {{mgmtActiveTab === 1 ? 'af-choice--selected' : ''}}"><text class="af-choice__face"><text class="af-choice__mark" wx:if="{{mgmtActiveTab === 1}}">✓</text>绑定 / 解绑申请 <text class="tab-count tab-badge" wx:if="{{bindApplications.length > 0}}">{{bindApplications.length}}</text></text></text>
       </view>
 
       <!-- 配送员列表 -->
       <view wx:if="{{mgmtActiveTab === 0}}">
         <view class="mgmt-empty" wx:if="{{staffReadReady && !staffReadLoading && !staffReadError && staffList.length === 0}}">
           <text>暂无配送员</text>
-          <text class="mgmt-empty-hint">待配送员提交绑定申请后，可在「绑定申请」页签 审核</text>
+          <text class="mgmt-empty-hint">配送员申请加入后，可在“绑定申请”审核。</text>
         </view>
         <view class="staff-item" wx:for="{{staffList}}" wx:key="id" wx:for-item="s">
           <view class="staff-avatar">{{s._firstChar || '配'}}</view>
@@ -221,7 +221,7 @@
       <!-- 绑定申请列表 -->
       <view wx:if="{{mgmtActiveTab === 1}}">
         <view class="mgmt-empty" wx:if="{{applicationsReadReady && !applicationsReadLoading && !applicationsReadError && bindApplications.length === 0}}">
-          <text>暂无绑定申请</text>
+          <text>暂无绑定或解绑申请</text>
         </view>
         <view class="staff-item" wx:for="{{bindApplications}}" wx:key="id" wx:for-item="a">
           <view class="staff-avatar staff-avatar-blue">{{a._firstChar || '申'}}</view>
@@ -240,7 +240,7 @@
 
       <!-- 折叠态：给一句能行动的实话（有待审批时点名条数，别让站长以为没事） -->
       <view class="staff-folded-hint" wx:elif="{{bindApplications.length > 0}}">
-        <text>有 {{bindApplications.length}} 条绑定 / 解绑申请待审批，展开后可同意或拒绝</text>
+        <text>有 {{bindApplications.length}} 条绑定 / 解绑申请待审批</text>
       </view>
     </view>
   </block>

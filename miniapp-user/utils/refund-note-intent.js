@@ -6,7 +6,7 @@ function read(actor, type, id) {
   if (value.actor !== actor || value.refundType !== type || value.refundId !== id ||
       typeof value.idempotencyKey !== 'string' || !value.idempotencyKey ||
       typeof value.content !== 'string' || typeof value.contact !== 'string') {
-    throw new Error('上次说明记录无法识别，请保留现场并联系水站')
+    throw new Error('上次说明记录无法识别，请联系水站核对')
   }
   return value
 }

@@ -252,7 +252,7 @@ public class ApprovedBarrelReturnService {
         mockPolicy.markRefund(original,refund);
         refund.setCreateTime(LocalDateTime.now()); refund.setUpdateTime(LocalDateTime.now()); paymentMapper.insert(refund);
         if(detailMapper.feeRefund(paymentId,refund.getId(),record.getId(),original.getAmount(),AuthContext.getUserId(),note)!=1
-                || paymentMapper.updateStatusTo(paymentId,PaymentStatus.REFUNDED,PaymentStatus.PAID)!=1)throw new BusinessException("收桶费退款状态已变更，操作已回滚");
+                || paymentMapper.updateStatusTo(paymentId,PaymentStatus.REFUNDED,PaymentStatus.PAID)!=1)throw new BusinessException("收桶费退款状态已变化，本次登记未生效，请核对原退款");
         return true;
     }
     private void cancelUnpaidFee(BarrelReturnDetail detail) {
@@ -330,7 +330,7 @@ public class ApprovedBarrelReturnService {
             if(original==null || original.getPaymentMethod()==null || !Set.of(PayMethod.CASH,PayMethod.WECHAT).contains(original.getPaymentMethod()))throw new BusinessException("原押金收款凭据未能核对，请保留原资产");
         }
         if (recordMapper.setPendingRefund(record.getId(),amount) != 1)
-            throw new BusinessException("退桶金额快照未保存，请重新申请");
+            throw new BusinessException("退桶金额未能保存，请核对原申请后重试");
         record.setDepositRefund(amount);
         return result(record,detailMapper.get(record.getId()));
     }
@@ -346,7 +346,7 @@ public class ApprovedBarrelReturnService {
         BigDecimal fee = dto.getPickupFee();
         if (fee == null || fee.signum()<0 || fee.compareTo(new BigDecimal("10000"))>0) throw new BusinessException("取桶费用不合法");
         if ((!"PICKUP".equals(detail.getPickupMode()) || detail.getRequiredBarrels()==0) && fee.signum()!=0)
-            throw new BusinessException("到店、顺路或未领桶的权益退还不收独立上门费");
+            throw new BusinessException("到店、随单收桶或未领桶退押金，不收单独上门费");
         if("COMBINED".equals(detail.getPickupMode()))requireCompanion(record.getCustomerId(),stationId,detail.getCompanionOrderId());
         Long paymentId = null;
         if (fee.signum()>0) {
@@ -431,7 +431,7 @@ public class ApprovedBarrelReturnService {
                 || detailMapper.changeArrangement(record.getId(),mode,dto.getCompanionOrderId())!=1)throw new BusinessException("安排已变化，请重新核对原申请");
         BarrelReturnDetail changed=requireDetail(record.getId());
         if(arrangementMapper.record(record.getId(),changed.getArrangementVersion(),actor,actorId,key,digest,reason,before,arrangementSnapshot(changed))!=1)
-            throw new BusinessException("安排变更凭据未保存，本次变更已回滚");
+            throw new BusinessException("安排变更记录未保存，本次变更未生效");
         return result(record,detailMapper.get(record.getId()));
     }
 
@@ -687,7 +687,7 @@ public class ApprovedBarrelReturnService {
             }
             unpaid=unpaid.subtract(pay);
         }
-        if(unpaid.signum()!=0)throw new BusinessException("实退与固定原批次未能对齐，已整体回滚");
+        if(unpaid.signum()!=0)throw new BusinessException("实退金额与原押金批次不一致，本次登记未生效");
         DepositRecord cash=new DepositRecord();cash.setCustomerId(record.getCustomerId());cash.setProductId(record.getProductId());cash.setType(DepositType.RETURN_BARREL);cash.setQuantity(last?record.getQuantity():0);cash.setAmount(amount);cash.setOperatorId(operator);cash.setNote("退还申请 "+id+" 本次实际交付，凭据 "+payoutId);depositService.add(cash,station);
         if(last) {
             var consumption=ledger.refundHeldRights(record.getCustomerId(),station,record.getProductId(),id);
@@ -695,7 +695,7 @@ public class ApprovedBarrelReturnService {
                 BarrelRecordLot closed=new BarrelRecordLot();closed.setRecordId(id);closed.setLotId(line.getLotId());closed.setQty(line.getQty());closed.setUnitPrice(line.getUnitPrice());closed.setAmount(line.getAmount());recordLotMapper.insert(closed);
                 if(combined.containsKey(line.getLotId()))orderPurchases.closeReturnedQuantity(combined.get(line.getLotId()),line.getQty());
             }
-            if(detailMapper.transition(id,"RECEIVED","REFUNDED")!=1 || recordMapper.finishRefund(id,note,(BigDecimal)view.get("totalRefundAmount"),payer)!=1)throw new BusinessException("原退款状态已变化，本次整体回滚");
+            if(detailMapper.transition(id,"RECEIVED","REFUNDED")!=1 || recordMapper.finishRefund(id,note,(BigDecimal)view.get("totalRefundAmount"),payer)!=1)throw new BusinessException("原退款状态已变化，本次登记未生效");
         }
         return Map.of("payoutId",payoutId,"paidAmount",amount,"alreadyRecorded",false,"progress",refundProgress(owned(id,station)));
     }
@@ -751,7 +751,7 @@ public class ApprovedBarrelReturnService {
     public Map<String,Object> handoverEvidence(Long id,Long stationId) {
         BarrelRecord record=owned(id,stationId);
         BarrelReturnDetail detail=detail(id);
-        if(detail==null)throw new BusinessException("该记录没有申请制交接凭据，请核实原记录");
+        if(detail==null)throw new BusinessException("该记录缺少收桶安排，请核实原申请");
         return handoverEvidence(record,detail,false);
     }
 
@@ -832,7 +832,7 @@ public class ApprovedBarrelReturnService {
     }
     private BarrelReturnDetail requireDetail(Long id) {
         BarrelReturnDetail detail = detailMapper.lock(id);
-        if (detail==null) throw new BusinessException("该记录不属于新的申请制退还");
+        if (detail==null) throw new BusinessException("该记录需按原退还流程办理");
         return detail;
     }
     private Map<String,Object> result(BarrelRecord record,BarrelReturnDetail detail) {

@@ -364,7 +364,7 @@ Page({
     return this._runOrderAction('onRefusalWriteOff', async ctx => {
       const independent = this.data.order.independentBusinessRules
       const first = await this._actionDialog(ctx, {
-        title: '客户拒付', content: independent ? '第 1 步：登记客户收货后拒付的异常证据，随后由站长确认风险。' : '登记客户拒付异常，随后由站长确认结案。', confirmText: '记异常'
+        title: '客户拒付', content: independent ? '登记收货后拒付的异常，再核实欠款和资产处理风险。' : '登记客户拒付异常，随后由站长确认结案。', confirmText: '记异常'
       })
       if (!first.confirm || !ctx.current()) return
       this.setData({ refusalBusy: true })
@@ -543,7 +543,7 @@ Page({
         }
       })
     } else {
-      wx.showToast({ title: '订单地址快照缺失，请核实', icon: 'none' })
+      wx.showToast({ title: '本单地址未提供，请核实', icon: 'none' })
     }
   },
 
@@ -600,13 +600,13 @@ Page({
     const context = { ...this._context(), readVersion: this._detailVersion || 0 }
     if (!this._isCurrent(context)) return
     const address = order.addressSnapshot
-    if (!address) { wx.showToast({ title: '订单地址快照缺失，请核实', icon: 'none' }); return }
+    if (!address) { wx.showToast({ title: '本单地址未提供，请核实', icon: 'none' }); return }
     const lat = Number(order.addressSnapshotLat), lng = Number(order.addressSnapshotLng)
     if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
       wx.openLocation({ latitude: lat, longitude: lng, name: address, address, scale: 18 })
       return
     }
-    wx.showModal({ title: '需手动选择位置', content: '此订单没有可用的快照坐标，请按订单地址核对选点：' + address,
+    wx.showModal({ title: '需手动选择位置', content: '本单位置未提供，请按订单地址选点：' + address,
       confirmText: '选择位置', success: result => {
         if (!result.confirm || !this._isCurrent(context)) return
         wx.chooseLocation({ success: location => {
@@ -692,7 +692,7 @@ Page({
   onCancelTransfer() {
     return this._runOrderAction('onCancelTransfer', async ctx => {
       const answer = await this._actionDialog(ctx, {
-        title: '撤回转单', content: '撤回后这单仍归原配送员配送，对方的待确认列表里也不会再有这条申请。', confirmText: '撤回', confirmColor: '#BD3328'
+        title: '撤回转单', content: '撤回后仍由原配送员负责，对方将不再收到这条转单申请。', confirmText: '撤回', confirmColor: '#BD3328'
       })
       if (!answer.confirm || !ctx.current()) return
       this.setData({ cancelTransferBusy: true })
@@ -781,13 +781,8 @@ Page({
         // 二次确认：显示风险提醒
         const confirm = await new Promise(resolve => {
           showBusinessModal({ cancelColor: '#637083',
-            title: '⚠️ 外派确认',
-            content: `将订单外派给「${targetStation.name}」配送。\n\n` +
-              '重要提醒：\n' +
-              '1. 本单归属仍在本站，客户资产（桶/水票/押金）不转移\n' +
-              '2. 客户下次下单仍在本站，需手动切站才会用外派站资产\n' +
-              '3. 外派站仅负责本次配送，不建立客户归属关系\n\n' +
-              '确定外派吗？',
+            title: '确认外派',
+            content: `将本单外派给「${targetStation.name}」。对方接单后负责本次配送和客户沟通；客户在本站的桶、水票和押金不转移。`,
             confirmText: '确定外派',
             confirmColor: '#1264D6',
             cancelText: '取消',
@@ -817,7 +812,7 @@ Page({
   onRequestCancel() {
     return this._runOrderAction('onRequestCancel', async ctx => {
       const reason = await this._actionDialog(ctx, {
-        title: '申请取消订单', description: '提交后订单保持当前状态，等待站长审批；站长同意后才会取消并退款。请填写原因。', initialValue: '', editable: true, confirmText: '提交申请', placeholderText: '如：客户临时取消、车辆故障'
+        title: '申请取消订单', description: '申请需站长审批；同意后取消订单并按原单规则处理退款。请填写原因。', initialValue: '', editable: true, confirmText: '提交申请', placeholderText: '如：客户临时取消、车辆故障'
       })
       if (!ctx.current() || !reason.confirm) return
       if (!reason.content || !reason.content.trim()) { wx.showToast({ title: '请填写取消原因', icon: 'none' }); return }
@@ -833,16 +828,11 @@ Page({
     // 严重警告：拒单会导致订单取消、退款、客户可能流失
     const confirm = await new Promise(resolve => {
       showBusinessModal({ cancelColor: '#637083',
-        title: '⚠️ 严重警告：解决/拒单',
-        content: '此操作将：\n\n' +
-          '1. 取消订单，状态变为「已取消」\n' +
-          '2. 触发退款，款项原路退回（微信支付需几分钟到账）\n' +
-          '3. 客户需重新下单，体验极差，极大概率导致客户流失\n\n' +
-          '建议优先考虑：「外派」给其他水站，或内部协调配送。\n\n' +
-          '确定要解决（拒单）吗？',
-        confirmText: '确定解决',
+        title: '确认拒单',
+        content: '拒单将取消本单，并按原单规则处理退款和库存。独立押金不随取消自动退还；退款以实际结果为准。确认拒单？',
+        confirmText: '确认拒单',
         confirmColor: '#BD3328',
-        cancelText: '去外派',
+        cancelText: '暂不拒单',
         success: (r) => resolve(r.confirm)
       })
     })
@@ -852,7 +842,7 @@ Page({
     const reason = await new Promise(resolve => {
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认拒单',
         title: '拒单原因 (必填)',
-        description: '请输入拒单原因，将记录在订单备注中：', initialValue: '',
+        description: '原因将记录在订单备注中。', initialValue: '',
         editable: true,
         placeholderText: '如：地址偏远无法配送、暂时缺货',
         success: (r) => resolve(r.confirm ? r.content : ''),
@@ -868,11 +858,11 @@ Page({
     try {
       await resolveOrder(id, { reason: reason.trim() })
       wx.hideLoading()
-      wx.showToast({ title: '已解决，订单取消并触发退款', icon: 'success' })
+      wx.showToast({ title: '订单已取消，请核对退款结果', icon: 'success' })
       setTimeout(() => { wx.navigateBack() }, 1500)
     } catch (err) {
       wx.hideLoading()
-      wx.showToast({ title: err.message || '解决失败', icon: 'none' })
+      wx.showToast({ title: err.message || '拒单未完成', icon: 'none' })
     }
   },
 

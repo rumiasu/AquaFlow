@@ -38,7 +38,7 @@
         <text class="field-hint" wx:if="{{coordinateMode === 'SET'}}">已选择地图位置，保存后地址与位置一起生效。</text>
         <text class="field-hint" wx:elif="{{coordinateMode === 'CLEAR'}}">主要地址已手动修改，保存时会清除原地图位置；也可重新选点。</text>
         <text class="field-hint" wx:elif="{{coord.lat !== null && coord.lng !== null}}">当前地址已有地图位置；修改主要地址会清除旧位置。</text>
-        <text class="field-hint" wx:else>未设置坐标，无法计算配送距离。</text>
+        <text class="field-hint" wx:else>未设置地图位置，无法计算配送距离。</text>
         <button class="af-action af-action--secondary b3-on-pick-coordinates" bindtap="onPickCoordinates" loading="{{coordSaving}}" disabled="{{saving || coordSaving}}">选择地图位置</button>
       </view>
       <view class="field">

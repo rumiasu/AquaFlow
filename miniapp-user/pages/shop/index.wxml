@@ -12,7 +12,7 @@
     <view class="guest-login" wx:if="{{!isLogin}}" bindtap="onLogin">
       <view class="guest-login-text">
         <text class="guest-login-title">登录后可下单</text>
-        <text class="guest-login-desc">先选服务水站，再看本站商品与价格</text>
+        <text class="guest-login-desc">选择水站后，可查看本站商品与价格</text>
       </view>
       <text class="guest-login-arrow">›</text>
     </view>
@@ -49,7 +49,7 @@
     <view class="section">
       <!-- 商品目录：入口在首页「更多商品 ›」/「搜索 ›」（两者都落到本页，?focus=1 时自动聚焦搜索框） -->
       <text class="section-title">商品目录</text>
-      <text class="catalog-note">商品价格为本站零售价；水票、配送费及新增押金在确认页核算。</text>
+      <text class="catalog-note">本站零售价，水票抵扣、配送及楼层费、新增押金在确认页核算。</text>
       <view class="product-grid">
         <view class="product-card"
           wx:for="{{visibleProducts}}" wx:key="id">
@@ -103,7 +103,7 @@
     </view>
     <view class="station-picker-list">
       <station-discovery-scope active="{{showStationPicker}}" scope="{{stationDiscoveryScope}}" bind:scopechange="onStationDiscoveryChange" bind:locationstart="onStationLocationStart" bind:locationend="onStationLocationEnd" />
-      <checkbox-group class="switch-remember" bindchange="onSwitchRememberChange"><label><checkbox value="remember" checked="{{rememberSwitchNotice}}" />确认切换后不再提示资产隔离</label></checkbox-group>
+      <checkbox-group class="switch-remember" bindchange="onSwitchRememberChange"><label><checkbox value="remember" checked="{{rememberSwitchNotice}}" />以后切换不再提醒资产不互通</label></checkbox-group>
 
       <text class="station-picker-empty" wx:if="{{stationListLoading}}">正在读取水站列表…</text>
       <view class="station-picker-item {{item.id === currentStationId ? 'active' : ''}}" wx:for="{{stationList}}" wx:key="id"

@@ -94,7 +94,7 @@ public class StationAftercareService {
         }
         if(changed!=1)throw new BusinessException("无权办理或状态已变化，请核对原责任结果");
         row.put("actor",actor);row.put("key",key);row.put("digest",digest);row.put("action",action);row.put("amount",assigned);
-        if(mapper.append(row)!=1)throw new BusinessException("责任审计未保存，本次整体回滚");return receipt(row,payment,orderId);
+        if(mapper.append(row)!=1)throw new BusinessException("责任处理记录未保存，本次登记未生效");return receipt(row,payment,orderId);
     }
     private void authorize(Orders order,Long station) {
         AuthContext.requireManager();

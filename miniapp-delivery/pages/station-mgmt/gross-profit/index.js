@@ -216,7 +216,7 @@ Page({
       // 老版本服务端没有 helpNote：给一句能用的最小说明，别弹一个空框
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
         title: '统计口径',
-        content: note || '统计口径暂未读取，请重新读取报表后核对。历史利润按订单成本快照统计；成本不全时仅展示收入，不按当前进货价补算。',
+        content: note || '统计口径暂未读取，请重新读取报表后核对。历史利润按订单记录的成本统计；成本不全时仅展示收入，不按当前进货价补算。',
         showCancel: false
       })
       return

@@ -36,7 +36,7 @@
       </view>
     </view>
 
-    <view class="ui-draft-notice" wx:if="{{uiDraftAvailable || uiDraftError}}"><text>{{uiDraftError || '有一份未提交的选购填写'}}</text><button class="af-action af-action--quiet" wx:if="{{uiDraftAvailable}}" bindtap="onRestoreUiDraft" disabled="{{submitting || recoveringPurchase || pendingPurchase || purchaseStorageError}}"><text class="af-action__face">恢复暂存选购</text></button><button class="af-action af-action--quiet" wx:else bindtap="readUiDraft"><text class="af-action__face">重试读取暂存</text></button></view>
+    <view class="ui-draft-notice" wx:if="{{uiDraftAvailable || uiDraftError}}"><text>{{uiDraftError || '有一份暂存的选购内容'}}</text><button class="af-action af-action--quiet" wx:if="{{uiDraftAvailable}}" bindtap="onRestoreUiDraft" disabled="{{submitting || recoveringPurchase || pendingPurchase || purchaseStorageError}}"><text class="af-action__face">恢复暂存选购</text></button><button class="af-action af-action--quiet" wx:else bindtap="readUiDraft"><text class="af-action__face">重试读取暂存</text></button></view>
     <!-- 当前水站：水票按「客户 × 水站」隔离（A 站买的票不能抵 B 站的单，也不在 B 站显示）。
          不写清楚，客户换个站就会以为"我的票少了" —— 站长接到这种电话也解释不了。
          文案与样式照抄 pages/deposit/records（那里已有同一条提示条，保持一致）。 -->
@@ -51,7 +51,7 @@
           <text class="balance-count">{{totalTickets == null || (accountsFailed && !accountsStale) ? '—' : totalTickets}}</text>
           <text class="balance-unit">张</text>
         </view>
-        <text class="balance-total" wx:if="{{totalValue > 0}}">剩余批次票面额 ¥{{totalValue}}（非退款金额）</text>
+        <text class="balance-total" wx:if="{{totalValue > 0}}">剩余水票票面额 ¥{{totalValue}}（非退款金额）</text>
       </view>
       <button class="af-action af-action--secondary" bindtap="onShowPurchase" disabled="{{needLogin || pendingPurchase || purchaseStorageError || submitting || recoveringPurchase}}">{{purchaseDraftSaved ? '继续选购' : '购买水票'}}</button>
     </view>
@@ -60,7 +60,7 @@
     <!-- [2026-10-07 #15] 「剩余水票退出说明」原来是置顶裸 <button>（默认样式、比余额卡还显眼）。
          降级为余额卡下的帮助链接：要退的人找得到，不买的人不被打扰。handler onExitHelp 不变。 -->
     <view class="ticket-help" bindtap="onExitHelp">
-      <text>剩余水票怎么退？查看说明 ›</text>
+      <text>退票说明 ›</text>
     </view>
 
     <!-- 标签切换 -->
@@ -85,7 +85,7 @@
             <text class="ticket-name">{{item.productName || item.waterTypeName}}</text>
             <!-- 票账户按商品展示，不推断通用票。 -->
             <text class="ticket-spec" wx:if="{{item.productSpec || item.waterTypeSpec}}">{{item.productSpec || item.waterTypeSpec}}</text>
-            <text class="ticket-spec" wx:if="{{item.reservedQuantity > 0}}">可用 {{item.availableQuantity}} 张 · 原订单预留 {{item.reservedQuantity}} 张，取消未交付订单后释放</text>
+            <text class="ticket-spec" wx:if="{{item.reservedQuantity > 0}}">可用 {{item.availableQuantity}} 张 · 订单预留 {{item.reservedQuantity}} 张，取消未交付订单后释放</text>
             <text class="ticket-expire" wx:if="{{item.expireTime}}">有效期至 {{item.expireTime}}</text>
           </view>
           <view class="ticket-quantity">
@@ -96,7 +96,7 @@
         <!-- [2026-09-20] 空态必须分两种：拉失败时 accounts 也是空的，一句「暂无水票」会把
              "没查到"说成"你确实没有票"（AGENTS §8.22）。 -->
         <view class="local-empty" wx:if="{{accounts.length === 0 && !accountsFailed}}"><text>暂无水票</text></view>
-        <view class="local-empty" wx:elif="{{accountsFailed}}"><text>水票明细没加载出来，请点上方重新加载</text></view>
+        <view class="local-empty" wx:elif="{{accountsFailed}}"><text>水票明细未能加载，请重试</text></view>
       </view>
     </view>
 
@@ -117,7 +117,7 @@
         </view>
         <!-- [2026-09-20] 同上：记录拉失败时 records 也是空的，别把"没查到"说成"确实没有记录" -->
         <view class="local-empty" wx:if="{{records.length === 0 && !recordsFailed}}"><text>暂无记录</text></view>
-        <view class="local-empty" wx:elif="{{recordsFailed}}"><text>消费记录没加载出来，请点上方重新加载</text></view>
+        <view class="local-empty" wx:elif="{{recordsFailed}}"><text>消费记录未能加载，请重试</text></view>
       </view>
     </view>
 
@@ -139,7 +139,7 @@
       <text class="modal-label">购票水站：{{stationName || '水站 #' + viewStationId}}</text>
       <text class="modal-label">选择商品</text>
       <text class="modal-label" wx:if="{{productsLoading}}">正在加载可购买商品…</text>
-      <text class="load-error" wx:elif="{{productsFailed}}">可购买商品未能加载，请返回页面重新加载；原购买仍可恢复。</text>
+      <text class="load-error" wx:elif="{{productsFailed}}">可购商品未能加载，请重试。已有购买可继续查询。</text>
       <text class="modal-label" wx:elif="{{!buyProducts.length}}">本站暂无可购买水票的商品。</text>
       <product-selector items="{{buyProductOptions}}" selected-id="{{buyForm.productId}}" disabled="{{submitting || recoveringPurchase || pendingPurchase || purchaseStorageError}}" bind:change="onBuyProductChange" />
 
@@ -160,7 +160,7 @@
           >
             <text class="pkg-title">{{item.title || item.qty + ' 张'}}<text class="pkg-selected" wx:if="{{buyForm.selectedTierKey === item.selectionKey}}"> · 已选</text></text>
             <text class="pkg-price">¥{{item.price}}</text>
-            <text class="pkg-sub">每份 {{item.qty}} 张 · ¥{{item.unitPrice}}/张</text><text class="pkg-sub" wx:if="{{item.deliveryFeeOnce}}">本次购票赠一次配送费抵扣，使用本批水票时可用；不抵楼层费。</text>
+            <text class="pkg-sub">每份 {{item.qty}} 张 · ¥{{item.unitPrice}}/张</text><text class="pkg-sub" wx:if="{{item.deliveryFeeOnce}}">赠一次配送费抵扣，使用本次购买的水票时可用，不抵楼层费。</text>
           </view>
         </view>
       </block>
@@ -170,16 +170,16 @@
         客户看到的就是"这款水没有优惠档位"，与"确实没配档位"无法区分（AGENTS §8.22）。
         套餐未核实时提示重新读取；原购买仍按持久凭据恢复。
       -->
-      <text class="modal-label" wx:if="{{packagesLoading}}">正在读取购票档位…</text>
-      <view class="load-error" wx:if="{{packagesError}}">{{packagesError}}<button class="af-action af-action--quiet" bindtap="onRetryPackages"><text class="af-action__face">重新加载档位</text></button></view>
-      <text class="modal-label" wx:if="{{packagesLoaded && !buyPackages.length && !packagesError}}">本商品暂未设置可购套餐，请联系水站。</text>
+      <text class="modal-label" wx:if="{{packagesLoading}}">正在加载水票套餐…</text>
+      <view class="load-error" wx:if="{{packagesError}}">{{packagesError}}<button class="af-action af-action--quiet" bindtap="onRetryPackages"><text class="af-action__face">重新加载套餐</text></button></view>
+      <text class="modal-label" wx:if="{{packagesLoaded && !buyPackages.length && !packagesError}}">本商品暂无可购套餐</text>
 
       <view class="purchase-copies" wx:if="{{buyForm.selectedTierKey}}">
         <view class="copies-heading"><text>购买份数</text><text>每份 {{buyForm.packageQty}} 张 · ¥{{buyForm.packagePrice}}</text></view>
         <integer-stepper value="{{buyForm.copies}}" min="{{1}}" max="{{buyCopiesMax}}" label="购买份数" disabled="{{submitting || recoveringPurchase || pendingPurchase || purchaseStorageError}}" bind:change="onBuyQuantityInput" />
         <view class="purchase-total"><text>共 {{buyForm.quantity == null ? '—' : buyForm.quantity}} 张</text><text>合计 ¥{{buyForm.totalPrice == null ? '—' : buyForm.totalPrice}}</text></view>
         <text class="purchase-copies-error" wx:if="{{purchaseCopiesError}}">{{purchaseCopiesError}}</text>
-        <text class="pkg-lock">按整份购买，单次最多 5000 张。付款金额以本次购买结果为准。</text>
+        <text class="pkg-lock">按整份购买，单次最多 5000 张。</text>
       </view>
 
       <!-- 支付方式 -->

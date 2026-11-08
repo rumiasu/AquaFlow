@@ -106,10 +106,10 @@ public final class PrivilegeType {
     /** 给站长看的拒绝原因 */
     public static String unimplementedReason(String type) {
         if (isMoneyAffecting(type)) {
-            return textOf(type) + "属于「影响金额」的特权，需要做成账户+流水（与水票/押金同类），"
-                    + "本版尚未实现，暂不能授予";
+            return textOf(type) + "暂未开放，"
+                    + "暂不能开通";
         }
-        return textOf(type) + "本版尚未实现，暂不能授予";
+        return textOf(type) + "暂不能开通";
     }
 
     private PrivilegeType() {}

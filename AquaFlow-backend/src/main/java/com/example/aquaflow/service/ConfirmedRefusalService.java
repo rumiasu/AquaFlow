@@ -135,7 +135,7 @@ public class ConfirmedRefusalService {
         }
         if(changed!=1)throw new BusinessException("该拒付动作已办理或记录已变化，请刷新核对");
         if(mapper.appendAction(order,station,AuthContext.getUserId(),actor,action,input.reason(),input.key(),input.digest(),input.version())!=1)
-            throw new BusinessException("处理记录未保存，本次办理已回滚");
+            throw new BusinessException("处理记录未保存，本次办理未生效");
         return ExceptionActionEvidence.receipt(mapper.action(order,actor,input.key()));
     }
     @Transactional

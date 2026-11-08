@@ -18,7 +18,7 @@ public class BarrelReturnEmptyDTO {
     @NotNull(message = "客户不能为空")
     private Long customerId;
 
-    @NotNull(message = "缺少幂等 token")
+    @NotNull(message = "提交编号无效，请刷新后重试")
     private String clientToken;
 
     @NotEmpty(message = "请填写还桶明细")

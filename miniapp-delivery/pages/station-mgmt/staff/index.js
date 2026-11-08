@@ -242,8 +242,8 @@ Page({
   onDetach(e) {
     const { id, name } = e.currentTarget.dataset
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '解除绑定',
-      title: '解除所属',
-      content: `确定解除配送员「${name}」的所属关系？`,
+      title: '解除水站绑定',
+      content: `确认解除配送员「${name}」与本站的绑定？`,
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '处理中...' })

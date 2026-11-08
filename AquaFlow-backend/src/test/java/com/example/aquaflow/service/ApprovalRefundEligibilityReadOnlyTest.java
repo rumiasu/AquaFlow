@@ -143,8 +143,8 @@ class ApprovalRefundEligibilityReadOnlyTest {
         verify(ledger).previewRefundLots(7L,1L,10L,2); verifyNoInteractions(lots); verify(details,never()).heldLots(anyLong());
     }
     @Test void legacyUnavailableAllocationCannotPromptCashHandover() {
-        when(details.get(77L)).thenReturn(null); when(ledger.previewRefundLots(7L,1L,10L,2)).thenThrow(new BusinessException("该部分权益正在配送或退还申请中，不能再次扣减"));
-        unavailable(read(),"正在配送或退还申请中"); verifyNoInteractions(payments);
+        when(details.get(77L)).thenReturn(null); when(ledger.previewRefundLots(7L,1L,10L,2)).thenThrow(new BusinessException("该部分桶数已被订单或退还申请占用，不能再次扣减"));
+        unavailable(read(),"已被订单或退还申请占用"); verifyNoInteractions(payments);
         verify(transactions).rollback(transaction); verify(transactions,never()).commit(any());
         // 已有外层事务时拒绝继续伪装成成功响应，避免外层提交再报 UnexpectedRollbackException。
         TransactionSynchronizationManager.setActualTransactionActive(true);

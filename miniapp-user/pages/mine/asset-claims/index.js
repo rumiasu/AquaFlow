@@ -94,7 +94,7 @@ Page({
       if (pending) this.setData({ form: { ...this._intent.body, items: this._intent.body.items.map(r => ({ ...r,
         name: (products.find(p => p.id === r.productId) || {}).name || '历史商品',
         rights: String(r.rights), tickets: String(r.tickets), unitPrice: r.unitPrice || '' })) },
-        notice: '上次提交结果尚未确认，请恢复原申请。原清单和编号已保留。' })
+        notice: '上次提交结果待确认，可重试原申请。' })
     } catch (e) { if (this.current(c)) this.setData({ ready: false, canCreate: false,
       error: (previousRecords ? '以下为上次读取的认领记录。' : '') + claim.errorText(e, '认领记录暂时无法加载，请重试或联系水站') }) }
     finally { if (this.current(c)) this.setData({ loading: false, submitting: false }) }
@@ -223,13 +223,13 @@ Page({
       this.setData({ records }); claim.clear(intent); this._intent = null
       this.saveDraft(emptyForm())
       this.setData({ pending: false, claimView: 'records', expandedRecord: received.id, form: emptyForm(), canCreate: this.data.catalogReady && !records.some(r => r.status !== 'REJECTED'),
-        notice: received.status === 'PENDING' ? '申请已提交，待水站核对。通过后可在这里查看结果。' : '已查询到原申请结果，请查看记录。' })
+        notice: received.status === 'PENDING' ? '申请已提交，待水站核对。' : '已查询到原申请结果，请查看记录。' })
     } catch (e) {
       if (!this.current(c)) return
       if (e.businessRejected && !verified) {
         try { claim.clear(intent); this._intent = null; this.setData({ pending: false, ready: false }) } catch (storageError) { e = storageError }
       }
-      this.setData({ notice: claim.errorText(e, '提交结果尚未确认，请恢复原申请；原清单和编号已保留。'), canCreate: false })
+      this.setData({ notice: claim.errorText(e, '提交结果待确认，可重试原申请。'), canCreate: false })
     } finally { if (this._flight === flight) { this._flight = null; if (this.current(c)) this.setData({ submitting: false }) } }
   }
 })

@@ -58,10 +58,10 @@ test('WXML exposes current arrangement, change entry and only required consent',
     const rulesData={...t.page.data,summary:{independentRights:true},showReturnRules:true}
     const hint=renderElements({children:[rules]},rulesData,{includeText:true}).find(n=>n.tag==='text')
     assert(hint && hint.text.includes('免费原安排无需再次确认'))
-    assert(hint.text.includes('收费或水站新安排须先确认'))
-    assert(hint.text.includes('未领桶也可申请退还押金'))
-    assert(hint.text.includes('当前未被订单占用的份数'))
-    assert(hint.text.includes('需交回的实物桶仍按批准安排交回'))
+    assert(hint.text.includes('收费或水站提出的新安排需经你确认'))
+    assert(hint.text.includes('未领桶无需交桶'))
+    assert(hint.text.includes('当前可用的份数'))
+    assert(hint.text.includes('水站批准后按安排办理'))
     assert.deepEqual(renderElements({children:[rules]},{...rulesData,showReturnRules:false}),[])
   }
 })

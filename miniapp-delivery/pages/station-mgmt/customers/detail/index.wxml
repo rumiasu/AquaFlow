@@ -146,7 +146,7 @@
 
           <!-- 资产流水 -->
           <view class="sub-title" wx:if="{{assets.records.length}}">资产流水</view>
-          <view class="section-note" wx:if="{{assets.records.length}}">{{assets.recordsTruncated ? '仅展示最近 ' + assets.recordsLimit + ' 条，可能还有更早流水' : '已取回 ' + assets.records.length + ' 条资产流水'}}；展开只显示本次已取回记录。购票收款记录另在「收款管理 → 购票历史」查询。</view>
+          <view class="section-note" wx:if="{{assets.records.length}}">{{assets.recordsTruncated ? '仅显示最近 ' + assets.recordsLimit + ' 条，可能还有更早流水' : '已加载 ' + assets.records.length + ' 条资产流水'}}。购票收款可在「收款确认 → 水票购买收款历史」查询。</view>
           <view class="record-item"
                 wx:for="{{recordsExpanded ? assets.records : assets.recordsPreview}}"
                 wx:key="idx">
@@ -163,7 +163,7 @@
               <text class="record-status" wx:if="{{item.statusText}}">{{item.statusText}}</text>
             </view>
           </view>
-          <view class="af-action af-action--quiet b3-on-toggle-records" wx:if="{{assets.hasMoreRecords}}" bindtap="onToggleRecords"><view class="af-action__face"><text>{{recordsExpanded ? '收起' : '展开已取回 ' + assets.records.length + ' 条'}}</text></view></view>
+          <view class="af-action af-action--quiet b3-on-toggle-records" wx:if="{{assets.hasMoreRecords}}" bindtap="onToggleRecords"><view class="af-action__face"><text>{{recordsExpanded ? '收起' : '展开已加载 ' + assets.records.length + ' 条'}}</text></view></view>
         </block>
       </block>
     </view>
@@ -242,7 +242,7 @@
           </view>
         </block>
         <view class="priv-hint">
-          特权按「本水站 + 本客户」生效，A 站给的不在 B 站算数。
+          特权仅在本站对该客户生效。
           撤销后立即恢复默认规则；已授予的重复授予只会更新备注。
         </view>
       </block>
@@ -317,7 +317,7 @@
     "这个客户的情况"。入口按钮已统一改成「详情」（customers/index 与 staff/index），
     空态跟着说人话；判定条件（`!loading && !profile`）一个字没动。
   -->
-  <view class="empty" wx:if="{{!loading && !error && !profile}}"><text>没查到这个客户的情况</text></view>
+  <view class="empty" wx:if="{{!loading && !error && !profile}}"><text>暂无该客户资料</text></view>
 
   <!-- ============ 纯还桶弹窗：只冲减 over，不扣权益、不退款 ============ -->
   <view class="modal-mask" wx:if="{{showReturnEmpty}}" bindtap="onCloseReturnEmpty"></view>
@@ -327,7 +327,7 @@
       <view class="af-action af-action--cancel b3-on-close-return-empty" bindtap="onCloseReturnEmpty">×</view>
     </view>
     <view class="modal-tip">
-      <text>顾客交回空桶但不带走满桶。只冲减欠桶记录，<text class="strong">不退押金、不减少桶权益</text>；想拿回钱请走「退桶」。</text>
+      <text>登记客户实际交回的空桶，<text class="strong">不退押金、不减少拥有桶数</text>；退押金请办理「退桶」。</text>
     </view>
     <view class="modal-tip" wx:if="{{returnMessage || returnRecoveryError}}">{{returnRecoveryError || returnMessage}}</view>
     <view class="return-item" wx:for="{{returnItems}}" wx:key="productId">

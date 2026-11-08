@@ -1,6 +1,6 @@
 <!-- Reading/retrying never invokes login or records acceptance. Draft notices cannot be removed by a switch. -->
 <view class="page">
-  <view class="doc-notice" wx:if="{{loading}}"><text class="doc-notice-text">正在核实协议版本，阅读不会记录同意。</text></view>
+  <view class="doc-notice" wx:if="{{loading}}"><text class="doc-notice-text">正在核实协议版本…</text></view>
   <view class="doc-notice" wx:if="{{error}}">
     <text class="doc-notice-text">{{error}} {{fallbackNotice}}</text>
     <button class="af-action af-action--quiet" bindtap="onRetry" loading="{{loading}}" disabled="{{loading}}"><text class="af-action__face">重试</text></button>
@@ -12,14 +12,14 @@
   <view class="doc-head" wx:if="{{doc}}">
     <text class="doc-title">{{doc.docTitle}}</text>
     <text class="doc-updated">{{doc.updatedAt}}</text>
-    <text class="doc-updated">版本标识：{{doc.versionId}}</text>
+    <text class="doc-updated">版本：{{doc.versionId}}</text>
   </view>
   <view class="doc-section" wx:for="{{doc.sections}}" wx:key="heading">
     <text class="doc-heading">{{item.heading}}</text>
     <text class="doc-body">{{item.body}}</text>
   </view>
   <view class="doc-foot">
-    <text class="doc-foot-text">阅读本页不会执行登录或记录条款接受、处理同意。</text>
+    <text class="doc-foot-text">阅读本页不会登录，也不会记录协议同意。</text>
   </view>
 </view>
 <business-dialog id="business-dialog" />

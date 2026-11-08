@@ -69,7 +69,7 @@ public class StaffStationApplicationService {
 
         // V1 规则: 已经绑定水站不允许新申请绑定; 若想换站, 必须先完成解绑
         if (staff.getStationId() != null) {
-            throw new BusinessException("已绑定水站, 如需更换请先申请解绑");
+            throw new BusinessException("已绑定水站，更换前需申请解绑");
         }
 
         // 目标水站必须存在
@@ -171,7 +171,7 @@ public class StaffStationApplicationService {
 
         // 避免对同一站同时存在多条待审批解绑申请
         if (appMapper.countPendingDup(staffId, stationId, StaffStationApplication.TYPE_UNBIND) > 0) {
-            throw new BusinessException("已存在待审批的解绑申请, 请等待处理");
+            throw new BusinessException("已有解绑申请待审批");
         }
 
         StaffStationApplication app = new StaffStationApplication();
@@ -536,7 +536,7 @@ public class StaffStationApplicationService {
         }
         // ① 只允许解除配送员：解除站长会让水站失去唯一管理者（见本方法 javadoc）
         if (!"DELIVERY".equals(staff.getRole())) {
-            throw new BusinessException("只能解除配送员，站长不能这样解除；水站交接请走水站转让");
+            throw new BusinessException("此处只能解除配送员绑定，不能解除站长");
         }
         // ② 不能解除自己（防自伤；正常情况下站长的 role 已被①挡住，这里再兜一层）
         if (staffId.equals(myStaffId)) {

@@ -32,7 +32,7 @@ Page({
     }
     let ticketRecovery = null, ticketRecoveryError = ''
     try { ticketRecovery = ticketExitRecovery.read({ staffId: user.staffId, stationId: user.stationId }) }
-    catch (err) { ticketRecoveryError = err.message || '上次退票记录未能核对，请保留现场并联系负责人' }
+    catch (err) { ticketRecoveryError = err.message || '上次退票记录未能核对，请保留原记录并核实款项' }
     this.setData({ stationId: user.stationId, ticketOpen: !!ticketRecovery || !!ticketRecoveryError,
       ticketLoading: false, tickets: [], ticketError: '', ticketBusy: false, ticketRecovery, ticketRecoveryError,
       selectedRefusal: null, refusalBusy: false, pendingRefusal: false, refusalHistory: [], refusalHistoryError: '' })
@@ -41,7 +41,7 @@ Page({
       const id = wx.getStorageSync(recoveryKey(this.refusalSession()))
       if (id && !positiveId(id)) throw new Error('上次办理订单编号无法识别，请联系负责人核实')
       if (id) this.setData({ refusalOrderId: String(id), refusalSearch: String(id) })
-    } catch (err) { this._recoveryError = err.message || '上次办理定位未能核对' }
+    } catch (err) { this._recoveryError = err.message || '上次办理记录未能核对' }
     return this.loadData()
   },
   onHide() { this._ticketSeq = (this._ticketSeq || 0) + 1; this._refusalEpoch = (this._refusalEpoch || 0) + 1; this._loadSeq = (this._loadSeq || 0) + 1 },
@@ -175,7 +175,7 @@ Page({
     if (!row || !s.staffId || !s.stationId || !this.currentRefusalSession(s)) return
     try {
       const pending = closeoutIntent.read('STAFF:' + s.staffId + ':' + s.stationId, 'REFUSAL:' + row.order_id, action)
-      if (action === 'SCOPE' && (!Array.isArray(row.scopeProducts) || !Array.isArray(row.freezeScope))) throw new Error('争议商品与冻结范围尚未读取，请重新核对；仍无法读取时联系水站负责人处理')
+      if (action === 'SCOPE' && (!Array.isArray(row.scopeProducts) || !Array.isArray(row.freezeScope))) throw new Error('争议商品与冻结范围未能读取，请重试核对')
       if (!pending && !(action === 'REVOKE' ? row.canRevoke : action === 'SCOPE' ? row.scopeEditable : row.canRelease)) return
       const scopeLines = action === 'SCOPE' ? (pending ? pending.items : row.scopeProducts).map(product => {
         const old = (pending ? pending.items : row.freezeScope).find(line => String(line.productId) === String(product.productId))
@@ -372,7 +372,7 @@ Page({
       if(mode==='RETURN_EMPTY')submit(0)
       else showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '确认金额',title:'桶补偿总金额',editable:true,placeholderText:'金额（元，最多两位小数）',content:'金额只属于本次桶争议，不包含水费、服务报酬和客户押金。',success:r=>{
         if(!r.confirm)return
-        if(!/^\d+(\.\d{1,2})?$/.test(r.content||'')){wx.showToast({title:'金额不合法',icon:'none'});return}
+        if(!/^\d+(\.\d{1,2})?$/.test(r.content||'')){wx.showToast({title:'请输入有效金额',icon:'none'});return}
         submit(Number(r.content))
       }})
     } })

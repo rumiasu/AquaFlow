@@ -224,7 +224,7 @@ Page({
         return {
           ...o,
           // 目的地只认下单快照；缺失时提示核实，不借用可能已修改的地址。
-          addressText: o.addressSnapshot || '订单地址快照缺失，请核实',
+          addressText: o.addressSnapshot || '本单地址未提供，请核实',
           customerNotePreview: employeeCustomerNotePreview(o),
           amountText: moneyText(o.needCollect && o.paymentMethod === 3 ? o.collectAmount : o.totalAmount) || '金额待核实',
           // 「已付 / 需收 ¥X」：判据只用后端投影 —— needCollect（现金且还没收到钱）
@@ -334,13 +334,13 @@ Page({
     if (!context) return
     const order = (this.data[field] || []).find(row => String(row.id) === String(id))
     const address = order && order.addressSnapshot
-    if (!address) { wx.showToast({ title: '订单地址快照缺失，请核实', icon: 'none' }); return }
+    if (!address) { wx.showToast({ title: '本单地址未提供，请核实', icon: 'none' }); return }
     const lat = Number(order.addressSnapshotLat), lng = Number(order.addressSnapshotLng)
     if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
       wx.openLocation({ latitude: lat, longitude: lng, name: address, address, scale: 18 })
       return
     }
-    wx.showModal({ title: '需手动选择位置', content: '此订单没有可用的快照坐标，请按订单地址核对选点：' + address,
+    wx.showModal({ title: '需手动选择位置', content: '本单位置未提供，请按订单地址选点：' + address,
       confirmText: '选择位置', success: result => {
         if (!result.confirm || !this._taskActionCurrent(context)) return
         wx.chooseLocation({ success: location => {
@@ -374,7 +374,7 @@ Page({
     const offer = order && order.dispatchAgreement
     const quoteToken = offer && offer.status === 'OFFERED' ? offer.quoteToken : null
     if (offer && offer.status === 'OFFERED' && (!quoteToken || offer.serviceAmount == null || offer.barrelAmount == null)) {
-      wx.showToast({ title: '报价尚未确认，请更新并刷新', icon: 'none' }); return
+      wx.showToast({ title: '本单报价暂未核实，请刷新后重试', icon: 'none' }); return
     }
     const offerText = quoteToken ? '本单服务报酬 ¥' + offer.serviceAmount + '；' + (offer.barrelNote || '')
       + '；桶折款 ¥' + offer.barrelAmount + '。确认接受此约定？' : '确定接受此配送任务？'
@@ -420,7 +420,7 @@ Page({
     this._transferBusy = context
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认接收',
-      content: '同意后这单归你配送，确定吗？',
+      content: '同意后由你负责本单配送。',
       confirmText: '同意',
       success: async (res) => {
         if (!this._taskActionCurrent(context) || !res.confirm) { this._finishTaskAction(context, '_transferBusy', false); return }
@@ -430,7 +430,7 @@ Page({
           wx.showLoading({ title: '确认中...' })
           try {
             await respondTransfer(id, { action: 'claim' })
-            if (this._taskActionCurrent(context)) wx.showToast({ title: '已接收，请尽快配送', icon: 'success' })
+            if (this._taskActionCurrent(context)) wx.showToast({ title: '已接收转单', icon: 'success' })
           } catch (err) {
             if (this._taskActionCurrent(context)) wx.showToast({ title: err.message || '接收失败', icon: 'none' })
           } finally {
@@ -717,7 +717,7 @@ Page({
     this.setData({ showMediateModal: false })
     showBusinessModal({ confirmColor: '#A95516', cancelColor: '#637083',
       title: '退回站长',
-      content: '确定申请退回站长吗？退回后需站长确认，订单将重新分配。',
+      content: '站长同意后将重新分配，确认前仍由你负责本单。',
       confirmText: '申请退回',
       success: async (res) => {
         if (res.confirm) {

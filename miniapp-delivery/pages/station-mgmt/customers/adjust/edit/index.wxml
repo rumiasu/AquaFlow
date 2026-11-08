@@ -7,7 +7,7 @@
 
   <block wx:else>
     <view class="banner warn" wx:if="{{missingCustomer}}">
-      <text>请先搜索并选择本站客户，再填写调整信息。</text>
+      <text>选择本站客户后可填写调整信息。</text>
     </view>
 
     <include src="../../../../../utils/adjustment-customer.wxml" />
@@ -73,7 +73,7 @@
 
       <view class="field">
         <text class="field-label">调整原因<text class="required">*</text></text>
-        <textarea class="field-textarea" value="{{form.reason}}" maxlength="200" placeholder="必填，例如：2024 年历史漏录 3 个桶权益，客户提供押金条" bindinput="onReasonInput" />
+        <textarea class="field-textarea" value="{{form.reason}}" maxlength="200" placeholder="例如：漏录3个桶，已核对客户押金条" bindinput="onReasonInput" />
       </view>
 
       <view class="field">
@@ -105,13 +105,13 @@
         <text class="col after">{{item.after}}</text>
       </view>
       <view class="preview-note" wx:if="{{previewExtra.estimatedRefund}}">
-        <text>预计退款金额：¥{{previewExtra.estimatedRefund}}（按批次单价核销，实际以执行为准）</text>
+        <text>预计扣减桶金额：¥{{previewExtra.estimatedRefund}}（按原批次单价核算，以执行结果为准）</text>
       </view>
       <view class="preview-note warn" wx:if="{{previewExtra.hasMigratedPrice}}">
-        <text>该客户存在历史推断单价的批次：退款金额可能与试算有差异，执行前请二次确认。</text>
+        <text>该客户存在历史推断单价的批次：扣减金额可能与试算有差异，执行前请二次确认。</text>
       </view>
       <view class="preview-note" wx:if="{{previewExtra.estimatedRightAmount}}">
-        <text>预计计入桶权益金额：¥{{previewExtra.estimatedRightAmount}}</text>
+        <text>预计桶数对应金额：¥{{previewExtra.estimatedRightAmount}}</text>
       </view>
     </view>
 
@@ -120,7 +120,7 @@
       <view class="af-action af-action--primary b3-on-submit af-action--grow" bindtap="onSubmit"><text>{{submitting ? '提交中...' : '保存待执行单'}}</text></view>
     </view>
     <view class="footer-tip">
-      <text>提交后单据为「待执行」，需在列表或详情页点「执行」才会真正改写客户资产。</text>
+      <text>保存为待执行单，执行后才会改变客户资产。</text>
     </view>
   </block>
 </view>

@@ -211,7 +211,7 @@ Page({
       if (saved.version !== 1 || saved.actor !== requestActor() || !validOriginal(saved.body, this.data.stationId)) throw Error('原下单凭据不完整，请联系本站核对原订单，暂不发送新单')
       this._originalOrderRequest = JSON.parse(JSON.stringify(saved.body)); this._requestActor = saved.actor
       this.idempotencyKey = saved.body.idempotencyKey
-      this.setData({ unknownOrder: true, orderRecoveryError: '有一笔原下单结果待核实；仅重试原客户、商品及付款方式，不会新建另一笔意图。', orderRecoverySummary: this.originalOrderSummary(saved.body) })
+      this.setData({ unknownOrder: true, orderRecoveryError: '上次下单结果待核实，请重试原订单，勿重复下单。', orderRecoverySummary: this.originalOrderSummary(saved.body) })
     } catch (error) { this.setData({ unknownOrder: true, orderRecoveryError: error.message || '原下单凭据未读取，请重试核对' }) }
   },
   originalOrderSummary(body) { return '客户 #' + body.customerId + '；' + body.items.map(i => '商品 #' + i.productId + ' ×' + i.quantity).join('；') },
@@ -526,7 +526,7 @@ Page({
       this.setData({ unknownOrder: false, orderRecoveryError: '' })
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083', confirmText: '查看订单', cancelText: '配送任务',
         title: '下单成功',
-        content: '订单号 ' + d.orderId + '\n先核对订单付款状态。符合配送条件后，可到配送任务接单自送。'
+        content: '订单号 ' + d.orderId + '\n付款状态与配送安排可在订单详情查看。'
           + (warnings.length ? '\n\n' + warnings.join('\n') : ''),
         showCancel: true,
         success: r => {

@@ -142,7 +142,7 @@ const SUBMISSION_STATUS_TEXT = { 0: '待处理', 1: '已纳入通用库', 2: '�
  *   · 顶部是**选品目录**（通用库 + 本站自定义）——"选什么水"，点行进"本站设置"；
  *   · 站长能改的只有本站的：上架 / 库存 / 本站售价 / 本站押金 / 水票 / 优先展示；
  *   · 通用库商品的名称规格图片**锁死**（后端 DTO 里根本没有这些字段）；
- *   · 通用库没有的品，走**底部独立入口**「自己定义商品」（不进通用库，仅本站可见，可上报给开发者）。
+ *   · 通用库没有的品，走**底部独立入口**「新建自定义商品」（仅本站可见，可上报供审核）。
  */
 Page({
   data: {
@@ -1056,7 +1056,7 @@ Page({
     this.setData({ stockConfirmPending: true })
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '确认盘点校正',
-      content: '「' + setting.name + '」实物总数将从 ' + (setting.quantity || 0) + ' 件校正为 ' + after + ' 件，并记录数量差额；低于订单预留量时服务端会拒绝校正。',
+      content: '「' + setting.name + '」实物总数将从 ' + (setting.quantity || 0) + ' 件校正为 ' + after + ' 件，并记录数量差额；低于订单预留量时无法校正。',
       confirmText: '确认校正',
       success: (res) => {
         this.clearStockConfirmation()
@@ -1880,19 +1880,19 @@ Page({
     })
   },
 
-  /** 上报给开发者，请其考虑补进通用库 */
+  /** 上报本站商品，供审核是否纳入通用目录 */
   onSubmitToPlatform(e) {
     const item = e.currentTarget.dataset.item, owner=productSession()
     if (!item || this.productWriteLocked() || [0,2].includes(item.status) || Number(item.ownerStationId)!==Number((getApp().globalData.userInfo||{}).stationId)) return
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-      title: '上报给开发者',
+      title: '上报商品',
       editable: true,
       placeholderText: '补充说明（规格/品牌/进货渠道等，可留空）',
       confirmText: '上报',
       success: (res) => {
         if (!res.confirm || !sameProductSession(owner) || this.productWriteLocked()) return
         submitMyProduct(item.id, res.content || '')
-          .then(() => {if(sameProductSession(owner)){wx.showToast({title:'已上报，等待开发者处理',icon:'success',duration:2000});this.loadData();if(this.data.showSubmissions)this.onOpenSubmissions()}})
+          .then(() => {if(sameProductSession(owner)){wx.showToast({title:'已上报，等待审核',icon:'success',duration:2000});this.loadData();if(this.data.showSubmissions)this.onOpenSubmissions()}})
           .catch(err => {if(sameProductSession(owner))wx.showToast({title:err.message||'上报结果待核实',icon:'none'})})
       }
     })

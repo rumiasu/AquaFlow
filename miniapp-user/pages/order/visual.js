@@ -1,7 +1,7 @@
 // 仅供订单页面展示使用；不修改原错误对象，code/resultUnknown 仍由原流程判断。
 const { displayMessage } = require('../../utils/display-message')
 function errorText(error, fallback = '暂时无法完成，请稍后重试') {
-  if (error && error.resultUnknown) return '结果尚未确认，请先核对原订单，勿重复提交新请求'
+  if (error && error.resultUnknown) return '结果尚未确认，请核对原订单，勿重复下单'
   return displayMessage(error && error.message, fallback)
 }
 

@@ -28,7 +28,7 @@
         <view wx:if="{{selectedDispute && selectedDispute.refundType === item.refundType && selectedDispute.refundId === item.refundId}}">
           <text class="content" wx:if="{{disputeError}}">{{disputeError}}</text>
           <block wx:if="{{disputeReady}}">
-            <text class="content">结案无需顾客确认，请记录核实依据和结果。结案不收退钱，也不取消顾客既有权利。</text>
+            <text class="content">请记录核实依据和结果。结案无需顾客确认，不收退款项，也不改变顾客既有权利。</text>
             <text class="content" wx:if="{{selectedDispute.canClose && !pendingDispute}}">未提交说明仅在本页保留。</text>
             <textarea wx:if="{{selectedDispute.canClose || pendingDispute}}" disabled="{{pendingDispute || disputeSubmitting}}" maxlength="1000" placeholder="核实依据、处理结果与后续安排" value="{{disputeResult}}" bindinput="onDisputeResult" />
             <button class="af-action af-action--primary b3-on-close-dispute af-action--block" wx:if="{{selectedDispute.canClose && !pendingDispute}}" loading="{{disputeSubmitting}}" disabled="{{disputeSubmitting}}" bindtap="onCloseDispute" hover-class="af-action--pressed">登记结果并结案</button>
@@ -87,7 +87,7 @@
         </view>
         <button wx:if="{{item.refundType && item.refundId}}" size="mini" bindtap="onOpenRefundNote" data-id="{{item.id}}" class="af-action af-action--quiet b3-on-open-refund-note" hover-class="af-action--pressed"><view class="af-action__face">补充说明</view></button>
         <view wx:if="{{selectedFeedbackId === item.id}}" class="refund-note-form">
-          <text class="content">证据可后补，原说明会保留。未提交的新说明仅在本页保留。</text>
+          <text class="content">原说明会保留，证据可后补。新说明提交前仅在本页保留。</text>
           <textarea maxlength="1000" disabled="{{pendingRefundNote || noteSubmitting}}" placeholder="补充说明（可选）" value="{{noteContent}}" bindinput="onNoteInput" />
           <button class="af-action af-action--primary b3-on-submit-refund-note af-action--block" wx:if="{{!pendingRefundNote}}" loading="{{noteSubmitting}}" disabled="{{noteSubmitting}}" bindtap="onSubmitRefundNote" hover-class="af-action--pressed">提交说明</button>
           <button class="af-action af-action--secondary b3-on-retry-original-note" wx:if="{{pendingRefundNote}}" disabled="{{noteSubmitting}}" loading="{{noteSubmitting}}" bindtap="onRetryOriginalNote" hover-class="af-action--pressed">结果待确认，重试原说明</button>

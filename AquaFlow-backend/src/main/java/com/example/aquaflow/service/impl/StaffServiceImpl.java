@@ -48,7 +48,7 @@ public class StaffServiceImpl implements StaffService {
         // 2026-10-08：原入口只拒绝大写站长名，manager 别名却能通过鉴权；先归一化再白名单校验。
         String role = canonicalRole(staff.getRole());
         if (!"DELIVERY".equals(role)) {
-            throw new BusinessException("不可通过此接口创建站长账号");
+            throw new BusinessException("此处不能创建站长账号");
         }
         Integer status = staff.getStatus() == null ? 1 : staff.getStatus();
         requireValidStatus(status);

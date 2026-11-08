@@ -574,7 +574,7 @@ public class BarrelServiceImpl implements BarrelService {
             case 3: // 丢失
             case 4: // 损坏
                 if (asset == null || asset.getQuantity() < quantity) {
-                    throw new BusinessException("可用桶权益不足，无法完成本次操作");
+                    throw new BusinessException("可用桶数不足，无法完成本次操作");
                 }
                 customerBarrelAssetMapper.decreaseQuantity(asset.getId(), quantity);
                 break;
@@ -783,7 +783,7 @@ public class BarrelServiceImpl implements BarrelService {
         //    放在所有写操作之前 —— 非法值/不可用通道必须"什么都没发生"。
         String channel = BarrelRefundDTO.normalizeChannel(refundChannel);
         if (channel == null) {
-            throw new BusinessException("退款方式不合法：" + refundChannel + "（仅支持 CASH 现金当面交付 / ONLINE 线上原路退回）");
+            throw new BusinessException("退款方式无效：" + refundChannel + "（请选择现金当面交付或线上原路退回）");
         }
         // [2026-09-27 §7.3] 优先原路返回，通道不可用就**明确拒绝**，不许假装已退（AGENTS §1.1）。
         // 微信退款通道尚未接入（与 refundPayment 的"手工退款直接拒"同一条口径）：
@@ -792,7 +792,7 @@ public class BarrelServiceImpl implements BarrelService {
         //   customer_barrel_lot.price_source 说的是**单价怎么来的**（实付/当时押金/兜底推断）而不是收款渠道，
         //   现算一个"看起来对"的渠道只会给出错误理由。通道一接入，本分支改成真正的原路退回。
         if (BarrelRefundDTO.CHANNEL_ONLINE.equals(channel)) {
-            throw new BusinessException("微信退款通道未接入，本单不能假装已退，请改用现金当面交付或线下退款");
+            throw new BusinessException("当前无法办理微信原路退款，请由水站核实原收款和退款安排");
         }
 
         // 交付人：站内校验（跨站第二道防线；第一道在控制器按登录态比对记录归属）
@@ -943,11 +943,11 @@ public class BarrelServiceImpl implements BarrelService {
         }
         if (right <= 0) {
             data.put("blocked", true);
-            data.put("blockedReason", "该商品没有可退的桶权益");
+            data.put("blockedReason", "该商品没有可退的桶数");
         } else if (qty > right) {
             // 退桶唯一校验：qty ≤ 权益。over 不参与（over<0 是水站暂存，不影响可退数量）
             data.put("blocked", true);
-            data.put("blockedReason", "最多只能退 " + right + " 个桶权益");
+            data.put("blockedReason", "最多只能退 " + right + " 个桶");
         }
 
         // [2026-09-21 新增] 信用风险拦截：该客户在本站有**逾期未结的赊账**（或挂账超额度）时，
@@ -1040,7 +1040,7 @@ public class BarrelServiceImpl implements BarrelService {
         int effectiveQty = preview.get("effectiveQty") == null
                 ? quantity : ((Number) preview.get("effectiveQty")).intValue();
         if (effectiveQty <= 0) {
-            throw new BusinessException("可退权益不足");
+            throw new BusinessException("可退桶数不足");
         }
         BigDecimal depositRefund = preview.get("refundAmount") instanceof BigDecimal
                 ? (BigDecimal) preview.get("refundAmount")

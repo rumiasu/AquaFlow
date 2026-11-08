@@ -7,7 +7,7 @@
         <text class="card-title">配送计费</text>
         <!-- [2026-09-24] 各段说明藏进「?」：原来本页 5 张卡各平铺一整句，字段反被挤没了。
              藏什么、不藏什么见 components/HelpTip/index.js 文件头。 -->
-        <help-tip title="配送计费" text="限制项请明确选择「不限」或「不设门槛」；费用为 0 或留空表示不收。费用在客户下单时快照进订单，改这里不影响历史订单。" />
+        <help-tip title="配送计费" text="限制项请明确选择「不限」或「不设门槛」；费用为 0 或留空表示不收。费用按下单时的规则确定，后续修改不影响历史订单。" />
       </view>
       <text class="badge badge-on" wx:if="{{configReady && configured}}">已配置</text>
       <text class="badge badge-warn" wx:elif="{{configReady}}">未配置</text><text class="badge" wx:else>{{loading ? '正在读取' : '待核实'}}</text>
@@ -22,8 +22,8 @@
     前端不自建 key→文案映射。只列"还没配好的"，P0 排前面。
   -->
   <view class="fee-setup-card" id="fee-setup">
-    <view class="fee-rules-heading"><text class="fee-rules-title">{{configured ? '本站已保存计费规则' : '上线准备'}}</text><text class="fee-rules-badge {{configured && !hasUnsavedChanges && !saveError ? 'is-saved' : 'is-pending'}}">{{configured && !hasUnsavedChanges && !saveError ? '四项已保存' : '待底部保存'}}</text></view>
-    <text class="fee-rules-note">修改会保留为本机草稿，点击底部保存后生效。</text>
+    <view class="fee-rules-heading"><text class="fee-rules-title">{{configured ? '本站已保存计费规则' : '上线准备'}}</text><text class="fee-rules-badge {{configured && !hasUnsavedChanges && !saveError ? 'is-saved' : 'is-pending'}}">{{configured && !hasUnsavedChanges && !saveError ? '已保存' : '待保存'}}</text></view>
+    <text class="fee-rules-note">修改暂存为本机草稿，保存后生效。</text>
     <text class="fee-rules-note" wx:if="{{!configured}}">当前默认：不限起送量、不限距离、不收配送费和楼层费。使用默认规则也需确认保存。</text>
     <text class="fee-rules-note" wx:elif="{{hasUnsavedChanges}}">当前订单仍按已保存规则计算；本次输入尚未生效。</text>
     <view wx:for="{{ruleSummaries}}" wx:for-index="summaryIndex" wx:key="key" class="fee-rule-summary">
@@ -65,7 +65,7 @@
         <input disabled="{{saving}}" id="fee-field-minOrderBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" bindblur="onFeeFieldBlur" class="input" type="number" placeholder="起送桶数，0 等同不限" value="{{form.minOrderBuckets}}" bindinput="onInput" bindconfirm="onFeeFieldConfirm" confirm-type="next" data-field="minOrderBuckets" />
         <button class="af-choice b3-on-threshold-toggle {{!thresholdEnabled.minOrderBuckets ? 'af-choice--selected' : ''}}" bindtap="onThresholdToggle" data-field="minOrderBuckets" data-enabled="{{thresholdEnabled.minOrderBuckets ? 'off' : 'on'}}" disabled="{{saving}}" aria-label="不限" aria-role="checkbox" aria-checked="{{!thresholdEnabled.minOrderBuckets}}" hover-class="af-action--pressed"><view class="af-choice__face"><text class="fee-checkbox">{{!thresholdEnabled.minOrderBuckets ? '✓' : ''}}</text><text>不限</text></view></button>
       </view>
-      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.minOrderBuckets}}">当前不限；左侧数值保留为草稿，直接填写可启用数值。</text>
+      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.minOrderBuckets}}">当前不限，输入正数可启用限制。</text>
       <text class="fee-field-error" wx:if="{{fieldError === 'minOrderBuckets'}}">{{fieldErrorText}}</text>
     </view>
     <view class="field">
@@ -74,7 +74,7 @@
         <input disabled="{{saving}}" id="fee-field-minOrderAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" bindblur="onFeeFieldBlur" class="input" type="digit" placeholder="起送金额，0 等同不限" value="{{form.minOrderAmount}}" bindinput="onInput" bindconfirm="onFeeFieldConfirm" confirm-type="next" data-field="minOrderAmount" />
         <button class="af-choice b3-on-threshold-toggle {{!thresholdEnabled.minOrderAmount ? 'af-choice--selected' : ''}}" bindtap="onThresholdToggle" data-field="minOrderAmount" data-enabled="{{thresholdEnabled.minOrderAmount ? 'off' : 'on'}}" disabled="{{saving}}" aria-label="不限" aria-role="checkbox" aria-checked="{{!thresholdEnabled.minOrderAmount}}" hover-class="af-action--pressed"><view class="af-choice__face"><text class="fee-checkbox">{{!thresholdEnabled.minOrderAmount ? '✓' : ''}}</text><text>不限</text></view></button>
       </view>
-      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.minOrderAmount}}">当前不限；左侧数值保留为草稿，直接填写可启用数值。</text>
+      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.minOrderAmount}}">当前不限，输入正数可启用限制。</text>
       <text class="fee-field-error" wx:if="{{fieldError === 'minOrderAmount'}}">{{fieldErrorText}}</text>
     </view>
 
@@ -91,7 +91,7 @@
       <text class="fee-field-error" wx:if="{{fieldError === 'minOrderFee'}}">{{fieldErrorText}}</text>
     </view>
     </view>
-    <button class="af-action af-action--quiet b3-on-complete-section" wx:if="{{expandedSection === 'minOrder'}}" data-section="minOrder" bindtap="onCompleteSection" disabled="{{saving}}" hover-class="af-action--pressed"><view class="af-action__face">保留本项，查看下一项</view></button>
+    <button class="af-action af-action--quiet b3-on-complete-section" wx:if="{{expandedSection === 'minOrder'}}" data-section="minOrder" bindtap="onCompleteSection" disabled="{{saving}}" hover-class="af-action--pressed"><view class="af-action__face">保留并查看下一项</view></button>
   </view>
 
   <!-- ============ 配送范围 ============ -->
@@ -110,7 +110,7 @@
         <input disabled="{{saving}}" id="fee-field-deliveryRadiusM" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" bindblur="onFeeFieldBlur" class="input" type="number" placeholder="配送半径，0 等同不限" value="{{form.deliveryRadiusM}}" bindinput="onInput" bindconfirm="onFeeFieldConfirm" confirm-type="next" data-field="deliveryRadiusM" />
         <button class="af-choice b3-on-threshold-toggle {{!thresholdEnabled.deliveryRadiusM ? 'af-choice--selected' : ''}}" bindtap="onThresholdToggle" data-field="deliveryRadiusM" data-enabled="{{thresholdEnabled.deliveryRadiusM ? 'off' : 'on'}}" disabled="{{saving}}" aria-label="不限" aria-role="checkbox" aria-checked="{{!thresholdEnabled.deliveryRadiusM}}" hover-class="af-action--pressed"><view class="af-choice__face"><text class="fee-checkbox">{{!thresholdEnabled.deliveryRadiusM ? '✓' : ''}}</text><text>不限</text></view></button>
       </view>
-      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.deliveryRadiusM}}">当前不限；左侧数值保留为草稿，直接填写可启用数值。</text>
+      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.deliveryRadiusM}}">当前不限，输入正数可启用限制。</text>
       <text class="fee-field-error" wx:if="{{fieldError === 'deliveryRadiusM'}}">{{fieldErrorText}}</text>
     </view>
 
@@ -127,7 +127,7 @@
       <text class="fee-field-error" wx:if="{{fieldError === 'remoteFee'}}">{{fieldErrorText}}</text>
     </view>
     </view>
-    <button class="af-action af-action--quiet b3-on-complete-section" wx:if="{{expandedSection === 'range'}}" data-section="range" bindtap="onCompleteSection" disabled="{{saving}}" hover-class="af-action--pressed"><view class="af-action__face">保留本项，查看下一项</view></button>
+    <button class="af-action af-action--quiet b3-on-complete-section" wx:if="{{expandedSection === 'range'}}" data-section="range" bindtap="onCompleteSection" disabled="{{saving}}" hover-class="af-action--pressed"><view class="af-action__face">保留并查看下一项</view></button>
   </view>
 
   <!-- ============ 运费 ============ -->
@@ -150,7 +150,7 @@
         <input disabled="{{saving}}" id="fee-field-freeDeliveryBuckets" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" bindblur="onFeeFieldBlur" class="input" type="number" placeholder="免运费桶数（0 表示均达到）" value="{{form.freeDeliveryBuckets}}" bindinput="onInput" bindconfirm="onFeeFieldConfirm" confirm-type="next" data-field="freeDeliveryBuckets" />
         <button class="af-choice b3-on-threshold-toggle {{!thresholdEnabled.freeDeliveryBuckets ? 'af-choice--selected' : ''}}" bindtap="onThresholdToggle" data-field="freeDeliveryBuckets" data-enabled="{{thresholdEnabled.freeDeliveryBuckets ? 'off' : 'on'}}" disabled="{{saving}}" aria-label="不设门槛" aria-role="checkbox" aria-checked="{{!thresholdEnabled.freeDeliveryBuckets}}" hover-class="af-action--pressed"><view class="af-choice__face"><text class="fee-checkbox">{{!thresholdEnabled.freeDeliveryBuckets ? '✓' : ''}}</text><text>不设门槛</text></view></button>
       </view>
-      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.freeDeliveryBuckets}}">当前不设门槛；左侧数值保留为草稿，直接填写可启用数值。</text>
+      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.freeDeliveryBuckets}}">当前不设门槛，输入数值可启用。</text>
       <text class="fee-field-error" wx:if="{{fieldError === 'freeDeliveryBuckets'}}">{{fieldErrorText}}</text>
     </view>
     <view class="field">
@@ -159,11 +159,11 @@
         <input disabled="{{saving}}" id="fee-field-freeDeliveryAmount" adjust-position="{{false}}" bindfocus="onFeeFieldFocus" bindkeyboardheightchange="onFeeKeyboardHeightChange" bindblur="onFeeFieldBlur" class="input" type="digit" placeholder="免运费金额（0 表示均达到）" value="{{form.freeDeliveryAmount}}" bindinput="onInput" bindconfirm="onFeeFieldConfirm" confirm-type="next" data-field="freeDeliveryAmount" />
         <button class="af-choice b3-on-threshold-toggle {{!thresholdEnabled.freeDeliveryAmount ? 'af-choice--selected' : ''}}" bindtap="onThresholdToggle" data-field="freeDeliveryAmount" data-enabled="{{thresholdEnabled.freeDeliveryAmount ? 'off' : 'on'}}" disabled="{{saving}}" aria-label="不设门槛" aria-role="checkbox" aria-checked="{{!thresholdEnabled.freeDeliveryAmount}}" hover-class="af-action--pressed"><view class="af-choice__face"><text class="fee-checkbox">{{!thresholdEnabled.freeDeliveryAmount ? '✓' : ''}}</text><text>不设门槛</text></view></button>
       </view>
-      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.freeDeliveryAmount}}">当前不设门槛；左侧数值保留为草稿，直接填写可启用数值。</text>
+      <text class="fee-threshold-note" wx:if="{{!thresholdEnabled.freeDeliveryAmount}}">当前不设门槛，输入数值可启用。</text>
       <text class="fee-field-error" wx:if="{{fieldError === 'freeDeliveryAmount'}}">{{fieldErrorText}}</text>
     </view>
     </view>
-    <button class="af-action af-action--quiet b3-on-complete-section" wx:if="{{expandedSection === 'delivery'}}" data-section="delivery" bindtap="onCompleteSection" disabled="{{saving}}" hover-class="af-action--pressed"><view class="af-action__face">保留本项，查看下一项</view></button>
+    <button class="af-action af-action--quiet b3-on-complete-section" wx:if="{{expandedSection === 'delivery'}}" data-section="delivery" bindtap="onCompleteSection" disabled="{{saving}}" hover-class="af-action--pressed"><view class="af-action__face">保留并查看下一项</view></button>
   </view>
 
   <!-- ============ 楼层费 ============ -->
@@ -193,7 +193,7 @@
     <text class="option-desc selected-mode-desc">{{modeDescriptions.floorFeeMode}}</text>
 
     </view>
-    <button class="af-action af-action--quiet b3-on-complete-section" wx:if="{{expandedSection === 'floor'}}" data-section="floor" bindtap="onCompleteSection" disabled="{{saving}}" hover-class="af-action--pressed"><view class="af-action__face">完成核对，去底部保存</view></button>
+    <button class="af-action af-action--quiet b3-on-complete-section" wx:if="{{expandedSection === 'floor'}}" data-section="floor" bindtap="onCompleteSection" disabled="{{saving}}" hover-class="af-action--pressed"><view class="af-action__face">完成核对</view></button>
   </view>
 
   <view class="fee-save-bar {{feeKeyboardOffset ? 'keyboard-open' : ''}}" style="bottom:{{feeKeyboardOffset}}px;">

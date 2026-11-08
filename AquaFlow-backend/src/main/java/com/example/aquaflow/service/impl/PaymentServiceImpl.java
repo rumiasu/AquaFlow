@@ -92,8 +92,7 @@ public class PaymentServiceImpl implements PaymentService {
      * 文案属口径、不属呈现 —— 只有这一份，前端原样展示、不得自造同义句。</p>
      */
     private static final String DEPOSIT_ONLINE_ADVICE =
-            "这单要先付桶押金。建议用微信支付：付款有渠道流水可查，退押金时也说得清；"
-                    + "现金押金只能由水站手工登记，过后对不上账时不好分辨。";
+            "本单含桶押金。当前微信付款为模拟测试，不会扣真实款；真实押金请与水站核实后办理。";
 
     /**
      * 押金选线下的**风险与责任**文案（同一次裁定）。
@@ -480,7 +479,7 @@ public class PaymentServiceImpl implements PaymentService {
             // 确认收款 = 收钱 → 0/1 任一状态都前进到 已付款(2)；水票创建时已是 2，此处 affected=0 属幂等
             int marked = orderMapper.markPaidIfCollectable(record.getOrderId());
             if (record.isSimulated() && marked != 1)
-                throw new BusinessException("订单付款状态已变化，本次确认回滚，请核对原结果");
+                throw new BusinessException("订单付款状态已变化，本次确认未生效，请核对原结果");
             // [AQ-009] 支付成功时才入账预收桶押金（此前在下单时即入账，那时客户一分未付）
             applyDepositOnPaid(record.getOrderId());
             com.example.aquaflow.util.OrderCollectionCompletion.finishDelivered(
@@ -894,7 +893,7 @@ public class PaymentServiceImpl implements PaymentService {
                         && Objects.equals(original.getStatus(), PaymentStatus.PENDING)
                         && paymentRecordMapper.updateStatusTo(original.getId(), PaymentStatus.CANCELLED,
                                 PaymentStatus.PENDING) != 1) {
-                    throw new BusinessException("待收款状态已变化，本次取消已回滚，请刷新后重试");
+                    throw new BusinessException("待收款状态已变化，本次取消未生效，请刷新后重试");
                 }
             }
         }
@@ -950,7 +949,7 @@ public class PaymentServiceImpl implements PaymentService {
                 //   ② 对账等式2 的 p2b 项（订单非已付款却存在 status=2 的流水）会持续报差异。
                 // 正确顺序是 (id, 目标状态, 期望状态)。
                 if (paymentRecordMapper.updateStatusTo(r.getId(), PaymentStatus.REFUNDED, PaymentStatus.PAID) != 1) {
-                    throw new BusinessException("支付状态已变化，本次取消已回滚，请刷新后重试");
+                    throw new BusinessException("支付状态已变化，本次取消未生效，请刷新后重试");
                 }
 
                 // 生成退款记录（形状与站长手工退款共用同一个私有方法，见 insertRefundRecord）
@@ -1075,7 +1074,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException("本单水费由水票支付，服务费另收；请重新预览并选择分项退款");
         // #32: 校验当前状态，只有PAID才能退款
         if (record.getOrderId() == null && independentBarrelService.isPurchasePayment(paymentId)) {
-            throw new BusinessException("桶押金须走权益退还申请，不能通过消费退款保留可用权益");
+            throw new BusinessException("桶押金须通过退桶退押金办理，不能仅退消费款并保留拥有桶数");
         }
         if (record.getStatus() != PaymentStatus.PAID) {
             throw new BusinessException("仅已支付记录可退款，当前状态: " + record.getStatus());
@@ -1667,9 +1666,8 @@ public class PaymentServiceImpl implements PaymentService {
                     + "补票也解决不了 —— 请改选支付方式后再下单";
         } else {
             title = "水票不足";
-            hint = "水票不足以覆盖本单：需要 " + totalQty + " 张、手上只够抵 " + coveredQty
-                    + " 件，还差 " + shortfallQty + " 张。暂不支持部分水票抵水费，"
-                    + "请改选支付方式，或先补齐水票再下单（票不会被扣，仍留在你的账户里）";
+            hint = "本单共需 " + totalQty + " 张对应商品水票，部分商品票数不足。暂不支持部分水票抵水费，"
+                    + "可补齐水票或改选支付方式；本次未扣票";
         }
 
         Map<String, Object> data = new java.util.LinkedHashMap<>();

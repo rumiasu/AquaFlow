@@ -83,13 +83,13 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            send401(response, "未提供认证令牌");
+            send401(response, "请先登录");
             return false;
         }
 
         String token = authHeader.substring(7);
         if (!jwtUtil.validateToken(token)) {
-            send401(response, "令牌无效或已过期");
+            send401(response, "登录已失效，请重新登录");
             return false;
         }
 
@@ -107,7 +107,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         String tokenType = claims.get("tokenType", String.class);
         if (!"access".equals(tokenType)) {
-            send401(response, "请使用 access_token 访问接口");
+            send401(response, "登录信息不正确，请重新登录");
             return false;
         }
 
@@ -153,7 +153,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (isUnselectedSession && !UNSELECTED_ALLOWED_PATHS.contains(request.getRequestURI())) {
             // 拒绝前先清身份：这条路径上没有 afterCompletion 兜底（见 preHandle 的注释）
             AuthContext.clear();
-            sendBusinessError(response, "请先完成身份选择（站长 / 配送员）后再使用该功能");
+            sendBusinessError(response, "请选择站长或配送员身份");
             return false;
         }
 

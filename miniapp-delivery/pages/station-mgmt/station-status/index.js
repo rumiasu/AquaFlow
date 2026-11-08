@@ -34,8 +34,8 @@ const {
 
 const STATUS_OPTIONS = [
   { value: 1, name: '正常运营', desc: '照常接单配送' },
-  { value: 2, name: '休息中', desc: '打烊/午休，稍后恢复' },
-  { value: 4, name: '暂停配送，可预约', desc: '今天不送，订单明天统一处理' }
+  { value: 2, name: '休息中', desc: '暂时休息，配送时间见留言' },
+  { value: 4, name: '暂停配送，可预约', desc: '暂不配送，仍可预约下单' }
 ]
 
 const unknownStatus = () => ({ operatingStatus: null, statusText: '', note: '', customerHint: '' })
@@ -302,7 +302,7 @@ Page({
       editStatus: 0,
       editForm: { title: '', content: '' },
       // 按钮上方那句"点下去会怎样"必须跟这次的两个按钮一致（见 _submitNotice 的规矩②）
-      saveHint: '点「发布」顾客立刻能看到；点「存为草稿」先留着，之后在列表里还能发布。'
+      saveHint: '发布后顾客可见；存为草稿后可继续编辑或发布。'
     })
   },
 
@@ -326,8 +326,8 @@ Page({
       editStatus: item.status,
       editForm: { title: item.title || '', content: item.content || '' },
       saveHint: published
-        ? '点「发布」保存并保持可见；点「存为草稿」会把它下架，顾客立刻看不到。'
-        : '点「发布」顾客立刻能看到；点「存为草稿」继续留着。'
+        ? '发布后保持可见；存为草稿会下架该公告。'
+        : '发布后顾客可见；存为草稿后可继续编辑。'
     })
   },
 
@@ -411,7 +411,7 @@ Page({
     if (willUnpublish) {
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '转为草稿并下架？',
-        content: '保存后这条公告会立刻从顾客端消失（内容不会丢，之后还能在列表里重新发布）。',
+        content: '保存后顾客将看不到该公告，内容保留，可再次发布。',
         // ⚠️ **按钮文案最多 4 个字符**（微信 showModal 的硬限制）。写过 5 个字的
         // 「下架为草稿」⇒ 这次调用被平台直接拒掉、又没接 fail ⇒ 表现是"点存为草稿毫无反应"
         //（2026-09-26 真机反馈）。改文案时别加长；要改就一起改这条注释。

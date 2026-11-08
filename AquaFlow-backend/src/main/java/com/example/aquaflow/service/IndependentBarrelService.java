@@ -47,7 +47,7 @@ public class IndependentBarrelService {
         PaymentRecord payment=paymentLocks.lockPayment(found.getPaymentId());
         BarrelRightPurchase current=mapper.purchaseByPayment(found.getPaymentId());
         if("CANCELLED".equals(current.getStatus()))return;
-        if(!"PENDING".equals(current.getStatus()) || payment.getStatus()!=PaymentStatus.PENDING)throw new BusinessException("押金已确认到账，请走权益退还申请");
+        if(!"PENDING".equals(current.getStatus()) || payment.getStatus()!=PaymentStatus.PENDING)throw new BusinessException("押金已确认到账，如需退还请提交退押金申请");
         if(paymentMapper.updateStatusTo(payment.getId(),PaymentStatus.CANCELLED,PaymentStatus.PENDING)!=1 || mapper.cancelPurchase(id)!=1)
             throw new BusinessException("购买状态已变更，请查看原结果");
     }
@@ -145,7 +145,7 @@ public class IndependentBarrelService {
         CustomerBarrelLot lot = ledger.purchaseRight(purchase.getCustomerId(), purchase.getStationId(),
                 purchase.getProductId(), purchase.getUnitPrice(), purchase.getQuantity(), AuthContext.getUserId());
         if (lotMapper.linkDepositRecord(lot.getId(), record.getId()) != 1)
-            throw new BusinessException("押金批次凭据未关联，本次购买已回滚");
+            throw new BusinessException("原押金记录未能关联，本次购买未生效");
         if (mapper.activatePurchase(purchase.getId(), lot.getId()) != 1)
             throw new BusinessException("购买结果已变化，请刷新查询");
     }

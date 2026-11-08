@@ -36,7 +36,7 @@ test('successful phone order keeps warnings and opens its exact detail without a
   await t.page.doCreate(false)
   const dialog = t.dialogs[0]
   assert.equal(dialog.confirmText, '查看订单'); assert.equal(dialog.cancelText, '配送任务')
-  assert(dialog.content.includes('付款状态')); assert(dialog.content.includes('符合配送条件'))
+  assert(dialog.content.includes('付款状态')); assert(dialog.content.includes('付款状态与配送安排可在订单详情查看'))
   assert(dialog.content.includes('合成缺货提示'))
   dialog.success({ confirm: true })
   assert.deepEqual(t.wx.__calls.nav, [{ type: 'redirectTo', url: '/pages/order/detail?id=99' }])

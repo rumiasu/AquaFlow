@@ -5,28 +5,28 @@
     <text class="tip">{{stationName || '水站名称待核实'}} · 押金由所选水站保管。</text>
   </view>
   <text class="error" wx:if="{{error}}">{{error}}</text>
-  <button class="af-action af-action--secondary" wx:if="{{needLogin}}" bindtap="onLogin">登录后办理本人桶押金</button>
+  <button class="af-action af-action--secondary" wx:if="{{needLogin}}" bindtap="onLogin">登录后办理</button>
   <view class="recovery" wx:if="{{recoveryEntries.length > 0 || recoveryError}}">
     <text class="section-title">原购买结果待核实</text>
     <button class="af-action af-action--quiet" bindtap="onToggleRecoveryDetails"><text class="af-action__face">{{showRecoveryDetails ? '收起购买编号' : '查看购买编号'}}</text></button>
     <text class="error" wx:if="{{recoveryError}}">{{recoveryError}}</text>
     <text class="tip" wx:if="{{recoveryHint}}">{{recoveryHint}}</text>
     <view class="recovery-record" wx:for="{{recoveryEntries}}" wx:key="key">
-      <text class="record-id" wx:if="{{showRecoveryDetails}}">{{item.active ? '当前原购买' : '已保留原购买'}} · 请求编号 {{item.key}}</text>
+      <text class="record-id" wx:if="{{showRecoveryDetails}}">{{item.active ? '本次购买' : '已保留的购买'}} · 查询编号 {{item.key}}</text>
       <text>{{item.summary}}</text>
       <text class="tip" wx:if="{{item.known}}">购买编号 {{item.record.id}} · ¥{{item.record.amount}} · {{item.record.statusText}}</text>
       <text class="tip" wx:else>原购买结果尚未确认，请勿改内容重复购买。</text>
       <button class="af-action af-action--quiet" data-key="{{item.key}}" bindtap="onQueryOriginal" disabled="{{busy || recoveryBusy || safetyBlocked}}" loading="{{recoveryBusy}}"><text class="af-action__face">查询原购买</text></button>
-      <button class="af-action af-action--secondary" wx:if="{{!item.known || item.record.status === 'PENDING'}}" data-key="{{item.key}}" bindtap="onRetryOriginal" disabled="{{busy || recoveryBusy || safetyBlocked}}" loading="{{busy}}">恢复原请求</button>
+      <button class="af-action af-action--secondary" wx:if="{{!item.known || item.record.status === 'PENDING'}}" data-key="{{item.key}}" bindtap="onRetryOriginal" disabled="{{busy || recoveryBusy || safetyBlocked}}" loading="{{busy}}">继续原购买</button>
     </view>
-    <button class="af-action af-action--secondary" wx:if="{{canAnother}}" bindtap="onAnotherPurchase" disabled="{{busy || recoveryBusy || safetyBlocked}}">明确另买一笔</button>
+    <button class="af-action af-action--secondary" wx:if="{{canAnother}}" bindtap="onAnotherPurchase" disabled="{{busy || recoveryBusy || safetyBlocked}}">另买一笔</button>
   </view>
   <text class="tip" wx:if="{{productsLoading}}">正在加载可购买商品…</text>
   <view wx:elif="{{productsError}}">
     <text class="error">{{productsError}}</text>
     <button class="af-action af-action--quiet" bindtap="loadProducts" disabled="{{busy}}"><text class="af-action__face">重试加载商品</text></button>
   </view>
-  <text class="tip" wx:elif="{{productsLoaded && products.length === 0}}">该站暂无可购买押金的桶装水，已有购买记录仍可在下方查看。</text>
+  <text class="tip" wx:elif="{{productsLoaded && products.length === 0}}">本站暂无可单独交押金的商品。已有购买记录仍可查看。</text>
   <view class="purchase-form" wx:elif="{{productsLoaded}}">
     <view class="selected-product" wx:if="{{productOptions[index]}}">
       <image wx:if="{{productOptions[index].image && !selectedImageFailed}}" class="selected-photo" src="{{productOptions[index].image}}" mode="aspectFit" binderror="onSelectedImageError" />
@@ -57,7 +57,7 @@
   <button class="af-action af-action--cancel" bindtap="onBack">{{fromOrder ? '返回继续订水' : '返回'}}</button>
   <view class="history">
     <button class="af-action af-action--quiet" bindtap="onToggleHistory"><text class="af-action__face">已有购买记录 {{purchases.length}} 笔 · {{showHistory ? '收起' : '展开'}}</text></button>
-    <text class="tip" wx:if="{{showHistory || hasPendingPurchase}}">商品下架后仍可查看购买记录。已付款但水站未确认，请先联系水站核实，勿直接撤回。</text>
+    <text class="tip" wx:if="{{showHistory || hasPendingPurchase}}">已交款但水站尚未确认的，请先核实收款，勿直接撤回。</text>
     <text class="tip" wx:if="{{purchasesLoading}}">正在加载购买记录…</text>
     <view wx:elif="{{purchasesError}}">
       <text class="error">{{purchasesError}}</text>

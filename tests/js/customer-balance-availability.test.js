@@ -89,7 +89,7 @@ test('asset clicks use actual WXML routes and preserve deposit handling and bill
  assert.ok(w.includes('data-url="/pages/payment/records"'))
  const find=(node,predicate)=>predicate(node)?node:(node.children||[]).map(child=>find(child,predicate)).find(Boolean)
  const asset=find(parseWxml(w),node=>node.attrs && node.attrs['data-url']==='/pages/barrel/index' && node.attrs.bindtap==='onMenuTap')
- assert(asset && asset.attrs['aria-label']==='查看我的桶与管理办理');assert(find(asset,node=>node.tag==='#text' && node.value.trim()==='我的桶'))
+ assert(asset && asset.attrs['aria-label']==='查看并管理我的桶');assert(find(asset,node=>node.tag==='#text' && node.value.trim()==='我的桶'))
  const barrel=fs.readFileSync(path.join(ROOT,'miniapp-user/pages/barrel/index.wxml'),'utf8')
  assert.ok(barrel.includes('bindtap="onPurchaseRights"'));assert.ok(barrel.includes('bindtap="onShowReturnModal"'))
 })

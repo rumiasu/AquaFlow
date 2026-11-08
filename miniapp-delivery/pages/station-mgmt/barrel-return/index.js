@@ -172,11 +172,11 @@ Page({
     result.timeline = steps.map((step, i) => ({ key: i, title: step[0], time: step[1] || '', done: !!step[1] }))
     if (d) {
       if (['APPLIED', 'APPROVED'].includes(d.status) && (!Number.isInteger(d.requiredBarrels) || d.requiredBarrels < 0)) { result.primaryLabel = '先核实交桶数量'; result.stepHint = '本申请交桶数量未能核对，请重新读取原申请。' }
-      else if (d.status === 'APPLIED') { result.primaryAction = 'approve'; result.primaryLabel = '批准交接安排'; result.stepHint = '先核对数量、金额和交接方式，再批准安排。' }
+      else if (d.status === 'APPLIED') { result.primaryAction = 'approve'; result.primaryLabel = '批准交接安排'; result.stepHint = '请核对数量、金额和交接方式。' }
       else if (d.status === 'APPROVED' && d.customerConfirmationRequired !== false && !d.customerConfirmationCurrent) { result.primaryLabel = '等待客户确认'; result.stepHint = '新增取桶费或水站提出的新安排须客户同意；免费原安排无需再次确认。' }
       else if (d.status === 'APPROVED' && d.feePaymentId && d.feePaymentStatus === 1) { result.primaryAction = 'collect'; result.primaryLabel = '登记已收到服务费'; result.stepHint = '请先核对真实收到的服务费，再办理交接。' }
       else if (d.status === 'APPROVED' && d.feePaymentId && d.feePaymentStatus !== 2) { result.primaryLabel = '先核实交接安排'; result.stepHint = '服务费已退还或状态待核实，当前不能继续登记交接。' }
-      else if (d.status === 'APPROVED') { result.primaryAction = 'receive'; result.primaryLabel = required === 0 ? '确认无需交桶的交接' : '确认收到 ' + required + ' 个空桶'; result.stepHint = required === 0 ? '本次退还尚未领取的容量，无需实际收桶；交接后继续办理押金退款。' : '按本申请需交桶数量核对实物，收到空桶不等于已退押金。' }
+      else if (d.status === 'APPROVED') { result.primaryAction = 'receive'; result.primaryLabel = required === 0 ? '确认无需交桶的交接' : '确认收到 ' + required + ' 个空桶'; result.stepHint = required === 0 ? '本次退还未领用部分，无需收桶；确认后仍须办理押金退款。' : '按本申请需交桶数量核对实物，收到空桶不等于已退押金。' }
       else if (d.status === 'REFUNDED') { result.stepHint = '押金退款已登记；收桶服务费如仍已收取，单独核对。' }
       else if (d.status === 'REJECTED' || d.status === 'WITHDRAWN') result.stepHint = '此申请已结束，保留原有记录。'
       if (result.needsHandoverEvidence) {
@@ -431,7 +431,7 @@ Page({
     try {
       if (this.decorateRecord(action.record).primaryAction !== 'receive') return
       const d = action.record.returnDetail, qty = d ? d.requiredBarrels : action.record.quantity
-      if (!await this.modal(action, { title: qty === 0 ? '确认无需交桶的交接' : '确认实际收到空桶', content: qty === 0 ? '本次退还尚未领取的容量，无需实际收到空桶。确认已办妥交接手续后，继续办理押金退款。' : '请核实本申请需交回的 ' + qty + ' 个空桶已实际收到。本次只登记交接，不登记已退款。', confirmText: '确认交接' })) return
+      if (!await this.modal(action, { title: qty === 0 ? '确认无需交桶的交接' : '确认实际收到空桶', content: qty === 0 ? '本次退还未领用部分，无需收桶。确认后仍须办理押金退款。' : '请核实本申请需交回的 ' + qty + ' 个空桶已实际收到。本次只登记交接，不登记已退款。', confirmText: '确认交接' })) return
       return await this.performAction(action, () => updateBarrelRecordStatus(action.id, 2))
     } finally { if (!this._pendingAction) this.releaseAction(action) }
   },
@@ -588,7 +588,7 @@ Page({
           || (d ? eligibility.detailStatus !== d.status : eligibility.recordStatus !== record.status)
           || eligibility.refundAmount == null || !Number.isFinite(amount) || amount < 0 || Number(amount.toFixed(2)) !== amount) throw new Error('原申请或退款金额未能核对，请查原结果')
       if (eligibility.channel !== CHANNEL_CASH || receipt.channel && receipt.channel !== CHANNEL_CASH) throw new Error('只能核实原现金交付；线上原渠道请继续核对原结果，不能改交现金或重复退款')
-      if (receipt.payoutKey && eligibility.partialRefundsSupported !== true) throw new Error('当前服务未能核对原分次登记，请更新匹配服务后查原结果，勿再次交款')
+      if (receipt.payoutKey && eligibility.partialRefundsSupported !== true) throw new Error('原分次退款记录暂时无法核对，请保留原记录，勿再次交款')
       if (receipt.payoutKey ? amount > Number(eligibility.refundAmount) : receipt.amount != null && Number(receipt.amount) !== amount) throw new Error('原交付金额超出当前可退范围，请核实实际款项；勿重复交款')
       const zero = amount === 0
       const result = await this.modal(action, { title: zero ? '补同步零额登记' : '仅同步现金交付',

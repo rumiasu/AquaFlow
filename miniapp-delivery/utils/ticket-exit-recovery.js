@@ -41,10 +41,10 @@ function valid(value, actor) {
 function readStored(actor) {
   let value
   try { value = wx.getStorageSync(keyOf(actor)) } catch (_) {
-    throw new Error('上次退票记录读取失败，请保留现场并联系负责人，勿重复提交')
+    throw new Error('上次退票记录读取失败，请保留记录并联系负责人，勿重复提交')
   }
   if (value === '' || value == null) return null
-  if (!valid(value, actor)) throw new Error('上次退票记录无法识别，请保留现场并联系负责人，勿重复提交')
+  if (!valid(value, actor)) throw new Error('上次退票记录无法识别，请保留记录并联系负责人，勿重复提交')
   return value
 }
 function read(session) {
@@ -54,7 +54,7 @@ function read(session) {
   if (memory) {
     // 内存只有在磁盘记录仍与它一致时才算“已可靠保存”；否则不能拿它去发请求。
     if (!stored || stored.requestKey !== memory.requestKey || stored.actor !== memory.actor) {
-      throw new Error('退票恢复记录与已保存内容不一致，请保留现场并联系负责人，勿重复提交')
+      throw new Error('退票恢复记录与已保存内容不一致，请保留记录并联系负责人，勿重复提交')
     }
     return Object.assign({}, memory)
   }

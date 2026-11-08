@@ -13,7 +13,7 @@ public class BindingActionDTO {
     /** POST /api/delivery/bind/apply：配送员申请绑定水站 */
     @Data
     public static class ApplyBind {
-        @NotNull(message = "stationId 不能为空")
+        @NotNull(message = "请选择水站")
         private Long stationId;
 
         private String applyNote;
@@ -37,7 +37,7 @@ public class BindingActionDTO {
     /** POST /api/manager/bind/release：站长强制解除配送员绑定 */
     @Data
     public static class Release {
-        @NotNull(message = "staffId 不能为空")
+        @NotNull(message = "请选择员工")
         private Long staffId;
 
         private String reason;

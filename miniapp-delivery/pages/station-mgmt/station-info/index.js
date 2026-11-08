@@ -41,7 +41,7 @@ function saveFeedback(page, message, toast, success) {
 Page({
   onSettingsSection(e) { jumpToSettingSection(this, e) },
   data: {
-    settingsSections: [{"target": "info-basics", "label": "联系资料"}, {"target": "setup-station-position", "label": "地图坐标"}],
+    settingsSections: [{"target": "info-basics", "label": "联系资料"}, {"target": "setup-station-position", "label": "地图位置"}],
     ...initialModuleData(),
     loading: true, loadError: '',
     // 原值（含后端下发但本页不编辑的 status），保存时原样带回
@@ -180,7 +180,7 @@ Page({
     this._infoDraftToken = token
     const result = dirty ? guard.save(token, { form: { ...form }, coordinateMode: this.data.coordinateMode, coord: { ...this.data.coord }, addressSupplement: this.data.addressSupplement }) : guard.clear(token)
     this.setData({ infoDraftStatus: result.state === 'saved' ? '输入草稿已保留，正式保存后生效。' : result.state === 'empty' ? '' : '草稿尚未确认保存，请留在本页完成操作。' })
-    if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '水站资料尚未保存，离开将丢失修改' })
+    if (dirty && typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '水站资料尚未保存。' })
     if (!dirty && typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload()
   },
   onNameInput(e) { if (!this.data.saving) { this.setData({ 'form.name': e.detail.value, saveMessage: '' }); this.markInfoDraft() } },

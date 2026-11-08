@@ -90,7 +90,7 @@
 
     <!-- ============ 资产快照（后端落库的 JSON 串的友好展示） ============ -->
     <view class="card" wx:if="{{detail.snapshotRows.length}}">
-      <view class="card-title">资产快照（调整前 / 调整后）</view>
+      <view class="card-title">资产记录（调整前 / 调整后）</view>
       <view class="snap-head">
         <text class="col col-name">项目</text>
         <text class="col">调整前</text>
@@ -133,8 +133,8 @@
     <text class="verification-reference">原单：{{detail.adjustNo || '编号未记录'}}（编号 {{detail.id}}）</text>
     <text class="verification-reason" wx:if="{{detail.reverseUnavailableReason}}">{{detail.reverseUnavailableReason}}</text>
     <text class="verification-reason" wx:if="{{reverseError}}">上次撤销提示：{{reverseError}}</text>
-    <text class="verification-copy">先重新读取原单状态及关联反向单，核对本页原因、证据图和调整前后记录，再查看客户资产与流水。请勿另建相反调整代替撤销。</text>
-    <text class="verification-copy">仍需核实时，可复制原单摘要交给本站有权限的负责人；流水页仅展示已取回记录，更早记录需结合原凭证核实。</text>
+    <text class="verification-copy">请核对原单、关联反向单及客户资产流水，勿另建相反调整代替撤销。</text>
+    <text class="verification-copy">更早流水需结合原凭证核实；可复制单据摘要交由本站负责人核对。</text>
     <view class="verification-actions">
       <button class="af-action af-action--quiet" bindtap="onRetry" disabled="{{loading || reversing}}"><view class="af-action__face">重新读取原单</view></button>
       <button class="af-action af-action--quiet" wx:if="{{detail.customerId}}" bindtap="onOpenCustomerAssets"><view class="af-action__face">查看客户资产与流水</view></button>

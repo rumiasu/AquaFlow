@@ -118,7 +118,7 @@ for (const status of [1, 2, 4]) test('真实形状登记状态' + status + '原�
   assert(registry(t).entries[0].record); assert(t.page.data.canAnother)
   const content = t.wx.__calls.modal.at(-1).content
   if (status === 4) { assert(content.includes('已撤回')); assert(!content.includes('请向该水站交付押金')) }
-  if (status === 2) assert(content.includes('当前可用权益以资产页为准'))
+  if (status === 2) assert(content.includes('可用数量见“水桶与押金”'))
 })
 test('退款原款状态不假提示当前权益已可用', async () => {
   const t = setup({ status: 3 }); await t.page.onLoad({ stationId: 1 }); await t.page.onPurchase()

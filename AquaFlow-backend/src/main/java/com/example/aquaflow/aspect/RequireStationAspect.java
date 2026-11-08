@@ -37,7 +37,7 @@ public class RequireStationAspect {
 
         Long myStationId = AuthContext.getStationId();
         if (myStationId == null) {
-            throw new BusinessException("当前账号未绑定水站，无法校验数据归属");
+            throw new BusinessException("当前账号未绑定水站");
         }
 
         // 校验请求参数中的 stationId（查询参数 / 表单字段）是否与登录站一致
@@ -49,7 +49,7 @@ public class RequireStationAspect {
                 try {
                     requested = Long.parseLong(param.trim());
                 } catch (NumberFormatException e) {
-                    throw new BusinessException("非法的 stationId 参数");
+                    throw new BusinessException("水站信息不正确，请重新选择");
                 }
                 if (!requested.equals(myStationId)) {
                     throw new BusinessException("无权访问其它水站数据");

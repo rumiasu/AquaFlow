@@ -17,7 +17,7 @@ Page({
     try {
       const response = await get('/api/delivery/my-problem-receipts')
       if (!current()) return
-      if (!response || !Array.isArray(response.data)) throw new Error('反馈结果格式异常')
+      if (!response || !Array.isArray(response.data)) throw new Error('反馈记录不完整，请重试')
       this.setData({ items: response.data, loading: false })
     } catch (e) {
       if (current()) this.setData({ error: (e && e.message) || '反馈加载失败', loading: false })

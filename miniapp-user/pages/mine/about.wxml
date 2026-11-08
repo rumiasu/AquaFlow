@@ -9,7 +9,7 @@
 
     <view class="info-section">
       <view class="info-item af-entry" bindtap="onOpenAgreement" data-type="user">
-        <text class="info-label">服务协议</text>
+        <text class="info-label">用户协议</text>
         <text class="info-arrow">›</text>
       </view>
       <view class="info-item af-entry" bindtap="onOpenAgreement" data-type="privacy">

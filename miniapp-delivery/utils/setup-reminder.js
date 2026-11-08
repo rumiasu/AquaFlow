@@ -173,11 +173,11 @@ function showFreshModal(fresh, owner) {
   const onlyOne = fresh.length === 1
   const lines = fresh.map(it => '· ' + it.label + '（' + (it.levelText || '') + '）\n  ' + (it.why || ''))
   const content = lines.join('\n')
-    + (onlyOne ? '' : '\n\n补完可以在营业状态小框里看到进度。')
+    + (onlyOne ? '' : '\n\n准备进度可在水站状态中查看。')
   const goable = onlyOne && first && first.route
 
   showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-    title: fresh.length > 1 ? '有 ' + fresh.length + ' 项新的要填' : '有一项新的要填',
+    title: fresh.length > 1 ? '新增 ' + fresh.length + ' 项准备事项' : '有一项新准备事项',
     content,
     showCancel: false,
     confirmText: goable ? '去填写' : '知道了',

@@ -39,8 +39,8 @@ public class DeliveryEarningController {
 
     /** 口径说明：由后端下发，前端不复述（本仓约定：展示文案不在前端拼） */
     private static final String NOTE =
-            "「未结合计」是还没被任何结算单算进去的工钱，金额以站长生成的结算单为准；"
-                    + "「已发放」由站长线下转账后登记，到账时间以实际收款为准。";
+            "「未结合计」为尚未纳入结算单的工钱，以核定工资单为准；"
+                    + "「已发放」仅为线下发薪登记，请核对实际收款。";
 
     @Autowired
     private StaffEarningMapper staffEarningMapper;

@@ -1,6 +1,6 @@
 <view class="case-page">
  <view class="case-head"><text class="case-title">{{kind === 'EXCEPTION' ? '核实异常' : '水站回复'}}</text><text class="case-ref">记录 #{{id}}</text></view>
- <view class="case-note">{{kind === 'EXCEPTION' ? '仅用于核实后无需补偿的异常。仍有差异、欠水或补偿待办时不能结案。' : '回复与结案记录会显示在顾客的我的反馈中；不代表退款或资产调整。'}}</view>
+ <view class="case-note">{{kind === 'EXCEPTION' ? '核实后无需补偿才可结案；仍有差异、欠水或补偿待办时不能结案。' : '以下为水站回复与处理记录，不代表已退款或调整资产。'}}</view>
  <view class="case-card case-subject" wx:if="{{ready}}"><text class="case-label">原事项</text><text class="case-status" wx:if="{{statusText}}">{{statusText}}</text><text class="case-time" wx:if="{{subjectCategory}}">{{subjectCategory}}</text><text class="case-reason">{{subjectText || '原事项摘要暂未提供，可返回原列表核对。'}}</text><text class="case-note" wx:if="{{blockReason}}">{{blockReason}}</text></view>
  <text wx:if="{{loading}}">正在核对…</text>
  <view class="case-error" wx:if="{{error}}">{{error}}</view><text class="case-result" wx:if="{{result}}">{{result}}</text>

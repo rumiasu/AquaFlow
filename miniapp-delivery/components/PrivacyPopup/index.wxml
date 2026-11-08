@@ -2,7 +2,7 @@
   <view class="privacy-popup">
     <view class="privacy-title">用户隐私保护提示</view>
     <view class="privacy-content">
-      <text>感谢您使用本小程序。在您使用本小程序前，请仔细阅读并同意</text>
+      <text>使用前，请阅读并同意</text>
       <!-- 2026-10-02 修复（F-54「员工端隐私指引链接不可点击」）：
            原来这里是无点击行为的 <text class="privacy-link">，点《用户隐私保护指引》毫无反应，
            微信隐私授权页拉不起来、也不报错。改为 navigator + open-type="openPrivacyContract"，

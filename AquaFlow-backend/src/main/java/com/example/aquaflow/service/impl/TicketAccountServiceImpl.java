@@ -185,7 +185,7 @@ public class TicketAccountServiceImpl implements TicketAccountService {
             throw new BusinessException("水票调整量不能为 0");
         }
         if (adjustmentId == null) {
-            throw new BusinessException("水票调整必须关联调整单（否则无法保证幂等）");
+            throw new BusinessException("水票调整须关联原调整单");
         }
         int qty = Math.abs(delta);
         boolean increase = delta > 0;
@@ -391,12 +391,12 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         }
         if (key == null) {
             if (orderId == null) {
-                throw new BusinessException("缺少幂等键 idempotencyKey");
+                throw new BusinessException("提交编号缺失，请重新打开页面");
             }
             // 订单内扣票：保持升级前的行为不变（键为 NULL → 不参与 uk_ticket_consume_idem 的判定）
         } else {
             if (key.length() > 64) {
-                throw new BusinessException("幂等键长度不能超过 64");
+                throw new BusinessException("提交编号不能超过64个字符");
             }
             // 幂等命中：同一笔扣票意图的重放，原样返回、**不再扣一次**。
             // 放在余额校验之前：这笔若已扣成功过，此后余额被别处花掉也不该让重放报"余额不足"。
@@ -489,11 +489,11 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         // 连点两次就会落两条待收款流水，站长在「待确认收款」看到两行、两条都确认即入账两次。
         // 设成必传而非可选：「可选」等于默认没有保护，而漏传的代价是重复入账真金白银。
         if (idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
-            throw new BusinessException("缺少幂等键 idempotencyKey");
+            throw new BusinessException("提交编号缺失，请重新打开页面");
         }
         String key = idempotencyKey.trim();
         if (key.length() > 64) {
-            throw new BusinessException("幂等键长度不能超过 64");
+            throw new BusinessException("提交编号不能超过64个字符");
         }
 
         // 2026-10-02：结束空意图与迟到建款共用永久主键锁；锁须覆盖下面插款的整个事务。

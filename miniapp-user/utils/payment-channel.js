@@ -39,7 +39,7 @@ const readOnlineChannel = () => {
   let session, originalTarget
   try { session = captureSession(); originalTarget = target() } catch (error) { return Promise.reject(error) }
   return Promise.resolve().then(() => get(`${API.PAYMENTS}/capabilities`)).then(result => {
-    if (!isCurrentSession(session) || originalTarget !== target()) throw new Error('身份或付款位置已变化，请重新确认')
+    if (!isCurrentSession(session) || originalTarget !== target()) throw new Error('登录状态或付款服务已变化，请重新确认')
     const channel = result && result.code === 0 && result.data && result.data.wechatPay
     if (!channel || channel.method !== 1 || channel.enabled !== true || typeof channel.simulated !== 'boolean'
         || typeof channel.label !== 'string' || !channel.label.trim() || !simulationAllowed(channel, session)) throw new Error('当前付款方式未获授权，请重新确认')

@@ -5,7 +5,7 @@
     <view class="af-action af-action--quiet b3-on-station-scope-retry" wx:if="{{stationScopeState !== 'ready' && stationScopeState !== 'loading'}}" bindtap="onStationScopeRetry"><view class="af-action__face">核实水站</view></view>
   </view>
   <view class="search-bar">
-    <input class="search-input" placeholder="搜姓名/手机号/地址（地址可缩写）" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
+    <input class="search-input" placeholder="搜索姓名、手机号或地址" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="onSearch" />
     <view class="af-action af-action--quiet b3-on-search" bindtap="onSearch"><view class="af-action__face"><text>搜索</text></view></view>
   </view>
 
@@ -94,7 +94,7 @@
         <text class="cod-permission-label">允许此客户使用货到付款</text>
         <switch checked="{{codForm.enabled}}" bindchange="onCodToggle" />
       </view>
-      <view class="modal-tip">开关表示允许设置；修改开关后需保存，再打开可重新核实当前结果。</view>
+      <view class="modal-tip">保存后生效，能否使用以客户当前条件为准。</view>
       <view class="modal-stat">
         <text>历史订单 {{codModal.orderCount}} 笔</text>
         <text>逾期未结 {{codModal.overdueCount}} 笔 · {{codModal.overdueAmount == null || codModal.overdueAmount === '' || codModal.overdueAmount === '待核实' ? '待核实' : '¥' + codModal.overdueAmount}}</text>
@@ -155,7 +155,7 @@
         <view class="af-action af-action--quiet b3-on-ent-cfg-retry" wx:elif="{{entCfgState !== 'ready'}}" bindtap="onEntCfgRetry"><view class="af-action__face">企业身份设置读取失败 · 点击重试</view></view>
         <view class="ent-empty" wx:elif="{{!entCfg.enabled}}">企业身份功能未开启</view>
         <block wx:else>
-        <view class="modal-tip">下单时达到任一条就提示客户「可申请企业身份」。只算桶装水：押金、配送费、楼层费都不计。</view>
+        <view class="modal-tip">桶装水订单达到任一门槛时提示申请企业身份；金额仅计水费。</view>
         <view class="modal-row">
           <text>桶数达到</text>
           <input class="modal-input" type="number" placeholder="留空=不用这条" value="{{entCfgForm.barrels}}" bindinput="onEntCfgBarrelInput" />
@@ -164,7 +164,7 @@
           <text>水费达到（元）</text>
           <input class="modal-input" type="digit" placeholder="留空=不用这条" value="{{entCfgForm.amount}}" bindinput="onEntCfgAmountInput" />
         </view>
-        <view class="modal-tip">两条都填 = 满足任一条就提示；两条都留空 = 本站不提示。不改就是平台默认（{{entCfg.defaultBarrels}} 桶）。</view>
+        <view class="modal-tip">满足任一门槛即提示；两项均留空则不提示。未修改时使用平台默认（{{entCfg.defaultBarrels}} 桶）。</view>
         <view class="modal-tip" wx:if="{{entCfgText}}">当前：{{entCfgText}}</view>
         </block>
       </block>

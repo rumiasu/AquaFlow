@@ -169,7 +169,7 @@ test('ticket refresh distinguishes unknown balance, product failure and successf
   slow.resolve(ok([])); await request
   assert.strictEqual(p.data.totalTickets,0); assert.ok(texts().includes('本站暂无可购买水票的商品。'))
   phase=0; await p.loadData(); assert.strictEqual(p.data.productsFailed,true)
-  assert.ok(texts().includes('可购买商品未能加载，请返回页面重新加载；原购买仍可恢复。'))
+  assert.ok(texts().includes('可购商品未能加载，请重试。已有购买可继续查询。'))
   assert.ok(!texts().includes('本站暂无可购买水票的商品。'))
 })
 test('late ticket refresh cannot clear newer station loading or restore old station facts', async () => {

@@ -76,7 +76,7 @@ public class GlobalExceptionHandler {
                 || msg.contains("Out of range")) {
             Matcher too = Pattern.compile("for column '([^']+)'", Pattern.CASE_INSENSITIVE).matcher(msg);
             String col = too.find() ? too.group(1) : null;
-            return Result.error(col != null ? (col + "值超出允许长度") : "字段值超出允许长度，请检查输入");
+            return Result.error("输入内容过长或数值超出范围，请检查后重试");
         }
 
         // 提取列名，如 Column 'sale_price' cannot be null
@@ -96,13 +96,13 @@ public class GlobalExceptionHandler {
                 case "customer_id" -> "客户";
                 case "name" -> "名称";
                 case "phone" -> "手机号";
-                default -> column;
+                default -> "必填内容";
             };
             return Result.error(cn + "不能为空");
         }
 
         if (msg.contains("cannot be null")) {
-            return Result.error("必填字段不能为空");
+            return Result.error("必填内容不能为空");
         }
         if (msg.contains("Duplicate entry")) {
             return Result.error("数据已存在，请勿重复提交");
@@ -181,7 +181,7 @@ public class GlobalExceptionHandler {
     public Result handleMissingParam(MissingServletRequestParameterException e) {
         // 区分 400（客户端参数问题）与 500（服务端错误），避免调试时误判
         log.warn("缺少必填参数: {}", e.getParameterName());
-        return Result.error("缺少必填参数：" + e.getParameterName());
+        return Result.error("提交内容不完整，请刷新后重试");
     }
 
     /**
@@ -198,7 +198,7 @@ public class GlobalExceptionHandler {
     public Result handleTypeMismatch(
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException e) {
         log.warn("参数格式不正确: {}", e.getMessage());
-        return Result.error("参数格式不正确：" + e.getName());
+        return Result.error("提交内容格式不正确，请检查后重试");
     }
 
     /**
@@ -217,9 +217,9 @@ public class GlobalExceptionHandler {
         java.util.List<String> parts = new java.util.ArrayList<>();
         for (org.springframework.validation.FieldError fe : e.getBindingResult().getFieldErrors()) {
             String m = fe.getDefaultMessage();
-            parts.add(m != null && !m.isBlank() ? m : (fe.getField() + " 参数不合法"));
+            parts.add(m != null && !m.isBlank() ? m : "提交内容不正确，请检查后重试");
         }
-        String msg = parts.isEmpty() ? "参数校验失败" : String.join("；", parts);
+        String msg = parts.isEmpty() ? "提交内容不正确，请检查后重试" : String.join("；", parts);
         log.warn("参数校验失败: {}", msg);
         return Result.error(msg);
     }
@@ -241,7 +241,7 @@ public class GlobalExceptionHandler {
             path = nrf.getResourcePath();
         }
         log.warn("接口不存在: {}", path != null ? path : e.getMessage());
-        return Result.notFound(path != null ? ("接口不存在：" + path) : "接口不存在");
+        return Result.notFound("此功能暂不可用，请刷新后重试");
     }
 
     @ExceptionHandler(Exception.class)
@@ -249,6 +249,6 @@ public class GlobalExceptionHandler {
         log.error("系统异常: {}", e.getMessage(), e);
         raiseSystemAlert("GlobalExceptionHandler.system", e);
         // [AQ-048] 系统级异常用 code=500
-        return Result.systemError("系统错误，请联系管理员");
+        return Result.systemError("服务暂不可用，请稍后重试");
     }
 }

@@ -97,7 +97,7 @@ public class PayMethod {
         //       微信是"渠道以后会上线"的事，客户先看到它才知道还有这条路；
         //       而货到付款是**按客户逐户开通**的经营权限，没开通的客户看到它只会以为系统坏了。
         list.add(method(WECHAT, wechatPayEnabled,
-                wechatPayEnabled ? "模拟支付（点击即成功，仅联调期开启）" : "暂未开通"));
+                wechatPayEnabled ? "测试付款，不扣真实款" : "暂未开通"));
         // 2 现金（货到付款）：**没开通就整项不下发**（2026-09-26 产品裁定原话：
         //    「货到付款不给开通的话，用户端直接不显示」）。
         //    原来它是"灰着显示 + 需水站开通，暂不可用"：客户看到一个点不动的选项，
@@ -154,8 +154,8 @@ public class PayMethod {
         // 前端文案也由这里下发，禁止在客户端写「模拟支付」这类字符串。
         m.put("simulated", wechat && wechatPayEnabled);
         m.put("label", wechat
-                ? (wechatPayEnabled ? "模拟微信支付（点击即成功，仅联调期开启）" : "微信支付暂未开通")
-                : (Integer.valueOf(TICKET).equals(method) ? "水票抵水费（其他费用另付）" : "现金支付（无在线渠道）"));
+                ? (wechatPayEnabled ? "模拟微信支付（不扣真实款）" : "微信支付暂未开通")
+                : (Integer.valueOf(TICKET).equals(method) ? "水票抵水费（其他费用另付）" : "现金支付（线下收款）"));
         return m;
     }
 

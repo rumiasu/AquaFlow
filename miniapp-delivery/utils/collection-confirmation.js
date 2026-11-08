@@ -17,7 +17,7 @@ function moneyText(value) {
 function collectionPrompt(order) {
   const amount = moneyText(order && (order.paymentMethod === 3 ? order.collectAmount : order.totalAmount))
   if (!amount) return null
-  return '订单 #' + order.id + '，确认实际已收到 ' + amount + '？\n此操作只登记已收款，不会向客户扣款。确认后记为已付款；已送达订单将完成。请勿再次向客户收取这笔钱。'
+  return '订单 #' + order.id + '，确认实际已收到 ' + amount + '？\n仅登记实收，不会向客户扣款。确认后记为已付款，已送达订单将完成；请勿重复收款。'
 }
 
 function canConfirmCash(order, user = {}) {

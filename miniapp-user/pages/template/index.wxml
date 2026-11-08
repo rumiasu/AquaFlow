@@ -8,12 +8,12 @@
       console 一下就完了：列表显示「还没有常用订单」、弹窗里商品与地址一片空白，与"确实没有"
       无法区分（AGENTS §8.22）。样式复用 styles/common.wxss 的 .load-error。
     -->
-    <view class="load-error" wx:if="{{loadError}}">{{loadError}}<button class="af-action af-action--quiet" wx:if="{{!needLogin}}" bindtap="onRetry"><text class="af-action__face">重新加载配置</text></button></view>
+    <view class="load-error" wx:if="{{loadError}}">{{loadError}}<button class="af-action af-action--quiet" wx:if="{{!needLogin}}" bindtap="onRetry"><text class="af-action__face">重新加载清单</text></button></view>
     <button class="af-action af-action--secondary" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
 
-    <view class="draft-bar" wx:if="{{formDirty && !showEditModal}}"><text>有未保存的配置</text><button class="af-action af-action--quiet" bindtap="onResumeDraft"><text class="af-action__face">继续编辑</text></button><button class="af-action af-action--quiet" bindtap="onDiscardDraft"><text class="af-action__face">放弃</text></button></view>
+    <view class="draft-bar" wx:if="{{formDirty && !showEditModal}}"><text>有未保存的清单</text><button class="af-action af-action--quiet" bindtap="onResumeDraft"><text class="af-action__face">继续编辑</text></button><button class="af-action af-action--quiet" bindtap="onDiscardDraft"><text class="af-action__face">放弃</text></button></view>
     <view class="info-bar">
-      <text class="info-text">保存商品、数量和地址，不会下单。首页「照上次订」使用最近送达的订单。</text>
+      <text class="info-text">保存清单不会下单；首页「照上次订」仍按最近送达订单。</text>
     </view>
 
     <view class="section" wx:if="{{templates.length > 0}}">
@@ -21,7 +21,7 @@
         <view class="template-item" wx:for="{{templates}}" wx:key="id">
           <view class="template-main">
             <view class="template-info">
-              <text class="template-name">{{item.name || '常用订单'}}</text>
+              <text class="template-name">{{item.name || '订水清单'}}</text>
               <text class="template-default" wx:if="{{item.isDefault === 1}}">默认</text>
             </view>
             <view class="template-right" bindtap="onToggleTemplate" data-id="{{item.id}}" data-enabled="{{item.enabled}}">
@@ -48,10 +48,10 @@
       </view>
     </view>
 
-    <view class="local-empty" wx:elif="{{loaded && !loadError}}"><view class="empty-template-art"><image wx:if="{{!emptyTemplateImageFailed}}" src="{{sceneImageUrl}}" data-src="{{sceneImageUrl}}" mode="aspectFit" binderror="onEmptyTemplateImageError" /><icon wx:else name="barrel" size="36px" color="#244F82" /></view><text>还没有常用订水配置</text></view>
+    <view class="local-empty" wx:elif="{{loaded && !loadError}}"><view class="empty-template-art"><image wx:if="{{!emptyTemplateImageFailed}}" src="{{sceneImageUrl}}" data-src="{{sceneImageUrl}}" mode="aspectFit" binderror="onEmptyTemplateImageError" /><icon wx:else name="barrel" size="36px" color="#244F82" /></view><text>还没有常用订水清单</text></view>
 
     <view class="template-add af-action af-action--secondary" wx:if="{{!needLogin && !accessDenied}}" bindtap="onAddTemplate">
-      <text>+ 新建常用订单</text>
+      <text>+ 新建清单</text>
     </view>
   </block>
 
@@ -59,15 +59,15 @@
   <view class="modal-mask" wx:if="{{showEditModal}}" bindtap="onCloseEditModal"></view>
   <view class="modal-content {{showEditModal ? 'show' : ''}}" catchtap="">
     <view class="modal-header">
-      <text class="modal-title">{{isEditing ? '编辑' : '新建'}}常用订单</text>
+      <text class="modal-title">{{isEditing ? '编辑' : '新建'}}订水清单</text>
       <text class="modal-close" bindtap="onCloseEditModal">×</text>
     </view>
 
     <view class="modal-body">
       <view class="form-draft" wx:if="{{storedDraft || draftNotice}}"><text>{{draftNotice}}</text><button class="af-action af-action--quiet" wx:if="{{storedDraft}}" bindtap="onRestoreStoredDraft"><text class="af-action__face">恢复上次输入</text></button><button class="af-action af-action--quiet" wx:if="{{storedDraft}}" bindtap="onDiscardStoredDraft"><text class="af-action__face">放弃上次输入</text></button><button class="af-action af-action--quiet" wx:else bindtap="onRetryFormDraft"><text class="af-action__face">重试读取</text></button></view>
       <view class="form-section">
-        <text class="form-label">订单名称</text>
-        <input class="form-input" placeholder="如：每周一桶" value="{{form.name}}" bindinput="onNameInput" disabled="{{submitting}}" />
+        <text class="form-label">清单名称</text>
+        <input class="form-input" placeholder="如：家里常订" value="{{form.name}}" bindinput="onNameInput" disabled="{{submitting}}" />
       </view>
 
       <view class="form-section">
@@ -124,7 +124,7 @@
         <text>取消</text>
       </view>
       <view class="af-action af-action--primary af-action--form af-action--grow" bindtap="onSaveTemplate">
-        <text>{{submitting ? '保存中…' : '保存配置'}}</text>
+        <text>{{submitting ? '保存中…' : '保存清单'}}</text>
       </view>
     </view>
   </view>

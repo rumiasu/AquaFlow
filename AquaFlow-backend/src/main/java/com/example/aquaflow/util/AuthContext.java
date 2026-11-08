@@ -61,7 +61,7 @@ public class AuthContext {
     /** 管理员才允许访问 */
     public static void requireManager() {
         if (!isManager()) {
-            throw new com.example.aquaflow.exception.BusinessException("权限不足，仅站长可访问此接口");
+            throw new com.example.aquaflow.exception.BusinessException("此功能仅限站长使用");
         }
     }
 
@@ -106,7 +106,7 @@ public class AuthContext {
             throw new com.example.aquaflow.exception.BusinessException("未登录");
         }
         if (!"customer".equals(user.getUserType())) {
-            throw new com.example.aquaflow.exception.BusinessException("仅客户可访问此接口");
+            throw new com.example.aquaflow.exception.BusinessException("此功能仅限客户使用");
         }
         return user.getUserId();
     }
@@ -121,7 +121,7 @@ public class AuthContext {
             throw new com.example.aquaflow.exception.BusinessException("未登录");
         }
         if (!"staff".equals(user.getUserType())) {
-            throw new com.example.aquaflow.exception.BusinessException("仅员工可访问此接口");
+            throw new com.example.aquaflow.exception.BusinessException("此功能仅限员工使用");
         }
         return user.getRole();
     }

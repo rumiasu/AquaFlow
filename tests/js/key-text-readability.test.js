@@ -299,8 +299,8 @@ test('关键正文/金额/站点名与辅助标签/状态在 320 和 390 宽度�
     [managerIndexWxml, [managerIndexSheet], '.badge-error', 14, '站长徽标加载错误'],
     [managerIndexWxml, [managerIndexSheet], '.pending-entry .entry-title', 14, 'pending entry title'],
   ]
-  const paymentCopy = '<text class="popup-desc">配送员送达后现金/扫码支付，确认下单后将锁定订单。</text>'
-  const depositCopy = '<text class="popup-desc">您有正在配送中的水桶，本次下单将产生额外桶押金。</text>'
+  const paymentCopy = '<text class="popup-desc">送达时向配送员付款，金额以本单明细为准。</text>'
+  const depositCopy = '<text class="popup-desc">已有水桶正在配送中，本次需增交桶押金。</text>'
   for (const copy of [paymentCopy, depositCopy]) {
     assert.ok(orderWxml.includes(copy), '统一确认弹窗中的付款责任/新增押金文案缺失')
     assert.ok(viewClassStackAt(orderWxml, copy).includes('asset-warning'),

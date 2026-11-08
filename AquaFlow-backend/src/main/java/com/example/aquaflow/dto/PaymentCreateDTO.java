@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 @Data
 public class PaymentCreateDTO {
 
-    @NotNull(message = "订单ID不能为空")
+    @NotNull(message = "请选择订单")
     private Long orderId;
 
     // 金额为可选项：服务端一律以订单金额重算，客户端不传时按 0 处理（与改造前行为一致）
@@ -39,8 +39,8 @@ public class PaymentCreateDTO {
      * 列表里出现一笔永远处理不了的钱。上界与 {@code PayMethod.isValid} 一起补齐。</p>
      */
     @NotNull(message = "支付方式不能为空")
-    @Min(value = 1, message = "支付方式非法")
-    @Max(value = 3, message = "支付方式非法")
+    @Min(value = 1, message = "付款方式无效，请重新选择")
+    @Max(value = 3, message = "付款方式无效，请重新选择")
     private Integer paymentMethod;
 
     private Long ticketProductId;

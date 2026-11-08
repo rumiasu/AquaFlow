@@ -94,29 +94,29 @@ Page({
     const current = () => !this._hidden && !this._unloaded && seq === this._readSeq && isCurrentSession(session)
     this.setData({ needLogin: !session.loggedIn || !session.customerId })
     if (!session.loggedIn || !session.customerId) { if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload(); this.setData({ loading: false, loaded: false, accessDenied: false,
-      showEditModal: false, formDirty: false, form: { name: '', addressId: null, specialNote: '', items: [] }, templates: [], loadError: '请先登录后查看本人常用订水配置。' }); return }
+      showEditModal: false, formDirty: false, form: { name: '', addressId: null, specialNote: '', items: [] }, templates: [], loadError: '请先登录后查看本人常用订水清单。' }); return }
     this.setData({ loading: !this.data.loaded, loadError: '' })
     try {
       const sid = this.data.stationId || await resolveStationId()
       if (!current()) return
-      if (!sid) throw new Error('请先选择水站，再查看本站常用订水配置')
+      if (!sid) throw new Error('请先选择水站，再查看本站常用订水清单')
       const res = await getTemplates(sid)
       if (!current()) return
-      if (!res || res.code !== 0 || !Array.isArray(res.data)) throw new Error('常用订水配置暂未加载，请重试')
+      if (!res || res.code !== 0 || !Array.isArray(res.data)) throw new Error('常用订水清单暂未加载，请重试')
       this.setData({ templates: res.data, stationId: sid, loaded: true, accessDenied: false, loadError: '' })
     } catch (error) {
       if (!current()) return
       const denied = /无权|权限|登录/.test(error && error.message || '')
       if (denied) { if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload(); this.setData({ templates: [], loaded: false, accessDenied: true, showEditModal: false, formDirty: false, form: { name: '', addressId: null, specialNote: '', items: [] },
         needLogin: /登录/.test(error && error.message || '') }) }
-      this.setData({ loadError: (this.data.loaded ? '刷新失败，以下为上次读取的配置。' : '') + viewError(error, '常用订水配置暂未加载，请重试。') })
+      this.setData({ loadError: (this.data.loaded ? '刷新失败，以下为上次读取的清单。' : '') + viewError(error, '常用订水清单暂未加载，请重试。') })
     } finally { if (current()) this.setData({ loading: false }) }
   },
   onRetry() { return this.loadData() },
   onLogin() { wx.navigateTo({ url: '/pages/login/index' }) },
 
   onAddTemplate() {
-    if (this.data.formDirty && !this.data.showEditModal) { wx.showToast({ title: '请先处理未保存的配置', icon: 'none' }); return }
+    if (this.data.formDirty && !this.data.showEditModal) { wx.showToast({ title: '请先处理未保存的清单', icon: 'none' }); return }
     if (this._hidden || this._unloaded || this.data.submitting || this.data.needLogin || this.data.accessDenied) return
     const session = captureSession()
     if (!session.loggedIn || !session.customerId) { this.loadData(); return }
@@ -136,7 +136,7 @@ Page({
   },
 
   onEditTemplate(e) {
-    if (this.data.formDirty && !this.data.showEditModal) { wx.showToast({ title: '请先处理未保存的配置', icon: 'none' }); return }
+    if (this.data.formDirty && !this.data.showEditModal) { wx.showToast({ title: '请先处理未保存的清单', icon: 'none' }); return }
     if (this._hidden || this._unloaded || this.data.submitting || this.data.loadError) return
     const { template } = e.currentTarget.dataset
     const items = (template.items && template.items.length > 0)
@@ -270,7 +270,7 @@ Page({
       const items = form.items.map(r => ({ ...formItem(this, r.productId, r.quantity), productName: r.productName || '' }))
       this._draftBlocked = false; this._draftSnapshot = JSON.stringify(draft); this._formRevision = revision + 1
       this.setData({ form: { name: form.name, addressId: form.addressId, specialNote: form.specialNote, items }, formDirty: true, storedDraft: false, draftNotice: '' })
-      if (wx.enableAlertBeforeUnload) wx.enableAlertBeforeUnload({ message: '常用订水配置尚未保存，确定离开吗？' })
+      if (wx.enableAlertBeforeUnload) wx.enableAlertBeforeUnload({ message: '常用订水清单尚未保存，确定离开吗？' })
     }
     if (this.data.formDirty) return showBusinessModal({ title: '恢复上次输入？', content: '恢复会替换当前未保存的输入。', confirmText: '恢复', cancelText: '继续填写', success: res => { if (res.confirm) restore() } })
     restore()
@@ -290,7 +290,7 @@ Page({
   markFormDirty() {
     this._formRevision = (this._formRevision || 0) + 1
     this.setData({ formDirty: true }); this.saveFormDraft()
-    if (wx.enableAlertBeforeUnload) wx.enableAlertBeforeUnload({ message: '常用订水配置尚未保存，确定离开吗？' })
+    if (wx.enableAlertBeforeUnload) wx.enableAlertBeforeUnload({ message: '常用订水清单尚未保存，确定离开吗？' })
   },
   clearFormDirty() {
     if (!this._draftBlocked && this._draftGuard && this._draftToken && this._draftSnapshot != null) {
@@ -393,7 +393,7 @@ Page({
   onDiscardDraft() {
     if (!this.data.formDirty || this.data.submitting) return
     const session = captureSession(), formSeq = this._formSeq || 0
-    showBusinessModal({ title: '放弃未保存的配置？', content: '放弃后本次填写不会保留。', confirmText: '放弃', cancelText: '继续填写',
+    showBusinessModal({ title: '放弃未保存的清单？', content: '放弃后本次填写不会保留。', confirmText: '放弃', cancelText: '继续填写',
       success: res => { if (res.confirm && !this._hidden && !this._unloaded && formSeq === (this._formSeq || 0) && isCurrentSession(session) && !this.data.submitting && this.clearFormDirty()) { this._draftCleanupPending = false; this.setData({ showEditModal: false, formLoading: false }) } } })
   },
   onCloseEditModal() {
@@ -419,17 +419,17 @@ Page({
     try {
       const stationId = this.data.stationId || await resolveStationId()
       if (!isCurrentSession(session) || this._unloaded) return
-      if (!stationId) throw new Error('请先到订水页选择水站，再返回保存常用配置。保存配置不会下单。')
+      if (!stationId) throw new Error('请先选择订水水站，再保存清单。')
       await saveTemplate({ ...(isEditing ? { id: editingTemplate.id } : {}), name: form.name || '常用订单',
         addressId: form.addressId, specialNote: form.specialNote, items: validItems }, stationId)
       if (!isCurrentSession(session) || this._unloaded) return
       this._draftCleanupPending = true
       if (this.clearFormDirty()) { this._draftCleanupPending = false; this.setData({ showEditModal: false }) }
-      else this.setData({ saveError: '配置已保存，但草稿尚未确认清除，请重试。' })
-      wx.showToast({ title: '配置已保存', icon: 'success' })
+      else this.setData({ saveError: '清单已保存，但草稿尚未确认清除，请重试。' })
+      wx.showToast({ title: '清单已保存', icon: 'success' })
       await this.loadData()
     } catch (error) {
-      if (isCurrentSession(session) && !this._unloaded) this.setData({ saveError: viewError(error, '配置未能保存，输入已保留，请重试。') })
+      if (isCurrentSession(session) && !this._unloaded) this.setData({ saveError: viewError(error, '清单未能保存，输入已保留，请重试。') })
     } finally { this._saveFlight = false; if (!this._unloaded) this.setData({ submitting: false }) }
   },
 
@@ -456,7 +456,7 @@ Page({
     const { id } = e.currentTarget.dataset
     showBusinessModal({ confirmColor: '#BD3328', cancelColor: '#637083',
       title: '确认删除',
-      content: '删除后此配置不再保留；已有订单不受影响。', fail: release,
+      content: '删除后清单不再保留，已有订单不受影响。', fail: release,
       success: async (res) => {
         if (!res.confirm) { release(); return }
         if (res.confirm) {

@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 public class PaymentQuoteItemDTO {
 
-    @NotNull(message = "商品ID不能为空")
+    @NotNull(message = "请选择商品")
     private Long productId;
 
     @NotNull(message = "数量不能为空")

@@ -149,7 +149,7 @@ function newPage(scenario) {
     assert.strictEqual(wx.__calls.modal.length, 1, '必须有一个明确的说明弹窗')
     const modal = wx.__calls.modal[0]
     assert.strictEqual(modal.title, '等待到账')
-    assert.ok(modal.content.indexOf('水站还没确认收到这笔钱') !== -1,
+    assert.ok(modal.content.indexOf('水站尚未确认收款') !== -1,
       '要说清卡在"没确认收到钱"，而不是让客户以为在等审批：' + modal.content)
     ;['申请', '审批', '审核', '同意'].forEach((w) => {
       assert.ok(modal.content.indexOf(w) === -1, '等待文案里不许出现「' + w + '」：' + modal.content)

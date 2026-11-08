@@ -13,7 +13,7 @@ function view(patch = {}) { return renderElements(tree, { activeView: 'apply', d
 function has(nodes, handler) { return nodes.some(n => n.attrs && n.attrs.bindtap === handler) }
 const closed = view({ options: { intakeEnabled: false, closureCheckSupported: false } })
 assert(closed.some(n => n.text && n.text.includes('申请暂未开放')))
-assert(closed.some(n => n.text && n.text.includes('修改昵称或手机号')))
+assert(closed.some(n => n.text && n.text.includes('昵称和手机号可在“我的”中修改')))
 assert(!has(closed, 'onSubmit')); assert(!has(closed, 'onToggleDetails')); assert(!has(closed, 'onRetry'))
 assert(has(closed, 'onSetView'), 'application records remain reachable')
 const opened = view({ options: { intakeEnabled: true, requestTypes: [], closureCheckSupported: false } })

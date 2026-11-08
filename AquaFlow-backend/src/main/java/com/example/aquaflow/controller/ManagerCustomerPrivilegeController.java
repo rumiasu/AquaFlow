@@ -119,7 +119,7 @@ public class ManagerCustomerPrivilegeController {
      */
     private String ownershipError(Long customerId, Long stationId) {
         if (customerId == null) {
-            return "customerId 不能为空";
+            return "请选择客户";
         }
         if (customerMapper.getById(customerId) == null) {
             return "客户不存在";

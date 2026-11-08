@@ -174,7 +174,7 @@ for (const [name, data] of [['空详情', null], ['数字详情', 0], ['缺少�
     assert.strictEqual(t.wx.__calls.modal.length, 1)
     const modal = t.wx.__calls.modal[0]
     assert.match(modal.title, /(?:付款|支付).*待确认|(?:付款|支付)结果未知/)
-    assert(modal.content.includes('订单号 777') && modal.content.includes('暂时查不到是否已付款'))
+    assert(modal.content.includes('订单号 777') && modal.content.includes('付款结果待确认'))
     assert.strictEqual(modal.confirmText, '查原单'); assert.strictEqual(modal.cancelText, '再试一次')
     assert(t.hint().includes('待确认')); assert(!t.hint().includes('还没付款'))
     assert.strictEqual(t.page.data.lastSubmittedOrder.paymentState, 'unknown')

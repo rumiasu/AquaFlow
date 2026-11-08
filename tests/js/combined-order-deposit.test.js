@@ -30,9 +30,9 @@ test('首单显示水20押金50合计70，明确确认之前零建单', async ()
   modal.success({ confirm: true }); await flush(); assert.equal(t.orders.length, 1)
   assert.deepStrictEqual(t.orders[0].barrelPurchases, [{ productId: 5, quantity: 1, unitPrice: 50 }]); assert.equal(t.payments.length, 1)
 })
-test('已有容量被占用可等待释放，取消确认不建单不付款', async () => {
+test('已有容量被占用可等待恢复可用，取消确认不建单不付款', async () => {
   const t = page({ lines: [{ ...line, busyRights: 1 }] }); await t.page.refreshQuote(); await t.page.onSubmit()
-  const modal = t.wx.__calls.modal.at(-1); assert(modal.content.includes('等待释放')); assert.equal(modal.cancelText, '等待释放')
+  const modal = t.wx.__calls.modal.at(-1); assert(modal.content.includes('等待恢复可用')); assert.equal(modal.cancelText, '暂不增交')
   modal.success({ confirm: false }); await flush(); assert.equal(t.orders.length, 0); assert.equal(t.payments.length, 0)
 })
 test('容量足够或独立买过押金后没有再次补购确认', async () => {

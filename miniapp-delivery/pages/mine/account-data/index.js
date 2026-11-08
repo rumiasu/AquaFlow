@@ -149,7 +149,7 @@ Page({
       slot.submission = null; slot.marker.pending = false
       syncSlot(slot, res.data.notice || '申请已登记。', res.data)
     } catch (error) {
-      if (isCurrentSession(session) && slot.flight === flight) syncSlot(slot, '登记结果尚未确认；重试将使用原提交编号和原申请内容。')
+      if (isCurrentSession(session) && slot.flight === flight) syncSlot(slot, '登记结果待确认，重试沿用原申请，不会重复登记。')
     } finally {
       if (slot.flight === flight) { slot.flight = null; if (isCurrentSession(session)) syncSlot(slot, ''); else { slot.submission = null; slot.marker.pending = false; slot.pages.clear() } }
     }

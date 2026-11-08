@@ -11,7 +11,7 @@ const { referenceText } = require('../../../../../utils/display-message')
  * 这里只把键翻成人话（字段名，不是「类型→文案」映射），键名一律照抄后端。
  */
 const SNAPSHOT_FIELDS = [
-  { key: 'right', label: '桶权益(个)' },
+  { key: 'right', label: '拥有桶数(个)' },
   { key: 'over', label: '欠桶(个)' },
   { key: 'occupied', label: '占用(个)' },
   { key: 'ticket', label: '水票(张)' },

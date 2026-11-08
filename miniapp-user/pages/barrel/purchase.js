@@ -57,7 +57,7 @@ Page({
         summary: '原水站 ' + entry.body.stationId + ' · 商品 ' + entry.body.productId + ' · ' + entry.body.quantity + ' 份',
         active: entry.body.idempotencyKey === registry.activeKey, known: !!entry.record,
         record: entry.record, paymentMethod: entry.body.paymentMethod })),
-      recoveryError: '', recoveryHint: state.dirty ? '原购买仍保留，请可靠保存后恢复原请求。' : '',
+      recoveryError: '', recoveryHint: state.dirty ? '原购买记录尚未保存完整，请重试后继续。' : '',
       originalActive: !!active, safetyBlocked: false,
       canAnother: !!active && !!active.record && registry.entries.every(entry => !!entry.record) })
       return { state, session }
@@ -182,7 +182,7 @@ Page({
   mayEdit() {
     this.syncRecovery()
     if (this.data.originalActive || this.data.safetyBlocked || this.data.busy || this.data.recoveryBusy) {
-      wx.showToast({ title: '请先核实原购买；另买需明确选择', icon: 'none' }); return false
+      wx.showToast({ title: '请先核对原购买，再选择是否另买', icon: 'none' }); return false
     }
     return true
   },
@@ -320,12 +320,12 @@ Page({
       this.rememberRecord(body, record, state.customerId)
       this.syncRecovery()
       const content = res.data.status === 3
-        ? '原付款状态：' + (res.data.statusText || '请向水站核实') + '。原凭据仍保留，请查询当前权益及退还结果。'
+        ? '原付款状态：' + (res.data.statusText || '请向水站核实') + '。请查看水桶与押金记录及退还结果。'
         : record.status === 'CANCELLED'
-          ? '原购买已撤回，恢复原请求不会重新购买。原凭据仍保留；如需购买，请明确另买一笔。'
+          ? '原购买已撤回，不会重新扣款。如需购买，可选择“另买一笔”。'
           : record.status === 'PAID'
-            ? (recovering ? '原押金已确认' : '本次桶押金已确认') + '，当前可用权益以资产页为准。若仍有待领取容量，水桶随下一次送水送达，本次新领的桶无需回空桶。押金与水款分别办理，本次仅办理桶押金，订水需另行提交。'
-            : '请向该水站交付押金并索取收据。水站确认实际收款后，才可以使用这份权益买票和下单。'
+            ? (recovering ? '原押金已确认' : '本次桶押金已确认') + '，可用数量见“水桶与押金”。本次不送水和桶；订水时首次领取对应的桶无需回空桶。'
+            : '请向水站交押金并保留收据，水站确认收款后可用于购票和订水。'
       const returnToOrder = record.status === 'PAID' && res.data.status === 2 && this.canReturnToOrder(body.stationId)
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: recovering || res.data.status === 3 || record.status === 'CANCELLED'
@@ -339,8 +339,8 @@ Page({
       if (body.stationId === this.data.stationId) await this.loadPurchases()
     } catch (err) {
       if (isCurrentSession(session) && seq === this._submitSeq) {
-        this.syncRecovery(); this.setData({ recoveryError: viewError(err, '原购买结果尚未确认，请查询或恢复原请求'), canAnother: false })
-        wx.showToast({ title: viewError(err, '原购买结果尚未确认，请重试原请求'), icon: 'none' })
+        this.syncRecovery(); this.setData({ recoveryError: viewError(err, '原购买结果尚未确认，请查询或重试原购买'), canAnother: false })
+        wx.showToast({ title: viewError(err, '原购买结果尚未确认，请重试原购买'), icon: 'none' })
       }
     } finally { if (isCurrentSession(session) && seq === this._submitSeq) this.setData({ busy: false }) }
   },
@@ -373,7 +373,7 @@ Page({
       if (!isCurrentSession(context.session) || seq !== this._recoverySeq) return
       const record = intents.queryRecord(response, entry.body, context.state.customerId)
       this.rememberRecord(entry.body, record, context.state.customerId); this.syncRecovery()
-      this.setData({ recoveryHint: record ? '已查回原购买，请按原记录办理；另买需明确选择。'
+      this.setData({ recoveryHint: record ? '已查到原购买，可继续办理或另买一笔。'
         : '暂未查到原购买，不代表没有提交。原凭据已保留，请稍后查询或联系原水站核实。',
         ...(!record ? { canAnother: false } : {}) })
     } catch (error) {
@@ -397,7 +397,7 @@ Page({
       const record = intents.queryRecord(response, entry.body, context.state.customerId)
       if (!record) {
         this.rememberRecord(entry.body, null, context.state.customerId)
-        throw new Error('原购买尚未查回，暂不能另买；请查询或恢复原请求')
+        throw new Error('原购买尚未查到，请先查询或重试原购买')
       }
       const state = intents.load(context.state.customerId), next = intents.clone(state.registry)
       const current = next.entries.find(item => item.body.idempotencyKey === entry.body.idempotencyKey)
@@ -405,7 +405,7 @@ Page({
         || next.entries.some(item => item.body.idempotencyKey !== entry.body.idempotencyKey && !item.record)) throw new Error('原购买状态已变化，请重新核实')
       current.record = intents.mergeRecord(current.record, record, true); next.activeKey = null
       intents.save(state, next); this.syncRecovery()
-      this.setData({ recoveryHint: '原购买凭据仍保留在下方；请明确选择本次新购买的内容。' })
+      this.setData({ recoveryHint: '原购买记录已保留，可选择本次新购买的内容。' })
     } catch (error) {
       if (isCurrentSession(context.session) && seq === this._anotherSeq) {
         this.syncRecovery(); this.setData({ recoveryError: viewError(error, '暂不能另买，请核实原购买'), canAnother: false })

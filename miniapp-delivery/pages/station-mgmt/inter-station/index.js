@@ -109,7 +109,7 @@ Page({
       netText: money(Math.abs(net)),
       // 正 = 净收（别人欠我多）；负 = 净付。**方向由文案承担**，不显示负号（站长看数字更顺）
       netPositive: net >= 0,
-      netLabel: net >= 0 ? '别人净欠本站' : '本站净欠别人'
+      netLabel: net >= 0 ? '本站净应收' : '本站净应付'
     }
   },
 
@@ -233,8 +233,8 @@ Page({
     const id = e.currentTarget.dataset.id
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '按挂牌价结这一单',
-      content: '改成按挂牌价结后，接单站能拿到更多，多出来的差价由本站承担。'
-        + '系统不会自动改价，也不会改动客户已付的钱。确定要改吗？',
+      content: '改为按挂牌价结算，增加的差价由本站承担。'
+        + '仅调整本单站间结算，不改变客户已付金额。确认修改？',
       confirmText: '按挂牌价',
       success: async (res) => {
         if (!res.confirm) return

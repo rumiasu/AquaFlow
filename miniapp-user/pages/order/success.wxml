@@ -1,5 +1,5 @@
 <view class="page">
-  <view class="result-loading" wx:if="{{loadState === 'loading'}}"><text class="success-title">正在核对订单结果</text><text class="success-desc">以订单与付款记录为准，请稍候。</text></view>
+  <view class="result-loading" wx:if="{{loadState === 'loading'}}"><text class="success-title">正在核对订单结果</text><text class="success-desc">请稍候…</text></view>
   <!-- 加载失败（契约 A3）：**不走"下单成功/尽快配送"的兜底** ——
        订单可能压根不存在（比如上次那个把响应对象当订单号的旧版本），
        说"尽快配送"就是拿一个没查到的事实去承诺。 -->
@@ -7,10 +7,10 @@
     <view class="success-circle warn">
       <icon name="warn" size="56rpx" color="#FFFFFF" />
     </view>
-    <text class="success-title">订单信息暂未读到</text>
+    <text class="success-title">订单信息未能加载</text>
     <text class="success-desc">{{loadErrorText}}</text>
     <view class="af-action af-action--quiet" bindtap="onReload">
-      <text class="af-action__face">重试查一次</text>
+      <text class="af-action__face">重新查询</text>
     </view>
   </view>
 

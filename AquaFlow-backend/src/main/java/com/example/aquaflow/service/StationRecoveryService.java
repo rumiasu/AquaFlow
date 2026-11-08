@@ -61,11 +61,11 @@ public class StationRecoveryService {
             if(!Objects.equals(payer,((Number)existing.get("fromStationId")).longValue())
                     || !Objects.equals(receiver,((Number)existing.get("toStationId")).longValue())
                     || amount.compareTo(new java.math.BigDecimal(existing.get("amount").toString()))!=0)
-                throw new BusinessException("返还原款与现有凭据不一致，请先核实实际交款；本次资金登记回滚");
+                throw new BusinessException("返还安排与原记录不一致，本次登记未生效，请核实实际收付款");
             return;
         }
         if(mapper.insert(id,payer,receiver,amount,"客户原消费款、实际退款与已交付站间款已核对；待返还净额，尚未确认交付到账")!=1)
-            throw new BusinessException("资金返还凭据未建立，本次退款或冲销回滚");
+            throw new BusinessException("资金返还记录未保存，本次退款或冲销登记未生效");
     }
     public List<Map<String,Object>> list(Long station) { return policy.hasSchema()?mapper.list(station):List.of(); }
     @Transactional public void sent(Long order,Long station,String note) {

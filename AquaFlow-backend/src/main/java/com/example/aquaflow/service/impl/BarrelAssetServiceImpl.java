@@ -75,7 +75,7 @@ public class BarrelAssetServiceImpl implements BarrelAssetService {
 
             Long productId = item.getProductId();
             if (productId == null) {
-                throw new BusinessException("补录桶权益必须指定商品");
+                throw new BusinessException("补录拥有桶数须选择商品");
             }
             int qty = item.getQty();
             BigDecimal depositAmount = item.getDepositAmount() != null ? item.getDepositAmount() : BigDecimal.ZERO;

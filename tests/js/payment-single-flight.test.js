@@ -70,7 +70,7 @@ async function main() {
       assert.equal(notify(value), false); assert(!modal.at(-1).content.includes('已提交'))
       assert(!modal.at(-1).content.includes('支付成功'))
     }
-    notify({status: 1}); assert(modal.at(-1).content.includes('已提交'))
+    notify({status: 1}); assert.equal(modal.at(-1).title, '等待收款确认'); assert(modal.at(-1).content.includes('尚未确认收款')); assert(modal.at(-1).content.includes('避免重复付款'))
     assert.equal(toast.length, 0)
   })
   console.log('AQUAFLOW_SUITE_OK ' + passed)

@@ -60,7 +60,7 @@ function deliveryCompletionView(order, needCollect, collected, collectedChosen) 
   let completionButtonText = '确认完成'
   if (completionBlocked) {
     completionTitle = '先收齐款项，再交桶'
-    completionHint = '本单有新增桶押金，请先收齐水款和本单押金，再确认交桶；未收齐不能登记送达。'
+    completionHint = '本单含新增桶押金，须收齐本单应收款后交桶并登记送达。'
     completionButtonText = '先收齐款项'
   } else if (deliveredUnpaid) {
     completionTitle = collectedChosen ? '登记送达，待收款' : '确认送达'
@@ -73,11 +73,11 @@ function deliveryCompletionView(order, needCollect, collected, collectedChosen) 
     requiresDepositCollection, completionBlocked, completionTitle, completionHint, completionButtonText,
     cashUncollectedDesc: requiresDepositCollection ? '未收齐，暂不能交桶' : '记为“已送达，待收款”',
     cashUncollectedHint: requiresDepositCollection
-      ? '本单须收齐水款和新增押金后才能交桶；未收齐时请如实选未收款，暂不提交送达。'
-      : '只收了一部分时：先按“未收款”提交，再让站长按实际金额核对。',
+      ? '本单含新增桶押金，未收齐本单应收款时不能交桶或登记送达。'
+      : '仅收到部分款项时，选择“未收款”，并请站长核对实收金额。',
     collectionChoiceHint: requiresDepositCollection
-      ? '本单须先收齐水款和新增押金，请如实选择实际收款情况。'
-      : '请选择实际收款情况（不能空着提交）',
+      ? '本单须收齐应收款后才能交桶，请选择实际收款情况。'
+      : '请选择实际收款情况',
     confirmationResultText: deliveredUnpaid
       ? '提交成功后，订单记为「已送达」，仍待收款。实际收到钱后，请再确认收款。'
       : '提交成功后，订单记为「已完成」。',
@@ -144,7 +144,7 @@ Page({
     completionButtonText: '确认送达',
     cashUncollectedDesc: '记为“已送达，待收款”',
     cashUncollectedHint: '',
-    collectionChoiceHint: '请选择实际收款情况（不能空着提交）',
+    collectionChoiceHint: '请选择实际收款情况',
     successTitle: '配送已登记',
     successButtonText: '已登记',
     /**
@@ -707,14 +707,14 @@ Page({
   _canCompleteWithCollection() {
     const view = deliveryCompletionView(this.data.orderInfo, this.data.needCollect, this.data.collected, this.data.collectedChosen)
     if (!view.completionBlocked) return true
-    wx.showToast({ title: '请先收齐水款和本单押金，再确认交桶', icon: 'none' })
+    wx.showToast({ title: '请先收齐本单应收款，再确认交桶', icon: 'none' })
     return false
   },
 
   _validate() {
     // 钱的事实必须先被确认（契约 C1）：本单还要收款时，"收了没"不许有默认值。
     if (this.data.needCollect && !this.data.collectedChosen) {
-      wx.showToast({ title: '请先确认这单收到钱没有', icon: 'none' })
+      wx.showToast({ title: '请选择实际收款情况', icon: 'none' })
       return false
     }
     if (!this._canCompleteWithCollection()) return false
@@ -729,7 +729,7 @@ Page({
       const reasons = item.reasons || []
       if (reasons.some(r => !REASON_OPTIONS.some(option => option.key === r.key)
           || !Number.isInteger(r.qty) || r.qty <= 0)) {
-        wx.showToast({ title: '已填原因请选有效项，数量填正整数；不填可移除', icon: 'none' })
+        wx.showToast({ title: '请选择异常原因，数量须为正整数；无需说明可移除', icon: 'none' })
         return false
       }
       const totalReasonQty = this._reasonSum(item)
@@ -918,12 +918,11 @@ Page({
       if (isNetwork) {
         this.setData({
           resultState: 'unknown',
-          unknownHint: '这次提交没等到回应（' + msg + '）。配送结果可能已登记，'
-            + '请点「核实原订单」查看最新状态：若已送达或已完成，无需重提；若仍在配送中，可保留现场填写再提交。'
+          unknownHint: '配送结果可能已登记，请核实原订单。已送达或已完成时无需重提；仍在配送中可沿用原内容重试。'
         })
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '送达结果待确认',
-          content: '这次提交没等到回应（' + msg + '）。请点页面上的「核实原订单」查看最新状态；已送达或已完成就无需重提，仍在配送中可用原内容再提交。',
+          content: '提交结果待核实，请先核实原订单，避免重复交付。',
           showCancel: false,
           confirmText: '知道了'
         })

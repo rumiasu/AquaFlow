@@ -82,7 +82,7 @@ public class ConsumptionRefundService {
             throw new BusinessException("所选费用已经退完，不能重复退款");
         BigDecimal priorTotal=decimal(prior.get("waterAmount")).add(decimal(prior.get("deliveryFee"))).add(decimal(prior.get("floorFee")));
         if(priorTotal.add(amount).compareTo(nz(original.getAmount()).subtract(nz(original.getBarrelDeposit())))>0)
-            throw new BusinessException("消费金额与原款快照不一致，请站长核实后裁决，不能超额退款");
+            throw new BusinessException("消费金额与原收款记录不一致，请站长核实，不能超额退款");
         if(expectedRefundAmount!=null && expectedRefundAmount.compareTo(amount)!=0)
             throw new BusinessException("退款金额已变化，请重新预览并确认实际交付金额；本次未登记退款");
         if(combined)orderPurchases.assertRefundRoom(original,amount);
@@ -97,7 +97,7 @@ public class ConsumptionRefundService {
         mockPolicy.markRefund(original,refund);
         payments.insert(refund);
         if (receipts.record(paymentId,refund.getId(),order.getId(),scope,water,delivery,floor,AuthContext.getUserId(),note)!=1)
-            throw new BusinessException("退款凭据未保存，本次操作回滚");
+            throw new BusinessException("退款记录未保存，本次登记未生效");
         BigDecimal refundedTotal=decimal(prior.get("waterAmount")).add(decimal(prior.get("deliveryFee"))).add(decimal(prior.get("floorFee"))).add(amount);
         if(orderPurchases.hasPurchase(order.getId())) {
             orderPurchases.finishPayment(original);
@@ -106,7 +106,7 @@ public class ConsumptionRefundService {
         } else if (refundedTotal.compareTo(nz(original.getAmount()))==0) {
             if (payments.updateStatusTo(paymentId,PaymentStatus.REFUNDED,PaymentStatus.PAID)!=1
                     || orders.updatePaymentStatusIf(order.getId(),PaymentStatus.PAID,PaymentStatus.REFUNDED)!=1)
-                throw new BusinessException("支付状态已变化，本次退款回滚");
+                throw new BusinessException("支付状态已变化，本次退款登记未生效");
         }
         orders.appendSpecialNote(order.getId(),"[消费退款] "+scope+" "+amount+" 元；桶权益及押金未变；"+(note==null?"":note));
         recoveries.preserveFullRefund(order.getId());

@@ -48,6 +48,6 @@ public class TicketConsumeDTO {
      * <p>⚠️ 它与 {@code orderId} 无关，是两条并存的防线：<b>不是</b>"有订单就不用传"。
      * 缺它时手工扣票在数据库层没有任何兜底（见类注释）。</p>
      */
-    @NotBlank(message = "缺少幂等键 idempotencyKey")
+    @NotBlank(message = "提交编号无效，请刷新后重试")
     private String idempotencyKey;
 }

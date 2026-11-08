@@ -92,7 +92,7 @@ class CustomerStatsAndMyStationIntegrationTest extends AbstractIntegrationTest {
         // ① 员工调顾客端点 → 明拒。若这里回 code=0，界面就是"这个客户没有数据"，排查时无从下手
         Api asStaff = get(STATS, staffToken(manager, "STATION_MANAGER", station));
         assertEquals(1, asStaff.code(), "员工不是客户，必须被拒而不是拿到空统计：" + asStaff);
-        assertEquals("仅客户可访问此接口", asStaff.message(),
+        assertEquals("此功能仅限客户使用", asStaff.message(),
                 "拒绝要给可读的具体文案，不能只说「系统错误」：" + asStaff);
         assertTrue(asStaff.data().isNull(), "被拒时不得下发 data：" + asStaff);
 
@@ -195,7 +195,7 @@ class CustomerStatsAndMyStationIntegrationTest extends AbstractIntegrationTest {
         long manager = createStaff("F14 站长", "STATION_MANAGER", boundStation, 1);
         Api asStaff = get(MY_STATION, staffToken(manager, "STATION_MANAGER", boundStation));
         assertEquals(1, asStaff.code(), "员工不该能调顾客端点：" + asStaff);
-        assertEquals("仅客户可访问此接口", asStaff.message(), "拒绝文案要具体：" + asStaff);
+        assertEquals("此功能仅限客户使用", asStaff.message(), "拒绝文案要具体：" + asStaff);
         assertTrue(asStaff.data().isNull(), "被拒时不得下发 data（否则与空态混淆）：" + asStaff);
 
         assertEquals(401, get(MY_STATION, null).status(), "无令牌应是真 401");

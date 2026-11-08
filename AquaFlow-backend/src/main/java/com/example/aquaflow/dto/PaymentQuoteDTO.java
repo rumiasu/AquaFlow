@@ -16,9 +16,9 @@ public class PaymentQuoteDTO {
     private Long stationId;
 
     @NotNull(message = "支付方式不能为空")
-    @Min(value = 1, message = "支付方式非法")
+    @Min(value = 1, message = "付款方式无效，请重新选择")
     private Integer paymentMethod;
-    @Min(1) @jakarta.validation.constraints.Max(2) private Integer ticketFeePaymentMethod;
+    @Min(value=1, message="其他费用付款方式无效，请重新选择") @jakarta.validation.constraints.Max(value=2, message="其他费用付款方式无效，请重新选择") private Integer ticketFeePaymentMethod;
 
     @NotNull(message = "商品明细不能为空")
     @Size(min = 1, message = "至少包含一个商品")

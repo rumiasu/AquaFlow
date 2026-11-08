@@ -34,8 +34,8 @@ public class OrderCreateDTO {
      * 它只是来源标记（没有业务分支读它），但"枚举入参必须白名单校验"是本仓已立的规则
      * （AGENTS §6）—— 顺带一提：员工代客下单页显式传 1（电话），客户端小程序传 3。</p>
      */
-    @Min(value = 1, message = "订单来源非法")
-    @Max(value = 3, message = "订单来源非法")
+    @Min(value = 1, message = "下单方式无效，请刷新后重试")
+    @Max(value = 3, message = "下单方式无效，请刷新后重试")
     private Integer source;
 
     /**
@@ -50,9 +50,9 @@ public class OrderCreateDTO {
     @Min(value = 1, message = "不支持的支付方式")
     @Max(value = 3, message = "不支持的支付方式")
     private Integer paymentMethod;
-    @Min(1) @Max(2) private Integer ticketFeePaymentMethod;
-    @jakarta.validation.constraints.DecimalMin("0") private BigDecimal ticketFeeQuoteAmount;
-    @jakarta.validation.constraints.DecimalMin("0") private BigDecimal ticketDeliveryCreditQuote;
+    @Min(value=1, message="其他费用付款方式无效，请重新选择") @Max(value=2, message="其他费用付款方式无效，请重新选择") private Integer ticketFeePaymentMethod;
+    @jakarta.validation.constraints.DecimalMin(value="0", message="其他费用金额不能小于0") private BigDecimal ticketFeeQuoteAmount;
+    @jakarta.validation.constraints.DecimalMin(value="0", message="配送费抵扣金额不能小于0") private BigDecimal ticketDeliveryCreditQuote;
     private String receiverName;
     private String receiverPhone;
     private String guardInfo;
@@ -80,9 +80,9 @@ public class OrderCreateDTO {
 
     @Data
     public static class BarrelPurchaseConfirmation {
-        @NotNull private Long productId;
-        @NotNull @Min(1) private Integer quantity;
-        @NotNull private BigDecimal unitPrice;
+        @NotNull(message="商品不能为空") private Long productId;
+        @NotNull(message="数量不能为空") @Min(value=1, message="数量不能小于1") private Integer quantity;
+        @NotNull(message="单价不能为空") private BigDecimal unitPrice;
     }
 
     /** 幂等键：防止重复下单 */
@@ -90,7 +90,7 @@ public class OrderCreateDTO {
 
     @Data
     public static class OrderItemDTO {
-        @NotNull(message = "商品ID不能为空")
+        @NotNull(message = "请选择商品")
         private Long productId;
 
         @NotNull(message = "数量不能为空")

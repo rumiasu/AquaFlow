@@ -94,7 +94,7 @@ public class ManagerAdjustmentController {
         Object reason = body == null ? null : body.get("reason");
         Object token = body == null ? null : body.get("clientToken");
         if (token == null || String.valueOf(token).trim().isEmpty()) {
-            return Result.error("clientToken 不能为空（幂等键）");
+            return Result.error("调整编号缺失，请重新打开调整单");
         }
         StationAdjustment rev = adjustmentService.reverse(id,
                 reason == null ? null : String.valueOf(reason), String.valueOf(token));

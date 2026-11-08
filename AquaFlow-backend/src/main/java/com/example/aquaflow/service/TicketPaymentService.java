@@ -72,7 +72,7 @@ public class TicketPaymentService {
         int method=s==null?order.getPaymentMethod():s.cashDue().signum()>0?s.cashMethod():PayMethod.TICKET;
         BigDecimal amount=s==null?order.getTotalAmount():s.cashDue();
         if(!Objects.equals(record.getPaymentMethod(),method) || record.getAmount()==null || amount.compareTo(record.getAmount())!=0)
-            throw new BusinessException("原款方式或金额与服务端订单分项不符，请核对原请求");
+            throw new BusinessException("付款方式或金额与原订单不符，请核对后重试");
     }
     @Transactional public void paid(Orders order) {
         Split s=getForUpdate(order.getId());if(s==null)return;
@@ -91,12 +91,12 @@ public class TicketPaymentService {
         if("HELD".equals(s.state()))lots.releaseOrderReservation(order.getCustomerId(),order.getStationId(),order.getId());
         else lots.refundOrderReservation(order.getCustomerId(),order.getStationId(),order.getId());
         benefits.releaseBeforeDelivery(order.getId());
-        if(jdbc.update("update order_ticket_payment set state='CANCELLED',cancel_time=NOW() where order_id=? and state in ('HELD','CONSUMED')",order.getId())!=1)throw new BusinessException("原水票取消状态已变化，本次回滚");
+        if(jdbc.update("update order_ticket_payment set state='CANCELLED',cancel_time=NOW() where order_id=? and state in ('HELD','CONSUMED')",order.getId())!=1)throw new BusinessException("原水票取消状态已变化，本次取消未生效");
     }
     @Transactional public void refundWater(Orders order) {
         Split s=getForUpdate(order.getId());if(s==null || !"CONSUMED".equals(s.state()))throw new BusinessException("本单水票已回补或尚未消费，不能重复退款");
         lots.refundOrderReservation(order.getCustomerId(),order.getStationId(),order.getId());
-        if(jdbc.update("update order_ticket_payment set state='REFUNDED' where order_id=? and state='CONSUMED'",order.getId())!=1)throw new BusinessException("原水票退款状态已变化，本次回滚");
+        if(jdbc.update("update order_ticket_payment set state='REFUNDED' where order_id=? and state='CONSUMED'",order.getId())!=1)throw new BusinessException("原水票退款状态已变化，本次退款登记未生效");
         jdbc.update("insert into audit_log(module,action,target,detail,create_time) values('PAYMENT','TICKET_REFUND',?, '按原预留批次回补水票，不折现金；已用配送优惠不返还',NOW())","order:"+order.getId());
     }
     public int refundableQty(Long order) {

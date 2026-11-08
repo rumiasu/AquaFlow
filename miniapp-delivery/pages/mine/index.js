@@ -511,7 +511,7 @@ Page({
     const list = this.data.staffList
     showBusinessModal({ cancelColor: '#637083',
       title: '解除配送员',
-      content: '确定解除该配送员？该操作不可撤销。',
+      content: '解除后，该配送员将不再绑定本站。确认解除？',
       confirmColor: '#BD3328',
       confirmText: '解除',
       success: async (res) => {

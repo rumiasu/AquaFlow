@@ -127,7 +127,7 @@
         ⚠️ 判据一个字没改：这一页仍然只读本站的 OPERATION 记录（见 index.js 四条口径之 3）。
       -->
       <view class="hint">
-        <text>这里只列本站需要处理的事（桶异常等待处置、已经补偿或忽略的记录）。平台级的系统故障由系统管理员处理，不会出现在此处。</text>
+        <text>显示本站桶异常处理记录，包括待处理、已补偿和已忽略的记录。</text>
       </view>
 
       <view class="alert-card" wx:for="{{visibleAlerts}}" wx:key="id">

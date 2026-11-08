@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "常用订单",
+  "navigationBarTitleText": "常用订水",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "icon": "/components/Icon/index",

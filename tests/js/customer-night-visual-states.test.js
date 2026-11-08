@@ -238,7 +238,7 @@ test('unknown order recovery names the original submission action without changi
   t.page.setData({loading:false,submitState:'unknown',unknownResultText:'原内容和原编号已保留，结果待核对。'})
   const view=elements('order/create',t.page.data)
   const recovery=view.find(e=>e.attrs.bindtap==='onRetryUnknown')
-  assert.equal(recovery.text,'恢复原提交');assert(!view.some(e=>e.text==='重试查一次'))
+  assert.equal(recovery.text,'重试本次下单');assert(!view.some(e=>e.text==='重试查一次'))
   assert.ok(view.some(e=>e.text.includes('原内容和原编号已保留')))
 })
 test('typed refund dispute and supplemental note keep separate purpose labels before history', () => {
@@ -250,7 +250,7 @@ test('typed refund dispute and supplemental note keep separate purpose labels be
   const titles=view.filter(e=>e.className==='refund-purpose-title').map(e=>e.text)
   assert.deepEqual(titles,['提出退款异议','补充退款说明（选填）']);assert.ok(view.some(e=>e.attrs.bindtap==='onToggleDisputeHistory'&&e.text.includes('退款异议处理记录')))
   assert.ok(view.some(e=>e.className==='refund-purpose-note'&&e.text.includes('由责任水站核实')))
-  assert.ok(view.some(e=>e.className==='refund-purpose-note'&&e.text.includes('只保存说明，不会办理退款或改变金额')))
+  assert.ok(view.some(e=>e.className==='refund-purpose-note'&&e.text.includes('不会直接退款或改变金额')))
   assert(view.findIndex(e=>e.attrs.bindtap==='onSubmit')<view.findIndex(e=>e.attrs.bindtap==='onToggleDisputeHistory'))
   assert.ok(view.some(e=>e.attrs.bindtap==='onRetryDispute'));assert.ok(view.some(e=>e.attrs.bindtap==='onRetryOriginalNote'))
 })

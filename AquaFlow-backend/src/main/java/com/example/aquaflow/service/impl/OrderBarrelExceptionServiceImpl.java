@@ -434,7 +434,7 @@ public class OrderBarrelExceptionServiceImpl implements OrderBarrelExceptionServ
             if (orderMapper.updatePaymentStatusIf(order.getId(),
                     com.example.aquaflow.constant.PaymentStatus.PENDING,
                     com.example.aquaflow.constant.PaymentStatus.CANCELLED) == 0) {
-                throw new BusinessException("订单支付状态已变更，本次核销已回滚，请刷新后重试");
+                throw new BusinessException("订单支付状态已变化，本次核销未生效，请刷新后重试");
             }
         } else if (payCur != com.example.aquaflow.constant.PaymentStatus.CANCELLED) {
             // 已付/已退的单不该走拒付核销 —— 那是退款流程的事，别在这里揉

@@ -251,7 +251,7 @@ Page({
       this.setData({ loading: false })
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '请选择服务水站',
-        content: '下单前要先选一家水站。水桶、水票和押金都算在这家水站名下，别家水站用不了。',
+        content: '桶、水票和押金按水站分别记录，不能跨站使用。',
         confirmText: '去选站',
         cancelText: '取消',
         success: (res) => {
@@ -288,7 +288,7 @@ Page({
         // 页面渲染成一张**空白结算页**，提交时再拦一句"请选择商品" —— 把"参数坏了"说成"你没选商品"。
         items = []
         console.error('[OrderCreate] 下单参数 items 解析失败:', e)
-        this._noteLoadError('下单参数解析失败，商品清单可能是空的，请返回上一页重新下单')
+        this._noteLoadError('商品清单未能读取，请返回重新选择')
       }
     }
     if (options.productId && items.length === 0) {
@@ -345,7 +345,7 @@ Page({
     this._quoteHidden = true
     // 2026-10-22：后台丢弃旧清单回调时也释放读取锁，原清单仍须重新核实。
     this._productsRequestSeq = (this._productsRequestSeq || 0) + 1
-    if (this.data.productsLoading) this.setData({ productsLoading: false, productsError: '商品读取已暂停，请重新读取完整清单。', loading: false })
+    if (this.data.productsLoading) this.setData({ productsLoading: false, productsError: '商品加载已暂停，请重试。', loading: false })
     this.cancelScheduledQuote()
     this._addressNeedsReload = this.data.addressLoading || this._addressNeedsReload
     this._addressRequestSeq = (this._addressRequestSeq || 0) + 1
@@ -388,7 +388,7 @@ async loadItemsProducts() {
     // 2026-10-22：原重试先清错误而保留旧报价，缺件清单会在重读期间被提交。
     this.cancelScheduledQuote()
     this.invalidateQuote()
-    this.setData({ productsLoading: true, productsError: '正在核实完整商品清单，请稍候。', quoteLoading: false })
+    this.setData({ productsLoading: true, productsError: '正在核对商品清单…', quoteLoading: false })
     try {
     const products = []
     const priorProducts = [...(this.data.products || []), ...(this.data.removedProducts || [])]
@@ -401,11 +401,11 @@ async loadItemsProducts() {
 
     if (!effectiveStationId || effectiveStationId <= 0) {
       // 无站点：提示去选择水站
-      this.setData({ loading: false, productsError: '请先选择服务水站，再重新读取完整商品清单。' })
+      this.setData({ loading: false, productsError: '请先选择水站，再重新加载商品。' })
       const confirm = await new Promise(resolve => {
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '请选择服务水站',
-          content: '下单前要先选一家水站。水桶、水票和押金都算在这家水站名下，别家水站用不了。',
+          content: '桶、水票和押金按水站分别记录，不能跨站使用。',
           confirmText: '去选站',
           cancelText: '取消',
           success: (res) => resolve(res.confirm)
@@ -487,10 +487,10 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     if (!productFailCount) this.refreshQuote()
     this.setData({ loading: false })
     } catch (error) {
-      if (current()) this.setData({ productsError: errorText(error, '完整商品清单尚未加载，请重新读取。') })
+      if (current()) this.setData({ productsError: errorText(error, '商品清单未能完整加载，请重试。') })
     } finally {
       if (seq === this._productsRequestSeq) this.setData({ productsLoading: false, loading: false,
-        ...(!current() ? { productsError: '商品读取范围已变化，请重新读取完整清单。' } : {}) })
+        ...(!current() ? { productsError: '商品清单已变化，请重新加载。' } : {}) })
     }
   },
 
@@ -692,7 +692,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 重设地址而问题根本不在那儿。现在把失败标记出来，空态与提交拦截的文案都据此区分。
       console.error('[OrderCreate] 加载收货地址失败:', error)
       this.setData({ addressLoadError: errorText(error, '网络暂时不可用'), quoteLoading: false })
-      this._noteLoadError('收货地址没加载出来（' + errorText(error, '网络暂时不可用') + '），可能显示成"未设置地址"')
+      this._noteLoadError('收货地址未能加载（' + errorText(error, '网络暂时不可用') + '），请重试。')
     } finally {
       if (current()) this.setData({ addressLoading: false })
       else if (seq === this._addressRequestSeq && !isCurrentSession(session)) {
@@ -724,8 +724,8 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 按真实权益算 —— 又是"界面一个价、结算另一个价"（本仓计价双轨的老坑）。
       // 拿不到就不假装知道：明确告诉客户这笔押金估算可能偏高。
       console.error('[OrderCreate] 加载桶权益失败:', error)
-      this._noteLoadError('桶权益没加载出来（' + errorText(error, '网络暂时不可用')
-        + '），押金信息尚未核实，请重新报价后核对本次费用。')
+      this._noteLoadError('水桶记录未能加载（' + errorText(error, '网络暂时不可用')
+        + '），请重新计算费用后核对押金。')
     }
   },
 
@@ -767,7 +767,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     if (!products[index]) return
     const value = String(e.detail.value), qty = Number(value)
     const valid = /^[1-9]\d*$/.test(value) && Number.isSafeInteger(qty)
-    products[index] = { ...products[index], quantityDraft: value, quantityError: valid ? '' : '请填写大于0的整数' }
+    products[index] = { ...products[index], quantityDraft: value, quantityError: valid ? '' : '请填写大于 0 的整数' }
     if (!valid) {
       // 2026-10-28：保留空输入；原有效数量仅作草稿背景，未修正前不可报价或下单。
       this.cancelScheduledQuote(); this.invalidateQuote()
@@ -1268,7 +1268,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     }
 
     if (!(this.data.products || []).length) {
-      wx.showToast({ title: '请先选水，再确认下单', icon: 'none' })
+      wx.showToast({ title: '请选择商品', icon: 'none' })
       return
     }
 
@@ -1358,7 +1358,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: tp.title || '暂不能用票支付',
           content: canBuyTicket ? (ticketHint || '水票不足以覆盖本单，请改选支付方式或先补齐水票')
-            : (ticketHint ? ticketHint.replace(/[。！？；，、\s]+$/, '') + '。' : '') + '请关闭提示后，在支付方式中手动选择其它可用方式。',
+            : (ticketHint ? ticketHint.replace(/[。！？；，、\s]+$/, '') + '。' : '') + '请改选其他可用支付方式。',
           showCancel: canBuyTicket,
           confirmText: canBuyTicket ? '去买水票' : '知道了',
           cancelText: '留在本页',
@@ -1418,12 +1418,12 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     const session = captureSession(), seq = this._quoteRequestSeq
     const lines = this.data.barrelPurchases || []
     const busy = lines.some(l => Number(l.busyRights) > 0)
-    const text = lines.map(l => (l.productName || '商品编号 ' + l.productId) + '：新增用桶权益 ' + l.quantity
+    const text = lines.map(l => (l.productName || '商品编号 ' + l.productId) + '：新增桶押金 ' + l.quantity
       + ' 份，单价 ¥' + Number(l.unitPrice).toFixed(2) + '，本次桶押金 ¥' + Number(l.amount).toFixed(2)).join('；')
     const confirmationKey = this._confirmationKey()
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '确认本次新增桶押金',
-      content: text + '。与本单水款一起付款，收齐款项后押金生效。' + (busy ? '已有容量正在办理其他订单，可等待释放，或明确再买一份。' : '也可返回，在水桶与押金页单独办理。'),
-      confirmText: '一起付款', cancelText: busy ? '等待释放' : '返回修改',
+      content: text + '。与本单水款一起付款，收齐款项后押金生效。' + (busy ? '已有桶数被其他订单占用，可等待恢复可用，或增交本次押金。' : '也可返回，在水桶与押金页单独办理。'),
+      confirmText: '一起付款', cancelText: busy ? '暂不增交' : '返回修改',
       success: result => {
         if (!result.confirm || seq !== this._quoteRequestSeq || confirmationKey !== this._confirmationKey()
           || !isCurrentSession(session) || !this._hasCurrentQuote() || !this.data.quoteReady || this.data.blocked) return
@@ -1708,7 +1708,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       }
       const orderId = requestRecord.phase === 'known' ? requestRecord.orderId : pickOrderId(data)
       if (orderId == null) {
-        if (current()) this._showOrderRecoveryBlocked('没能确认原提交结果。重试仍使用原编号和完整内容；也可先到我的订单核实原单。')
+        if (current()) this._showOrderRecoveryBlocked('下单结果尚未确认。重试不会重复下单，也可到“我的订单”核对。')
         return
       }
       // 原回执只登记原请求指纹；页面编辑、卸载或重新登录不能授权旧回调继续付款。
@@ -1734,9 +1734,9 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       }
       // 停业/地址校验可能在幂等查找之前拒绝重放；businessRejected 不能证明历史 unknown 原单不存在。
       if (!current()) return
-      this._showOrderRecoveryBlocked('原提交结果尚未确认，保留原编号和内容，请重试核实或到我的订单查看。')
+      this._showOrderRecoveryBlocked('下单结果尚未确认，请重试或到“我的订单”核对。')
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '原提交还需核实', content: errorText(error, '本次结果尚未确认。') + '\n\n'
-        + '原单可能已创建。重试只办理原提交，不会更换编号或内容。', confirmText: '重试', cancelText: '先查看',
+        + '订单可能已创建，重试不会重复下单。', confirmText: '重试', cancelText: '先查看',
         success: result => {
           if (result.confirm && current() && !this._quoteHidden && requestRecord.phase === 'unknown') this._createOrder(false)
         } })
@@ -1748,7 +1748,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
   },
 
   _showOrderRecoveryBlocked(message) {
-    this.setData({ submitting: false, submitState: 'unknown', unknownResultText: errorText({ message }, '原提交结果尚未确认，请核对原订单或恢复原请求。') }, () => this._measureOrderRecoveryBar())
+    this.setData({ submitting: false, submitState: 'unknown', unknownResultText: errorText({ message }, '下单结果尚未确认，请核对原订单或重试。') }, () => this._measureOrderRecoveryBar())
   },
 
   _restoreOrderRequest() {
@@ -1862,9 +1862,9 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
           const title = unknown ? '订单已提交，付款结果待确认' : '订单已提交，但支付还没成功'
           const body = outcome.state === 'paid'
             ? '款项已经结清，可以放心等配送。'
-            : unknown ? '订单已经建好了（订单号 ' + orderId + '），暂时查不到是否已付款。请点「查原单」刷新核实；若继续支付，仍办理这张原订单。'
+            : unknown ? '订单已创建（订单号 ' + orderId + '），付款结果待确认。可查询订单或重试本单付款。'
             : errorText(outcome.error, '支付暂未完成，请核对原订单')
-              + '。订单已经建好了（订单号 ' + orderId + '），但这一笔支付没有完成。'
+              + '。订单已创建（订单号 ' + orderId + '），付款尚未完成。'
           showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
             title,
             content: body,
@@ -1977,7 +1977,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
     if (!Array.isArray(warnings) || !warnings.length) return Promise.resolve()
     return new Promise((resolve) => {
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-        title: '下单成功，请注意',
+        title: '订单已提交',
         content: warnings.join('\n'),
         showCancel: false,
         confirmText: '知道了',
@@ -2133,7 +2133,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       })
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
         title: '申请已提交',
-        content: '水站站长审核通过后，你会成为企业客户。本次下单不受影响，可以继续。',
+        content: '水站审核通过后可成为企业客户，本次订水不受影响。',
         showCancel: false,
         confirmText: '继续下单'
       })

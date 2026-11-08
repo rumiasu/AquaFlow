@@ -105,7 +105,7 @@ Page({
         if (!silent && bindStatus === BINDING_STATUS.REJECTED) {
           showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
             title: '申请被拒绝',
-            content: '站长拒绝了您的绑定申请，请重新申请。',
+            content: '绑定申请未通过，可重新申请。',
             showCancel: false,
             success: () => {
               if (this.bindingCurrent(active)) wx.redirectTo({ url: '/pages/station-mgmt/apply-bind/index' })
@@ -144,7 +144,7 @@ Page({
   onLogout() {
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
-      content: '退出后可用其他微信账号登录。',
+      content: '退出后需重新登录。',
       confirmText: '退出',
       success: (res) => {
         if (res.confirm) getApp().logout()

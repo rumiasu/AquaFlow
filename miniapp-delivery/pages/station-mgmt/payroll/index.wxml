@@ -56,7 +56,7 @@
       <view class="row configured-rate {{item.isDefault ? 'configured-default' : ''}}" wx:for="{{rates}}" wx:key="id"><button class="af-action af-action--quiet rate-edit" data-id="{{item.productId}}" bindtap="onRateProduct" disabled="{{savingRate}}"><text class="af-action__face">编辑</text></button>
         <view class="row-main">
           <text class="row-title">{{item.productName}}</text>
-          <text class="row-sub">每{{item.quantityUnit}} ¥{{item.perBucketAmount}} · 楼层 ¥{{item.floorBonusPerLevel}}/层（{{item.floorFreeLevel}} 层内免）</text>
+          <text class="row-sub">每{{item.quantityUnit}} ¥{{item.perBucketAmount}} · 楼层 ¥{{item.floorBonusPerLevel}}/层（{{item.floorFreeLevel}} 层内不补）</text>
         </view>
       </view>
     </view>
@@ -200,7 +200,7 @@
       <view class="field">
         <text class="label">原因</text>
         <input class="input" value="{{adjustForm.note}}" bindinput="onAdjustInput"
-               data-field="note" placeholder="建议写清楚，对账要看" />
+               data-field="note" placeholder="填写调整原因" />
       </view>
       <button class="af-action af-action--primary af-action--block adjust-submit" disabled="{{!isManager || adjusting || loading || payrollReadError}}" bindtap="onAdjust">
         {{adjusting ? '提交中…' : '提交调整'}}
@@ -283,7 +283,7 @@
       </view>
       <view class="empty" wx:if="{{!loading && !payrollReadError && !items.length}}">
         还没有自定义条目。
-        加项/扣项定义一次，以后录钱选一下就行（如「高温补贴」「迟到扣款」）。
+        条目可重复使用，如高温补贴、迟到扣款。
       </view>
       <view class="row item-card" wx:for="{{items}}" wx:key="id">
         <view class="row-main">
@@ -292,7 +292,7 @@
             <text class="pill {{item.enabled ? 'pill-on' : 'pill-off'}}">{{item.directionText}}</text>
           </view>
           <text class="row-sub">
-            {{item.enabled ? '启用中 · 录钱时可选' : '已停用 · 不再出现在录钱入口（历史流水照旧）'}}
+            {{item.enabled ? '已启用 · 记账时可选' : '已停用 · 历史流水保留'}}
           </text>
           <view class="actions-row">
             <button class="af-action af-action--secondary item-record-entry" catchtap="onRecordOpen" data-id="{{item.id}}"

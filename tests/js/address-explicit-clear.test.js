@@ -29,7 +29,7 @@ async function run() {
   let writes = 0
   const old = await page(async () => { writes++; throw Object.assign(Error('接口不存在'), { code: 404, businessRejected: true }) })
   old.p.onInputChange(event('floor', '')); await old.p.onSubmit()
-  assert.equal(writes, 1); assert.equal(old.p.data.saveSucceeded, false); assert.match(old.p.data.saveMessage, /服务需更新/)
+  assert.equal(writes, 1); assert.equal(old.p.data.saveSucceeded, false); assert.match(old.p.data.saveMessage, /地址服务暂不可用，输入已保留，请稍后重试/)
   // The real API wrapper must choose the versioned route, with no legacy fallback write.
   const Module = require('module'), path = require('path'), original = Module._load
   let route

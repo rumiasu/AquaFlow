@@ -98,7 +98,7 @@ public class BarrelLedgerService {
         decreaseRight(customerId,stationId,productId,quantity,total);
         overMapper.adjustOver(customerId,stationId,productId,quantity);
         overMapper.syncOwedSince(customerId,stationId,productId);
-        if (businessMapper.release("RETURN",recordId,"REFUNDED") != 1) throw new BusinessException("退还权益已被处理");
+        if (businessMapper.release("RETURN",recordId,"REFUNDED") != 1) throw new BusinessException("退还桶数已被处理");
         result.setAmount(total);
         return result;
     }
@@ -177,7 +177,7 @@ public class BarrelLedgerService {
         busy+=businessMapper.legacyOrderBusyExcept(customerId,stationId,productId,"ORDER".equals(type)?ownerId:0L)
                 +businessMapper.legacyReturnBusyExcept(customerId,stationId,productId,"RETURN".equals(type)?ownerId:0L);
         if (quantity <= 0 || quantity > right - busy) {
-            throw new BusinessException("该商品可用桶权益不足，请先交桶押金或等待正在办理的订单结束");
+            throw new BusinessException("该商品可用桶数不足，可补交押金或等待现有占用释放");
         }
         int pickupBusy = active.stream().mapToInt(r -> r.getPickupQty() - r.getPendingPickupQty()).sum();
         int gap = Math.max(0, -lockedOverQty(customerId, stationId, productId) - pickupBusy);
@@ -224,7 +224,7 @@ public class BarrelLedgerService {
                 .mapToInt(r -> r.getPickupQty()-r.getPendingPickupQty()).sum();
         int pickup=Math.min(own.getQuantity(),Math.max(0,-lockedOverQty(customer,station,product)-pickupBusy));
         if (businessMapper.fundReservation(own.getId(),quantity,pickup)!=1)
-            throw new BusinessException("本单容量已变化，收款已回滚");
+            throw new BusinessException("本单可用桶数已变化，本次收款登记未生效");
     }
 
     /** 取消仅核销本次新批次可分配且未被退款申请锁定的数量，保持实物不变。 */
@@ -361,7 +361,7 @@ public class BarrelLedgerService {
             }
             for (BarrelRightReservation r : businessMapper.reservationsForUpdate("ORDER", orderId)) {
                 if (r.getPendingQty() > 0) throw new BusinessException("请先收齐本单水款和押金，再确认交桶");
-                if (!"ACTIVE".equals(r.getStatus())) throw new BusinessException("桶权益已释放或已交付，请刷新订单");
+                if (!"ACTIVE".equals(r.getStatus())) throw new BusinessException("本单桶数已释放或已交付，请刷新订单");
                 int rights = lockRights(customerId, stationId, r.getProductId());
                 int before = lockedOverQty(customerId, stationId, r.getProductId());
                 int returned = returnedByProduct == null ? 0 : returnedByProduct.getOrDefault(r.getProductId(), 0);
@@ -598,7 +598,7 @@ public class BarrelLedgerService {
     public CustomerBarrelLot createLot(Long customerId, Long stationId, Long productId,
                                        BigDecimal unitPrice, int qty, Long relatedOrderId, Long operatorId,
                                        LotOrigin origin) {
-        if (qty <= 0) throw new BusinessException("新增权益数必须大于 0");
+        if (qty <= 0) throw new BusinessException("新增拥有桶数必须大于 0");
         LotOrigin src = origin != null ? origin : LotOrigin.fromOrder();
         BigDecimal price = unitPrice == null ? BigDecimal.ZERO : unitPrice;
 
@@ -738,12 +738,12 @@ public class BarrelLedgerService {
         // 预览是只读；不能为了试算创建 over 行或改变客户资产状态。
         int right = dryRun?rightQty(customerId,stationId,productId):lockRights(customerId, stationId, productId);
         if (qty > right) {
-            throw new BusinessException("退桶数(" + qty + ")超过拥有的桶权益数(" + right + ")");
+            throw new BusinessException("退桶数(" + qty + ")超过拥有桶数(" + right + ")");
         }
 
         int busy = businessPolicy.hasSchema()?(dryRun?businessMapper.reserved(customerId,stationId,productId):businessMapper.activeForUpdate(customerId,stationId,productId).stream()
                 .mapToInt(r -> r.getQuantity()-r.getPendingQty()).sum()):0;
-        if (qty > right-busy) throw new BusinessException("该部分权益正在配送或退还申请中，不能再次扣减");
+        if (qty > right-busy) throw new BusinessException("该部分桶数已被订单或退还申请占用，不能再次扣减");
 
         List<CustomerBarrelLot> lots = dryRun?lotMapper.listAvailable(customerId,stationId,productId):lotMapper.listAvailableForUpdate(customerId, stationId, productId);
         if (preferLotIds != null && !preferLotIds.isEmpty()) {
@@ -765,7 +765,7 @@ public class BarrelLedgerService {
             if (!dryRun) {
                 int affected = lotMapper.consume(lot.getId(), take);
                 if (affected == 0) {
-                    throw new BusinessException("权益批次核销失败（可能已被其他操作占用），请重试");
+                    throw new BusinessException("原批次桶数已变化，请刷新后重试");
                 }
                 lotMapper.markExhausted(lot.getId());
             }
@@ -774,7 +774,7 @@ public class BarrelLedgerService {
             result.getDetails().add(new LotConsumption.Detail(lot.getId(), take, lot.getUnitPrice(), line));
             remaining -= take;
         }
-        if (remaining > 0) throw new BusinessException("可退权益不足，缺少 " + remaining + " 桶");
+        if (remaining > 0) throw new BusinessException("可退桶数不足，还差 " + remaining + " 桶");
 
         result.setAmount(amount);
         result.setHasMigratedPrice(lots.stream().anyMatch(l -> Integer.valueOf(1).equals(l.getIsMigrated())));
@@ -799,7 +799,7 @@ public class BarrelLedgerService {
         if (restore) {
             CustomerBarrelAsset asset = assetMapper.getByCustomerAndProductForUpdate(customer, product, station);
             if (asset == null || assetMapper.restoreAdjustment(asset.getId(), quantity, result.getAmount()) != 1) {
-                throw new BusinessException("原桶权益汇总已变化，本次撤销未执行，请核对资产流水");
+                throw new BusinessException("原拥有桶数已变化，本次撤销未执行，请核对资产流水");
             }
         } else {
             decreaseRight(customer, station, product, quantity, result.getAmount());
@@ -836,7 +836,7 @@ public class BarrelLedgerService {
                 long busy = businessPolicy.hasSchema() ? (long) businessMapper.reserved(customer, station, product)
                         + businessMapper.legacyOrderBusy(customer, station, product)
                         + businessMapper.legacyReturnBusy(customer, station, product) : 0;
-                if (quantity > rights - busy) throw new BusinessException("原权益仍被配送或退还占用，请先核对原单");
+                if (quantity > rights - busy) throw new BusinessException("原桶数仍被订单或退还申请占用，请先核对原单");
             }
         }
         CustomerBarrelAsset asset = locked ? assetMapper.getByCustomerAndProductForUpdate(customer, product, station)
@@ -864,9 +864,9 @@ public class BarrelLedgerService {
     @Transactional
     public void decreaseRight(Long customerId, Long stationId, Long productId, int qty, BigDecimal amount) {
         CustomerBarrelAsset asset = assetMapper.getByCustomerAndProductForUpdate(customerId, productId, stationId);
-        if (asset == null) throw new BusinessException("该客户无此桶权益记录");
+        if (asset == null) throw new BusinessException("该客户没有此商品的桶资产记录");
         int affected = assetMapper.decreaseQuantity(asset.getId(), qty);
-        if (affected == 0) throw new BusinessException("权益数量不足，扣减失败");
+        if (affected == 0) throw new BusinessException("拥有桶数不足，无法扣减");
         if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0) {
             int am = assetMapper.subRightAmount(asset.getId(), amount);
             if (am == 0) throw new BusinessException("可退金额不足，扣减失败");

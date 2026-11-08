@@ -193,8 +193,8 @@ Page({
         holdingsStale: !holdingsOK && !!keep && this.data.customerBarrelAsset.length > 0,
         recordsStale: !recordsOK && !!keep && this.data.records.length > 0 })
       if (!summaryOK || !recordsOK || !holdingsOK) {
-        this.setData({ loadError: '部分桶与押金数据暂未加载；未加载项不代表 0，请重试' })
-        wx.showToast({ title: '桶数据加载不完整，请下拉刷新', icon: 'none' })
+        this.setData({ loadError: '部分水桶或押金信息未能加载，请重试' })
+        wx.showToast({ title: '水桶信息未完整加载，请刷新', icon: 'none' })
       } else {
         this.setData({ loadError: '' })
       }
@@ -417,7 +417,7 @@ Page({
     if (result.state !== 'saved') return this.readUiDraft()
     const inputBefore = JSON.stringify({ form: { ...this.data.returnForm } })
     this._uiDraftRestoring = true
-    showBusinessModal({ title: '恢复暂存填写', content: '恢复会替换本页尚未提交的输入。仍需按当前商品与金额核实后正式提交。', confirmText: '恢复填写', cancelText: '取消',
+    showBusinessModal({ title: '恢复暂存填写', content: '恢复后将替换本页未提交的内容，金额按当前记录重新核对。', confirmText: '恢复填写', cancelText: '取消',
       success: async response => {
         if (!response.confirm || this.data.submitting || this.data.pendingReturn || this.data.returnRecoveryError || inputBefore !== JSON.stringify({ form: { ...this.data.returnForm } })) return
         const latest = guard.read(token)
@@ -456,7 +456,7 @@ Page({
       this.setData({ loadError: '退还前需重新核实桶与押金，请重新加载。' }); return
     }
     if (this.data.stationReturnQty <= 0) {
-      wx.showToast({ title: '暂无可退水桶', icon: 'none' })
+      wx.showToast({ title: '暂无可退数量', icon: 'none' })
       return
     }
     if (this._returnDraft && this._returnDraft.scope === this._returnRecoveryScope && isCurrentSession(this._returnDraft.session)) {
@@ -496,7 +496,7 @@ Page({
     }
     if (this.data.pendingReturn || JSON.stringify(this.data.returnForm) === this._returnInitial) return close()
     this._closeReturnPrompt = true
-    showBusinessModal({ title: '暂存这次填写？', content: '商品、数量和备注会保留在本页，再次打开可继续。尚未提交退还申请。',
+    showBusinessModal({ title: '暂存这次填写？', content: '填写内容将暂存，尚未提交申请。',
       confirmText: '暂存关闭', cancelText: '继续填写',
       success: res => { if (res.confirm) close() }, complete: () => { this._closeReturnPrompt = false } })
   },
@@ -677,7 +677,7 @@ Page({
       this._returnDraft = null
       this._returnInitial = null
       this.setData({ pendingReturn: null, showReturnModal: false, returnError: '' })
-      wx.showToast({ title: '退桶申请已提交', icon: 'success' })
+      wx.showToast({ title: '退还申请已提交', icon: 'success' })
       this.loadData()
     } catch (error) {
       console.error('[Barrel] 退桶失败:', error)
@@ -696,13 +696,13 @@ Page({
 
   onEcoRuleTap() {
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-      title: '水桶回收规则',
+      title: '退还规则',
       // 退桶扣减押金后的钱**不留站内余额**（原「待拍板」项已于 2026-09-27 拍板收口，勿再挂）：
       // 产品口径「不现场给钱的不要退」= 核销与"钱交到顾客手上"是同一次操作 —— 优先原路退回，
       // 通道不可用（微信退款未接入）就由水站在确认收桶时当面交付现金（refundChannel=CASH）。
       // 正本 `docs/design/35-退押金实际交付-决策件.md` §7.2/§7.3。故本弹窗只说"以页面预览为准、
       // 具体退款方式向水站确认"，不承诺"退到余额"；index.wxml 的押金说明同此口径。
-      content: '1. 水桶需保持完好，无严重破损\n2. 水站核实退桶或未领桶权益；应交回的空桶须确认收到\n3. 每桶金额以页面预览为准，具体退款方式请向水站确认\n4. 请勿将水桶用于非饮用水用途',
+      content: '已领桶须保持完好并按安排交回，未领桶无需交回。水站核实后办理退款，预计金额见申请预览。水桶仅限饮用水用途。',
       showCancel: false,
       confirmText: '我知道了'
     })
@@ -740,7 +740,7 @@ Page({
     const current = () => !this._arrangementHidden && life === (this._arrangementLife || 0) && isCurrentSession(session)
     this._returnConfirmFlight = true
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083', title: '确认取桶费与安排',
-      content: '请核对费用和新安排。确认安排不代表已经收到退款；实际未收到时可提出异议。',
+      content: '请核对以下费用与安排。本次确认不代表退款已到账；未收到退款仍可提出异议。',
       details: [{ label: '应退押金', value: '¥' + record.depositRefund },
         { label: '需交回', value: detail.requiredBarrels + ' 个桶' },
         { label: '取桶费', value: '¥' + detail.pickupFee },
@@ -774,13 +774,13 @@ Page({
         if (!selected || !current()) return
         companionOrderId=selected.id
       }
-      const reason=await this.arrangementDialog({ title: '改为' + ({ STORE:'到店退桶', PICKUP:'单独上门', COMBINED:'随所选订单收桶' })[mode], editable:true, description:'水站将重新批准安排', initialValue:'', placeholderText:'填写200字以内变更原因', confirmText:'提交更改' })
+      const reason=await this.arrangementDialog({ title: '改为' + ({ STORE:'到店退桶', PICKUP:'单独上门', COMBINED:'随所选订单收桶' })[mode], editable:true, description:'水站将重新批准安排', initialValue:'', placeholderText:'变更原因（200字以内）', confirmText:'提交更改' })
       if (!reason || !current()) return
       const text=(reason.content || '').trim()
-      if (!text || text.length > 200) { wx.showToast({ title:'请填写200字以内变更原因', icon:'none' }); return }
+      if (!text || text.length > 200) { wx.showToast({ title:'请填写变更原因（200字以内）', icon:'none' }); return }
       const body={ pickupMode:mode, companionOrderId, expectedVersion:d.arrangementVersion, reason:text, idempotencyKey:'ret-arr-' + Date.now() + '-' + Math.random().toString(36).slice(2) }
       await changeBarrelReturnArrangement(record.id,body)
-      if (current()) { await this.loadData(); wx.showToast({ title:'原申请安排已更改，等待水站批准', icon:'none' }) }
+      if (current()) { await this.loadData(); wx.showToast({ title:'安排已更改，待水站批准', icon:'none' }) }
     } catch (err) { if (current()) { wx.showToast({ title:viewError(err, '更改未完成，请核对原申请'), icon:'none' }); await this.loadData() } }
     finally { this._arrangementFlight=false }
   },
@@ -801,7 +801,7 @@ Page({
     const context = assetViewStation.beginRead(this, 'withdrawDialog')
     this._withdrawFlight = true
     const release = () => { this._withdrawFlight = false }
-    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '撤回退桶申请', content: '尚未交接的申请可撤回，已锁定权益恢复使用。', fail: release, success: async (res) => {
+    showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  title: '撤回退桶申请', content: '撤回后，本申请占用的桶数量将恢复可用。', fail: release, success: async (res) => {
       if (!res.confirm || !assetViewStation.current(this, context)) { release(); return }
       try { await withdrawBarrelReturn(record.id); if (assetViewStation.current(this, context)) await this.loadData() }
       catch (err) { if (assetViewStation.current(this, context)) wx.showToast({ title: viewError(err, '撤回失败'), icon: 'none' }) }

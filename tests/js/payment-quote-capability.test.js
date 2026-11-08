@@ -197,7 +197,7 @@ for (const reason of ['DEPOSIT', 'PRODUCT_DISABLED']) test(reason + ' acknowledg
   await t.page.onSubmit()
   const modal = t.wx.__calls.modal.at(-1)
   assert.equal(modal.confirmText, '知道了'); assert.equal(modal.showCancel, false)
-  assert.match(modal.content, /手动选择其它可用方式/)
+  assert.match(modal.content, /请改选其他可用支付方式/)
   modal.success({ confirm: true })
   assert.equal(t.page.data.selectedMethod, method); assert.equal(t.page.data.totalAmount, amount)
   assert.equal(t.calls.orders.length, 0); assert.equal(t.calls.payments.length, 0)
@@ -208,7 +208,7 @@ test('non-purchaseable ticket reason remains readable when optional hint metadat
   await t.page.refreshQuote(); t.wx.__modalAutoConfirm = false; await t.page.onSubmit()
   const modal = t.wx.__calls.modal.at(-1)
   assert.equal(modal.confirmText, '知道了'); assert.equal(typeof modal.content, 'string')
-  assert.match(modal.content, /手动选择/); assert.equal(t.calls.orders.length, 0)
+  assert.match(modal.content, /请改选其他可用支付方式/); assert.equal(t.calls.orders.length, 0)
 })
 test('trial removes a quote-explicit simulated WeChat method before order submission', async () => {
   const data = { ...validQuote().data, defaultMethod: 1,

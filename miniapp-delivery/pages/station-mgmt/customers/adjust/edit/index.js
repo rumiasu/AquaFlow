@@ -18,8 +18,8 @@ const { API } = require('../../../../../config/api')
  * 因此页面上必须让站长在「补记 / 核销」之间明确二选一。
  */
 const ADJUST_OPTIONS = [
-  { value: 'BARREL_GRANT', label: '补录桶权益', needProduct: true, needQty: true, needAmount: false, allowUnitPrice: true, isOverAdjust: false },
-  { value: 'BARREL_REVOKE', label: '撤销桶权益', needProduct: true, needQty: true, needAmount: false, allowUnitPrice: false, isOverAdjust: false },
+  { value: 'BARREL_GRANT', label: '补录桶数', needProduct: true, needQty: true, needAmount: false, allowUnitPrice: true, isOverAdjust: false },
+  { value: 'BARREL_REVOKE', label: '扣减桶数', needProduct: true, needQty: true, needAmount: false, allowUnitPrice: false, isOverAdjust: false },
   { value: 'OVER_ADJUST', label: '订正欠桶', needProduct: true, needQty: true, needAmount: false, allowUnitPrice: false, isOverAdjust: true },
   { value: 'DEPOSIT_GRANT', label: '补录押金', needProduct: false, needQty: false, needAmount: true, allowUnitPrice: false, isOverAdjust: false },
   { value: 'DEPOSIT_DEDUCT', label: '扣减押金', needProduct: false, needQty: false, needAmount: true, allowUnitPrice: false, isOverAdjust: false },
@@ -461,7 +461,7 @@ Page({
       after: hasProduct ? int(after[key]) : '未涉及'
     })
     return [
-      row('桶权益(个)', 'right'),
+      row('拥有桶数(个)', 'right'),
       row('欠桶(个)', 'over'),
       row('占用(个)', 'occupied'),
       { label: '押金(元)', before: money(before.deposit), after: money(after.deposit) },

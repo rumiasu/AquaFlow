@@ -99,14 +99,14 @@ Page({
       if (name) {
         wx.setStorageSync('stationName', name)
         this.setData({ stationName: name, stationStateText: name, stationNameRetry: false })
-        wx.showToast({ title: '已取到水站名称', icon: 'success' })
+        wx.showToast({ title: '水站名称已更新', icon: 'success' })
       } else {
         // code=0 但 data 为空 = 这个账号确实没有所属水站（如未选身份的员工会话）
         this.setData({ stationStateText: '未绑定水站', stationNameRetry: false })
         wx.showToast({ title: '这个账号还没有所属水站', icon: 'none' })
       }
     } catch (err) {
-      wx.showToast({ title: (err && err.message) || '名称还是没取到，请稍后再试', icon: 'none' })
+      wx.showToast({ title: (err && err.message) || '水站名称暂未读取，请稍后重试', icon: 'none' })
     } finally {
       this.setData({ stationNameLoading: false })
     }
@@ -143,7 +143,7 @@ Page({
           // 未知键一律保留，新增缓存必须先确认能安全重建再列入白名单。
           try {
             for (const key of ['stationName']) wx.removeStorageSync(key)
-            wx.showToast({ title: '可重建缓存已清除', icon: 'success' })
+            wx.showToast({ title: '水站名称缓存已清除', icon: 'success' })
           } catch (_) { wx.showToast({ title: '缓存未能全部清除，请稍后重试', icon: 'none' }) }
         }
       }

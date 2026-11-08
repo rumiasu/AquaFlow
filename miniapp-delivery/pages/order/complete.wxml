@@ -28,7 +28,7 @@
       <text class="head-title" wx:if="{{resultState === 'submitting'}}">正在提交…</text>
       <text class="head-title" wx:else>{{completionTitle}}</text>
       <text class="head-subtitle" wx:if="{{resultState !== 'submitting'}}">{{completionHint}}</text>
-      <text class="head-subtitle" wx:else>请稍等，别重复点击</text>
+      <text class="head-subtitle" wx:else>正在处理，请稍候</text>
     </block>
   </view>
   <!--
@@ -102,7 +102,7 @@
     <text class="required" wx:if="{{!isFirstBarrelOrder}}">*</text>
   </view>
   <view class="section lv2-return-section" wx:if="{{isFirstBarrelOrder || hasBarrelItems}}">
-    <text class="section-tip">按商品填写本次实际收回的总数。如有同商品随单退押金，退押金桶也计入此数；送达完成后由水站在原申请核对引用，不再重复登记。</text>
+    <text class="section-tip">填写实际收回总数，含同商品随单退押金的桶；水站在原申请中引用本次记录，不再重复登记。</text>
     <text class="section-tip old-barrel-hint" wx:if="{{hasDepositOldBarrelHint}}">默认回桶数不含本单新押金桶</text>
     <!-- 本次送的桶是**本单新买押金**的：不要求本次回收（§7：不能说成"首次下单"，
          客户可能早就买过水票 —— 那与"有没有桶权益"不是一回事） -->
@@ -189,7 +189,7 @@
       <text class="money-meta-item" wx:if="{{moneySub}}">{{moneySub}}</text>
     </block>
     <view class="money-meta">
-      <text class="money-meta-item collect-sub-text" wx:if="{{orderInfo.depositAmount > 0}}">含押金 ¥{{orderInfo.depositAmount}}（可退）</text>
+      <text class="money-meta-item collect-sub-text" wx:if="{{orderInfo.depositAmount > 0}}">含押金 ¥{{orderInfo.depositAmount}}（按退还规则办理）</text>
     </view>
     <!-- 备货：**备齐了不占位置**（正常单不该多一行字），没备齐时才说清还差什么 + 给站长一个补货入口 -->
     
@@ -257,7 +257,7 @@
       <view class="section-title-row">
         <text class="section-title">楼层与楼梯凭证</text>
         <help-tip title="楼层与楼梯凭证"
-          text="楼层已按客户地址带出，可按现场情况核对修改。未填写时沿用地址楼层；电梯情况未确认或存在争议时请补充说明与凭证，补贴以实际核实结果为准。修改这里不会改变本单向客户收取的楼层费。" />
+          text="楼层默认沿用客户地址，可按现场情况修改；电梯不明或有争议时可补充凭证。补贴以核实结果为准，不改变本单向客户收取的楼层费。" />
       </view>
       <text class="section-tip" wx:if="{{elevatorUnknown}}">电梯情况尚未确认：请核对现场楼层，必要时补充楼梯凭证，补贴以核实结果为准</text>
       <text class="section-tip" wx:else>有争议才需要填；不填就沿用客户地址里的楼层</text>
@@ -280,7 +280,7 @@
     <!-- 争议入口（只有收起时才给）：现场跟客户就楼层/爬楼说法不一致时点它展开 -->
     <view class="section" wx:else>
       <view class="af-entry b2-dispute-entry" bindtap="onOpenFloorDispute">
-        <text class="dispute-entry-text">楼梯 / 楼层有争议？记楼层并拍照</text>
+        <text class="dispute-entry-text">补充楼层或楼梯凭证</text>
         <text class="dispute-entry-arrow">›</text>
       </view>
     </view>

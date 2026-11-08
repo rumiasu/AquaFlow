@@ -157,7 +157,7 @@ Page({
     r.comparisonNote = r.comparisonNote || '对比上一周期'
     r.previousLabel = r.range === 'today' ? '昨日同期' : '上期'
     r.emptyTitle = r.range === 'today' ? '截至当前暂无订单' : '所选周期内暂无订单'
-    r.emptyCare = r.range === 'today' ? '趁空喝口水，留意新的订单。' : '换个时间范围看看，也记得休息一下。'
+    r.emptyCare = r.range === 'today' ? '可切换时间范围查看。' : '可切换时间范围查看。'
     return r
   },
 

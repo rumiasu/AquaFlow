@@ -140,7 +140,7 @@ Page({
       })
     } catch (err) {
       if (this._unloaded || seq !== this._stationSeq || !currentBindingSession(session)) return
-      this.setData({ loading: false, stationList: [], loaded: false, loadError: '水站列表尚未读取，请重新加载。定位不可用时仍可按名称搜索。' })
+      this.setData({ loading: false, stationList: [], loaded: false, loadError: '水站列表加载失败，请重试。' })
       wx.showToast({ title: err.message || '加载水站列表失败', icon: 'none' })
     }
   },
@@ -200,7 +200,7 @@ Page({
   onLogout() {
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
       title: '退出登录',
-      content: '退出后可用其他微信账号登录。',
+      content: '确认退出当前登录？',
       confirmText: '退出',
       success: (res) => {
         if (res.confirm) getApp().logout()

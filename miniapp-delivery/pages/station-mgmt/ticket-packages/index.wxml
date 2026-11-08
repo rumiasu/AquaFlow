@@ -7,7 +7,7 @@
 
   <view class="card" wx:if="{{ticketReadinessText || ticketReadinessError}}"><text>{{ticketReadinessText || ticketReadinessError}}</text><button wx:if="{{ticketReadinessError}}" bindtap="refreshTicketReadiness" class="af-action af-action--quiet b3-refresh-ticket-readiness" hover-class="af-action--pressed"><view class="af-action__face">重新核对水票准备</view></button></view>
   <view class="card" id="ticket-products">
-    <view class="title-line"><view class="card-title">水票售价</view><help-tip title="水票售价" text="这里设置本站票价，不是客户持券账或购买记录。商品套餐按本站与商品设置；需要单张购买时可设置1张套餐。统一折扣按各款水自己的水票价折算；商品挂过自己的档位时，以该商品档位为准。" /></view>
+    <view class="title-line"><view class="card-title">水票售价</view><help-tip title="水票售价" text="这里设置本站票价，不是客户持券账或购买记录。商品套餐按本站与商品设置；需要单张购买时可设置1张套餐。统一折扣按各款水自己的水票价折算；商品设有自己的档位时，以商品档位为准。" /></view>
     <view class="scope-switch">
       <button class="af-choice b3-on-open-product-picker {{!isUnified ? 'af-choice--selected' : ''}}" disabled="{{saving}}" bindtap="onOpenProductPicker" hover-class="af-action--pressed"><view class="af-choice__face">商品套餐</view></button>
       <button class="af-choice b3-on-open-unified {{isUnified ? 'af-choice--selected' : ''}}" disabled="{{saving}}" bindtap="onOpenUnified" hover-class="af-action--pressed"><view class="af-choice__face">站级统一折扣</view></button>
@@ -99,7 +99,7 @@
     <view class="card" id="ticket-edit">
       <button class="af-action af-action--quiet b3-on-toggle-tier-editor" bindtap="onToggleTierEditor" hover-class="af-action--pressed"><view class="af-action__face">{{editingTierId ? '编辑现有档位' : '新增档位'}} · {{!editorCollapsed && (editorExpanded || formDirty || (!packages.length && !discounts.length)) ? '收起保留输入' : formDirty ? '继续填写草稿' : '展开'}}</view></button><view wx:if="{{!editorCollapsed && (editorExpanded || formDirty || (!packages.length && !discounts.length))}}">
       <view class="field quantity-field">
-        <view class="quantity-label"><text class="field-label">张数</text><text class="field-note">1–5000 张，每次 1 张</text></view>
+        <view class="quantity-label"><text class="field-label">张数</text><text class="field-note">1–5000张，整数</text></view>
         <integer-stepper value="{{form.qty}}" min="{{1}}" max="{{5000}}" step="{{1}}" label="档位张数" placeholder="如 10" disabled="{{saving}}" bind:change="onQtyChange" />
         <text class="field-error" wx:if="{{qtyError && !form.qty}}">{{qtyError}}</text>
       </view>
@@ -157,7 +157,7 @@
   </page-container>
   <view class="card">
     <view class="card-title">档位赠一次配送费抵扣</view>
-    <view class="hint">默认关闭。选定档位每次成功购票赠一次权益，多份合购也只赠一次；须使用该次购买的水票，只抵一次配送费，不抵楼层费。已发权益不随设置改变。</view>
+    <view class="hint">默认关闭。选定档位每次成功购票赠一次配送费抵扣，多份合购也仅赠一次；须使用该次购买的水票，不抵楼层费。设置变更不影响已发放的抵扣。</view>
     <view class="hint" wx:if="{{deliveryOffersLoading}}">正在核对档位…</view>
     <view class="hint warning" wx:elif="{{deliveryOffersError}}">{{deliveryOffersError}}<button class="af-action af-action--quiet" bindtap="loadDeliveryOffers"><text class="af-action__face">重新核对</text></button></view>
     <view class="hint" wx:elif="{{!deliveryOffers.length}}">先保存生效的商品套餐或统一折扣档，再配置赠送。</view>

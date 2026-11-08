@@ -103,11 +103,11 @@
         <text class="value">{{profile.stationName || '未绑定'}}</text>
       </view>
       <view class="row">
-        <text class="label">入职时间</text>
+        <text class="label">登记时间</text>
         <text class="value">{{profile.createTimeText || '—'}}</text>
       </view>
       <view class="row">
-        <text class="label">工龄</text>
+        <text class="label">登记天数</text>
         <text class="value">{{profile.workDays}} 天</text>
       </view>
     </view>
@@ -117,6 +117,6 @@
   </block>
 
   <!-- [2026-09-27 走查 M06] 空态原文「暂无员工画像」：「画像」→ 说人话（同 customers/detail） -->
-  <view class="empty" wx:if="{{!loading && !error && !profile}}"><text>没查到这个员工的情况</text></view>
+  <view class="empty" wx:if="{{!loading && !error && !profile}}"><text>暂无该员工资料</text></view>
 </view>
 <business-dialog id="business-dialog" />

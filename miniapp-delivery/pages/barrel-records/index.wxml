@@ -5,7 +5,7 @@
   <view class="summary-card" wx:if="{{loaded && records.length}}">
     <view class="summary-item">
       <text class="summary-num">{{totalDeliveries}}</text>
-      <text class="summary-label">本次记录</text>
+      <text class="summary-label">已读取（单）</text>
     </view>
     <view class="summary-item">
       <text class="summary-num">{{totalReturnText}}</text>
@@ -23,7 +23,7 @@
     <view class="record-card" wx:for="{{records}}" wx:key="id" data-id="{{item.id}}" bindtap="onRecordTap" aria-role="button">
       <view class="record-top">
         <!-- 跨站履约单后端刻意不下发 customerName（画像归归属站）→ 回落订单收件人 -->
-        <text class="record-customer">{{item.customerName || item.receiverName || '未知客户'}}</text>
+        <text class="record-customer">{{item.customerName || item.receiverName || '客户姓名未提供'}}</text>
         <text class="record-time">{{item.timeText}}</text>
       </view>
       <view class="record-address" wx:if="{{item.addressDetail}}">{{item.addressDetail}}</view>

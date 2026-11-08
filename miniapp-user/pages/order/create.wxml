@@ -32,7 +32,7 @@
       （本页只覆盖它的左右外边距，见 create.wxss —— 不动全局文件）。
     -->
     <view class="load-error" wx:if="{{loadError}}">{{loadError}}</view>
-    <view class="load-error" wx:if="{{productsError}}">{{productsError}}<button class="af-action af-action--quiet" bindtap="onRetryProducts" disabled="{{submitting || productsLoading}}" loading="{{productsLoading}}"><text class="af-action__face">重新读取完整商品清单</text></button></view>
+    <view class="load-error" wx:if="{{productsError}}">{{productsError}}<button class="af-action af-action--quiet" bindtap="onRetryProducts" disabled="{{submitting || productsLoading}}" loading="{{productsLoading}}"><text class="af-action__face">重新加载商品</text></button></view>
 
     <view class="enterprise-entry" wx:if="{{enterpriseHint}}"><text>{{enterpriseHint}}</text><button class="af-action af-action--secondary" bindtap="onEnterpriseEntry" disabled="{{submitting || loading}}">{{enterpriseEntryError ? '重试读取申请记录' : '了解企业订水'}}</button><text class="enterprise-error" wx:if="{{enterpriseEntryError}}">{{enterpriseEntryError}}</text></view>
 
@@ -54,7 +54,7 @@
         <text class="address-detail">{{addressText || address.detail}}</text>
       </view>
       <view class="address-empty" wx:else>
-        <text wx:if="{{addressLoadError}}">收货地址没加载出来（{{addressLoadError}}），点这里重试</text>
+        <text wx:if="{{addressLoadError}}">收货地址未能加载（{{addressLoadError}}），点击重试</text>
         <text wx:else>请选择配送地址</text>
       </view>
       <text class="address-arrow">›</text>
@@ -208,7 +208,7 @@
         <text class="asset-bar-desc" wx:else>本次无需再付水桶押金。</text>
         <text class="asset-bar-desc" wx:if="{{assetNotice.onlineAdvice}}">{{assetNotice.onlineAdvice}}</text>
         <view class="asset-detail-link" wx:if="{{!showAssetDetail}}" bindtap="onAssetDetailTap">
-          <text class="detail-link-text">查看水桶与押金的详细说明</text>
+          <text class="detail-link-text">水桶与押金说明</text>
           <text class="asset-more-glyph">›</text>
         </view>
         <view class="asset-detail" wx:if="{{showAssetDetail}}">
@@ -217,10 +217,10 @@
             <text class="detail-rule-text"><text class="detail-bold">押金可以退还。</text>未领桶无需交桶，已领桶按批准安排交回；退还申请、实际交接和退款分别办理。</text>
           </view>
           <view class="detail-rule-item">
-            <text class="detail-rule-text"><text class="detail-bold">桶、水票与押金按水站分别记录。</text>它们只属于你下单的这个水站，其他水站无法查看或使用。</text>
+            <text class="detail-rule-text"><text class="detail-bold">桶、水票与押金按水站分别记录。</text>只能在对应水站使用。</text>
           </view>
           <view class="detail-rule-item">
-            <text class="detail-rule-text"><text class="detail-bold">更换水站不会清空原有记录。</text>换到别的水站下单后，原水站的桶、水票与押金仍然保留，回到原水站即可继续使用。</text>
+            <text class="detail-rule-text"><text class="detail-bold">更换水站不会清空原有记录。</text>原水站的桶、水票与押金记录仍会保留。</text>
           </view>
           <view class="detail-call" bindtap="onCallStation">
             <text class="detail-call-text">{{stationPhone ? '拨打水站电话 ' + stationPhone : '联系水站'}}</text>
@@ -278,7 +278,7 @@
         </view>
         <!-- 硬拦 > 提交中 > 已有订单 > 常态；普通须知不增加提交门槛。 -->
         <!-- 2026-10-26：此嵌套三元曾漏一个右括号，导致整端 WXML 编译失败；每层条件须完整闭合。 -->
-        <view wx:if="{{submitState === 'unknown'}}" class="checkout-submit af-action af-action--primary af-action--final" bindtap="onRetryUnknown">恢复原提交</view>
+        <view wx:if="{{submitState === 'unknown'}}" class="checkout-submit af-action af-action--primary af-action--final" bindtap="onRetryUnknown">重试本次下单</view>
         <view wx:if="{{submitState !== 'unknown'}}" class="checkout-submit af-action af-action--primary af-action--final {{(submitting || blocked || !products.length) ? 'is-disabled' : ''}}" bindtap="onSubmit">
           <text>{{!products.length ? '先选商品' : (blocked ? (quoteNeedsStation ? '待水站完善' : '暂不可下单') : (submitting ? '提交中...' : (pendingOrderId ? (pendingOrderPaid || pendingOrderPaymentState !== 'unpaid' ? '查看这笔订单' : '继续支付') : '立即下单')))}}</text>
         </view>
@@ -294,7 +294,7 @@
     <view class="popup-mask" bindtap="onOfflineConfirmCancel"></view>
     <view class="popup-content">
       <view class="popup-title">确认货到付款</view>
-      <text class="popup-desc">配送员送达后现金/扫码支付，确认下单后将锁定订单</text>
+      <text class="popup-desc">送达时向配送员付款，金额以本单明细为准</text>
       <!-- 押金走线下的风险与责任（2026-09-27 产品裁定，正本 docs/design/34）：
            产品原话「线下的提示风险，系统无法检测，产生纠纷时自负」。
            文案由**服务端下发**（报价的 depositOfflineRiskNote），这里只判"这次要不要收押金" ——
@@ -313,7 +313,7 @@
     <view class="popup-mask" bindtap="onInTransitReminderCancel"></view>
     <view class="popup-content">
       <view class="popup-title">下单提醒</view>
-      <text class="popup-desc">您的水桶正在配送中，请饮完水后再下单，或再购买新的水桶。</text>
+      <text class="popup-desc">已有水桶正在配送中，本次费用请核对桶押金明细。</text>
       <view class="popup-btns">
         <button class="af-action af-action--cancel af-action--form" bindtap="onInTransitReminderCancel">再想想</button>
         <button class="af-action af-action--primary af-action--form af-action--grow" bindtap="onInTransitReminderOk">继续下单</button>
@@ -357,7 +357,7 @@
              展开与收起各挂一个既有 handler（onAssetDetailTap / onAssetDetailClose），不改 js；
              这一行的类名沿用原来的说明入口（.asset-detail-link），所以文案与观感都是客户见过的。 -->
         <view class="asset-detail-link" wx:if="{{!showAssetDetail}}" bindtap="onAssetDetailTap">
-          <text class="detail-link-text">查看水桶与押金的详细说明</text>
+          <text class="detail-link-text">水桶与押金说明</text>
           <text class="asset-more-glyph">›</text>
         </view>
         <view class="asset-detail" wx:if="{{showAssetDetail}}">
@@ -366,10 +366,10 @@
             <text class="detail-rule-text"><text class="detail-bold">押金可以退还。</text>未领桶无需交桶，已领桶按批准安排交回；退还申请、实际交接和退款分别办理。</text>
           </view>
           <view class="detail-rule-item">
-            <text class="detail-rule-text"><text class="detail-bold">桶、水票与押金按水站分别记录。</text>它们只属于你下单的这个水站，其他水站无法查看或使用。</text>
+            <text class="detail-rule-text"><text class="detail-bold">桶、水票与押金按水站分别记录。</text>只能在对应水站使用。</text>
           </view>
           <view class="detail-rule-item">
-            <text class="detail-rule-text"><text class="detail-bold">更换水站不会清空原有记录。</text>换到别的水站下单后，原水站的桶、水票与押金仍然保留，回到原水站即可继续使用。</text>
+            <text class="detail-rule-text"><text class="detail-bold">更换水站不会清空原有记录。</text>原水站的桶、水票与押金记录仍会保留。</text>
           </view>
           <!-- 电话行：取到就拨号，取不到就去「客服」页（那里自己会说明"是没查到"还是"没登记"）——
                不留一个点了没反应的按钮。 -->
@@ -408,7 +408,7 @@
             <text>{{item.productName}}：要 {{item.requested}} 桶，现有 {{item.stock}} 桶</text>
           </view>
         </view>
-        <text class="popup-desc">同意等待的话，水站到货后会联系您安排配送（具体时间以水站通知为准）；也可以返回调整数量或换个商品。</text>
+        <text class="popup-desc">可等待补货后配送，时间以水站安排为准；也可返回调整商品或数量。</text>
       </scroll-view>
       <view class="popup-btns">
         <button class="af-action af-action--cancel af-action--form" bindtap="onShortageBack">返回调整</button>
@@ -487,7 +487,7 @@
               <text>{{item.productName}}：要 {{item.requested}} 桶，现有 {{item.stock}} 桶</text>
             </view>
           </view>
-          <text class="popup-desc">同意等待的话，水站到货后会安排配送（具体时间以水站通知为准）；也可以返回调整数量或换个商品。</text>
+          <text class="popup-desc">可等待补货后配送，时间以水站安排为准；也可返回调整商品或数量。</text>
         </view>
 
         <!-- 线下支付区块 -->
@@ -496,7 +496,7 @@
             <icon name="wallet" size="30rpx" color="#16834A" />
             <text class="unified-section-title">货到付款</text>
           </view>
-          <text class="popup-desc">配送员送达后现金/扫码支付，确认下单后将锁定订单。</text>
+          <text class="popup-desc">送达时向配送员付款，金额以本单明细为准。</text>
           <text class="popup-desc" wx:if="{{assetNotice.offlineRiskNote}}">{{assetNotice.offlineRiskNote}}</text>
         </view>
 
@@ -504,18 +504,18 @@
         <view class="unified-section" wx:if="{{hasInTransitBarrels && extraDepositBuckets > 0}}">
           <view class="unified-section-header">
             <icon name="barrel" size="30rpx" color="#BD3328" />
-            <text class="unified-section-title">温馨提示</text>
+            <text class="unified-section-title">桶押金提醒</text>
           </view>
-          <text class="popup-desc">您有正在配送中的水桶，本次下单将产生额外桶押金。</text>
+          <text class="popup-desc">已有水桶正在配送中，本次需增交桶押金。</text>
         </view>
 
         <!-- 费用预览 -->
         <view class="unified-section" wx:if="{{barrelPurchases.length > 0}}">
           <view class="unified-section-header"><text class="unified-section-title">本次新增桶押金</text></view>
           <view class="rule-item" wx:for="{{barrelPurchases}}" wx:key="productId">
-            <text>{{item.productName || '商品编号 ' + item.productId}}：新增用桶权益 {{item.quantity}} 份，单价 ¥{{item.unitPrice}}，本次桶押金 ¥{{item.amount}}</text>
+            <text>{{item.productName || '商品编号 ' + item.productId}}：新增桶押金 {{item.quantity}} 份，单价 ¥{{item.unitPrice}}，本次桶押金 ¥{{item.amount}}</text>
           </view>
-          <text class="popup-desc">点击“确认下单”即同意购买以上用桶权益，与本单水款一起付款，收齐款项后生效。已有容量被占用时，也可返回等待释放或单独办理。</text>
+          <text class="popup-desc">确认下单即同意增交以上桶押金，与水款一起支付，收齐后生效。已有桶数被占用时，也可返回等待恢复可用，或单独办理桶押金。</text>
         </view>
         <view class="unified-fee-preview">
           <view class="fee-row">

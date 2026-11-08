@@ -45,7 +45,7 @@ const notifyPayResult = (record) => {
   const unpaid = status === PAY_STATUS.UNPAID
   showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
     title: pending ? '等待收款确认' : unpaid ? '尚未收款' : '支付结果未确认',
-    content: pending ? '付款信息已提交，需水站确认收款后订单才算完成。如长时间未确认请联系水站。'
+    content: pending ? '尚未确认收款。如已付款，请联系水站核对，避免重复付款。'
       : unpaid ? '该笔款项尚未确认收款，请查看订单或联系水站核对。'
         : '暂时无法确认支付结果，请先查看原订单或联系水站核对，避免重复付款。',
     showCancel: false,

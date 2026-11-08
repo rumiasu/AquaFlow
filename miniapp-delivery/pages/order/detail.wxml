@@ -42,7 +42,7 @@
   <view class="info-card contact-card">
 
     <view class="info-row" bindtap="onCopyAddress">
-      <text class="info-text address">{{order.addressSnapshot || '订单地址快照缺失，请核实'}}</text>
+      <text class="info-text address">{{order.addressSnapshot || '本单地址未提供，请核实'}}</text>
       <icon name="location" size="24px" color="#244F82" variant="duotone" fill-color="#DCEAFF" /><text class="info-action">复制</text>
     </view>
     <view class="info-row" bindtap="onCallPhone">
@@ -267,7 +267,7 @@
     <view wx:if="{{order.canTransfer}}" data-act="onTransfer" bindtap="onMoreAction" hover-class="press-feedback" class="sheet-item af-entry">
       <view class="sheet-item-info">
         <text class="sheet-item-name">转单给其他配送员</text>
-        <text class="sheet-item-desc">从本站配送员里选一位，他同意后这单归他送</text>
+        <text class="sheet-item-desc">经对方同意后转交配送</text>
       </view>
       <text class="sheet-item-arrow">›</text>
     </view>
@@ -278,7 +278,7 @@
     <view wx:if="{{order.canWithdrawTransfer}}" data-act="onCancelTransfer" bindtap="onMoreAction" hover-class="press-feedback" class="sheet-item af-entry">
       <view class="sheet-item-info">
         <text class="sheet-item-name">{{cancelTransferBusy ? '撤回中…' : '撤回转单'}}</text>
-        <text class="sheet-item-desc">对方还没确认前可以反悔</text>
+        <text class="sheet-item-desc">仅对方确认前可撤回</text>
       </view>
       <text class="sheet-item-arrow">›</text>
     </view>
@@ -309,7 +309,7 @@
           data-act="onRefusalWriteOff" bindtap="onMoreAction" hover-class="press-feedback" class="sheet-item sheet-item-danger af-entry">
       <view class="sheet-item-info">
         <text class="sheet-item-name">{{refusalBusy ? '处理中…' : (order.independentBusinessRules ? '确认客户拒付（保留欠款）' : '客户拒付（走历史核销）')}}</text>
-        <text class="sheet-item-desc">已送达待收款时登记拒付，两步确认</text>
+        <text class="sheet-item-desc">登记收货后拒付，再核实欠款和资产处理</text>
       </view>
       <text class="sheet-item-arrow">›</text>
     </view>

@@ -178,10 +178,10 @@ public class TicketAccountController {
             return Result.error("参数不完整");
         }
         if (dto.getStationId() == null) {
-            return Result.error("stationId 不能为空，请先选择服务水站");
+            return Result.error("请选择服务水站");
         }
         if (dto.getIdempotencyKey() == null || dto.getIdempotencyKey().trim().isEmpty()) {
-            return Result.error("缺少幂等键 idempotencyKey");
+            return Result.error("购票或扣票编号缺失，请重新打开页面");
         }
         Long stationId = dto.getStationId();
         com.example.aquaflow.entity.PaymentRecord pr = ticketAccountService.purchaseTicket(

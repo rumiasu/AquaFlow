@@ -142,7 +142,7 @@ test('customer preview explicitly shows zero physical handover before submitting
   const page = loadPage('miniapp-user/pages/barrel/index.js')
   const nodes = renderElements(tree, { ...page.data, loading: false, showReturnModal: true, previewReady: true,
     summary: { independentRights: true }, preview: { refundAmount: 30, requiredBarrels: 0, lots: [] } }, { includeText: true })
-  assert(nodes.some(n => n.text.includes('预计需交回 0 个实物桶')))
+  assert(nodes.some(n => n.text.includes('预计交回 0 个桶')))
 })
 test('customer can inspect the exact companion order and cannot follow stale hidden records', () => {
   const wx = createWx(), page = loadPage('miniapp-user/pages/barrel/index.js', { wx })

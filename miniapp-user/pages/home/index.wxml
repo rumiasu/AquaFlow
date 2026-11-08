@@ -227,7 +227,7 @@
       <!-- ⚠️ 原来写死「配送免运费」：配送费是站级配置（v35），站长一旦配了费，
            首页承诺免运费、结算页照收 —— 客户拿着两张截图来吵架。
            首页算不出运费（还没选地址），所以这里**不做费用承诺**，只报件数并指向结算页报价。 -->
-      <text class="sum-sub" wx:if="{{total.count > 0}}">已选 {{total.count}} 件 · 结算页核价</text>
+      <text class="sum-sub" wx:if="{{total.count > 0}}">已选 {{total.count}} 件 · 确认页核价</text>
       <text class="sum-recovery" wx:if="{{total.count > 0 && purchaseHint}}">{{purchaseHint}}</text>
       <text class="sum-recovery" wx:elif="{{total.count > 0 && homeQuoteState === 'error'}}">费用待确认，请在确认页查看。</text>
     </view>
@@ -246,7 +246,7 @@
     </view>
     <view class="station-picker-list">
       <station-discovery-scope active="{{showStationList}}" scope="{{stationDiscoveryScope}}" bind:scopechange="onStationDiscoveryChange" bind:locationstart="onStationLocationStart" bind:locationend="onStationLocationEnd" />
-      <checkbox-group class="switch-remember" bindchange="onSwitchRememberChange"><label><checkbox value="remember" checked="{{rememberSwitchNotice}}" />确认切换后不再提示资产隔离</label></checkbox-group>
+      <checkbox-group class="switch-remember" bindchange="onSwitchRememberChange"><label><checkbox value="remember" checked="{{rememberSwitchNotice}}" />以后切换不再提醒资产不互通</label></checkbox-group>
 
       <view class="station-picker-item {{item.id === currentStationId ? 'active' : ''}}"
             wx:for="{{stationList}}" wx:key="id"

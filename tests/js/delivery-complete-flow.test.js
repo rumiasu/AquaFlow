@@ -196,7 +196,7 @@ await test('现金未收款：没表态就不许提交（不默认已收、也�
   assert.strictEqual(page.data.collected, null, '默认必须是"还没选"')
   await page.onConfirmComplete()
   assert.strictEqual(calls.completeOrder.length, 0, '没确认收款不许提交')
-  assert.ok(wx.__calls.toast.some(t => (t.title || '').indexOf('收到钱') > -1), '应提示先确认收款')
+  assert.ok(wx.__calls.toast.some(t => (t.title || '') === '请选择实际收款情况'), '应提示先确认收款')
 })
 
 await test('现金未收：选"未收款"后提交，摘要写明"已送达，待收款"且请求带 collected=false', async () => {
@@ -289,7 +289,7 @@ await test('配送三态：已付、普通现金未收、新押金未收的页�
     const final = wx.__calls.modal.find(m => m.title === '确认完成配送')
     if (scenario.blocked) {
       assert.strictEqual(final, undefined, '未收齐新增押金不能弹可送达确认')
-      assert.ok(page.data.completionHint.includes('收齐水款和本单押金'))
+      assert.ok(page.data.completionHint.includes('收齐本单应收款'))
       assert.ok(page.data.cashUncollectedDesc.includes('不能交桶'))
     } else {
       assert.ok(final)
@@ -307,7 +307,7 @@ await test('新押金未收不能绕过确认直接提交；明确收齐后同�
   await page.onConfirmComplete(); page._showConfirmDialog(); await page._doSubmit()
   assert.strictEqual(calls.completeOrder.length, 0)
   assert.ok(!wx.__calls.modal.some(m => m.title === '确认完成配送'))
-  assert.ok(wx.__calls.toast.some(m => m.title.includes('先收齐水款和本单押金')))
+  assert.ok(wx.__calls.toast.some(m => m.title.includes('先收齐本单应收款')))
   page.onSelectCollected({ currentTarget: { dataset: { value: 'true' } } })
   assert.strictEqual(page.data.completionBlocked, false)
   assert.strictEqual(page.data.completionButtonText, '确认完成')

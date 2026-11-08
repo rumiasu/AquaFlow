@@ -351,7 +351,7 @@ Page({
     }
     if (selection.error) { wx.showToast({ title: selection.error, icon: 'none' }); return }
     if (!selection.ids.length) {
-      wx.showToast({ title: '请先勾选要核销的订单', icon: 'none' })
+      wx.showToast({ title: '请勾选已收款的订单', icon: 'none' })
       return
     }
 
@@ -398,7 +398,7 @@ Page({
         this.setData({ orders: this.data.orders.map(o => ({ ...o, checked: false })), selectedCount: 0, selectedAmountText: '',
           ordersError: '登记结果待核实，请重新加载明细；核实前请勿重复登记，也不要再次向客户收款。' })
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了', title: '登记结果待核实', showCancel: false,
-          content: '此次操作只登记已收到的钱，不会向客户扣款。回应未能确认，登记可能已完成，请勿再次向客户收款。\n\n已清除勾选，正在重新读取台账与待收明细核实，不会自动重发登记。' })
+          content: '此次操作只登记已收到的钱，不会向客户扣款。结果未能确认，登记可能已完成，请勿再次向客户收款。\n\n正在重新读取台账与明细，不会重复提交登记。' })
         await Promise.all([this.load(), this.loadOrders()])
         const verificationError = this.data.ordersError || this.data.loadError
         if (current() && verificationError) this.setData({ ordersError: '登记结果仍待核实。' + verificationError
@@ -561,9 +561,8 @@ Page({
   onShowTermsHelp() {
     showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
       title: '账期怎么用',
-      content: '账期是"月结多少天"，只影响之后下的单：下单时按它算出应付日期并快照进订单，' +
-        '事后改账期不会改动历史订单的到期日。\n\n只有现金（货到付款）单才有应付日期；' +
-        '微信即时到账、水票下单即视同已付，两者都不产生账期。\n\n留空表示未设账期（即时结清）。',
+      content: '货到付款订单的月结到期日，按下单月份的月末加账期天数计算。\n\n' +
+        '保存新账期只影响之后的订单；历史未结账单可另行重算。留空表示即时结清。',
       showCancel: false
     })
   }

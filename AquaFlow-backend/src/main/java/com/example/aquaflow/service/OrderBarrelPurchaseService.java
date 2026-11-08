@@ -97,7 +97,7 @@ public class OrderBarrelPurchaseService {
                 || paid.getBarrelDeposit().compareTo(order.getDepositAmount())!=0
                 || purchases.lockOrder(orderId).stream().map(OrderBarrelPurchase::getAmount)
                     .reduce(BigDecimal.ZERO,BigDecimal::add).compareTo(order.getDepositAmount())!=0)
-            throw new BusinessException("本单收款与押金快照不一致");
+            throw new BusinessException("本单收款与原押金金额不一致");
         configs.ensureExists(order.getCustomerId(),order.getStationId());
         for(OrderBarrelPurchase row:purchases.lockOrder(orderId)) {
             if(!"PENDING".equals(row.getStatus()))continue;
@@ -105,7 +105,7 @@ public class OrderBarrelPurchaseService {
             deposits.add(dr,row.getStationId());
             CustomerBarrelLot lot=ledger.purchaseRight(row.getCustomerId(),row.getStationId(),row.getProductId(),row.getUnitPrice(),row.getQuantity(),AuthContext.getUserId());
             if(lots.linkDepositRecord(lot.getId(),dr.getId())!=1 || purchases.activate(row.getId(),paid.getId(),lot.getId())!=1)
-                throw new BusinessException("本单押金凭据已变化，收款已回滚");
+                throw new BusinessException("本单押金记录已变化，本次收款登记未生效");
             ledger.fundOrderPurchase(row.getCustomerId(),row.getStationId(),row.getProductId(),orderId,row.getQuantity());
         }
     }
@@ -187,7 +187,7 @@ public class OrderBarrelPurchaseService {
         consumption.lockOrder(row.getOrderId());PaymentRecord original=consumption.lockPayment(row.getPaymentId());
         PaymentRecord cash=refund(original,amount,BigDecimal.ZERO,amount,BigDecimal.ZERO,BigDecimal.ZERO,"随单押金分次实退，申请 "+record,payer);
         if(purchases.refund(row.getId(),0,amount)!=1 || purchases.payoutProof(row.getId(),original.getId(),cash.getId(),record,amount,payout)!=1)
-            throw new BusinessException("原款分次退款凭据已变化，本次整体回滚");
+            throw new BusinessException("原款分次退款记录已变化，本次登记未生效");
         finishPayment(original);
     }
 
@@ -201,7 +201,7 @@ public class OrderBarrelPurchaseService {
         if(!route.cashAllowed() || amount==null || amount.signum()<=0 || amount.compareTo(route.remaining())>0)throw new BusinessException("原款未具备本次现金实退条件，原责任保留");
         assertRefundRoom(original,amount);
         PaymentRecord cash=new PaymentRecord();cash.setOrderId(original.getOrderId());cash.setCustomerId(original.getCustomerId());cash.setStationId(row.getStationId());cash.setPaymentMethod(PayMethod.CASH);cash.setStatus(PaymentStatus.REFUNDED);cash.setAmount(amount.negate());cash.setWaterAmount(BigDecimal.ZERO);cash.setBarrelDeposit(amount.negate());cash.setDeliveryFee(BigDecimal.ZERO);cash.setFloorFee(BigDecimal.ZERO);cash.setOperatorId(payer);cash.setNote("原退桶申请实际现金 "+record);cash.setCreateTime(LocalDateTime.now());cash.setUpdateTime(LocalDateTime.now());payments.insert(cash);
-        if(purchases.refund(row.getId(),0,amount)!=1 || purchases.payoutProof(row.getId(),original.getId(),cash.getId(),record,amount,payout)!=1)throw new BusinessException("原款分次退款凭据已变化，本次整体回滚");
+        if(purchases.refund(row.getId(),0,amount)!=1 || purchases.payoutProof(row.getId(),original.getId(),cash.getId(),record,amount,payout)!=1)throw new BusinessException("原款分次退款记录已变化，本次登记未生效");
         finishPayment(original);
     }
 
@@ -210,12 +210,12 @@ public class OrderBarrelPurchaseService {
         OrderBarrelPurchase current=purchases.byLot(row.getLotId());
         BigDecimal required=current.getUnitPrice().multiply(BigDecimal.valueOf(current.getRefundedQty()+quantity));
         if(current.getRefundedAmount().compareTo(required)<0 || purchases.refund(current.getId(),quantity,BigDecimal.ZERO)!=1)
-            throw new BusinessException("分次退款金额或权益数量未能核对，本次整体回滚");
+            throw new BusinessException("分次退款金额或桶数未能核对，本次登记未生效");
     }
 
     private void recordRefund(OrderBarrelPurchase row,PaymentRecord original,PaymentRecord refund,int quantity,BigDecimal amount,Long record,String reason) {
         if(purchases.refund(row.getId(),quantity,amount)!=1 || purchases.refundProof(row.getId(),original.getId(),refund.getId(),record,quantity,amount,reason)!=1)
-            throw new BusinessException("押金原款已退款或凭据变化，本次退款已回滚");
+            throw new BusinessException("押金原款已退款或记录已变化，本次退款登记未生效");
     }
 
     /**
@@ -257,7 +257,7 @@ public class OrderBarrelPurchaseService {
         BigDecimal total=decimal(prior.get("waterAmount")).add(decimal(prior.get("deliveryFee"))).add(decimal(prior.get("floorFee"))).add(decimal(prior.get("depositAmount")));
         if(total.compareTo(original.getAmount())==0 && original.getStatus()==PaymentStatus.PAID) {
             if(payments.updateStatusTo(original.getId(),PaymentStatus.REFUNDED,PaymentStatus.PAID)!=1)
-                throw new BusinessException("原收款状态已变化，退款已回滚");
+                throw new BusinessException("原收款状态已变化，本次退款登记未生效");
             orders.updatePaymentStatusIf(original.getOrderId(),PaymentStatus.PAID,PaymentStatus.REFUNDED);
         }
     }

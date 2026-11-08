@@ -233,7 +233,7 @@
     <view class="empty-state" wx:if="{{!loading && readReady.completed && completedOrders.length === 0}}">
       <icon name="order" size="28px" color="#8391A2" />
       <text class="empty-text">今日暂无已送达订单</text>
-      <text class="care-note">按安排慢慢来，出门注意安全。</text>
+      <text class="care-note">路上注意安全。</text>
     </view>
   </view>
 
@@ -292,7 +292,7 @@
   <view class="modal-overlay" wx:if="{{showMediateModal}}" bindtap="onCloseMediateModal">
     <view class="modal-content" catchtap="stopPropagation">
       <text class="modal-title">配送遇到问题</text>
-      <text class="modal-desc">先上报问题留痕，再决定这单怎么安排</text>
+      <text class="modal-desc">记录现场问题，或申请调整配送安排</text>
       <scroll-view class="modal-scroll" scroll-y>
       <view class="modal-list">
         <view bindtap="onReportProblem" hover-class="press-feedback" class="modal-item af-entry">
@@ -308,14 +308,14 @@
         <view bindtap="onMediateToColleague" hover-class="press-feedback" class="modal-item af-entry">
           <view class="modal-item-info">
             <text class="modal-item-name">请同事接手这单</text>
-            <text class="modal-item-desc">从本站配送员里选一位，他同意后这单归他送</text>
+            <text class="modal-item-desc">经对方同意后转交配送</text>
           </view>
           <text class="modal-item-arrow">›</text>
         </view>
         <view bindtap="onMediateToStation" hover-class="press-feedback" class="modal-item af-entry">
           <view class="modal-item-info">
-            <text class="modal-item-name">退回去让站长重新安排</text>
-            <text class="modal-item-desc">这单回到待分配，站长确认后重新派人</text>
+            <text class="modal-item-name">申请退回站长</text>
+            <text class="modal-item-desc">站长同意后重新分配</text>
           </view>
           <text class="modal-item-arrow">›</text>
         </view>

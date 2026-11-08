@@ -54,7 +54,7 @@ public final class DeliveryOrderActionDTO {
      */
     @Data
     public static class Dispatch {
-        @NotNull(message = "targetStationId 不能为空")
+        @NotNull(message = "请选择接收水站")
         private Long targetStationId;
         private String reason;
         private Boolean riskAcknowledged;
@@ -159,7 +159,7 @@ public final class DeliveryOrderActionDTO {
     /** complete 单条回桶明细：后端按 orderItemId 反查商品，客户端只给数量与原因 */
     @Data
     public static class CompleteItemReturn {
-        @NotNull(message = "orderItemId 不能为空")
+        @NotNull(message = "请选择本单商品")
         private Long orderItemId;
         @NotNull(message = "实际回收桶数必填")
         // 保留原始数值供工作流严格校验；Integer 会把 JSON 1.5 静默截成 1。

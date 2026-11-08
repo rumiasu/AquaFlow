@@ -4,8 +4,8 @@ import lombok.Data;
 import java.math.BigDecimal;
 @Data
 public class DispatchQuoteDTO {
-    @NotNull @Digits(integer=7,fraction=2) @DecimalMin("0.00") @DecimalMax("1000000.00") private BigDecimal serviceAmount;
-    @NotBlank @Pattern(regexp="RETURN_EMPTY|SETTLE_BARREL") private String barrelMode;
-    @NotNull @Digits(integer=7,fraction=2) @DecimalMin("0.00") @DecimalMax("1000000.00") private BigDecimal barrelAmount;
-    @Size(max=500) private String note;
+    @NotNull(message="服务报酬不能为空") @Digits(integer=7,fraction=2, message="服务报酬格式不正确，请核对金额位数") @DecimalMin(value="0.00", message="服务报酬不能小于0.00") @DecimalMax(value="1000000.00", message="服务报酬不能超过1000000.00") private BigDecimal serviceAmount;
+    @NotBlank(message="桶交接方式不能为空") @Pattern(regexp="RETURN_EMPTY|SETTLE_BARREL", message="桶交接方式无效，请重新选择") private String barrelMode;
+    @NotNull(message="桶折款金额不能为空") @Digits(integer=7,fraction=2, message="桶折款金额格式不正确，请核对金额位数") @DecimalMin(value="0.00", message="桶折款金额不能小于0.00") @DecimalMax(value="1000000.00", message="桶折款金额不能超过1000000.00") private BigDecimal barrelAmount;
+    @Size(max=500, message="说明最多500字") private String note;
 }

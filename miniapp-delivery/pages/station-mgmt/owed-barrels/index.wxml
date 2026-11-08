@@ -26,7 +26,7 @@
       <view class="info-row product-row"><text class="product">{{barrel._product}}</text><text class="qty">{{barrel.overQty != null ? '欠 ' + barrel.overQty + ' 个' : '数量待核实'}}</text></view>
       <view class="info-row sub"><text class="days {{barrel._urgent ? 'urgent' : ''}}">{{barrel._daysText}}</text><text wx:if="{{barrel._sinceText}}">自 {{barrel._sinceText}}</text></view>
     </view>
-    <text class="empty-hint">实际收回空桶后登记，不扣桶权益、不退押金；未收到桶请先联系客户。</text>
+    <text class="empty-hint">实际收到空桶后登记，不减少拥有桶数、不退押金。</text>
     <button class="af-action af-action--secondary" catchtap="onReturnEmpty" data-id="{{item.customerId}}"><view class="af-action__face">登记实际还桶</view></button>
     <button wx:if="{{item.phone}}" class="af-action af-action--quiet b3-on-call-customer" catchtap="onCallCustomer" data-phone="{{item.phone}}" hover-class="af-action--pressed"><view class="af-action__face">致电客户</view></button>
   </view>

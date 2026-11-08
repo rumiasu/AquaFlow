@@ -1,7 +1,7 @@
 <!-- 代客下单（站长）：电话/口头订单当场录入。规格见 docs/design/20 §5。
      金额一律由服务端试算下发，本页只展示（wxml 里不做任何算术）。 -->
 <view class="page">
-  <view class="work-head"><text class="work-title">录入客户订单</text><text class="work-desc">{{step === 1 ? '1 选客户 → 2 选地址 → 3 核对订单' : (step === 2 ? '已选客户 · 接下来选择收货地址' : '核对商品、费用与支付方式后确认下单')}}</text></view>
+  <view class="work-head"><text class="work-title">录入客户订单</text><text class="work-desc">{{step === 1 ? '选择客户' : (step === 2 ? '选择收货地址' : '核对订单')}}</text></view>
 
   <view class="ui-state" wx:if="{{stationError}}"><text class="ui-state-copy">{{stationError}}</text><button size="mini" bindtap="onBackCustomers" class="af-entry b3-on-back-customers" hover-class="af-action--pressed"><view class="af-entry__body">返回客户列表</view><text class="af-entry__arrow" aria-hidden="true">›</text></button></view>
   <block wx:if="{{!stationError}}">
@@ -24,14 +24,14 @@
   <view class="card" wx:if="{{step === 1}}">
     <view class="card-title">选择客户</view>
     <view class="search-row">
-      <input class="search-input" placeholder="搜姓名/电话/地址（地址可缩写）" value="{{keyword}}"
+      <input class="search-input" placeholder="搜索姓名、电话或地址" value="{{keyword}}"
              bindinput="onKeyword" bindconfirm="onSearch" confirm-type="search" />
       <view class="af-action af-action--quiet b3-on-search" bindtap="onSearch"><view class="af-action__face">搜索</view></view>
     </view>
     <view class="empty" wx:if="{{loading}}">加载中…</view>
     <view class="ui-state" wx:elif="{{customerError}}"><text class="ui-state-copy">{{customerError}}</text><button size="mini" bindtap="onRetryCustomers" class="af-action af-action--quiet b3-on-retry-customers" hover-class="af-action--pressed"><view class="af-action__face">重新读取客户</view></button></view>
     <view class="empty" wx:elif="{{!stationError && !customers.length}}">
-      没有匹配的客户。可换姓名、电话或地址搜索；仍找不到时请先核对客户在本站的资料。
+      未找到匹配客户，请核对搜索内容或客户在本站的资料。
     </view>
     <view class="row af-entry" wx:for="{{customers}}" wx:key="id"
           bindtap="onPickCustomer" data-id="{{item.id}}">
@@ -72,7 +72,7 @@
       <view class="ui-state" wx:elif="{{productError}}"><text class="ui-state-copy">{{productError}}</text><button size="mini" bindtap="onRetryProducts" class="af-action af-action--quiet b3-on-retry-products" hover-class="af-action--pressed"><view class="af-action__face">重新读取商品</view></button></view>
       <view class="empty" wx:elif="{{!products.length}}">本站还没有上架商品</view>
       <product-selector wx:if="{{!productsLoading && !productError && products.length}}" items="{{productOptions}}" selected-id="{{selectedProductId}}" disabled="{{submitting || unknownOrder}}" bind:change="onSelectProduct" />
-      <text class="selector-hint" wx:if="{{!productsLoading && !productError && activeProduct}}">数量大于 0 才加入本单。</text>
+      <text class="selector-hint" wx:if="{{!productsLoading && !productError && activeProduct}}">数量为0的商品不计入订单。</text>
       <view class="row selected-product" wx:if="{{!productsLoading && !productError && activeProduct}}">
         <view class="row-main"><text class="row-title">{{activeProduct.name}} · 本次数量</text><text class="row-sub">库存 {{activeProduct.availableQty != null ? activeProduct.availableQty : '待核实'}}</text></view>
         <view class="qty">

@@ -19,7 +19,7 @@ function read(actor, object, action) {
   const value = raw === '' || raw == null ? null : raw
   if (value !== null && (typeof value !== 'object' || value.actor !== actor || value.object !== object || value.action !== action ||
     typeof value.reason !== 'string' || !value.reason.trim() || !Number.isSafeInteger(value.expectedVersion) || value.expectedVersion < 0 ||
-    typeof value.idempotencyKey !== 'string' || !value.idempotencyKey)) throw new Error('上次办理记录无法识别，请保留现场并联系负责人')
+    typeof value.idempotencyKey !== 'string' || !value.idempotencyKey)) throw new Error('上次办理记录无法识别，请保留记录并联系负责人')
   if (value && action === 'SCOPE') scopeItems(value.items)
   if (value && action.startsWith('AFTERCARE_')) aftercareContext(action, value.context)
   return value

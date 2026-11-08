@@ -154,7 +154,7 @@ public class CustomerStationAssetVO {
 
         /** 数量描述：只拼接真正非 0 的部分，避免出现"持有 0 个，配送中 4 个"这种别扭文案 */
         public String getQuantityText() {
-            if(Boolean.TRUE.equals(independentRights)) return "用桶权益 "+nz(rightQty)+" 个，实际在手 "+nz(occupiedQty)+" 个"+(nz(inTransitQty)>0?"，旧单配送中 "+inTransitQty+" 个":"");
+            if(Boolean.TRUE.equals(independentRights)) return "拥有 "+nz(rightQty)+" 个桶，实际在手 "+nz(occupiedQty)+" 个"+(nz(inTransitQty)>0?"，旧单配送中 "+inTransitQty+" 个":"");
             StringBuilder sb = new StringBuilder();
             if (nz(heldQty) > 0) {
                 sb.append("持有 ").append(heldQty).append(" 个");
@@ -166,7 +166,7 @@ public class CustomerStationAssetVO {
             if (nz(overQty) < 0) {
                 if (sb.length() > 0) sb.append("，");
                 // 多还的桶：明确写"寄存在水站"，别让顾客以为桶丢了
-                sb.append(Boolean.TRUE.equals(independentRights)?"待领取/暂存容量 ":"水站暂存 ").append(-nz(overQty)).append(" 个");
+                sb.append(Boolean.TRUE.equals(independentRights)?"待领取或水站暂存 ":"水站暂存 ").append(-nz(overQty)).append(" 个");
             }
             return sb.length() == 0 ? "无" : sb.toString();
         }

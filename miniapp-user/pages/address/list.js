@@ -97,7 +97,7 @@ Page({
     try {
       await (action === 'delete' ? deleteAddress(id) : setDefaultAddress(id))
       if (this._disposed || !this.ensurePageSession()) return
-      this.setData({ actionMessage: action === 'delete' ? '地址已删除。请以刷新后的列表为准。' : '默认地址已设置。请以刷新后的列表为准。' })
+      this.setData({ actionMessage: action === 'delete' ? '地址已删除。' : '默认地址已设置。' })
       await this.loadAddresses()
     } catch (error) {
       if (this._disposed || !this.ensurePageSession()) return

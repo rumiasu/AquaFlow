@@ -95,7 +95,7 @@ public class CaseHandlingService {
     }
     private Map<String,Object> append(String kind,Long id,Long station,String action,ExceptionActionEvidence.Input input) {
         if(mapper.append(kind,id,station,AuthContext.getUserId(),input.version()+1,action,input.reason(),input.key(),input.digest())!=1)
-            throw new BusinessException("处理记录未保存，本次办理已回滚");
+            throw new BusinessException("处理记录未保存，本次办理未生效");
         return Objects.requireNonNull(replay(kind,id,station,input));
     }
     @Transactional(isolation=Isolation.READ_COMMITTED,rollbackFor=Exception.class)

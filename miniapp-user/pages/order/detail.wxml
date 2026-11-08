@@ -66,7 +66,7 @@
   <view class="info-section" wx:if="{{fee}}">
     <view class="section-title">费用明细</view>
     <view class="info-row">
-      <text class="label">{{order.ticketCashAmount != null ? '水费参考（水票办理）' : '水费'}}</text>
+      <text class="label">{{order.ticketCashAmount != null ? '水费参考金额（水票抵扣）' : '水费'}}</text>
       <text class="value">{{fee.waterText === '待核实' ? '待核实' : '¥' + fee.waterText}}</text>
     </view>
     <view class="info-row" wx:if="{{fee.hasDeposit}}">
@@ -84,7 +84,7 @@
     </view>
     <view class="info-row" wx:if="{{order.ticketDeliveryCredit > 0}}"><text class="label">本次配送抵扣</text><text class="value">−¥{{order.ticketDeliveryCredit}}</text></view>
     <view class="info-row fee-total" wx:if="{{order.ticketCashAmount != null}}"><text class="label">原单其他费用合计</text><text class="value">¥{{order.ticketCashAmount}}</text></view>
-    <view class="info-row" wx:if="{{order.ticketCashAmount != null}}"><text class="label">支付范围</text><text class="value">水费按水票办理；其他费用不含水费</text></view>
+    <view class="info-row" wx:if="{{order.ticketCashAmount != null}}"><text class="label">支付范围</text><text class="value">水费由水票抵扣，其余费用另付</text></view>
     <view class="info-row fee-total">
       <text class="label">{{order.ticketCashAmount != null ? '原单参考总额' : '合计'}}</text>
       <text class="value">{{fee.totalText === '待核实' ? '待核实' : '¥' + fee.totalText}}</text>
@@ -92,7 +92,7 @@
   </view>
 
   <view class="info-section" wx:if="{{bucketInfo && (order.status === 3 || order.status === 4)}}">
-    <view class="section-title">桶资产（本订单）</view>
+    <view class="section-title">本单送桶与回桶</view>
     <view class="bucket-card">
       <view class="bucket-row">
         <text class="bucket-label">本次配送</text>
@@ -109,7 +109,7 @@
     <view class="section-title">配送信息</view>
     <view class="contact-actions">
       <button wx:if="{{callPhone}}" class="af-action af-action--quiet" bindtap="onCallPhone"><text class="af-action__face">联系水站</text></button>
-      <button wx:if="{{phoneState === 'error'}}" class="af-action af-action--quiet" bindtap="onRetryPhone"><text class="af-action__face">重试读取水站电话</text></button>
+      <button wx:if="{{phoneState === 'error'}}" class="af-action af-action--quiet" bindtap="onRetryPhone"><text class="af-action__face">重新获取水站电话</text></button>
       <text class="phone-state" wx:elif="{{phoneState === 'loading'}}">正在读取水站电话…</text>
       <text class="phone-state" wx:elif="{{phoneState === 'empty'}}">水站暂未提供联系电话</text>
     </view>
@@ -122,7 +122,7 @@
       <text class="value">{{order.deliveryTimeRequest}}</text>
     </view>
     <view class="info-row" wx:if="{{order.deliveryTimeRequest}}">
-      <text class="value">这是你的期望时间，水站会按实际情况安排。</text>
+      <text class="value">实际送达时间以水站安排为准。</text>
     </view>
     <!-- 配送员上报的楼层（v43）：双向可见 —— 客户在订单里也能看到"他报了几层"，
          楼层凭证照片（如上传过）在同页「配送凭证」里。这样楼层争议双方都有据可查。 -->

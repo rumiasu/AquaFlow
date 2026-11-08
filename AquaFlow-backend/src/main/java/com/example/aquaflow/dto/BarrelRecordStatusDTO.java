@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class BarrelRecordStatusDTO {
 
-    @NotNull(message = "status 不能为空")
+    @NotNull(message = "请选择处理结果")
     private Integer status;
 
     private String handleNote;

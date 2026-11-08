@@ -4,7 +4,7 @@ function read(actor, object, action) {
   const value = wx.getStorageSync(keyOf(actor, object, action)) || null
   if (value && (value.actor !== actor || value.object !== object || value.action !== action ||
     typeof value.reason !== 'string' || !value.reason.trim() || !Number.isSafeInteger(value.expectedVersion) || value.expectedVersion < 0 ||
-    typeof value.idempotencyKey !== 'string' || !value.idempotencyKey)) throw new Error('上次异议记录无法识别，请保留现场并联系水站')
+    typeof value.idempotencyKey !== 'string' || !value.idempotencyKey)) throw new Error('上次异议记录无法识别，请联系水站核对')
   return value
 }
 function prepare(actor, object, action, reason, expectedVersion) {

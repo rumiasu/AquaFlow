@@ -34,8 +34,8 @@ Component({
       const changedCity = previous && previous.city && (previous.city !== scope.city || (previous.province && previous.province !== scope.province))
       if (previous && typeof previous.lat === 'number' && !changedCity) scope = { ...scope, lat: previous.lat, lng: previous.lng }
       this.invalidate()
-      this.setData({ region, message: changedCity && typeof previous.lat === 'number' ? '已切换城市，原地图位置已清除，请重新选择该城市内的位置。'
-        : typeof scope.lat === 'number' ? '已确认地图所在城市，结合位置与城市查找。' : '已选择城市；补选地图位置可进一步核对水站配送范围。' })
+      this.setData({ region, message: changedCity && typeof previous.lat === 'number' ? '已切换城市，原地图位置已清除。'
+        : typeof scope.lat === 'number' ? '已确认地图所在城市。' : '已选择城市，可补选位置核对配送范围。' })
       this.triggerEvent('scopechange', scope)
     },
     applyPendingLocation() {
@@ -44,7 +44,7 @@ Component({
       this._pendingLocation = null
       if (pending.sequence !== this._sequence || !isCurrentSession(pending.session)) return
       this.setData({ message: pending.scope.city ? '已选择地图位置及所在城市。'
-        : '地图位置已选，城市暂未识别；可补选地图所在城市，查看更多同城水站。', region: pending.scope.city ? [pending.scope.province, pending.scope.city] : [] })
+        : '位置已选，城市暂未识别，可补选城市查找同城水站。', region: pending.scope.city ? [pending.scope.province, pending.scope.city] : [] })
       this.triggerEvent('scopechange', pending.scope)
     },
     onChooseLocation() {
@@ -81,7 +81,7 @@ Component({
           fail: error => {
             if (!current()) return
             const message = error && error.errMsg || ''
-            this.setData({ message: /cancel/i.test(message) ? '已取消选择位置，原查找范围保留。'
+            this.setData({ message: /cancel/i.test(message) ? '已取消选点，保留原查找范围。'
               : /auth|deny|permission/i.test(message) ? '位置权限未开启，可选择城市查找。' : '地图暂不可用，请选择城市查找。' })
           },
           complete: finish

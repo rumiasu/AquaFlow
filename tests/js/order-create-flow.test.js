@@ -512,7 +512,7 @@ await test('回查也失败：说"查不到"，不猜已付、不重复扣票', 
   const titles = page.__wx.__calls.modal.map(m => m.title)
   assert.ok(titles.some(t => t.indexOf('订单已提交，付款结果待确认') > -1))
   const modal = page.__wx.__calls.modal.find(m => m.title.includes('订单已提交，付款结果待确认'))
-  assert.ok(modal.content.includes('订单号 69') && modal.content.includes('暂时查不到是否已付款'))
+  assert.ok(modal.content.includes('订单号 69') && modal.content.includes('付款结果待确认'))
   assert.strictEqual(modal.confirmText, '查原单')
   assert.strictEqual(modal.cancelText, '再试一次')
   assert.strictEqual(calls.createOrder.length, 1)

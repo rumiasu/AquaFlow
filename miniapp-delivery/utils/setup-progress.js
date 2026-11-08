@@ -27,7 +27,7 @@ function taskForDetail(item) {
     route: routeOf(item),
     levelText: item.key === 'ticketPackage' ? '选填' : item.levelText,
     suggestion: item.key === 'ticketPackage' && !item.done
-      ? '在商品列表筛选“已开水票”，打开对应商品编辑档位；也可在商品编辑中启用水票并设置在售档位。'
+      ? '水票可在商品编辑中启用并设置在售档位；不售水票可跳过。'
       : item.suggestion,
     completionEvidence: completionEvidence(item)
   }
@@ -48,7 +48,7 @@ function groupSetupItems(items) {
     const otherPending = Array.from(new Set(pending.filter(it => it.level !== 'P0' && it.key !== 'ticketPackage').map(it => it.label).filter(Boolean)))
     const summary = []
     if (required.length) summary.push('必填待完善：' + required.join('、'))
-    else summary.push('必填项无待补')
+    else summary.push('必填项已齐全')
     if (optionalTickets) summary.push('水票设置 · 选填')
     if (otherPending.length) summary.push('建议核对：' + otherPending.join('、'))
     if (!pending.length) summary.splice(0, summary.length, '本模块准备事项已完成')

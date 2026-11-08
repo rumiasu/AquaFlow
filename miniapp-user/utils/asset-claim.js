@@ -79,7 +79,7 @@ function record(raw, expected = {}, products = []) {
     reviewNote: typeof raw.reviewNote === 'string' ? raw.reviewNote : '', createTime: String(raw.createTime || '').replace('T', ' '),
     body: normalized, assetEmpty: cents(normalized.depositBalance) === 0 && normalized.items.every(row => row.rights === 0 && row.tickets === 0), items: normalized.items.map(row => ({ productId: row.productId, rights: row.rights, tickets: row.tickets, unitPrice: row.unitPrice, name: (names.get(row.productId) || {}).name || '历史商品',
       spec: (names.get(row.productId) || {}).spec || '',
-      unitPriceText: row.unitPrice == null ? '未填写，按补录规则推断' : row.unitPrice })) }
+      unitPriceText: row.unitPrice == null ? '未填写' : row.unitPrice })) }
 }
 function records(response, expected, products) {
   const rows = data(response), seen = new Set()

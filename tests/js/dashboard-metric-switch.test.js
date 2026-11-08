@@ -80,7 +80,7 @@ test('successful empty today and historical ranges receive different quiet empty
   t.page.setData({ range: 'today' }); await t.page.loadData()
   assert.equal(t.page.data.report.hasData, false)
   assert.equal(t.page.data.report.emptyTitle, '截至当前暂无订单')
-  assert(t.page.data.report.emptyCare.includes('喝口水'))
+  assert.equal(t.page.data.report.emptyCare, '可切换时间范围查看。')
   t.page.setData({ range: '7d' }); await t.page.loadData()
   assert(t.page.data.report.emptyTitle.includes('所选周期'))
 })

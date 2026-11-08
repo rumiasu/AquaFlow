@@ -64,7 +64,7 @@ test('changed financial result titles remain pending and receipt errors retain e
   assert(user.includes("unknown ? '订单已提交，付款结果待确认'"))
   assert(user.includes("const unknown = outcome.state === 'unknown'"))
   assert(employee.includes("title: '送达结果待确认'")); assert(employee.includes("resultState: 'unknown'"))
-  assert(employee.includes('配送结果可能已登记')); assert(employee.includes('已送达或已完成就无需重提'))
+  assert(employee.includes('配送结果可能已登记')); assert(employee.includes('已送达或已完成时无需重提'))
   for (const file of ['miniapp-delivery/pages/station-mgmt/products/index.js', 'miniapp-delivery/pages/station-mgmt/receivables/index.js']) {
     const source = read(file); assert(source.includes('malformedResponse: true'))
     assert(!/new Error\('登记回执不完整'\)|Error\('新建商品回执不完整/.test(source))

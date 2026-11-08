@@ -141,7 +141,7 @@ class PaymentReadEndpointsIntegrationTest extends AbstractIntegrationTest {
         Api asStaff = get("/api/payments/by-customer", staffToken(
                 createStaff("F47 自助站长", "STATION_MANAGER", stationA, 1), "STATION_MANAGER", stationA));
         assertEquals(1, asStaff.code(), "员工调顾客自助端点必须被拒：" + asStaff);
-        assertEquals("仅客户可访问此接口", asStaff.message(), "拒绝文案要具体：" + asStaff);
+        assertEquals("此功能仅限客户使用", asStaff.message(), "拒绝文案要具体：" + asStaff);
         assertTrue(asStaff.data().isNull(), "被拒时不得下发 data：" + asStaff);
 
         // 「确实没有」= 合法空态，必须与"失败"分得开（§8.22）

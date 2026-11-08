@@ -132,8 +132,8 @@ public class StationSetupGuideService {
         // ---- P0：客户看不到 / 找不着 / 规则空转的那几项 ----
         boolean phoneOk = station != null && station.getPhone() != null && !station.getPhone().trim().isEmpty();
         items.add(item("stationPhone", "水站联系电话", P0, phoneOk, "水站资料",
-                "客户下单页与退桶流程靠它联系你；缺了会显示成「请咨询客服」，客户找不到人",
-                null, phoneOk ? null : "建站时已改为必填；老站请到「水站资料」补一下"));
+                "供客户下单、退桶时联系水站",
+                null, phoneOk ? null : "请在「水站资料」补充联系电话"));
 
         // 「水站位置」= 地址 + 坐标**合成一条**（2026-09-23 用户裁定："注册时不是已经设了地址吗，为什么还要再设置选点"）。
         // 为什么合并：建站页与「水站资料」用的都是 wx.chooseLocation —— **一次选点同时产出地址与经纬度**，
@@ -145,14 +145,14 @@ public class StationSetupGuideService {
         String posWhy;
         String posSuggestion;
         if (!addressOk && !locationOk) {
-            posWhy = "地址和坐标都还没有：客户找不到你，配送距离也算不出来 —— 「配送范围」会整段失效（超范围单照接）";
-            posSuggestion = "到「水站资料」点一下地图选点，地址和坐标一次就都写进去了";
+            posWhy = "缺少水站位置，客户无法找路，系统也无法按距离限制配送范围";
+            posSuggestion = "请在「水站资料」选择地图位置";
         } else if (!locationOk) {
-            posWhy = "有地址但没坐标 —— 算不出配送距离，你设的「配送范围」会整段失效（超范围单照接）";
-            posSuggestion = "到「水站资料」点一下地图选点补坐标即可，地址已经有了、不用重填";
+            posWhy = "地址已保存，但缺少地图位置，暂不能按距离限制配送范围";
+            posSuggestion = "请在「水站资料」补选地图位置";
         } else if (!addressOk) {
-            posWhy = "有坐标但没地址 —— 客户选站与找路只能看到站名";
-            posSuggestion = "到「水站资料」补一下地址（选点时会自动带出来）";
+            posWhy = "地图位置已保存，但客户看不到具体地址";
+            posSuggestion = "请在「水站资料」补充地址";
         } else {
             posWhy = "地址和坐标均已保存，可供客户找路并计算配送距离";
             posSuggestion = null;
@@ -169,8 +169,8 @@ public class StationSetupGuideService {
         }
         // 「商品第一时间引导」：没有在架商品，后面的金额门槛/水票/工资都无从谈起
         items.add(item("catalogOnShelf", "上架商品", P0, !onShelf.isEmpty(), "商品与库存",
-                "客户看不到任何商品就没法下单；「选品」不等于「上架」，还要填售价与库存",
-                null, onShelf.isEmpty() ? "先选 1~2 款常卖的水上架（其余可以后补）" : null));
+                "商品设置售价并上架后，客户才能下单",
+                null, onShelf.isEmpty() ? "可先上架常卖商品" : null));
 
         var feeConfig = stationDeliveryConfigMapper.getByStationId(stationId);
         var missingAmounts = feeConfig == null || !deliveryConfigGuideService.hasNonBarrelOnShelf(stationId)
@@ -194,12 +194,12 @@ public class StationSetupGuideService {
                 staffPieceRateMapper.getByStationAndProduct(stationId, inv.getProductId()) != null);
         items.add(item("staffPayroll", "员工工资结构", P1, deliveryStaff == 0 || rateOk, "工资设置",
                 deliveryStaff == 0
-                        ? "本站还没有配送员；一旦有人，就要先定工资结构，否则他送的水会按 0 元记工钱"
+                        ? "本站暂无配送员。新增配送员前可先设置计件规则；未配置部分的应发工资需另行核实"
                         : rateOk ? "默认单价或当前在架商品的专属计件价已配置；新增商品时请继续核对工资规则"
                         : "有 " + deliveryStaff + " 名配送员，但尚未配置默认计件单价；未配置部分不会产生计件流水，应发工资需要核实",
                 null,
                 (deliveryStaff > 0 && !rateOk)
-                        ? "到「计件工资」页填写默认计件单价；不计件请明确填0。已有漏算工钱需核实后补录，不会按新单价追算历史"
+                        ? "请设置默认计件价或商品专属价；不计件可设为0。历史漏算需核实后补录，不按新单价追算"
                         : null));
 
         // ⚠️ 水票档位有**两套并存的定价方式**，判据必须两套都认（2026-09-24 修的真实缺陷）：
@@ -236,7 +236,7 @@ public class StationSetupGuideService {
                         : "到商品编辑设置1张或多张套餐，或在「水票档位」设置适用的站级统一折扣；已有单张价可继续使用。"));
 
         items.add(item("stationNotice", "营业公告", P2, true, "营业状态与公告",
-                "歇业/放假时客户能提前知道（软状态，不阻断下单）", null, null));
+                "说明休息或恢复配送时间；休息、预约状态仍可下单", null, null));
 
         int done = 0;
         int p0Pending = 0;

@@ -403,9 +403,8 @@ Page({
       // 现在分开：接口失败 → 说明原因 + 不谎称"没有电话"；查到了但确实为空 → 直说没登记。
       if (this.data.phoneError) {
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-          title: '电话没查出来',
-          content: '没能取到水站的联系电话（' + this.data.phoneError + '）。'
-            + '这不代表水站没有留电话 —— 请稍后重试，或换个网络再试。',
+          title: '水站电话暂未加载',
+          content: this.data.phoneError + '，请稍后重试。',
           showCancel: false,
           confirmText: '知道了'
         })
@@ -463,7 +462,7 @@ Page({
       if (!current()) return
       if (!res || !Array.isArray(res.data)) throw new Error('反馈历史暂未加载，请重试')
       const history = res.data.map(row => ({ ...row, displayContent: row.category === '错误报告' && /^【自动上报·系统错误】/.test(row.content || '')
-        ? '已上报一次服务问题，水站可依据原记录核查；处理进度请联系水站。' : row.content }))
+        ? '服务问题已提交给水站，可查看处理记录。' : row.content }))
       this.setData({ history, historyLoaded: true, historyError: '' })
     } catch (err) {
       if (!current()) return

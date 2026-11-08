@@ -102,7 +102,7 @@ Page({
       const msg = errorText(err, '网络暂时不可用')
       if (append) {
         // 下一页失败保留已经读到的页码；重试仍请求同一页。
-        this.setData({ loadingMore: false, loadErrorMore: true, loadError: '更多订单没加载出来（' + msg + '），继续上滑可重试' })
+        this.setData({ loadingMore: false, loadErrorMore: true, loadError: '更多订单未能加载（' + msg + '），请重试' })
       } else {
         this.setData({ orders: previous ? previous.orders.map(order => ({ ...order, canRepay: false, canCancel: false })) : [], page: previous ? previous.page : 0,
           hasMore: previous ? previous.hasMore : false, loading: false, loadingMore: false,

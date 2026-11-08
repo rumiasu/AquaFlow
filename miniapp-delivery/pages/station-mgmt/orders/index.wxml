@@ -81,7 +81,7 @@ module.exports = { percent: percent }
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
     </view>
-    <view class="empty" wx:if="{{!loading && !listError && list.length === 0}}"><icon name="order" size="28px" color="#8391A2" /><text>当前筛选下暂无本站订单</text><text class="care-note">可以调整筛选，也记得歇一会儿。</text></view>
+    <view class="empty" wx:if="{{!loading && !listError && list.length === 0}}"><icon name="order" size="28px" color="#8391A2" /><text>当前筛选下暂无本站订单</text><button wx:if="{{!filtersExpanded}}" class="af-action af-action--quiet" bindtap="onToggleFilters"><text class="af-action__face">调整筛选</text></button></view>
   </view>
   <view class="history-more" wx:if="{{hasMore}}" bindtap="onLoadMore">{{loadingMore ? '加载中…' : '加载更多历史订单'}}</view>
   <view class="loading" wx:if="{{loading}}">加载中...</view>

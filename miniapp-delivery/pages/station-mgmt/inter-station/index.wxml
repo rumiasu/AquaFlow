@@ -13,18 +13,18 @@
 
   <!-- 三个数：别人欠本站 / 本站欠别人 / 净额 -->
   <view class="ui-state" wx:if="{{ledgerError || loading}}"><text class="ui-state-title">{{loading ? '正在核对站间台账' : '台账待核实'}}</text><text class="ui-state-copy" wx:if="{{ledgerError}}">{{ledgerError}}</text><button class="af-action af-action--quiet" wx:if="{{ledgerError}}" bindtap="onRetryLedger"><text class="af-action__face">重新核对台账</text></button></view>
-  <view class="sum-grid" wx:if="{{loaded && !ledgerError && !loading}}"><view class="finance-section-head sum-heading"><icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="card-title">站间往来</text></view>
-    <view class="sum-card">
+  <view class="sum-grid" wx:if="{{loaded && !ledgerError && !loading}}"><view class="finance-section-head sum-heading"><icon name="wallet" size="24px" variant="duotone" color="#1264D6" fill-color="#EAF3FF" /><text class="card-title">站间往来</text></view>
+    <view class="sum-card sum-card--receive">
+      <text class="sum-label">其他站应付本站</text>
       <text class="sum-value receive">¥{{summary.receivableText}}</text>
-      <text class="sum-label">别人欠本站</text>
     </view>
-    <view class="sum-card">
+    <view class="sum-card sum-card--pay">
+      <text class="sum-label">本站应付其他站</text>
       <text class="sum-value pay">¥{{summary.payableText}}</text>
-      <text class="sum-label">本站欠别人</text>
     </view>
-    <view class="sum-card">
-      <text class="sum-value">{{summary.netPositive ? '+' : '-'}}¥{{summary.netText}}</text>
+    <view class="sum-card sum-card--net">
       <text class="sum-label">{{summary.netLabel}}</text>
+      <text class="sum-value">{{summary.netPositive ? '+' : '-'}}¥{{summary.netText}}</text>
     </view>
   </view>
 
@@ -36,7 +36,7 @@
   <view class="section reversal-section" wx:if="{{dangling.length > 0}}">
     <view class="section-title">需要冲销（{{dangling.length}} 笔）</view>
     <view class="hint">这些单已经取消或退款，当时登记的站间应付不再成立。若钱已经真的付给对方了，请先协商。</view>
-    <view class="card" wx:for="{{dangling}}" wx:key="_key">
+    <view class="card reversal-card" wx:for="{{dangling}}" wx:key="_key">
       <view class="row">
         <text class="row-main">{{item._routeText}}</text>
         <text class="row-amount">¥{{item._amountText}}</text>
@@ -61,7 +61,8 @@
     </view>
     <view class="hint" wx:elif="{{loading && !loaded}}">正在加载…</view>
 
-    <view class="card" wx:for="{{items}}" wx:key="_key">
+    <view class="card ledger-card" wx:for="{{items}}" wx:key="_key">
+      <view class="row-sub ledger-route"><text class="ledger-direction">{{item._routeText}}</text></view>
       <view class="row">
         <text class="row-main">订单 #{{item.orderId}}</text>
         <text class="row-amount">¥{{item._amountText}}</text>
@@ -71,7 +72,6 @@
         <text class="tag">{{item.statusText}}</text>
         <text class="tag" wx:if="{{item._payMethodText}}">{{item._payMethodText}}</text>
       </view>
-      <view class="row-sub"><text class="sub-text">{{item._routeText}}</text></view>
       <view class="row-sub"><text class="sub-text">{{item._ruleText}}</text></view>
       <view class="row-sub" wx:if="{{item._settledText}}"><text class="sub-text">{{item._settledText}}</text></view>
       <view class="actions">
@@ -80,7 +80,7 @@
         <button class="af-action af-action--secondary" wx:if="{{item.canChangePrice && !loading && !ledgerError}}" catchtap="onPriceByListed" data-id="{{item.orderId}}">按挂牌价结</button>
         <text class="hint" wx:if="{{item.canSettle && !item._amountKnown}}">本笔金额待核实，请重新核对台账后登记结清。</text>
         <text class="hint" wx:if="{{item.canSettle && !item._settlementPartiesKnown}}">付款站或收款站尚未核实，请重新读取台账。</text>
-        <button class="af-action af-action--primary" wx:if="{{item.canSettle && !loading && !ledgerError}}" disabled="{{!item._amountKnown || !item._settlementPartiesKnown}}" catchtap="onSettle" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">登记结清</button>
+        <button class="af-action af-action--primary" wx:if="{{item.canSettle && !loading && !ledgerError}}" disabled="{{!item._amountKnown || !item._settlementPartiesKnown}}" catchtap="onSettle" data-id="{{item.orderId}}" data-amount="{{item._amountText}}">实际付款后登记结清</button>
       </view>
     </view>
   </view>
@@ -103,20 +103,19 @@
     <text class="aftercare-error" wx:if="{{aftercareError}}">{{aftercareError}}</text>
     <button class="af-action af-action--secondary" bindtap="onRetryAftercareRead" disabled="{{aftercareBusy || aftercareLoading}}">查询原责任记录</button>
     <text wx:if="{{aftercareReady && !aftercareItems.length}}">暂无可核对的实际消费退款凭据。</text>
-    <view class="card" wx:for="{{aftercareItems}}" wx:key="refundPaymentId">
-      <text>{{item.refundVerified ? '已核实退' : '原退款凭据待核'}} #{{item.refundPaymentId}} · 记录金额 ¥{{item.refundAmount}} · 关联{{item.refundStationText}}</text>
-      <text class="aftercare-status">{{item.statusText}}</text>
+    <view class="card aftercare-receipt" wx:for="{{aftercareItems}}" wx:key="refundPaymentId">
+      <view class="aftercare-head"><text>{{item.refundVerified ? '已核实退' : '原退款凭据待核'}} #{{item.refundPaymentId}} · 记录金额 ¥{{item.refundAmount}} · 关联{{item.refundStationText}}</text><text class="aftercare-status">{{item.statusText}}</text></view>
       <text wx:if="{{item.amount !== null}}">{{item.otherStationText}} 向实际退款站 {{item.refundStationText}} 分担 ¥{{item.amount}}；其余由实际退款站承担。</text>
       <text wx:else>具体责任金额待核对，不自动追收原整单报酬。</text>
       <text wx:if="{{item.reason}}">{{item.reason}}</text>
+      <view class="aftercare-history" wx:for="{{item.history}}" wx:for-item="entry" wx:key="id"><text>{{entry.actionText}} · ¥{{entry.amount}}</text><text class="history-meta">{{entry.reason}} · {{entry.createTime}}</text></view>
       <view class="actions">
         <button class="af-action af-action--secondary" wx:if="{{aftercareReady && (item.canPropose || item.retryPROPOSE)}}" bindtap="onChooseAftercare" data-id="{{item.refundPaymentId}}" data-action="PROPOSE">{{item.retryPROPOSE ? '重试原责任方案' : '提出或补充责任方案'}}</button>
         <button class="af-action af-action--secondary" wx:if="{{aftercareReady && (item.canAgree || item.retryAGREE)}}" bindtap="onChooseAftercare" data-id="{{item.refundPaymentId}}" data-action="AGREE">{{item.retryAGREE ? '核对上次责任结果' : '核对并接受原责任金额'}}</button>
         <button class="af-action af-action--secondary" wx:if="{{aftercareReady && (item.canPay || item.retryPAID)}}" bindtap="onChooseAftercare" data-id="{{item.refundPaymentId}}" data-action="PAID">{{item.retryPAID ? '只同步原交付登记' : '登记本笔已实际交付'}}</button>
       </view>
-      <view class="aftercare-history" wx:for="{{item.history}}" wx:for-item="entry" wx:key="id"><text>{{entry.actionText}} · ¥{{entry.amount}}</text><text class="history-meta">{{entry.reason}} · {{entry.createTime}}</text></view>
     </view>
-    <view class="card aftercare-form" wx:if="{{aftercareSelected}}"><view class="finance-section-head"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="card-title">本笔责任核对</text></view>
+    <view class="card aftercare-form" wx:if="{{aftercareSelected}}"><view class="finance-section-head"><icon name="bill" size="22px" variant="duotone" color="#1264D6" fill-color="#EAF3FF" /><text class="card-title">本笔责任核对</text></view>
       <text>原实退 #{{aftercareSelected.refundPaymentId}} · 本笔原退款 ¥{{aftercareSelected.refundAmount}}</text>
       <text>站 {{aftercareSelected.otherStationId}} 向实际退款站 {{aftercareSelected.refundStationId}} 分担的金额；明确为0表示本笔由实际退款站承担。</text>
       <input wx:if="{{aftercareAction !== 'AGREE'}}" type="digit" value="{{aftercareAmount}}" bindinput="onAftercareAmount" disabled="{{aftercarePending || aftercareBusy || aftercareAction !== 'PROPOSE'}}" placeholder="分担金额（元）" />

@@ -49,12 +49,22 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 .aftercare-history { margin:12px 0 0 6px; border-left:2px solid var(--af2-line); padding:0 0 8px 14px; font-size:14px; line-height:22px; }.aftercare-history text { display:block; }.history-meta { color:var(--af2-muted); font-size:13px; }.aftercare-form .finance-section-head { margin-bottom:12px; }.aftercare-form .af-action--block { margin-top:16px; }
 @media(max-width:350px) { .sum-value { font-size:24px; }.sum-card { padding:12px; } }
 
-/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
-.inter-station-page .sum-card { background:var(--bg-white); border:1rpx solid var(--border-light); }
-.inter-station-page .sum-value { color:var(--af2-ink-money); font-size:40rpx; }
-.inter-station-page .card { padding:32rpx; border-radius:var(--radius-lg); box-shadow:none; }
+/* 站间凭证：先读方向与路线，再读金额、状态和操作。 */
+.inter-station-page .sum-card { background:var(--af2-surface); border:1rpx solid var(--border-light); box-shadow:none; }
+.inter-station-page .sum-card--receive { border-left:6rpx solid var(--af2-primary); }
+.inter-station-page .sum-card--pay { border-left:6rpx solid var(--af2-muted); }
+.inter-station-page .sum-card--net { border-left:1rpx solid var(--border-light); }
+.inter-station-page .sum-value { color:var(--af2-ink-money); font-size:40rpx; font-variant-numeric:tabular-nums; }
+.inter-station-page .card { padding:32rpx; border-radius:12px; box-shadow:none; }
 .inter-station-page .row-main { font-weight:600; overflow-wrap:anywhere; }
-.inter-station-page .row-amount { color:var(--af2-ink-money); max-width:65%; }
+.inter-station-page .row-amount { color:var(--af2-ink-money); max-width:65%; font-variant-numeric:tabular-nums; }
 .inter-station-page .sub-text { display:block; line-height:1.65; overflow-wrap:anywhere; }
-.inter-station-page .actions { border-top:1rpx solid var(--border-light); padding-top:20rpx; }
+.inter-station-page .ledger-route { margin:0 0 10px; padding:10px 12px; background:var(--af2-surface-neutral); border-left:3px solid var(--af2-primary); border-radius:8px; }
+.inter-station-page .ledger-direction { color:var(--af2-ink); font-size:16px; font-weight:600; line-height:1.5; overflow-wrap:anywhere; }
+.inter-station-page .actions { border-top:1rpx dashed var(--border-color); padding-top:20rpx; }
+.inter-station-page .reversal-section { background:var(--af2-surface); border:1px solid var(--af2-line); border-left:4px solid var(--af2-ink-danger); border-radius:12px; }
+.inter-station-page .aftercare-head { display:flex; align-items:flex-start; flex-wrap:wrap; gap:8px 12px; padding-bottom:12px; border-bottom:1px solid var(--af2-line); }
+.inter-station-page .aftercare-head > text:first-child { flex:1; min-width:0; }
+.inter-station-page .aftercare-head .aftercare-status { flex:none; max-width:100%; }
+.inter-station-page .aftercare-history { padding:12px 0 8px 14px; }
 .inter-station-page .ui-state { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }

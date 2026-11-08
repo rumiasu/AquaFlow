@@ -1,20 +1,25 @@
-.receipt-page { min-height:100vh; padding:32rpx 28rpx calc(48rpx + env(safe-area-inset-bottom)); box-sizing:border-box; background:var(--bg-color); color:var(--text-primary); font-size:28rpx; line-height:1.6; }
+.receipt-page { min-height:100vh; padding:32rpx 28rpx calc(48rpx + env(safe-area-inset-bottom)); box-sizing:border-box; background:var(--af2-page); color:var(--af2-ink); font-size:28rpx; line-height:1.6; }
 .receipt-heading { margin-bottom:24rpx; }
-.receipt-title { display:block; font-size:40rpx; font-weight:600; }
-.receipt-subtitle { display:block; margin-top:8rpx; color:var(--text-secondary); font-size:26rpx; }
-.receipt-page .hint { padding:24rpx; margin-bottom:24rpx; background:var(--bg-gray); color:var(--text-regular); border-radius:var(--radius-md); font-size:26rpx; }
-.receipt-page .state { padding:32rpx; margin:24rpx 0; background:var(--bg-white); border-radius:var(--radius-lg); overflow-wrap:anywhere; }
-.receipt-page .receipt-error { border-left:4rpx solid var(--primary-color); }
+.receipt-kicker { display:block; margin-bottom:8rpx; color:var(--af2-primary); font-size:22rpx; font-weight:600; letter-spacing:4rpx; }
+.receipt-title { display:block; font-size:40rpx; line-height:1.35; font-weight:600; }
+.receipt-subtitle { display:block; margin-top:10rpx; color:var(--af2-muted); font-size:26rpx; }
+.receipt-page .hint { padding:0 4rpx; color:var(--af2-muted); font-size:14px; line-height:1.55; }
+.receipt-page .state { padding:32rpx; margin:24rpx 0; background:var(--af2-surface); border:1rpx solid var(--af2-line); border-radius:14px; overflow-wrap:anywhere; }
+.receipt-page .receipt-error { border-left:4rpx solid var(--af2-primary); }
 .receipt-error button { margin-top:20rpx; min-height:44px; min-height:max(44px,88rpx); }
 .receipt-empty text { display:block; }
 .receipt-empty-title { font-size:32rpx; font-weight:600; margin-bottom:16rpx; }
-.receipt-page .card { padding:32rpx; margin-bottom:24rpx; background:var(--bg-white); border-radius:var(--radius-lg); }
-.receipt-card-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16rpx; padding-bottom:24rpx; border-bottom:1rpx solid var(--border-color); }
-.receipt-ref { color:var(--text-secondary); font-size:24rpx; overflow-wrap:anywhere; }
-.receipt-status { padding:6rpx 16rpx; background:var(--primary-bg); color:var(--primary-color); border-radius:var(--radius-sm); font-size:26rpx; overflow-wrap:anywhere; }
+.receipt-page .card { padding:30rpx; margin-bottom:24rpx; background:var(--af2-surface); border:1rpx solid var(--af2-line); border-radius:14px; box-shadow:none; }
+.receipt-card-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12rpx 16rpx; padding-bottom:20rpx; border-bottom:1rpx solid var(--af2-line); }
+.receipt-ref { flex:1 1 120px; min-width:0; color:var(--af2-muted); font-size:14px; overflow-wrap:anywhere; }
+.receipt-status { max-width:100%; padding:6rpx 14rpx; background:var(--af2-surface-order); color:var(--af2-ink-order); border-radius:6px; font-size:14px; font-weight:600; line-height:1.5; overflow-wrap:anywhere; }
 .receipt-content { padding:24rpx 0; }
-.receipt-label { display:block; font-size:24rpx; color:var(--text-secondary); margin-bottom:8rpx; }
-.receipt-note { display:block; white-space:pre-wrap; overflow-wrap:anywhere; }
-.receipt-timeline { border-left:2rpx solid var(--border-color); padding-left:24rpx; }
-.receipt-event { display:flex; flex-wrap:wrap; gap:8rpx 24rpx; padding:12rpx 0; color:var(--text-regular); font-size:26rpx; overflow-wrap:anywhere; }
-.receipt-event-label { color:var(--text-secondary); }
+.receipt-label,.receipt-section-kicker { display:block; color:var(--af2-muted); font-size:23rpx; }
+.receipt-label { margin-bottom:10rpx; }
+.receipt-note { display:block; color:var(--af2-ink); font-size:30rpx; line-height:1.75; white-space:pre-wrap; overflow-wrap:anywhere; }
+.receipt-timeline { padding-top:12rpx; border-top:1rpx dashed var(--af2-line); }
+.receipt-section-kicker { margin-bottom:4rpx; }
+.receipt-event { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:6rpx 20rpx; padding:12rpx 0; color:var(--af2-muted); border-bottom:1rpx dashed var(--af2-line); font-size:25rpx; overflow-wrap:anywhere; }
+.receipt-event:last-child { border-bottom:0; }
+.receipt-event-label { flex:none; color:var(--af2-muted); }
+.receipt-event-value { flex:1; min-width:0; color:var(--af2-ink); text-align:right; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }

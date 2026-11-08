@@ -10,7 +10,7 @@ const copy = value => JSON.parse(JSON.stringify(value))
 const assetItems = rows => rows.map(row => { const item = { ...row }; delete item.held; return item })
 const selectorItems = (catalog, rows) => catalog.map(p => ({ id: p.id, name: p.name, spec: p.spec, image: p.imageUrl, priceText: rows.some(r => r.productId === p.id) ? '再点可取消' : '添加到清单', selected: rows.some(r => r.productId === p.id) }))
 Page({
-  data: { showClaimGuide: false, claimGuideImageFailed: false, showCatalog: false, expandedRecord: null, loading: false, ready: false, error: '', notice: '', stations: [], stationsError: '', stationId: null,
+  data: { claimView: 'apply', showClaimGuide: false, claimGuideImageFailed: false, showCatalog: false, expandedRecord: null, loading: false, ready: false, error: '', notice: '', stations: [], stationsError: '', stationId: null,
     stationName: '请选择认领水站', catalog: [], selectorCatalog: [], catalogReady: false, productIndex: -1, records: [],
     form: emptyForm(), pending: false, submitting: false, canCreate: false },
   onToggleClaimGuide() { this.setData({ showClaimGuide: !this.data.showClaimGuide }) },
@@ -31,7 +31,7 @@ Page({
       const station = stationStorage.get()
       this._stationId = this._initialStation || claim.id(station && station.id)
       this._actor = owner
-      this.setData({ form: this.readDraft(this._stationId), records: [], catalog: [], selectorCatalog: [], stations: [], canCreate: false, notice: '', pending: false })
+      this.setData({ claimView: 'apply', expandedRecord: null, form: this.readDraft(this._stationId), records: [], catalog: [], selectorCatalog: [], stations: [], canCreate: false, notice: '', pending: false })
     }
     this._actor = owner; this._customer = customer; this._session = session
     this.setData({ stationId: this._stationId, stationName: this._stationId ? '水站编号：' + this._stationId : '请选择认领水站', submitting: false, photoUploading: !!this._photoFlight })
@@ -89,7 +89,8 @@ Page({
       }
       const pending = !!this._intent, active = records.some(r => r.status !== 'REJECTED')
       this.setData({ ready: true, catalogReady: !catalogError, catalog: products, selectorCatalog: selectorItems(products, this.data.form.items), records, error: catalogError,
-        pending, submitting: false, canCreate: !catalogError && !pending && !active })
+        pending, submitting: false, canCreate: !catalogError && !pending && !active,
+        ...(active && !pending && !previousRecords ? { claimView: 'records' } : {}) })
       if (pending) this.setData({ form: { ...this._intent.body, items: this._intent.body.items.map(r => ({ ...r,
         name: (products.find(p => p.id === r.productId) || {}).name || '历史商品',
         rights: String(r.rights), tickets: String(r.tickets), unitPrice: r.unitPrice || '' })) },
@@ -106,10 +107,16 @@ Page({
     if (!Number.isInteger(index) || !station) return
     if (!this.saveDraft(this.data.form)) return
     this._stationId = station.id; this._epoch++; this._intent = null
-    this.setData({ stationId: station.id, stationName: station.name, records: [], catalog: [], selectorCatalog: [], form: this.readDraft(station.id), pending: false,
+    this.setData({ stationId: station.id, stationName: station.name, claimView: 'apply', records: [], catalog: [], selectorCatalog: [], form: this.readDraft(station.id), pending: false,
       notice: '', productIndex: -1, showCatalog: false, expandedRecord: null, canCreate: false }); return this.load()
   },
   onToggleCatalog() { if (wx.hideKeyboard) wx.hideKeyboard({}); this.setData({ showCatalog: !this.data.showCatalog }) },
+  onClaimView(e) {
+    const view = e.currentTarget.dataset.view
+    if ((view !== 'apply' && view !== 'records') || this._flight || this._photoFlight) return
+    if (wx.hideKeyboard) wx.hideKeyboard({})
+    this.setData({ claimView: view })
+  },
   onToggleRecord(e) { const id = e.currentTarget.dataset.id; this.setData({ expandedRecord: this.data.expandedRecord === id ? null : id }) },
   onProduct(e) { const n = Number(e.detail.value); if (this.data.canCreate && Number.isInteger(n) && this.data.catalog[n]) this.setData({ productIndex: n }) },
   onImageError(e) {
@@ -215,7 +222,7 @@ Page({
       const records = [received].concat(this.data.records.filter(r => r.id !== received.id))
       this.setData({ records }); claim.clear(intent); this._intent = null
       this.saveDraft(emptyForm())
-      this.setData({ pending: false, form: emptyForm(), canCreate: this.data.catalogReady && !records.some(r => r.status !== 'REJECTED'),
+      this.setData({ pending: false, claimView: 'records', expandedRecord: received.id, form: emptyForm(), canCreate: this.data.catalogReady && !records.some(r => r.status !== 'REJECTED'),
         notice: received.status === 'PENDING' ? '申请已提交，待水站核对。通过后可在这里查看结果。' : '已查询到原申请结果，请查看记录。' })
     } catch (e) {
       if (!this.current(c)) return

@@ -75,11 +75,21 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 
 .menu-action::after,.menu-cancel::after { border:0; }
 
-/* K3.1: page-specific reading hierarchy; business bindings stay unchanged. */
-.payroll-page .slip { margin:24rpx 0; padding:28rpx; border:1rpx solid var(--border-light); border-radius:var(--radius-lg); }
+/* 工资单：计算依据、应发金额与历史凭据分层。 */
+.payroll-preview-kicker { display:block; margin:24px 0 8px; color:var(--af2-muted); font-size:13px; font-weight:600; letter-spacing:2px; }
+.payroll-page .payroll-amount-panel { margin-top:0; padding:20px; background:var(--af2-surface); border:1px solid var(--af2-line); border-radius:12px; }
+.payroll-page .slip-hero { padding:0 0 16px; border-bottom:1px dashed var(--border-color); }
+.payroll-page .slip-hero-label { display:block; margin:0 0 8px; color:var(--af2-muted); font-size:14px; line-height:22px; }
+.payroll-page .slip-hero-amount { display:block; color:var(--af2-ink-money); font-size:34px; line-height:42px; font-weight:600; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.payroll-earnings-title { display:block; margin:22px 0 8px; color:var(--af2-ink); font-size:16px; font-weight:600; }
+.payroll-earnings-list { border-top:1px solid var(--af2-line); }
+.payroll-earnings-list .row { border-bottom:1px dashed var(--af2-line); }
+.payroll-earnings-list .row:last-child { border-bottom:0; }
+.payroll-page .slip { margin:24rpx 0; padding:28rpx; background:var(--af2-surface); border:1rpx solid var(--border-light); border-radius:12px; box-shadow:none; }
 .payroll-page .slip-label { display:block; color:var(--text-secondary); font-size:24rpx; line-height:1.6; margin-bottom:8rpx; }
 .payroll-page .slip-money { padding:24rpx 0; border-top:1rpx dashed var(--border-color); border-bottom:1rpx dashed var(--border-color); }
-.payroll-page .slip-amount { color:var(--af2-ink-money); font-size:40rpx; font-weight:700; }
+.payroll-page .slip-amount { color:var(--af2-ink-money); font-size:40rpx; font-weight:700; font-variant-numeric:tabular-nums; }
 .payroll-page .slip-actions { flex-wrap:wrap; gap:16rpx; }
+.payroll-page .slip-detail-entry { min-height:44px; }
 .payroll-page .pay-caution { color:var(--text-regular); font-size:26rpx; line-height:1.65; }
 .payroll-page .load-error { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }

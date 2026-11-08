@@ -1,13 +1,14 @@
 const { get, captureSession, currentSession } = require('../../utils/request')
 Page({
-  data: { loading: false, error: '', items: [] },
+  // 2026-11-08: wait for a successful read before presenting an empty receipt list.
+  data: { loading: true, error: '', items: [] },
   onShow() {
     this._visible = true
     const app = getApp()
     if (!app.canAccessStationBusiness()) { app.routeByRole(true); return }
     return this.load()
   },
-  onHide() { this._visible = false; this._version = (this._version || 0) + 1; this.setData({ items: [], error: '' }) },
+  onHide() { this._visible = false; this._version = (this._version || 0) + 1; this.setData({ items: [], error: '', loading: true }) },
   onUnload() { this._visible = false; this._version = (this._version || 0) + 1 },
   async load() {
     const version = this._version = (this._version || 0) + 1, session = captureSession()

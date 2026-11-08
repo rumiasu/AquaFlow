@@ -18,5 +18,5 @@
       </view>
     </scroll-view>
   </block>
-  <button class="guest-guide-login" bindtap="login">登录后选择水站</button>
+  <button class="guest-guide-login {{stations.length ? 'guest-guide-login-ready' : ''}}" bindtap="login">登录后选择水站</button>
 </view>

@@ -55,6 +55,21 @@ test('natural entries and both native page registrations exist without a new cor
 test('customer reads a true empty history and can prepare a claim without a prior binding', async () => {
   const t = user(); await t.page.onShow(); assert.equal(t.page.data.ready, true); assert.deepStrictEqual(t.page.data.records, []); assert.equal(t.page.data.catalog.length, 1)
 })
+test('claim tabs preserve the draft and a confirmed submit opens the original receipt', async () => {
+  const t = user()
+  const switchTo = view => t.page.onClaimView({ currentTarget: { dataset: { view } } })
+  await t.page.onShow()
+  fill(t)
+  switchTo('records')
+  assert.equal(t.page.data.claimView, 'records')
+  switchTo('apply')
+  assert.equal(t.page.data.form.items[0].rights, '2')
+  assert.equal(t.page.data.form.note, '合成历史清单')
+  await t.page.onSubmit()
+  assert.equal(t.calls.length, 1)
+  assert.equal(t.page.data.claimView, 'records')
+  assert.equal(t.page.data.expandedRecord, t.page.data.records[0].id)
+})
 test('product cards preserve image and spec, and unavailable image falls back without losing the form', async () => {
   const t = user({ products: async () => ok([{ ...product, imageUrl: '/assets/product/example.png' }]) }); await t.page.onShow()
   assert.equal(t.page.data.catalog[0].imageUrl, '/assets/product/example.png')

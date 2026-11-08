@@ -81,9 +81,9 @@
         </view>
       </view>
       <!-- [2026-09-20] 空态分两种：loadError 非空 = 商品没拉到（不是"这个站没商品"） -->
-      <view class="local-empty" wx:if="{{!currentStationId && !loadError}}"><text>请选择水站查看本站商品</text></view>
-      <view class="local-empty" wx:elif="{{allProducts.length === 0 && !loadError}}"><text>本站暂无在售商品</text></view>
-      <view class="local-empty" wx:elif="{{keywords && !visibleProducts.length && !loadError}}"><text>没有找到匹配的商品，可清空搜索再看</text></view>
+      <view class="local-empty" wx:if="{{!currentStationId && !loadError}}"><text>请选择水站查看本站商品</text><button class="af-action af-action--quiet" bindtap="onOpenStationPicker"><text class="af-action__face">选择水站</text></button></view>
+      <view class="local-empty" wx:elif="{{!loading && allProducts.length === 0 && !loadError}}"><text>本站暂无在售商品</text></view>
+      <view class="local-empty" wx:elif="{{!loading && keywords && !visibleProducts.length && !loadError}}"><text>没有找到匹配的商品</text><button class="af-action af-action--quiet" bindtap="onClearSearch"><text class="af-action__face">清空搜索</text></button></view>
     </view>
   </block>
 

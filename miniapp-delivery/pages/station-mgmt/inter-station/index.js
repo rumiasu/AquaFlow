@@ -143,7 +143,7 @@ Page({
       _amountKnown: exactMoney(it.amount),
       _settlementPartiesKnown: !!positiveId(it.fromStationId) && !!positiveId(it.toStationId),
       _ruleText: rule,
-      _routeText: (it.fromStationName || '？') + ' → ' + (it.toStationName || '？'),
+      _routeText: (it.fromStationName || '付款站待核实') + ' 付给 ' + (it.toStationName || '收款站待核实'),
       _settledText: settledText,
       _payMethodText: it.paymentMethodText || ''
     })

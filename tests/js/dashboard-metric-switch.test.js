@@ -109,7 +109,17 @@ test('quiet icons stay inside confirmed-empty conditions and reuse registered li
       assert(condition.includes('!loading'))
       assert(condition.includes('readReady.') || condition.includes('!listError'))
       assert(body.includes('<icon name="order"'))
-      assert(body.includes('care-note'))
+      // 2026-11-08: the order-list empty state now offers a filter action instead of decorative copy.
+      if (relative.includes('/station-mgmt/orders/')) {
+        assert(body.includes('bindtap="onToggleFilters"'))
+        assert(body.includes('wx:if="{{!filtersExpanded}}"'))
+        assert(body.includes('调整筛选'))
+      } else {
+        assert(body.includes('care-note'))
+        if (condition.includes('readReady.assigned')) {
+          assert(body.includes('class="care-note" wx:if="{{readReady.unpaid && deliveredUnpaidOrders.length === 0}}"'))
+        }
+      }
     }
     const config = JSON.parse(fs.readFileSync(path.join(root, relative.replace('.wxml', '.json')), 'utf8'))
     assert(config.usingComponents.icon.endsWith('components/Icon/index'))

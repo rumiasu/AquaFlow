@@ -52,9 +52,19 @@ textarea { width: 100%; height: 180rpx; margin-bottom: 24rpx; font-size: 26rpx;
 .account-profile-hint { color:var(--text-regular); }
 .account-intake-status { display:block; padding:12px; margin-bottom:12px; border-radius:10px; background:var(--af2-surface-neutral); color:var(--text-primary); font-size:14px; line-height:1.5; }
 
-/* K3.1: 个人资料申请记录呈现为凭据。 */
+/* 办理流程仅作说明；真实申请状态只出现在记录与详情。 */
 .card { box-shadow:none; border-color:var(--border-light); padding:32rpx; }
-.record { border-radius:0; line-height:1.6; gap:16rpx; overflow-wrap:anywhere; }
+.account-process { display:flex; align-items:center; gap:8px; margin:20px 0 10px; padding:16px 12px; background:var(--af2-surface-neutral); border-radius:10px; }
+.account-process-step { display:flex; flex:1; min-width:0; align-items:center; flex-direction:column; gap:4px; color:var(--af2-ink); font-size:12px; line-height:20px; text-align:center; }
+.account-process-number { display:flex; align-items:center; justify-content:center; width:24px; height:24px; color:var(--af2-primary); background:var(--af2-surface-order); border-radius:50%; font-size:12px; font-weight:600; }
+.account-process-arrow { flex:none; color:var(--af2-muted); }
+.account-process-note { display:block; color:var(--af2-muted); font-size:12px; line-height:20px; }
+.record { border-radius:0; line-height:1.6; overflow-wrap:anywhere; }
+.account-page .record.af-entry { display:flex; align-items:center; gap:12px; min-height:52px; border-bottom:1px dashed var(--af2-line); }
+.account-page .record .af-entry__body { display:flex; flex:1; min-width:0; align-items:flex-start; flex-direction:column; gap:4px; }
+.account-page .record .af-entry__title { color:var(--af2-ink); font-size:15px; font-weight:600; overflow-wrap:anywhere; }
+.account-page .record-status { color:var(--af2-primary); font-size:12px; }
+.account-page .record .af-entry__arrow { flex:none; color:var(--af2-muted); }
 .request-status { display:inline-block; padding:8rpx 16rpx; border-radius:var(--radius-sm); background:var(--primary-bg); color:var(--primary-color); font-size:var(--text-body); }
 .body { word-break:normal; overflow-wrap:anywhere; }
 .error { overflow-wrap:anywhere; }

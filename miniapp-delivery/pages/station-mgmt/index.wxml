@@ -4,7 +4,7 @@
   <view class="badge-error" wx:if="{{badgeError}}" bindtap="loadBadgeCounts">{{badgeError}}</view>
   <view class="pending-board">
     <view class="board-head"><text class="group-title">待处理</text><button size="mini" bindtap="loadBadgeCounts" loading="{{badgeLoading}}" disabled="{{badgeLoading}}" class="af-action af-action--quiet b3-load-badge-counts" hover-class="af-action--pressed"><view class="af-action__face">刷新</view></button></view>
-    <view class="pending-clear" wx:if="{{receivablesBadgeCount === 0 && businessWaitingBadgeCount === 0 && barrelReturnBadgeCount === 0 && refundDisputeBadgeCount === 0}}">待办已核对，当前暂无待处理事项</view>
+    <view class="pending-clear" wx:if="{{receivablesBadgeCount === 0 && businessWaitingBadgeCount === 0 && barrelReturnBadgeCount === 0 && refundDisputeBadgeCount === 0}}">本栏四类待办已核对，暂无事项</view>
     <view class="pending-cards" wx:else>
       <view class="v2-pending--current pending-card pending-entry af-entry b3-record-entry" wx:if="{{businessWaitingBadgeCount === null || businessWaitingBadgeCount > 0}}" bindtap="onNavigate" data-url="/pages/station-mgmt/business-waiting/index" hover-class="entry-pressed"><icon class="v2-pending-icon" name="bill" variant="duotone" size="28px" color="#1264D6" />
         <text class="entry-title">业务待办</text><text class="pending-value" wx:if="{{businessWaitingBadgeCount !== null}}">{{businessWaitingBadgeCount}}<text class="pending-unit">项</text></text><text class="entry-unknown" wx:else>{{badgeLoading ? '核对中' : '未核对'}}</text><text class="entry-desc" aria-hidden="true">›</text>

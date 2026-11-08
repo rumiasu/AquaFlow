@@ -148,7 +148,7 @@
       <icon name="order" size="28px" color="#8391A2" />
       <text class="empty-text" wx:if="{{onlyAssigned}}">还没有派给你的单，等站长分配</text>
       <text class="empty-text" wx:else>暂无待配送订单</text>
-      <text class="care-note">趁空喝口水，留意新的安排。</text>
+      <text class="care-note" wx:if="{{readReady.unpaid && deliveredUnpaidOrders.length === 0}}">有新任务时可下拉刷新。</text>
     </view>
   </view>
 
@@ -248,7 +248,7 @@
       <view class="order-card" wx:for="{{deliveredUnpaidOrders}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
         <view class="card-header">
           <view class="tag-row">
-            <text class="status-tag status-warning">已配送待付款</text>
+            <text class="status-tag status-warning">已送达</text>
             <text class="aux-tag aux-offline" wx:if="{{item.isOffline}}">线下</text>
             <text class="aux-tag aux-unpaid" wx:if="{{item.isUnpaid}}">待收款</text>
           </view>

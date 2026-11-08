@@ -74,3 +74,16 @@ button:not(.af-action):not(.af-choice).view-tab.active { color:var(--primary-col
 .lv2-account .record { min-height:44px; min-height:max(44px,var(--control-h)); box-sizing:border-box; display:flex; align-items:center; overflow-wrap:anywhere; }
 .lv2-account .error { display:block; padding:24rpx; margin:16rpx 0; background:var(--bg-gray); border-left:4rpx solid var(--primary-color); color:var(--text-regular); }
 .lv2-account .title,.lv2-account .lv2-request-status { overflow-wrap:anywhere; }
+
+/* 办理流程仅作说明；真实申请状态只出现在记录与详情。 */
+.account-process { display:flex; align-items:center; gap:8px; margin:20px 0 10px; padding:16px 12px; background:var(--af2-surface-neutral); border-radius:10px; }
+.account-process-step { display:flex; flex:1; min-width:0; align-items:center; flex-direction:column; gap:4px; color:var(--af2-ink); font-size:12px; line-height:20px; text-align:center; }
+.account-process-number { display:flex; align-items:center; justify-content:center; width:24px; height:24px; color:var(--af2-primary); background:var(--af2-surface-order); border-radius:50%; font-size:12px; font-weight:600; }
+.account-process-arrow { flex:none; color:var(--af2-muted); }
+.account-process-note { display:block; color:var(--af2-muted); font-size:12px; line-height:20px; }
+.account-page .record.af-entry { gap:12px; min-height:52px; border-bottom:1px dashed var(--af2-line); }
+.account-page .record .af-entry__body { display:flex; flex:1; min-width:0; align-items:flex-start; flex-direction:column; gap:4px; }
+.account-page .record .af-entry__title { color:var(--af2-ink); font-size:15px; font-weight:600; overflow-wrap:anywhere; }
+.account-page .record-status { color:var(--af2-primary); font-size:12px; }
+.account-page .record .af-entry__arrow { flex:none; color:var(--af2-muted); }
+.account-page #request-detail,.lv2-account .lv2-request-result { border-top:4px solid var(--af2-primary); }

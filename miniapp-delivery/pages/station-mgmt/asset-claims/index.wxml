@@ -24,7 +24,7 @@
   <view class="claim-card" wx:if="{{selected}}">
     <button class="af-action af-action--quiet b3-on-close-selection" wx:if="{{!pending}}" bindtap="onCloseSelection" hover-class="af-action--pressed"><view class="af-action__face">返回待核对清单</view></button>
     <view class="b3-claim-state"><text class="b3-state-caption">当前核对状态</text><text class="b3-state-title">{{selected.statusText}}</text></view>
-    <view class="claim-banner">通过即追加清单中的桶、押金和水票，不产生本次新收款；不要求客户再次确认。</view>
+    <view class="claim-banner">通过后追加原有的桶、押金和水票。此次无需重新收款。</view>
     <view class="claim-heading"><text class="claim-title">原清单 #{{selected.id}}</text></view>
     <text class="claim-row">本站 #{{selected.stationId}} · 客户 #{{selected.customerId}}</text>
     <text class="claim-row">提交时间：{{selected.createTime}}</text>
@@ -51,7 +51,7 @@
       <textarea class="claim-input claim-textarea" value="{{reviewNote}}" maxlength="500" bindinput="onNote" placeholder="核对说明；拒绝时必填，最多500字" disabled="{{submitting}}" />
       <view class="claim-actions">
         <button class="af-action af-action--secondary b3-on-reject" bindtap="onReject" disabled="{{!ready || !catalogReady || submitting || loading}}" hover-class="af-action--pressed">拒绝并反馈</button>
-        <button class="af-action af-action--primary b3-on-approve af-action--grow" bindtap="onApprove" loading="{{submitting}}" disabled="{{!ready || !catalogReady || !photoReady || photoError || selected.assetEmpty || submitting || loading}}" hover-class="af-action--pressed">核对通过</button>
+        <button class="af-action af-action--primary b3-on-approve af-action--grow" bindtap="onApprove" loading="{{submitting}}" disabled="{{!ready || !catalogReady || !photoReady || photoError || selected.assetEmpty || submitting || loading}}" hover-class="af-action--pressed">通过并入账</button>
       </view>
     </block>
   </view>

@@ -24,7 +24,7 @@
 
 
     <view class="card">
-      <view class="finance-section-head"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="card-title rate-form-title">{{selectedRateName}}</text></view><text class="draft-note" wx:if="{{rateDraftNotice}}">{{rateDraftNotice}}</text>
+      <view class="finance-section-head"><icon name="bill" size="22px" variant="duotone" color="#1264D6" fill-color="#EAF3FF" /><text class="card-title rate-form-title">{{selectedRateName}}</text></view><text class="draft-note" wx:if="{{rateDraftNotice}}">{{rateDraftNotice}}</text>
       <text class="card-sub" wx:if="{{rateForm.productId !== '0'}}">楼层补贴统一按默认单价中的楼层设置计算。</text>
       <view class="field">
         <text class="label">每送 1 {{selectedRateUnit}}</text>
@@ -119,7 +119,7 @@
   <block wx:if="{{tab === 'settle'}}">
     <view class="card">
       <view class="card-title-row">
-        <icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="card-title">本期工资</text>
+        <icon name="wallet" size="24px" variant="duotone" color="#1264D6" fill-color="#EAF3FF" /><text class="card-title">本期工资</text>
         <help-tip title="工资期间" text="{{tips.period}}" />
       </view>
       <text class="card-sub">登记线下已发工资，不触发转账。</text>
@@ -152,14 +152,15 @@
         </view>
         <view class="empty" wx:if="{{previewLoading}}">工资计算中…</view>
         <view class="load-error" wx:elif="{{previewError}}"><text>{{previewError}}</text><button class="af-action af-action--quiet" bindtap="loadPreview"><text class="af-action__face">重新计算</text></button></view>
-        <view class="payroll-preview-summary" wx:elif="{{preview}}"><view class="payroll-amount-panel af2-tone-panel af2-tone-money">
-          <view class="slip-hero"><text class="slip-hero-amount">{{preview.complete ? '¥' + preview.payableText : preview.payableText}}</text><text class="slip-hero-label">{{preview.statusText}}</text></view>
+        <view class="payroll-preview-summary" wx:elif="{{preview}}"><text class="payroll-preview-kicker">结算预览</text><view class="payroll-amount-panel af2-tone-panel af2-tone-money">
+          <view class="slip-hero"><text class="slip-hero-label">{{preview.statusText}}</text><text class="slip-hero-amount">{{preview.complete ? '¥' + preview.payableText : preview.payableText}}</text></view>
           <view class="kv"><text class="kv-k">已结算已发</text><text class="kv-v">{{preview.statusKnown === false ? preview.paidText : '¥' + preview.paidText}}</text></view>
           <view class="kv"><text class="kv-k">已记录未发</text><text class="kv-v">{{preview.statusKnown === false ? preview.unpaidText : '¥' + preview.unpaidText}}</text></view>
           <text class="card-sub" wx:if="{{!preview.complete}}">已记录合计 ¥{{preview.recordedText}}；缺规则或凭据的部分尚未计入，应发金额不能按零处理。</text>
           <text class="card-sub" wx:if="{{preview.warning}}">{{preview.warning}}</text>
           <button class="af-action af-action--secondary" wx:if="{{preview.missingRule}}" bindtap="onGoRates">配置薪资结构</button></view>
-          <view class="row" wx:for="{{preview.earnings}}" wx:key="id"><view class="row-main"><text class="row-title">{{item.displayText}}</text><text class="row-sub">{{item.note}}</text></view><text class="row-amount">¥{{item.amount}}</text></view>
+          <text class="payroll-earnings-title">计件与调整明细</text>
+          <view class="payroll-earnings-list"><view class="row" wx:for="{{preview.earnings}}" wx:key="id"><view class="row-main"><text class="row-title">{{item.displayText}}</text><text class="row-sub">{{item.note}}</text></view><text class="row-amount">¥{{item.amount}}</text></view></view>
           <text class="card-sub" wx:if="{{preview.earningCount > 50}}">共{{preview.earningCount}}条，先展示前50条；金额按本期全部记录计算。</text>
         </view>
         <view class="field">
@@ -208,7 +209,7 @@
 
     <view class="card">
       <view class="card-title-row">
-        <icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="card-title">结算单历史</text>
+        <icon name="bill" size="22px" variant="duotone" color="#1264D6" fill-color="#EAF3FF" /><text class="card-title">结算单历史</text>
         <text class="card-count">{{loaded && !loading && !payrollReadError ? filteredPayrolls.length + ' 张匹配' : '数量待核实'}}</text>
       </view>
       <input class="payroll-search" value="{{payrollKeyword}}" placeholder="筛选员工姓名或编号" bindinput="onPayrollSearch" />
@@ -220,22 +221,22 @@
         <text class="af-action__face">{{payrollLoadingMore ? '正在加载更早记录…' : payrollMoreError ? '重试加载更早记录' : '继续加载更早记录'}}</text>
       </button>
       <view class="empty" wx:if="{{payrollListError}}" bindtap="loadAll">{{payrollListError}} · 点击重试</view>
-      <view class="empty finance-empty" wx:elif="{{!loading && !filteredPayrolls.length}}"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text>已加载范围内无匹配结算单</text></view>
+      <view class="empty finance-empty" wx:elif="{{!loading && !filteredPayrolls.length}}"><icon name="bill" size="22px" variant="duotone" color="#1264D6" fill-color="#EAF3FF" /><text>已加载范围内无匹配结算单</text></view>
       <view class="slip" wx:for="{{filteredPayrolls}}" wx:key="id" bindtap="onOpenPayroll" data-id="{{item.id}}">
         <view class="slip-top">
           <view class="slip-person"><text class="slip-label">配送员</text><text class="slip-name">{{item.staffName}}</text></view>
           <text class="pill {{item.statusClass}}">{{item.statusText}}</text>
         </view>
         <view class="slip-money">
-          <text class="slip-amount">¥{{item.totalAmount}}</text>
           <text class="slip-period">{{item.periodText}}</text>
+          <text class="slip-amount">¥{{item.totalAmount}}</text>
         </view>
         <text class="slip-sub" wx:if="{{item.paidTime}}">发放时间 {{item.paidTime}}</text>
         <text class="slip-sub" wx:if="{{item.note}}">备注：{{item.note}}</text>
         <text class="pay-caution" wx:if="{{item.status === 1 || item.status === 2}}">未发工资：实际发薪后再登记。</text>
         <view class="slip-actions">
           <button class="af-action af-action--primary slip-settle" wx:if="{{isManager && (item.status === 1 || item.status === 2)}}" catchtap="onSettlePayroll"
-                  disabled="{{generating || adjusting || recording || savingRate || payrollBusyId !== null || loading || payrollReadError}}" data-id="{{item.id}}">{{payrollBusyId === item.id ? '处理中…' : '结算'}}</button>
+                  disabled="{{generating || adjusting || recording || savingRate || payrollBusyId !== null || loading || payrollReadError}}" data-id="{{item.id}}">{{payrollBusyId === item.id ? '登记中…' : '登记已发工资'}}</button>
           <view class="slip-detail-entry"><text>查看明细</text><text aria-hidden="true">›</text></view>
         </view>
       </view>
@@ -361,14 +362,14 @@
   <!-- 明细 -->
   <view class="mask" wx:if="{{detail || detailLoading || detailError}}" bindtap="onCloseDetail"></view>
   <view class="dialog" wx:if="{{detail || detailLoading || detailError}}">
-    <view class="dialog-head"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="dialog-title">{{detailName}} 的结算单</text><button class="af-action af-action--quiet dialog-close" bindtap="onCloseDetail" aria-label="关闭结算单">×</button></view>
+    <view class="dialog-head"><icon name="bill" size="22px" variant="duotone" color="#1264D6" fill-color="#EAF3FF" /><text class="dialog-title">{{detailName}} 的结算单</text><button class="af-action af-action--quiet dialog-close" bindtap="onCloseDetail" aria-label="关闭结算单">×</button></view>
     <view class="empty" wx:if="{{detailLoading}}">加载中…</view>
     <view class="load-error" wx:if="{{detailError}}" bindtap="onRetryDetail">{{detailError}} · 点击重试</view>
     <button class="af-action af-action--cancel" wx:if="{{!detail}}" bindtap="onCloseDetail">关闭</button>
     <block wx:if="{{detail}}">
       <view class="slip-hero">
-        <text class="slip-hero-amount">¥{{detail.payroll.totalAmount}}</text>
         <text class="slip-hero-label">合计</text>
+        <text class="slip-hero-amount">¥{{detail.payroll.totalAmount}}</text>
       </view>
       <view class="kv"><text class="kv-k">单号</text><text class="kv-v">{{detail.payroll.payrollNo}}</text></view>
       <view class="kv"><text class="kv-k">期间</text><text class="kv-v">{{detail.payroll.periodText}}</text></view>
@@ -406,7 +407,7 @@
   <!-- 「记一笔」：选中条目后只填正数金额，加还是扣由条目决定（v44）。 -->
   <view class="mask" wx:if="{{record}}" bindtap="onRecordClose"></view>
   <view class="dialog" wx:if="{{record}}">
-    <view class="dialog-head"><icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="dialog-title">记一笔 · {{record.itemName}}</text><button class="af-action af-action--quiet dialog-close" disabled="{{recording}}" bindtap="onRecordClose" aria-label="关闭记账">×</button></view>
+    <view class="dialog-head"><icon name="wallet" size="24px" variant="duotone" color="#1264D6" fill-color="#EAF3FF" /><text class="dialog-title">记一笔 · {{record.itemName}}</text><button class="af-action af-action--quiet dialog-close" disabled="{{recording}}" bindtap="onRecordClose" aria-label="关闭记账">×</button></view>
     <!-- 手填提示放在最上面：用户点进来第一眼就知道"金额得自己填" -->
     <text class="card-sub">金额手填，方向由条目决定。</text>
     <view class="kv record-direction"><text class="kv-k">方向</text><text class="kv-v">{{record.directionText}}</text></view>

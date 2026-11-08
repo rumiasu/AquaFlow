@@ -232,7 +232,7 @@
       <text class="sum-recovery" wx:elif="{{total.count > 0 && homeQuoteState === 'error'}}">费用待确认，请在确认页查看。</text>
     </view>
     <!-- 主按钮：蓝色合法出现处 ②；置灰用 #9CA7B5，不是浅蓝 -->
-    <view class="cta af-action af-action--primary af-action--final {{total.count > 0 && !quantityInputError ? '' : 'off is-disabled'}}" bindtap="onSubmit">{{quantityInputError ? '请核对数量' : '确认订单'}}</view>
+    <view class="cta af-action af-action--primary af-action--final {{total.count > 0 && !quantityInputError ? '' : 'off is-disabled'}}" bindtap="onSubmit">{{quantityInputError ? '请核对数量' : '去核对订单'}}</view>
   </view>
 
   <!-- ══ 水站选择弹层（保留原有交互） ══ -->

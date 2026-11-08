@@ -3,8 +3,9 @@
 .guest-guide-hint { color: #52647a; font-size: 28rpx; line-height: 1.6; }
 .guest-guide-browse, .guest-guide-login, .guest-guide-retry, .guest-guide-close { min-height: 44px; font-size: 30rpx; line-height: 44px; box-sizing: border-box; }
 .guest-guide-browse, .guest-guide-login { width: 100%; border-radius: 16rpx; }
-.guest-guide-browse { color: #1258b5; background: #eef5ff; }
-.guest-guide-login { color: #fff; background: #1264d6; }
+.guest-guide-browse { color: #fff; background: #1264d6; }
+.guest-guide-login { color: #1258b5; background: #eef5ff; }
+.guest-guide-login.guest-guide-login-ready { color: #fff; background: #1264d6; }
 .guest-guide-head { display: flex; align-items: center; justify-content: space-between; font-size: 30rpx; font-weight: 600; }
 .guest-guide-close, .guest-guide-retry { margin: 0; padding: 0 16rpx; color: #1258b5; background: transparent; }
 .guest-guide-close::after, .guest-guide-retry::after { border: 0; }

@@ -96,17 +96,26 @@
 .claim-guide-toggle { min-height:44px; flex:none; color:var(--text-regular); font-size:13px; }
 .claim-photo-add { min-height:52px; width:100%; margin-top:8px; border:1px dashed var(--af-primary); background:var(--af2-surface-order); }
 
-/* K3.1: 历史资产认领档案与填写材料分层。 */
+/* 历史资产认领：先完成新申请，再回看档案。 */
+.claim-page { background:var(--af2-page); }
 .claim-card { box-shadow:none; border:1rpx solid var(--border-light); padding:32rpx; }
 .claim-heading { flex-wrap:wrap; gap:12rpx; }
-.claim-record-toggle { border-bottom:1rpx solid var(--border-color); padding-bottom:16rpx; margin-bottom:16rpx; }
+.claim-form-card { border-top:4rpx solid var(--af2-primary); background:var(--af2-surface); }
+.claim-form-card > .claim-title { font-size:32rpx; line-height:1.5; }
+.claim-form-card .claim-field { padding-top:24rpx; }
+.claim-form-card .claim-field > text:first-child { display:block; margin-bottom:8rpx; color:var(--af2-muted); font-size:25rpx; }
+.claim-record-card { padding:28rpx 32rpx; background:var(--af2-surface); }
+.claim-record-toggle { min-height:44px; border-bottom:1rpx solid var(--border-color); padding-bottom:16rpx; margin-bottom:16rpx; }
+.claim-record-card .claim-line { border-top-style:dashed; }
+.claim-record-card .claim-amount { border-bottom:1rpx dashed var(--border-color); }
 .claim-status { background:var(--primary-bg); color:var(--primary-color); padding:6rpx 12rpx; border-radius:var(--radius-sm); font-size:var(--text-note); }
-.claim-amount { display:block; padding:24rpx 0; font-size:32rpx; font-weight:700; color:var(--price-color); overflow-wrap:anywhere; }
+.claim-amount { display:block; padding:24rpx 0; font-size:32rpx; font-weight:700; color:var(--price-color); overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
 .claim-material { padding:20rpx; background:var(--bg-gray); border-radius:var(--radius-sm); white-space:pre-wrap; overflow-wrap:anywhere; }
 .claim-row,.claim-title,.claim-picker { white-space:normal; overflow-wrap:anywhere; }
 .claim-photo-heading { flex-wrap:wrap; }
 .claim-input { box-sizing:border-box; }
 .claim-no-image { font-size:var(--text-note); }
+.claim-page > .claim-heading { margin-top:36rpx; }
 
 /* 2026-11-08: Selection and filled quantities use compact, readable rows. */
 .claim-catalog { height:264px; }
@@ -124,3 +133,5 @@ button.claim-remove { flex:none; width:auto; min-width:44px; min-height:44px; ma
 .claim-edit-line .claim-field > text:first-child { flex:1; min-width:120px; margin-bottom:0; font-size:28rpx; color:var(--text-regular); }
 .claim-edit-line integer-stepper { flex:0 1 164px; width:164px; max-width:100%; }
 .claim-edit-line .claim-input { margin-top:0; }
+.claim-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
+.claim-tabs .af-choice { flex:1 1 120px; margin:0; }

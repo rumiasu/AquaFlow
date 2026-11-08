@@ -1,7 +1,6 @@
 <view class="claim-page">
-  <view class="claim-banner">补录以前在水站的桶、押金和水票，由水站核对。</view>
   <view class="claim-card">
-    <text class="claim-title">选择水站</text>
+    <text class="claim-title">原资产所属水站</text>
     <picker range="{{stations}}" range-key="name" bindchange="onStation" disabled="{{submitting || !stations.length}}">
       <view class="claim-picker">{{stationName}}　›</view>
     </picker>
@@ -10,33 +9,14 @@
   <view class="claim-error" wx:if="{{error}}">{{error}}</view>
   <button class="af-action af-action--primary af-action--block" wx:if="{{needLogin}}" bindtap="onLogin">去登录</button>
   <view class="claim-notice" wx:if="{{notice}}">{{notice}}</view>
-  <view class="claim-heading" wx:if="{{stationId}}"><text class="claim-title">认领进度</text><button class="claim-refresh af-action af-action--quiet" loading="{{loading}}" disabled="{{loading || submitting}}" bindtap="onRetry"><text class="af-action__face">刷新</text></button></view>
-  <view class="claim-muted" wx:if="{{loading}}">正在核实认领信息…</view>
-
-  <text class="claim-title">{{stationId ? '本站认领记录' : '认领记录'}}</text>
-  <text class="claim-muted" wx:if="{{loading && records.length}}">以下为上次读取的记录，正在重新核实。</text>
-  <view class="claim-muted" wx:if="{{ready && !records.length}}">暂无认领记录。</view>
-  <view class="claim-card" wx:for="{{records}}" wx:key="id">
-    <view class="claim-heading claim-record-toggle af-entry" data-id="{{item.id}}" bindtap="onToggleRecord"><text class="claim-title">申请 #{{item.id}}</text><text class="claim-status">{{item.statusText}} {{expandedRecord === item.id ? '⌃' : '⌄'}}</text></view>
-    <text class="claim-row">{{item.stationName || (item.stationId === stationId ? stationName : '水站编号：' + item.stationId)}} · {{item.createTime}}</text>
-    <text class="claim-material" wx:if="{{item.status === 'REJECTED' && item.reviewNote}}">水站反馈：{{item.reviewNote}}</text>
-    <block wx:if="{{expandedRecord === item.id}}">
-    <text class="claim-amount">历史实收押金余额：¥{{item.depositText}}</text>
-    <view class="claim-line" wx:for="{{item.items}}" wx:for-item="line" wx:key="productId">
-      <text class="claim-title">{{line.name}} {{line.spec}} · 商品 #{{line.productId}}</text>
-      <text class="claim-row">我的桶：{{line.rights}} 个</text>
-      <text class="claim-row">历史水票：{{line.tickets}} 张</text>
-      <text class="claim-row">以前每桶金额（元/个）：{{line.unitPriceText}}</text>
-    </view>
-    <text class="claim-material">本人说明：{{item.note}}</text>
-    <text class="claim-material" wx:if="{{item.reviewNote && item.status !== 'REJECTED'}}">水站反馈：{{item.reviewNote}}</text>
-    <text class="claim-muted" wx:if="{{item.status === 'PENDING'}}">等待本站核对；通过后即入账，无需再次确认清单。</text>
-    </block>
+  <view class="claim-tabs" wx:if="{{stationId && !needLogin}}">
+    <button class="af-choice {{claimView === 'apply' ? 'af-choice--selected' : ''}}" data-view="apply" bindtap="onClaimView" aria-pressed="{{claimView === 'apply'}}" disabled="{{submitting || photoUploading}}"><text class="af-choice__face">填写清单</text></button>
+    <button class="af-choice {{claimView === 'records' ? 'af-choice--selected' : ''}}" data-view="records" bindtap="onClaimView" aria-pressed="{{claimView === 'records'}}" disabled="{{submitting || photoUploading}}"><text class="af-choice__face">认领记录</text></button>
   </view>
-
-  <view class="claim-card claim-entry-form" wx:if="{{canCreate || pending}}">
+  <view class="claim-card claim-form-card claim-entry-form" wx:if="{{claimView === 'apply' && (canCreate || pending)}}">
     <text class="claim-title">{{pending ? '原申请（结果待确认）' : '填写历史资产'}}</text>
-    <view class="claim-steps" wx:if="{{!pending}}"><view><text class="claim-step-number">1</text>填数量</view><view><text class="claim-step-number">2</text>写说明</view><view><text class="claim-step-number">3</text>补照片</view></view>
+    <view class="claim-banner" wx:if="{{!pending}}">水站核对通过后，资产会记到该站。</view>
+    <view class="claim-steps" wx:if="{{!pending}}"><view><text class="claim-step-number">1</text>填清单</view><view><text class="claim-step-number">2</text>写说明</view><view><text class="claim-step-number">3</text>提交核对</view></view>
     <view class="claim-field">
       <text>以前交的押金总额（元）</text>
       <input class="claim-input" type="digit" maxlength="12" value="{{form.depositBalance}}" data-field="depositBalance" bindinput="onField" disabled="{{pending || submitting}}" placeholder="请输入金额，没有填0" />
@@ -71,6 +51,33 @@
     <button class="af-action af-action--primary af-action--block" wx:else bindtap="onRecover" loading="{{submitting}}" disabled="{{!ready || loading || submitting}}">恢复原申请</button>
     <text class="claim-muted" wx:if="{{pending}}">原清单和申请凭据已保留，恢复时沿用原申请，不重新申请。</text>
   </view>
+
+  <view class="claim-muted" wx:if="{{loading}}" aria-role="status">{{claimView === 'records' && records.length ? '正在核实，以下为上次读取的记录。' : '正在核实认领信息…'}}</view>
+  <view class="claim-card" wx:if="{{stationId && claimView === 'apply' && ready && !canCreate && !pending && !error}}">
+    <text class="claim-title">本站已有认领申请</text>
+    <button class="af-action af-action--quiet" data-view="records" bindtap="onClaimView"><text class="af-action__face">查看处理进度</text></button>
+  </view>
+  <view class="claim-heading" wx:if="{{stationId && (claimView === 'records' || error)}}"><text class="claim-title">{{claimView === 'records' ? '认领记录' : '认领信息'}}</text><button class="claim-refresh af-action af-action--quiet" loading="{{loading}}" disabled="{{loading || submitting}}" bindtap="onRetry"><text class="af-action__face">{{error ? '重新核对' : '刷新'}}</text></button></view>
+  <view class="claim-muted" wx:if="{{claimView === 'records' && ready && !records.length}}">本站暂无认领记录。</view>
+  <block wx:if="{{claimView === 'records'}}">
+  <view class="claim-card claim-record-card" wx:for="{{records}}" wx:key="id">
+    <view class="claim-heading claim-record-toggle af-entry" data-id="{{item.id}}" bindtap="onToggleRecord"><text class="claim-title">申请 #{{item.id}}</text><text class="claim-status">{{item.statusText}} {{expandedRecord === item.id ? '⌃' : '⌄'}}</text></view>
+    <text class="claim-row">{{item.stationName || (item.stationId === stationId ? stationName : '水站编号：' + item.stationId)}} · {{item.createTime}}</text>
+    <text class="claim-material" wx:if="{{item.status === 'REJECTED' && item.reviewNote}}">水站反馈：{{item.reviewNote}}</text>
+    <block wx:if="{{expandedRecord === item.id}}">
+    <text class="claim-amount">历史实收押金余额：¥{{item.depositText}}</text>
+    <view class="claim-line" wx:for="{{item.items}}" wx:for-item="line" wx:key="productId">
+      <text class="claim-title">{{line.name}} {{line.spec}} · 商品 #{{line.productId}}</text>
+      <text class="claim-row">我的桶：{{line.rights}} 个</text>
+      <text class="claim-row">历史水票：{{line.tickets}} 张</text>
+      <text class="claim-row">以前每桶金额（元/个）：{{line.unitPriceText}}</text>
+    </view>
+    <text class="claim-material">本人说明：{{item.note}}</text>
+    <text class="claim-material" wx:if="{{item.reviewNote && item.status !== 'REJECTED'}}">水站反馈：{{item.reviewNote}}</text>
+    <text class="claim-muted" wx:if="{{item.status === 'PENDING'}}">等待本站核对；通过后即入账，无需再次确认清单。</text>
+    </block>
+  </view>
+  </block>
 
 
 </view>

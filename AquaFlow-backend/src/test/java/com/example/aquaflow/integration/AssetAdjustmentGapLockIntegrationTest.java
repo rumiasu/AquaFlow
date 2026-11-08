@@ -11,6 +11,7 @@ import org.mybatis.spring.SqlSessionTemplate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -22,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** 临时合成MySQL专用。Spy只安排真实SQL的时序，不替换账户、行锁、事务或异常结果。 */
+/** 临时合成MySQL专用。SQL/账本/事务均为真实实现；仅指定回滚用例明确注入一次锁异常。 */
 class AssetAdjustmentGapLockIntegrationTest extends AbstractIntegrationTest {
     @Autowired HistoricalAssetClaimService claimService;
     @Autowired StationAdjustmentService adjustments;
@@ -40,6 +41,7 @@ class AssetAdjustmentGapLockIntegrationTest extends AbstractIntegrationTest {
         createInventoryFull(station,product,0,0,"0.00");
     }
     private void manager() { AuthContext.set(new AuthContext.AuthUser(manager,"staff","STATION_MANAGER",station)); }
+    private int rows(String table) { return intOf("select count(*) from "+table); }
     @AfterEach void clearContext() { AuthContext.clear(); }
     private long depositAdjustment(long customer,String token,int amount) {
         createCustomerStationConfig(customer,station,0);manager();
@@ -52,17 +54,29 @@ class AssetAdjustmentGapLockIntegrationTest extends AbstractIntegrationTest {
     }
     private void approve(long id) { claimService.review(id,new HistoricalAssetClaimDTO.Review(true,"已核对合成材料")); }
     private void together(Runnable a,Runnable b) throws Exception {
-        var start=new CountDownLatch(1);var executor=Executors.newFixedThreadPool(2);
+        var start=new CountDownLatch(1);var workers=new CopyOnWriteArrayList<Thread>();
+        var executor=Executors.newFixedThreadPool(2, task -> {
+            var worker=new Thread(task,"asset-gap-worker-"+(workers.size()+1));workers.add(worker);return worker;
+        });
         try {
             var x=CompletableFuture.runAsync(()->{await(start);manager();try {a.run();}finally {AuthContext.clear();}},executor);
             var y=CompletableFuture.runAsync(()->{await(start);manager();try {b.run();}finally {AuthContext.clear();}},executor);
             start.countDown();
             // allOf即使一方失败也等另一方结束；不能让下一例清表时还有本例持锁连接。
-            CompletableFuture.allOf(x,y).get(300,TimeUnit.SECONDS);
+            try { CompletableFuture.allOf(x,y).get(300,TimeUnit.SECONDS); }
+            catch(TimeoutException timeout) { throw new AssertionError("synthetic SQL workers timed out: "+workerStacks(workers),timeout); }
         } finally {
             start.countDown();executor.shutdown();
-            assertTrue(executor.awaitTermination(300,TimeUnit.SECONDS),"synthetic SQL workers did not release their connections");
+            assertTrue(executor.awaitTermination(300,TimeUnit.SECONDS),"synthetic SQL workers did not release their connections: "+workerStacks(workers));
         }
+    }
+    private static String workerStacks(List<Thread> workers) {
+        var details=new StringBuilder();
+        for(var worker:workers) {
+            details.append(worker.getName()).append(" [").append(worker.getState()).append("]\n");
+            for(var frame:worker.getStackTrace()) details.append("  ").append(frame).append("\n");
+        }
+        return details.toString();
     }
     private static void await(CountDownLatch latch) {
         try { if(!latch.await(15,TimeUnit.SECONDS)) throw new AssertionError("synthetic start timed out"); }
@@ -99,26 +113,62 @@ class AssetAdjustmentGapLockIntegrationTest extends AbstractIntegrationTest {
         assertEquals(2,intOf("select count(*) from deposit_record"));
         assertEquals(0,intOf("select count(*) from customer_barrel_over"));
     }
-    @Test void realDeadlockAfterLedgerWritesRollsBackThenReplaysWholeClaimExactlyOnce() throws Exception {
-        seed();long a=claim(first,false),b=claim(second,false);
-        var real=sql.getMapper(DepositRecordMapper.class);var inserts=new AtomicInteger();var barrier=new CyclicBarrier(2);
+    @Test void injectedLockFailureAfterRealLedgerWritesRollsBackThenReplaysWholeClaimExactlyOnce() {
+        seed();long id=claim(first,true);manager();
+        var original=jdbc.queryForMap("select request_digest,cast(request_json as char) as request_json from historical_asset_claim where id=?",id);
+        var realRecords=sql.getMapper(DepositRecordMapper.class);
+        var realClaims=sql.getMapper(HistoricalAssetClaimMapper.class);
+        var inserts=new AtomicInteger();var attempts=new AtomicInteger();var rolledBackRecord=new AtomicLong();
         doAnswer(call -> {
-            DepositRecord record=call.getArgument(0);real.insert(record);
-            if(inserts.incrementAndGet()<=2) {
-                // 两连接均已改余额、写流水和审批CAS，再强制相反的真实行锁，MySQL必须选一个牺牲事务。
-                meet(barrier);long other=record.getCustomerId()==first?second:first;
-                jdbc.queryForList("select id from customer_deposit_account where customer_id=? and station_id=? for update",other,station);
+            var claim=realClaims.lock(call.getArgument(0));
+            if(attempts.incrementAndGet()==2) {
+                // 新一轮完整事务开始时，上一轮的审批、绑定、三类资产和流水必须全部回滚。
+                assertEquals("PENDING",claim.getStatus());
+                for(var table:List.of("customer_station_config","customer_barrel_lot","customer_barrel_asset",
+                        "customer_barrel_over","ticket_account","ticket_lot","customer_deposit_account",
+                        "barrel_record","ticket_record","deposit_record","station_adjustment"))
+                    assertEquals(0,rows(table),"previous transaction leaked "+table);
+                assertEquals(0,intOf("select count(*) from audit_log where module='ADJUST'"));
+            }
+            return claim;
+        }).when(claims).lock(anyLong());
+        doAnswer(call -> {
+            DepositRecord record=call.getArgument(0);realRecords.insert(record);
+            if(inserts.incrementAndGet()==1) {
+                assertEquals(2,intOf("select sum(remain_qty) from customer_barrel_lot"));
+                assertEquals(3,intOf("select sum(remain_quantity) from ticket_account"));
+                assertEquals(7,decimalOf("select sum(balance) from customer_deposit_account").intValueExact());
+                assertEquals(1,rows("customer_station_config"));assertEquals(1,rows("deposit_record"));
+                assertEquals(1,rows("barrel_record"));assertEquals(1,rows("ticket_record"));
+                assertEquals(2,intOf("select count(*) from audit_log where module='ADJUST'"));
+                assertEquals(3,intOf("select count(*) from station_adjustment where status='EFFECTIVE'"));
+                assertEquals(1,intOf("select count(*) from historical_asset_claim where status='APPROVED'"));
+                rolledBackRecord.set(record.getId());
+                // 明确的故障注入，不冒称 MySQL 生成的死锁；真实 gap 死锁由下一用例单独验证。
+                // 不再要求两个已写账事务在此会合，避免把其它合法串行化误测成闸门超时。
+                throw new CannotAcquireLockException("injected once after real ledger writes to verify whole-transaction rollback");
             }
             return null;
         }).when(records).insert(any(DepositRecord.class));
-        together(()->approve(a),()->approve(b));
-        assertTrue(inserts.get()>=3,"a deadlock victim must retry after rollback");
-        assertEquals(14,decimalOf("select sum(balance) from customer_deposit_account").intValueExact());
-        assertEquals(2,intOf("select count(*) from deposit_record"));assertEquals(2,intOf("select count(*) from station_adjustment"));
-        assertEquals(2,intOf("select count(*) from customer_station_config"));
-        assertEquals(2,intOf("select count(*) from historical_asset_claim where status='APPROVED'"));
-        assertEquals(0,intOf("select count(*) from payment_record"));
-        manager();approve(a);approve(b);assertEquals(2,intOf("select count(*) from deposit_record"));
+        approve(id);
+        assertEquals(2,attempts.get());assertEquals(2,inserts.get());
+        assertEquals(0,jdbc.queryForObject("select count(*) from deposit_record where id=?",Integer.class,rolledBackRecord.get()));
+        assertEquals(2,intOf("select sum(remain_qty) from customer_barrel_lot"));
+        assertEquals(3,intOf("select sum(remain_quantity) from ticket_account"));
+        assertEquals(7,decimalOf("select sum(balance) from customer_deposit_account").intValueExact());
+        assertEquals(1,rows("barrel_record"));assertEquals(1,rows("ticket_record"));assertEquals(1,rows("deposit_record"));
+        assertEquals(3,rows("station_adjustment"));assertEquals(1,rows("customer_station_config"));
+        assertEquals(1,intOf("select count(*) from historical_asset_claim where status='APPROVED'"));
+        assertEquals(0,rows("payment_record"));
+        assertEquals(0,intOf("select count(*) from customer_barrel_over where over_qty<>0"));
+        assertEquals(original,jdbc.queryForMap("select request_digest,cast(request_json as char) as request_json from historical_asset_claim where id=?",id));
+        var effective=jdbc.queryForList("select * from station_adjustment order by id");
+        var balances=jdbc.queryForMap("select (select sum(remain_qty) from customer_barrel_lot) as barrels,(select sum(remain_quantity) from ticket_account) as tickets,(select sum(balance) from customer_deposit_account) as deposit");
+        approve(id);assertEquals(2,inserts.get());assertEquals(3,rows("station_adjustment"));
+        assertEquals(effective,jdbc.queryForList("select * from station_adjustment order by id"));
+        assertEquals(balances,jdbc.queryForMap("select (select sum(remain_qty) from customer_barrel_lot) as barrels,(select sum(remain_quantity) from ticket_account) as tickets,(select sum(balance) from customer_deposit_account) as deposit"));
+        assertEquals(1,rows("barrel_record"));assertEquals(1,rows("ticket_record"));assertEquals(1,rows("deposit_record"));
+        assertEquals(3,intOf("select count(*) from audit_log where module='ADJUST'"));
     }
     @Test void emptyLotGapDeadlockRetriesMixedClaimsWithoutDuplicatingAnyAsset() throws Exception {
         seed();long a=claim(first,true),b=claim(second,true);

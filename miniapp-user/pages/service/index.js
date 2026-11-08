@@ -404,14 +404,14 @@ Page({
       if (this.data.phoneError) {
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '电话没查出来',
-          content: '没能取到水站的客服电话（' + this.data.phoneError + '）。'
+          content: '没能取到水站的联系电话（' + this.data.phoneError + '）。'
             + '这不代表水站没有留电话 —— 请稍后重试，或换个网络再试。',
           showCancel: false,
           confirmText: '知道了'
         })
         return
       }
-      wx.showToast({ title: '该水站暂未登记客服电话', icon: 'none' })
+      wx.showToast({ title: '该水站暂未登记联系电话', icon: 'none' })
       return
     }
     wx.makePhoneCall({

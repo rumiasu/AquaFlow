@@ -1,5 +1,5 @@
 <view class="claim-page">
-  <view class="claim-banner">补录以前在水站的桶权益、押金和水票。提交后由水站核对。</view>
+  <view class="claim-banner">补录以前在水站的桶、押金和水票，由水站核对。</view>
   <view class="claim-card">
     <text class="claim-title">选择水站</text>
     <picker range="{{stations}}" range-key="name" bindchange="onStation" disabled="{{submitting || !stations.length}}">
@@ -24,9 +24,9 @@
     <text class="claim-amount">历史实收押金余额：¥{{item.depositText}}</text>
     <view class="claim-line" wx:for="{{item.items}}" wx:for-item="line" wx:key="productId">
       <text class="claim-title">{{line.name}} {{line.spec}} · 商品 #{{line.productId}}</text>
-      <text class="claim-row">已付用桶权益：{{line.rights}} 份 · 实际持有水桶：{{line.held}} 只</text>
-      <text class="claim-row">持桶与已付权益差额：{{line.over}} · 水票：{{line.tickets}} 张</text>
-      <text class="claim-row">桶权益单价（元/份）：{{line.unitPriceText}}</text>
+      <text class="claim-row">我的桶：{{line.rights}} 个</text>
+      <text class="claim-row">历史水票：{{line.tickets}} 张</text>
+      <text class="claim-row">以前每桶金额（元/个）：{{line.unitPriceText}}</text>
     </view>
     <text class="claim-material">本人说明：{{item.note}}</text>
     <text class="claim-material" wx:if="{{item.reviewNote && item.status !== 'REJECTED'}}">水站反馈：{{item.reviewNote}}</text>
@@ -34,9 +34,9 @@
     </block>
   </view>
 
-  <view class="claim-card" wx:if="{{canCreate || pending}}">
-    <text class="claim-title">{{pending ? '原申请（结果待确认）' : '填写以前的权益'}}</text>
-    <view class="claim-steps" wx:if="{{!pending}}"><view><text class="claim-step-number">1</text>填权益</view><view><text class="claim-step-number">2</text>写说明</view><view><text class="claim-step-number">3</text>补照片（选填）</view></view>
+  <view class="claim-card claim-entry-form" wx:if="{{canCreate || pending}}">
+    <text class="claim-title">{{pending ? '原申请（结果待确认）' : '填写历史资产'}}</text>
+    <view class="claim-steps" wx:if="{{!pending}}"><view><text class="claim-step-number">1</text>填数量</view><view><text class="claim-step-number">2</text>写说明</view><view><text class="claim-step-number">3</text>补照片</view></view>
     <view class="claim-field">
       <text>以前交的押金总额（元）</text>
       <input class="claim-input" type="digit" maxlength="12" value="{{form.depositBalance}}" data-field="depositBalance" bindinput="onField" disabled="{{pending || submitting}}" placeholder="请输入金额，没有填0" />
@@ -44,19 +44,17 @@
     <view class="claim-field" wx:if="{{!pending}}">
       <view class="claim-catalog-toggle af-entry" bindtap="onToggleCatalog">{{showCatalog ? '收起商品' : '添加以前的商品'}} {{showCatalog ? '⌃' : '⌄'}}</view>
       <scroll-view scroll-y class="claim-catalog" wx:if="{{showCatalog && catalog.length}}">
-      <product-selector items="{{selectorCatalog}}" disabled="{{!canCreate || submitting}}" bind:change="onSelectCatalog" />
+      <product-selector compact="{{true}}" items="{{selectorCatalog}}" disabled="{{!canCreate || submitting}}" bind:change="onSelectCatalog" />
       </scroll-view>
       <text class="claim-muted" wx:if="{{showCatalog && !catalog.length}}">暂无商品，可只填写押金。</text>
     </view>
     <view class="claim-line claim-edit-line" wx:for="{{form.items}}" wx:key="productId">
-      <text class="claim-title">{{item.name}} {{item.spec}}</text>
+      <view class="claim-line-heading"><text class="claim-title">{{item.name}} {{item.spec}}</text><button class="claim-remove af-action af-action--quiet" wx:if="{{!pending}}" data-index="{{index}}" bindtap="onRemoveProduct" disabled="{{submitting}}" aria-label="取消{{item.name}}"><text class="af-action__face">取消</text></button></view>
       <block wx:if="{{pending || item.category === 1}}">
-        <view class="claim-field"><text>已付的桶权益（桶）</text><integer-stepper value="{{item.rights}}" min="{{0}}" max="{{2147483647}}" label="已付用桶权益" data-index="{{index}}" data-field="rights" bind:change="onField" disabled="{{pending || submitting}}" /></view>
-        <view class="claim-field"><text>实际持有水桶（只）</text><integer-stepper value="{{item.held}}" min="{{0}}" max="{{2147483647}}" label="实际持有水桶" data-index="{{index}}" data-field="held" bind:change="onField" disabled="{{pending || submitting}}" /></view>
-        <view class="claim-field"><text>以前每桶权益金额（元，选填）</text><input class="claim-input" type="digit" maxlength="12" value="{{item.unitPrice}}" data-index="{{index}}" data-field="unitPrice" bindinput="onField" disabled="{{pending || submitting}}" placeholder="不清楚可留空" /></view>
+        <view class="claim-field"><text>我的桶（个）</text><integer-stepper value="{{item.rights}}" min="{{0}}" max="{{2147483647}}" label="我的桶" data-index="{{index}}" data-field="rights" bind:change="onField" disabled="{{pending || submitting}}" /></view>
+        <view class="claim-field"><text>以前每桶金额（元，选填）</text><input class="claim-input" type="digit" maxlength="12" value="{{item.unitPrice}}" data-index="{{index}}" data-field="unitPrice" bindinput="onField" disabled="{{pending || submitting}}" placeholder="不清楚可留空" /></view>
       </block>
       <view class="claim-field"><text>历史水票（张）</text><integer-stepper value="{{item.tickets}}" min="{{0}}" max="{{2147483647}}" label="历史水票" data-index="{{index}}" data-field="tickets" bind:change="onField" disabled="{{pending || submitting}}" /></view>
-      <button class="af-action af-action--quiet" wx:if="{{!pending}}" data-index="{{index}}" bindtap="onRemoveProduct" disabled="{{submitting}}"><text class="af-action__face">移除此行</text></button>
     </view>
     <view class="claim-field"><text>补充说明（必填）</text><textarea class="claim-input claim-textarea" value="{{form.note}}" maxlength="500" data-field="note" bindinput="onField" disabled="{{pending || submitting}}" placeholder="填写便于水站核对的信息" /></view>
     <view class="claim-field" wx:if="{{!pending}}">

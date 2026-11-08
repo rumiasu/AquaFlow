@@ -6,7 +6,9 @@ const claim = require('../../../utils/asset-claim')
 const photo = require('../../../utils/claim-photo')
 const emptyForm = () => ({ depositBalance: '', note: '', items: [] })
 const copy = value => JSON.parse(JSON.stringify(value))
-const selectorItems = (catalog, rows) => catalog.map(p => ({ id: p.id, name: p.name, spec: p.spec, image: p.imageUrl, priceText: '价格待确认', disabled: rows.some(r => r.productId === p.id) }))
+// 草稿只保留可认领资产，旧实物字段不转成 0，也不推算成我的桶。
+const assetItems = rows => rows.map(row => { const item = { ...row }; delete item.held; return item })
+const selectorItems = (catalog, rows) => catalog.map(p => ({ id: p.id, name: p.name, spec: p.spec, image: p.imageUrl, priceText: rows.some(r => r.productId === p.id) ? '再点可取消' : '添加到清单', selected: rows.some(r => r.productId === p.id) }))
 Page({
   data: { showClaimGuide: false, claimGuideImageFailed: false, showCatalog: false, expandedRecord: null, loading: false, ready: false, error: '', notice: '', stations: [], stationsError: '', stationId: null,
     stationName: '请选择认领水站', catalog: [], selectorCatalog: [], catalogReady: false, productIndex: -1, records: [],
@@ -39,7 +41,7 @@ Page({
   draftKey(station) { return 'asset-claim-draft:' + this._actor + ':' + station },
   readDraft(station) {
     if (!station || !this._actor) return emptyForm()
-    try { const draft = wx.getStorageSync(this.draftKey(station)); return draft && Array.isArray(draft.items) ? draft : emptyForm() }
+    try { const draft = wx.getStorageSync(this.draftKey(station)); return draft && Array.isArray(draft.items) ? { ...draft, items: assetItems(draft.items) } : emptyForm() }
     catch (_) { return emptyForm() }
   },
   saveDraft(form) {
@@ -90,7 +92,7 @@ Page({
         pending, submitting: false, canCreate: !catalogError && !pending && !active })
       if (pending) this.setData({ form: { ...this._intent.body, items: this._intent.body.items.map(r => ({ ...r,
         name: (products.find(p => p.id === r.productId) || {}).name || '历史商品',
-        rights: String(r.rights), held: String(r.held), tickets: String(r.tickets), unitPrice: r.unitPrice || '' })) },
+        rights: String(r.rights), tickets: String(r.tickets), unitPrice: r.unitPrice || '' })) },
         notice: '上次提交结果尚未确认，请恢复原申请。原清单和编号已保留。' })
     } catch (e) { if (this.current(c)) this.setData({ ready: false, canCreate: false,
       error: (previousRecords ? '以下为上次读取的认领记录。' : '') + claim.errorText(e, '认领记录暂时无法加载，请重试或联系水站') }) }
@@ -115,7 +117,11 @@ Page({
     if (Number.isInteger(n) && catalog[n]) { catalog[n] = { ...catalog[n], imageUrl: '' }; this.setData({ catalog }) }
   },
   onSelectCatalog(e) {
+    if (!this.data.canCreate || this.data.submitting || this._flight || this.data.pending || !this.current(this.context())) return
     const id = Number(e && e.detail && e.detail.id), index = this.data.catalog.findIndex(p => p.id === id)
+    // 2026-11-08：已选商品不能禁用，否则重复点击静默无效，只能到长表单底部移除。
+    const selected = this.data.form.items.findIndex(r => r.productId === id)
+    if (selected >= 0) return this.onRemoveProduct({ currentTarget: { dataset: { index: selected } } })
     if (index >= 0) this.onAddProduct({ currentTarget: { dataset: { index } } })
   },
   onAddProduct(e) {
@@ -126,7 +132,7 @@ Page({
       wx.showToast({ title: '请选择未添加的商品', icon: 'none' }); return
     }
     const form = { ...this.data.form, items: this.data.form.items.concat({ productId: p.id, name: p.name, spec: p.spec, category: p.category,
-      rights: '0', held: '0', tickets: '0', unitPrice: '' }) }
+      rights: '0', tickets: '0', unitPrice: '' }) }
     this.setData({ form, productIndex: -1, selectorCatalog: selectorItems(this.data.catalog, form.items) }); this.saveDraft(form)
   },
   onRemoveProduct(e) {
@@ -134,14 +140,15 @@ Page({
     const n = Number(e.currentTarget.dataset.index)
     if (Number.isInteger(n) && n >= 0 && n < this.data.form.items.length) {
       const form = { ...this.data.form, items: this.data.form.items.filter((r, i) => i !== n) }
-      this.setData({ form, selectorCatalog: selectorItems(this.data.catalog, form.items) }); this.saveDraft(form)
+      if (!this.saveDraft(form)) return
+      this.setData({ form, selectorCatalog: selectorItems(this.data.catalog, form.items) })
     }
   },
   onField(e) {
     if (!this.data.canCreate || this.data.pending || this._flight) return
     const { field, index } = e.currentTarget.dataset, form = copy(this.data.form)
     if (index == null && ['note', 'depositBalance'].includes(field)) form[field] = e.detail.value
-    else if (Number.isInteger(Number(index)) && form.items[Number(index)] && ['rights', 'held', 'tickets', 'unitPrice'].includes(field)) form.items[Number(index)][field] = e.detail.value
+    else if (Number.isInteger(Number(index)) && form.items[Number(index)] && ['rights', 'tickets', 'unitPrice'].includes(field)) form.items[Number(index)][field] = e.detail.value
     else return
     this.setData({ form }); this.saveDraft(form)
   },
@@ -189,7 +196,7 @@ Page({
     if (!this.data.canCreate || this._flight || this._photoFlight || !this.current(this.context())) return
     if (this.data.form.photoPath && !this.data.form.photoConfirmed) { this.setData({ notice: '请先重试或移除照片。' }); return }
     try {
-      const body = claim.body({ ...this.data.form, stationId: this._stationId, confirmed: true,
+      const body = claim.body({ ...this.data.form, items: assetItems(this.data.form.items), stationId: this._stationId, confirmed: true,
         clientToken: this.data.form.photoToken || 'claim-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) })
       this._intent = claim.prepare(this._actor, 'station:' + this._stationId, 'SUBMIT', body)
       return this.send(this._intent)

@@ -181,7 +181,7 @@ Page({
       const summaryOK = !!(summaryRes && summaryRes.code === 0 && rawSummary && typeof rawSummary === 'object'
         && !Array.isArray(rawSummary) && accountNumber(rawSummary.depositBalance) !== null
         && accountQuantity(rawSummary.owedBuckets) !== null
-        && accountQuantity(rawSummary.independentRights ? rawSummary.rightBuckets : rawSummary.heldBuckets) !== null
+        && accountQuantity(rawSummary.rightBuckets) !== null
         && (!rawSummary.independentRights || accountQuantity(rawSummary.availableRights) !== null))
       const recordsOK = !!(recordsRes && recordsRes.code === 0 && Array.isArray(recordsRes.data))
       const holdingsOK = !!(holdingsRes && holdingsRes.code === 0 && Array.isArray(holdingsRes.data)

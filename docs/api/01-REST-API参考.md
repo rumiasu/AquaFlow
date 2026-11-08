@@ -717,7 +717,7 @@
 硬停业`station.status!=1`的目标站不能经`dispatch/outsource`两个入口新接定向单，不能`claim-pool`新抢单；外派仍未接受/分配时首次`accept/assign`同样拒绝。原已承担的履约及本站历史单仍按既有流程处理；软营业说明不因此硬阻断。写入前站行锁与停业更新串行，失败保留订单/待收款/库存原状；不改客户原款、旧申请付款或历史清结入口。
 
 
-## C-13 历史资产认领（2026-10-21 后端批次，页面入口未接）
+## C-13 历史资产认领（2026-11-08 仅追加资产）
 
 | 方法 | 路径 | 身份 | 处理 |
 |---|---|---|---|
@@ -729,15 +729,23 @@
 | `GET` | `/api/manager/asset-claims/{id}/photo` | STATION_MANAGER | `HistoricalAssetClaimController.claimPhoto`；先核本站原申请权限，再取其凭证的私有短期链接；跨站、客户与配送员拒绝 |
 | `GET` | `/api/manager/asset-claims` | STATION_MANAGER | `HistoricalAssetClaimController.pending`；本站最早100条待核对，只返回主动提交的材料 |
 | `GET` | `/api/manager/asset-claims/{id}` | STATION_MANAGER | `HistoricalAssetClaimController.managerDetail`；只查本站原申请和决定，供未知结果恢复 |
-| `POST` | `/api/manager/asset-claims/{id}/review` | STATION_MANAGER | `HistoricalAssetClaimController.review`；通过时核对／绑定／期初账同事务，无第三次客户确认 |
+| `POST` | `/api/manager/asset-claims/{id}/review` | STATION_MANAGER | `HistoricalAssetClaimController.review`；通过时核对／绑定／资产追加同事务，无第三次客户确认 |
 
-提交示例：`{"stationId":1,"clientToken":"claim-uuid","confirmed":true,"depositBalance":75.00,"note":"本人核对的历史材料","items":[{"productId":2,"rights":2,"held":1,"tickets":3,"unitPrice":30.00}]}`。`rights`=E、`held`=H，over由H−E计算；整数精确校验不截断小数。真实历史押金余额单独填写，不能从E×单价推算。unitPrice可省略，沿既有人工补录作当前价推断；票沿MANUAL/INFERRED/isMigrated，不能凭此生成线上原款。纯押金认领可items空数组；总资产全零拒绝。note≤500字，items≤100行且商品不重复、须属于本站，clientToken≤64字且区分大小写。
+提交示例：`{"stationId":1,"clientToken":"claim-uuid","confirmed":true,"depositBalance":75.00,"note":"本人核对、尚未入账的历史材料","items":[{"productId":2,"rights":2,"tickets":3,"unitPrice":30.00}]}`。`rights`是本次追加的桶资产数量，`tickets`是本次追加的水票，`depositBalance`是本次追加的真实历史押金金额，均不是审批后账户总额。至少一类追加量大于零，纯押金可传空items；金额不能从桶数×单价推算。unitPrice可省略，沿既有人工补录作当前价推断；票沿MANUAL/INFERRED/isMigrated，不能凭此生成线上原款。数量精确校验不截断小数，note≤500字，items≤100行且商品不重复、须属于本站，clientToken≤64字且区分大小写。
+
+新请求不需要也不应提交`held`。兼容旧请求时它可选、须为可保存非负整数，只按旧规范保存为请求证据并参与原摘要匹配，**不参与资产非空判断、入账或差额计算**；缺失/null不会补0或补rights，也不在新快照中生成held。已有快照不改写。审批只追加桶资产、押金、水票，不生成OVER_ADJUST，不重算或清零既有over、owed_since，不登记/推断历史实物数量；全局桶模型的派生显示仍沿原有规则，不是本次盘点结果。
 
 核对体：`{"approve":true,"note":"已核对"}`，驳回必须说明差异。PENDING→APPROVED或REJECTED，终态不可互换；相同决定及说明重放返回原结果，不重记账。同键异清单、同站第二份待核对／已通过申请被拒；驳回保留历史，可新键重申请。通过后资产用完也不释放永久防重。商品顺序、整数表示和可保存的等值金额按规范化摘要比较；原键恢复在后续商品配置变化后仍返回原结果。
 
-期初迁入遇到本站已有桶／票／押金历史、非零资产、活跃付款或权益占用时整体拒绝且保留PENDING，核清后沿已有资产调整处理，不猜测叠加。已存在的空绑定可保留原赊账配置；新绑定默认不开赊账。SQL异常或任意账本失败会回滚决定、绑定及之前所有写入，客户端查询原申请后用原意图恢复，不换键补记。
+本站既有桶／票／押金历史、正负over、活跃付款或权益占用不再作为空账前提。审批者须确认清单是尚未入账的增量；系统在原余额上追加，原批次、历史流水、差额与办理中记录保持原样，不冲销或释放占用。同一客户先锁客户，再锁申请；桶按商品顺序加锁并走既有账本增量入口，审批CAS、绑定与全部资产写入共用事务。任意账本失败回滚本次决定、绑定及之前所有写入，客户端查原申请并用原意图重试，不换键补记。已有绑定保留原赊账配置，新绑定默认不开赊账。
 
-需匹配v80结构，缺表／关键列、二进制幂等键或完整唯一索引／生成防重表达式不符时启动拒绝。真实业务库尚未迁移；本批不接收真实支付、不新增收款／退款执行入口、不要求第三遍确认、上传凭证或到账确认。
+兼容和升级边界：
+- 不新增DDL，不回填旧request_json/request_digest，不批量修改账目。仍要求既有v80认领表和v86照片表、二进制幂等键、完整唯一索引及生成防重表达式，启动保护继续生效。
+- 旧PENDING申请含held时按新规则只追加其中资产；仅held大于零的旧申请仍可查询、原键恢复及驳回，但不得批准为空入账的已生效申请，应驳回后按新清单重填。已经APPROVED/REJECTED的决定和账本不重新计算，相同决定重放只返回原结果。
+- 旧原键重试必须保留原held证据，不能删掉或改值后当同一请求；新键不能以held-only建立申请。旧已批准的历史差额保持原样。
+- 后端与顾客/站长两端需配套更新。旧站长端可能无法解析缺held的新记录，旧后端也可能无法审批新快照；不可用伪造held换取兼容。升级时停止旧版本写入/审核并确认所有实例和两端配套，再开放新申请；已有新快照后不要直接回退旧后端，回退需先核对兼容方案，不能改历史JSON凑旧格式。
+
+本批不执行任何真实数据库迁移/数据修复，不接收真实支付、不新增收款／退款执行入口；照片仍按原流程可选，不要求额外客户确认。
 
 
 ### C-13 两端批次的目录与状态文案（2026-10-21）

@@ -67,10 +67,10 @@ test('unknown placeholder specs become short display text without editing source
  }
  const t=fixture();await t.page.loadData();assert.equal(t.page.data.customerBarrelAsset[0].displaySpec,'18.5L');assert.equal(t.page.data.customerBarrelAsset[0].productSpec,'18.5L')
 })
-test('barrel rights use shares, zero owed is neutral, and purchase/return keep distinct roles',async()=>{
+test('owned barrels use counts, zero owed is neutral, and purchase/return keep distinct roles',async()=>{
  const t=fixture();await t.page.loadData();const root=parseWxml(read('miniapp-user/pages/barrel/index.wxml'))
  const stats=find(root,n=>n.attrs?.class==='stats-card')[0],shown=renderElements({children:[stats]},t.page.data,{includeText:true})
- assert(shown.some(n=>n.text==='份'));assert(shown.some(n=>n.className.includes('stat-neutral')));assert(!shown.some(n=>n.className.split(' ').includes('owed')))
+ assert(shown.some(n=>n.text==='我的桶'));assert(shown.some(n=>n.text==='个'));assert(shown.some(n=>n.className.includes('stat-neutral')));assert(!shown.some(n=>n.className.split(' ').includes('owed')))
  const purchase=find(root,n=>n.attrs?.bindtap==='onPurchaseRights');assert.equal(purchase.length,1);assert(purchase[0].attrs.class.includes('af-action--primary'))
  const returns=find(root,n=>n.attrs?.bindtap==='onShowReturnModal'&&n.attrs.class.includes('barrel-return-entry'));assert.equal(returns.length,1);assert(returns[0].attrs.class.includes('af-action--quiet'))
  const photo=find(root,n=>n.tag==='image'&&n.attrs.binderror==='onAssetPhotoError')[0];assert.equal(photo.attrs.mode,'aspectFit');assert.equal(photo.attrs['data-id'],'{{item.productId}}')

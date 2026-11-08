@@ -15,6 +15,10 @@ public interface CustomerDepositAccountMapper {
     @Select("select * from customer_deposit_account where customer_id = #{customerId} and station_id = #{stationId}")
     CustomerDepositAccount getByCustomerAndStation(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
+    /** 执行审计使用当前读，不能把等待并发事务前的快照写进调整单。 */
+    @Select("select * from customer_deposit_account where customer_id=#{customerId} and station_id=#{stationId} for update")
+    CustomerDepositAccount getForUpdate(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
     /** 原子增加押金余额 */
     @Insert("insert into customer_deposit_account(customer_id, station_id, balance, update_time) " +
             "values(#{customerId}, #{stationId}, #{amount}, now()) " +

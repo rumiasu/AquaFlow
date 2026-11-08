@@ -9,12 +9,12 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a, b)
 const ev = (field, value, index) => ({ currentTarget: { dataset: { field, index, id: value } }, detail: { value } })
 const product = { id: 11, name: '合成历史桶装水', spec: '18.5L', category: 1 }
 const body = key => ({ stationId: 1, clientToken: key || 'synthetic-original', confirmed: true, depositBalance: '75.00',
-  note: '合成历史清单', items: [{ productId: 11, rights: 2, held: 1, tickets: 3, unitPrice: '30.00' }] })
+  note: '合成历史清单', items: [{ productId: 11, rights: 2, tickets: 3, unitPrice: '30.00' }] })
 function record(b = body(), status = 'PENDING') {
   return { id: 9, customerId: 7, stationId: b.stationId, clientToken: b.clientToken, requestJson: b, status,
     statusText: { PENDING: '待本站核对', APPROVED: '已生效', REJECTED: '已驳回' }[status],
     reviewerId: status === 'PENDING' ? null : 5, reviewTime: status === 'PENDING' ? null : '2026-10-21T18:00:00',
-    reviewNote: status === 'REJECTED' ? '合成差异：请核对持桶数' : null, createTime: '2026-10-21T17:00:00' }
+    reviewNote: status === 'REJECTED' ? '合成差异：请核对资产数量' : null, createTime: '2026-10-21T17:00:00' }
 }
 function user(overrides = {}, reuse = {}) {
   const wx = reuse.wx || createWx(), app = reuse.app || createApp(), calls = []
@@ -42,7 +42,7 @@ function manager(overrides = {}, reuse = {}) {
 }
 function fill(t) {
   t.page.setData({ form: { depositBalance: '75.00', note: '合成历史清单',
-    items: [{ productId: 11, name: product.name, category: 1, rights: '2', held: '1', tickets: '3', unitPrice: '30.00' }] } })
+    items: [{ productId: 11, name: product.name, category: 1, rights: '2', tickets: '3', unitPrice: '30.00' }] } })
 }
 
 test('natural entries and both native page registrations exist without a new core-page request', () => {
@@ -63,6 +63,33 @@ test('product cards preserve image and spec, and unavailable image falls back wi
   t.page.onImageError({ currentTarget: { dataset: { index: 0 } } })
   assert.equal(t.page.data.catalog[0].imageUrl, ''); assert.equal(t.page.data.form.items.length, 1)
 })
+test('catalog selection toggles an existing row and persists the resulting draft', async () => {
+  const t = user(); await t.page.onShow()
+  const choose = () => t.page.onSelectCatalog({ detail: { id: 11 } })
+  choose(); assert.equal(t.page.data.form.items.length, 1); assert.equal(t.page.data.selectorCatalog[0].selected, true)
+  assert.equal(t.page.data.selectorCatalog[0].disabled, undefined)
+  t.page.onField(ev('rights', '2', 0)); choose()
+  assert.equal(t.page.data.form.items.length, 0); assert.equal(t.page.data.selectorCatalog[0].selected, false)
+  assert.equal(t.wx.getStorageSync('asset-claim-draft:customer:7:1').items.length, 0)
+  choose(); assert.equal(t.page.data.form.items.length, 1); assert.equal(t.page.data.form.items[0].rights, '0')
+  t.page.onUnload(); const next = user({}, t); await next.page.onShow()
+  assert.equal(next.page.data.selectorCatalog[0].selected, true)
+})
+test('catalog toggle cannot change a locked or submitting original claim', async () => {
+  const t = user(); await t.page.onShow(); fill(t)
+  for (const state of [{ pending: true }, { pending: false, submitting: true }, { submitting: false, canCreate: false }]) {
+    t.page.setData(state); const before = JSON.stringify(t.page.data.form)
+    t.page.onSelectCatalog({ detail: { id: 11 } }); assert.equal(JSON.stringify(t.page.data.form), before)
+  }
+})
+
+test('failed draft write keeps a deselected row visible with its original quantities', async () => {
+  const t = user(); await t.page.onShow(); fill(t)
+  t.wx.setStorageSync = () => { throw Error('synthetic disk failure') }
+  t.page.onSelectCatalog({ detail: { id: 11 } })
+  assert.equal(t.page.data.form.items.length, 1); assert.equal(t.page.data.form.items[0].rights, '2'); assert(t.page.data.notice)
+})
+
 test('empty deposit is not treated as zero and drafts survive station changes and reopening', async () => {
   const t = user(); await t.page.onShow()
   t.page.onAddProduct({ currentTarget: { dataset: { index: 0 } } })
@@ -149,20 +176,22 @@ test('same visible double click sends once', async () => {
   await t.page.onShow(); fill(t); const a = t.page.onSubmit(), b = t.page.onSubmit(); assert.equal(count, 1)
   flight.resolve(ok(record(body(t.page._intent.body.clientToken)))); await Promise.all([a, b]); assert.equal(count, 1)
 })
-test('historical cash and capacity remain distinct, physical held and difference are explicit', async () => {
-  const t = user({ mine: async () => ok([record(body(), 'APPROVED')]) }); await t.page.onShow()
-  const r = t.page.data.records[0]; assert.equal(r.depositText, '75.00'); assert.equal(r.items[0].rights, 2); assert.equal(r.items[0].held, 1)
-  assert.equal(r.items[0].over, -1); assert.equal(r.items[0].unitPriceText, '30.00'); assert.equal(t.page.data.canCreate, false)
+test('cash and barrel assets remain distinct without deriving physical holdings or differences', async () => {
+  const legacy = body(); legacy.items[0].held = 1
+  const t = user({ mine: async () => ok([record(legacy, 'APPROVED')]) }); await t.page.onShow()
+  const r = t.page.data.records[0]; assert.equal(r.depositText, '75.00'); assert.equal(r.items[0].rights, 2)
+  assert.equal(r.body.items[0].held, 1); assert(!('held' in r.items[0])); assert(!('over' in r.items[0]))
+  assert.equal(r.items[0].unitPriceText, '30.00'); assert.equal(t.page.data.canCreate, false)
 })
 test('rejection feedback is visible and a new application can be prepared', async () => {
   const t = user({ mine: async () => ok([record(body(), 'REJECTED')]) }); await t.page.onShow()
-  assert(t.page.data.records[0].reviewNote.includes('持桶数')); assert.equal(t.page.data.canCreate, true)
+  assert(t.page.data.records[0].reviewNote.includes('资产数量')); assert.equal(t.page.data.canCreate, true)
 })
 test('server-side pending application blocks a second key even without local intent', async () => {
   const t = user({ mine: async () => ok([record()]) }); await t.page.onShow(); fill(t); await t.page.onSubmit(); assert.equal(t.calls.length, 0)
 })
 for (const value of ['1.5', '12junk', '-1', '', '2147483648']) test('quantity is not truncated: ' + JSON.stringify(value), async () => {
-  const t = user(); await t.page.onShow(); fill(t); t.page.data.form.items[0].held = value; await t.page.onSubmit(); assert.equal(t.calls.length, 0)
+  const t = user(); await t.page.onShow(); fill(t); t.page.data.form.items[0].rights = value; await t.page.onSubmit(); assert.equal(t.calls.length, 0)
 })
 for (const value of ['1.001', '12junk', '-1', '1e2']) test('money is not rounded or partially parsed: ' + value, async () => {
   const t = user(); await t.page.onShow(); fill(t); t.page.data.form.depositBalance = value; await t.page.onSubmit(); assert.equal(t.calls.length, 0)
@@ -227,7 +256,7 @@ test('customer history reuses the current authorized station name without changi
   assert.equal(t.calls.length, 0)
 })
 test('manager sees original figures and customer-provided material', async () => {
-  const t = manager(); await t.page.onShow(); assert.equal(t.page.data.records[0].depositText, '75.00'); await t.page.onSelect(ev('id', 9)); assert.equal(t.page.data.selected.items[0].held, 1)
+  const t = manager(); await t.page.onShow(); assert.equal(t.page.data.records[0].depositText, '75.00'); await t.page.onSelect(ev('id', 9)); assert.equal(t.page.data.selected.items[0].rights, 2); assert(!('held' in t.page.data.selected.items[0]))
 })
 test('manager approval needs no customer third confirmation and duplicate click writes once', async () => {
   const flight = deferred(); let n = 0; const t = manager({ review: () => { n++; return flight.promise } }); await t.page.onShow(); await t.page.onSelect(ev('id', 9))
@@ -236,7 +265,7 @@ test('manager approval needs no customer third confirmation and duplicate click 
 })
 test('manager rejection requires a reason and displays the returned rejection', async () => {
   const t = manager(); await t.page.onShow(); await t.page.onSelect(ev('id', 9)); await t.page.onReject(); assert.equal(t.calls.length, 0)
-  t.page.onNote(ev('note', '合成差异：请核对持桶数')); await t.page.onReject(); assert.equal(t.calls.length, 1); assert.equal(t.page.data.selected.status, 'REJECTED')
+  t.page.onNote(ev('note', '合成差异：请核对资产数量')); await t.page.onReject(); assert.equal(t.calls.length, 1); assert.equal(t.page.data.selected.status, 'REJECTED')
 })
 test('manager pending response cannot be presented as completed approval', async () => {
   const t = manager({ review: async () => ok(record()) }); await t.page.onShow(); await t.page.onSelect(ev('id', 9)); await t.page.onApprove(); assert(t.page.data.pending); assert.equal(t.page.data.selected.status, 'PENDING')
@@ -306,7 +335,7 @@ test('rejected original replay clears the locked form so hidden old quantities c
   const t = user({ submit: async () => { throw Error('synthetic timeout') } }); await t.page.onShow(); fill(t); await t.page.onSubmit(); t.page.onUnload()
   const next = user({ submit: async b => ok(record(b, 'REJECTED')) }, t); await next.page.onShow(); await next.page.onRecover()
   assert.equal(next.page.data.pending, false); assert.equal(next.page.data.canCreate, true); assert.deepStrictEqual(next.page.data.form.items, [])
-  assert(next.page.data.records[0].reviewNote.includes('持桶数'))
+  assert(next.page.data.records[0].reviewNote.includes('资产数量'))
 })
 test('incomplete or different successful receipt cannot clear an original customer request', async () => {
   for (const mutate of [r => ({ ...r, reviewerId: null }), r => ({ ...r, requestJson: { ...r.requestJson, depositBalance: '76.00' } })]) {
@@ -334,11 +363,11 @@ test('two real page handlers complete submit, reject feedback, corrected reapply
     const next = { ...record(old.requestJson, b.approve ? 'APPROVED' : 'REJECTED'), id, reviewNote: b.note }
     history.splice(history.indexOf(old), 1, next); return ok(next)
   } })
-  await m.page.onShow(); await m.page.onSelect(ev('id', 9)); m.page.onNote(ev('note', '合成差异：请核对持桶数')); await m.page.onReject()
+  await m.page.onShow(); await m.page.onSelect(ev('id', 9)); m.page.onNote(ev('note', '合成差异：请核对资产数量')); await m.page.onReject()
   u.activate(); await u.page.onShow(); assert.equal(u.page.data.records[0].status, 'REJECTED'); assert(u.page.data.canCreate)
-  fill(u); u.page.data.form.items[0].held = '2'; u.page.data.form.note = '合成更正清单'; await u.page.onSubmit()
+  fill(u); u.page.data.form.items[0].rights = '3'; u.page.data.form.note = '合成更正清单'; await u.page.onSubmit()
   m.activate(); await m.page.onShow(); await m.page.onSelect(ev('id', 10)); await m.page.onApprove()
-  u.activate(); await u.page.onShow(); assert.equal(u.page.data.records[0].status, 'APPROVED'); assert.equal(u.page.data.records[0].items[0].held, 2)
+  u.activate(); await u.page.onShow(); assert.equal(u.page.data.records[0].status, 'APPROVED'); assert.equal(u.page.data.records[0].items[0].rights, 3); assert(!('held' in u.page.data.records[0].items[0]))
   assert.equal(u.page.data.canCreate, false); assert.equal(submitted.length, 2); assert(submitted.every(b => b.confirmed === true))
   assert.equal(decisions.length, 2); assert.equal(decisions[0].approve, false); assert.equal(decisions[1].approve, true)
 })
@@ -350,6 +379,80 @@ test('f76859f missing catalog route parameter error is shown as unavailable serv
 test('customer page uses the existing session identity when the logged-in customer id is restored from cache', async () => {
   const t = user(); t.app.globalData.customerId = null; t.wx.setStorageSync('aq_user_customerId', 7)
   await t.page.onShow(); assert.equal(t.page.data.ready, true); fill(t); await t.page.onSubmit(); assert.equal(t.calls.length, 1)
+})
+
+
+test('new asset requests omit held in both utility contracts and do not fabricate a default', () => {
+  for (const root of ['miniapp-user', 'miniapp-delivery']) {
+    const claim = require('../../' + root + '/utils/asset-claim')
+    const normalized = claim.body(body()); assert(!('held' in normalized.items[0]))
+    const legacy = body(); legacy.items[0].held = 7
+    assert.equal(claim.body(legacy).items[0].held, 7)
+  }
+})
+test('both claim screens omit physical and difference fields without renaming assets as paid deposits', () => {
+  for (const path of ['miniapp-user/pages/mine/asset-claims/index.wxml', 'miniapp-delivery/pages/station-mgmt/asset-claims/index.wxml']) {
+    const markup = fs.readFileSync(path, 'utf8')
+    assert(!/item\.held|item\.over|line\.held|line\.over|data-field="held"|权益|实际持|持桶与|已付押金的桶/.test(markup))
+    assert(markup.includes('我的桶'))
+  }
+})
+test('new customer submission strips a stale held field instead of treating it as zero or asset quantity', async () => {
+  const t = user(); await t.page.onShow(); fill(t); t.page.data.form.items[0].held = 'old-unknown'
+  await t.page.onSubmit(); assert.equal(t.calls.length, 1); assert(!('held' in t.calls[0].items[0]))
+  assert.equal(t.calls[0].items[0].rights, 2)
+})
+test('held alone is not a new asset claim and cannot make an empty application valid', async () => {
+  const t = user(); await t.page.onShow(); fill(t); t.page.data.form.depositBalance = '0'
+  Object.assign(t.page.data.form.items[0], { rights: '0', tickets: '0', held: '8', unitPrice: '' })
+  await t.page.onSubmit(); assert.equal(t.calls.length, 0); assert(t.page.data.error)
+})
+test('legacy draft keeps asset quantities but discards physical input on reopening', async () => {
+  const t = user(); t.wx.setStorageSync('asset-claim-draft:customer:7:1', { depositBalance: '75.00', note: '旧草稿',
+    items: [{ productId: 11, rights: '2', tickets: '3', held: '99', unitPrice: '30.00' }] })
+  await t.page.onShow(); assert.equal(t.page.data.form.items[0].rights, '2'); assert(!('held' in t.page.data.form.items[0]))
+  t.page.onField(ev('held', '20', 0)); assert(!('held' in t.page.data.form.items[0]))
+  await t.page.onSubmit(); assert.equal(t.calls.length, 1); assert(!('held' in t.calls[0].items[0]))
+})
+test('legacy unknown submit retains and resends its exact held evidence rather than rewriting the original intent', async () => {
+  const t = user(), original = body('legacy-unknown'); original.items[0].held = 9
+  t.wx.setStorageSync('asset-claim-intent:customer:7:station:1', { version: 1, actor: 'customer:7', target: 'station:1', operation: 'SUBMIT', body: original })
+  await t.page.onShow(); assert(t.page.data.pending); await t.page.onRecover()
+  assert.deepStrictEqual(t.calls[0], original); assert.equal(t.page.data.pending, false)
+})
+test('legacy held-only pending snapshot remains readable and rejectable but cannot be approved', async () => {
+  const legacy = body('legacy-held-only'); legacy.depositBalance = '0.00'; Object.assign(legacy.items[0], { rights: 0, tickets: 0, held: 4, unitPrice: null })
+  const t = manager({ pending: async () => ok([record(legacy)]), review: async (id, b) => { t.calls.push({ id, body: b }); return ok(record(legacy, 'REJECTED')) } })
+  await t.page.onShow(); assert(t.page.data.ready); await t.page.onSelect(ev('id', 9)); assert(t.page.data.selected.assetEmpty)
+  assert(!('held' in t.page.data.selected.items[0])); await t.page.onApprove(); assert.equal(t.calls.length, 0)
+  t.page.onNote(ev('note', '原申请没有可追加资产，请重新填写')); await t.page.onReject(); assert.equal(t.calls.length, 1)
+  assert.equal(t.page.data.selected.status, 'REJECTED')
+})
+test('legacy held-only durable intent can be reconciled from its existing server record without a new write', async () => {
+  const legacy = body('legacy-reconcile'); legacy.depositBalance = '0.00'; Object.assign(legacy.items[0], { rights: 0, tickets: 0, held: 5, unitPrice: null })
+  const t = user({ mine: async () => ok([record(legacy)]) })
+  t.wx.setStorageSync('asset-claim-intent:customer:7:station:1', { version: 1, actor: 'customer:7', target: 'station:1', operation: 'SUBMIT', body: legacy })
+  await t.page.onShow(); assert(t.page.data.ready); assert.equal(t.page.data.pending, false); assert.equal(t.calls.length, 0)
+  assert.equal(t.page.data.records[0].body.items[0].held, 5); assert(t.page.data.records[0].assetEmpty)
+})
+
+
+test('legacy held-only unknown approval resolves by exact retry and known rejection before a new rejection decision', async () => {
+  const legacy = body('legacy-approve-unknown'); legacy.depositBalance = '0.00'; Object.assign(legacy.items[0], { rights: 0, tickets: 0, held: 6, unitPrice: null })
+  const originalDecision = { approve: true, note: null }
+  const t = manager({ pending: async () => ok([record(legacy)]), detail: async () => ok(record(legacy)), review: async (id, b) => {
+    t.calls.push({ id, body: JSON.parse(JSON.stringify(b)) })
+    if (b.approve) throw Object.assign(Error('原申请没有可追加资产，请拒绝后重新填写'), { businessRejected: true })
+    return ok(record(legacy, 'REJECTED'))
+  } })
+  const key = 'asset-claim-intent:manager:5:1:reviews:1'
+  t.wx.setStorageSync(key, { version: 1, actor: 'manager:5:1', target: 'reviews:1', operation: 'REVIEW', objectId: 9, body: originalDecision })
+  await t.page.onShow(); assert(t.page.data.pending); assert(t.page.data.originalVerified); assert(t.page.data.selected.assetEmpty)
+  await t.page.onRetryReview(); assert.equal(t.calls.length, 1); assert.deepStrictEqual(t.calls[0].body, originalDecision)
+  assert.equal(t.page.data.selected.status, 'PENDING'); assert.equal(t.page.data.pending, false); assert(!t.wx.getStorageSync(key))
+  await t.page.onRetry(); await t.page.onApprove(); assert.equal(t.calls.length, 1)
+  t.page.onNote(ev('note', '原申请没有可追加资产，请重新填写')); await t.page.onReject()
+  assert.equal(t.calls.length, 2); assert.equal(t.calls[1].body.approve, false); assert.equal(t.page.data.selected.status, 'REJECTED')
 })
 
 ;(async () => {

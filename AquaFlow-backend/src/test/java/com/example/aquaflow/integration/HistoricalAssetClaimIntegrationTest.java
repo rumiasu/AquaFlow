@@ -7,9 +7,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 独立合成库：本人已确认清单→本站核对→绑定/期初账同事务，无第三次确认。 */
+/** 独立合成库：本人已确认清单→本站核对→绑定/资产追加同事务，无第三次确认。 */
 class HistoricalAssetClaimIntegrationTest extends AbstractIntegrationTest {
     private long station, product, customer, manager;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactions;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.example.aquaflow.service.HistoricalAssetClaimService claimService;
     private void seed() {
         station=createStation("历史认领测试站");
         product=createProduct("合成桶装水",1,"20.00","30.00",1,"18.00");
@@ -20,8 +24,8 @@ class HistoricalAssetClaimIntegrationTest extends AbstractIntegrationTest {
     private String managerToken() { return staffToken(manager,"STATION_MANAGER",station); }
     private String body(String key) {
         return "{\"stationId\":"+station+",\"clientToken\":\""+key+"\",\"confirmed\":true,"
-            +"\"depositBalance\":75.00,\"note\":\"本人核对：旧押金75元，持桶1，权益2，票3\",\"items\":[{"
-            +"\"productId\":"+product+",\"rights\":2,\"held\":1,\"tickets\":3,\"unitPrice\":30.00}]}";
+            +"\"depositBalance\":75.00,\"note\":\"本人核对：未入账旧押金75元，桶资产2，票3\",\"items\":[{"
+            +"\"productId\":"+product+",\"rights\":2,\"tickets\":3,\"unitPrice\":30.00}]}";
     }
     private Api submit(String key) { return post("/api/asset-claims",customerToken(customer),body(key)); }
     private long claim() { var r=submit("claim-original"); assertTrue(r.isSuccess(),r.toString()); return r.data().path("id").asLong(); }
@@ -34,6 +38,7 @@ class HistoricalAssetClaimIntegrationTest extends AbstractIntegrationTest {
     @Test
     void unboundCustomerSubmitsWithoutBindingOrAssetWrites() {
         seed(); long id=claim();
+        assertEquals(0,intOf("select json_contains_path(request_json, 'one', '$.items[0].held') from historical_asset_claim where id="+id));
         assertEquals("PENDING",get("/api/asset-claims/"+id,customerToken(customer)).data().path("status").asText());
         var mine=get("/api/asset-claims?stationId="+station,customerToken(customer));
         assertTrue(mine.isSuccess(),mine.toString());assertEquals(1,mine.data().size());
@@ -44,13 +49,14 @@ class HistoricalAssetClaimIntegrationTest extends AbstractIntegrationTest {
         assertFalse(pending.body().toString().contains("openid"));
     }
     @Test
-    void approvalPostsExactOpeningFiguresWithoutThirdConfirmationOrNewReceipts() {
+    void approvalAppendsAssetsWithoutInventingDifferencesOrNewReceipts() {
         seed(); long id=claim(); var r=review(id,true); assertTrue(r.isSuccess(),r.toString());
         assertEquals("APPROVED",r.data().path("status").asText());
         assertEquals(1,rows("customer_station_config"));
         assertEquals(0,intOf("select offline_payment_enabled from customer_station_config"));
         assertEquals(2,intOf("select sum(remain_qty) from customer_barrel_lot"));
-        assertEquals(-1,intOf("select over_qty from customer_barrel_over"));
+        assertEquals(0,intOf("select over_qty from customer_barrel_over"));
+        assertEquals(0,intOf("select count(*) from station_adjustment where adjust_type='OVER_ADJUST'"));
         assertEquals(75,decimalOf("select balance from customer_deposit_account").intValueExact());
         assertEquals(60,decimalOf("select right_amount from customer_barrel_asset").intValueExact());
         assertEquals(3,intOf("select remain_quantity from ticket_account"));
@@ -97,17 +103,36 @@ class HistoricalAssetClaimIntegrationTest extends AbstractIntegrationTest {
     void missingCustomerConfirmationAndMalformedFiguresDoNotCreateRequests() {
         seed();
         for(String b:new String[]{body("a").replace("true","false"),body("b").replace("75.00","75.001"),
-            body("c").replace("\"held\":1","\"held\":-1"),body("d").replace("\"rights\":2","\"rights\":1.5")})
+            body("c").replace("\"rights\":2","\"rights\":2,\"held\":-1"),body("d").replace("\"rights\":2","\"rights\":1.5")})
             assertFalse(post("/api/asset-claims",customerToken(customer),b).isSuccess(),b);
         assertEquals(0,rows("historical_asset_claim"));
     }
     @Test
-    void existingAssetsRejectInsteadOfMergingAndRollBackNewBinding() {
-        seed(); long id=claim();
-        jdbc.update("insert into customer_deposit_account(customer_id,station_id,balance) values(?,?,10)",customer,station);
-        assertFalse(review(id,true).isSuccess()); assertEquals(0,rows("customer_station_config"));
-        assertEquals("PENDING",get("/api/asset-claims/"+id,customerToken(customer)).data().path("status").asText());
-        assertEquals(0,rows("station_adjustment"));
+    void existingPositiveDifferenceAndAllAssetBalancesArePreservedAndAppended() { appendToExisting(2); }
+    @Test
+    void existingNegativeDifferenceIsNotRecalculated() { appendToExisting(-2); }
+    private void appendToExisting(int over) {
+        seed();long id=claim();
+        long lot=createBarrelLot("synthetic-existing",customer,station,product,"30.00",4,4);
+        createBarrelAsset(customer,station,product,4,"120.00");createBarrelOver(customer,station,product,over);
+        if(over>0) jdbc.update("update customer_barrel_over set owed_since='2026-01-01 12:00:00'");
+        createTicketAccount(customer,station,product,5);createDepositBalance(customer,station,"10.00");
+        var oldLot=jdbc.queryForMap("select * from customer_barrel_lot where id=?",lot);
+        var oldOver=jdbc.queryForMap("select * from customer_barrel_over");
+        var oldTicket=jdbc.queryForMap("select * from ticket_lot");
+        jdbc.update("insert into barrel_right_reservation(customer_id,station_id,product_id,owner_type,owner_id,quantity,pickup_qty) values(?,?,?,'ORDER',987654,1,0)",customer,station,product);
+        var reservation=jdbc.queryForMap("select * from barrel_right_reservation");
+        assertTrue(review(id,true).isSuccess());
+        assertEquals(6,intOf("select sum(remain_qty) from customer_barrel_lot"));
+        assertEquals(6,intOf("select quantity from customer_barrel_asset"));
+        assertEquals(180,decimalOf("select right_amount from customer_barrel_asset").intValueExact());
+        assertEquals(8,intOf("select remain_quantity from ticket_account"));
+        assertEquals(85,decimalOf("select balance from customer_deposit_account").intValueExact());
+        assertEquals(oldLot,jdbc.queryForMap("select * from customer_barrel_lot where id=?",lot));
+        assertEquals(oldOver,jdbc.queryForMap("select * from customer_barrel_over"));
+        assertEquals(oldTicket,jdbc.queryForMap("select * from ticket_lot where id=?",oldTicket.get("id")));
+        assertEquals(reservation,jdbc.queryForMap("select * from barrel_right_reservation"));
+        assertEquals(0,intOf("select count(*) from station_adjustment where adjust_type='OVER_ADJUST'"));
     }
     @Test
     void downstreamFailureRollsBackBindingEarlierLedgerWritesAndDecision() {
@@ -205,16 +230,73 @@ class HistoricalAssetClaimIntegrationTest extends AbstractIntegrationTest {
         assertEquals(1,rows("historical_asset_claim"));
     }
     @Test
-    void pendingPaymentCannotRaceAnOpeningImport() {
-        seed();long id=claim();createPaymentRecord(null,customer,station,"30.00",1,1);
-        assertFalse(review(id,true).isSuccess());assertEquals(0,rows("customer_station_config"));
-        assertEquals(0,rows("station_adjustment"));assertEquals(1,rows("payment_record"));
+    void pendingPaymentDoesNotBlockOrBecomePartOfTheAssetAppend() {
+        seed();long id=claim();long payment=createPaymentRecord(null,customer,station,"30.00",1,1);
+        var original=jdbc.queryForMap("select * from payment_record where id=?",payment);
+        assertTrue(review(id,true).isSuccess());assertEquals(1,rows("customer_station_config"));
+        assertEquals(original,jdbc.queryForMap("select * from payment_record where id=?",payment));
+        assertEquals(1,rows("payment_record"));
     }
     @Test
-    void spentBarrelHistoryCannotBeImportedAsNewOpeningRights() {
-        seed();long id=claim();createBarrelLot("synthetic-spent",customer,station,product,"30.00",2,0);
-        assertFalse(review(id,true).isSuccess());assertEquals(0,rows("customer_station_config"));
-        assertEquals(0,rows("station_adjustment"));assertEquals(1,rows("customer_barrel_lot"));
+    void spentHistoryIsRetainedAlongsideNewAssets() {
+        seed();long id=claim();long lot=createBarrelLot("synthetic-spent",customer,station,product,"30.00",2,0);
+        var original=jdbc.queryForMap("select * from customer_barrel_lot where id=?",lot);
+        assertTrue(review(id,true).isSuccess());assertEquals(2,rows("customer_barrel_lot"));
+        assertEquals(original,jdbc.queryForMap("select * from customer_barrel_lot where id=?",lot));
+        assertEquals(2,intOf("select sum(remain_qty) from customer_barrel_lot"));
+    }
+    @Test
+    void legacyHeldIsEvidenceOnlyAndNewRequestsDoNotStoreIt() {
+        seed();String payload=body("legacy").replace("\"rights\":2","\"rights\":2,\"held\":999");
+        var submitted=post("/api/asset-claims",customerToken(customer),payload);assertTrue(submitted.isSuccess());
+        long id=submitted.data().path("id").asLong();
+        String snapshot=jdbc.queryForObject("select request_json from historical_asset_claim where id=?",String.class,id);
+        String digest=jdbc.queryForObject("select request_digest from historical_asset_claim where id=?",String.class,id);
+        assertTrue(review(id,true).isSuccess());assertEquals(0,intOf("select over_qty from customer_barrel_over"));
+        assertEquals(snapshot,jdbc.queryForObject("select request_json from historical_asset_claim where id=?",String.class,id));
+        assertEquals(digest,jdbc.queryForObject("select request_digest from historical_asset_claim where id=?",String.class,id));
+        assertTrue(post("/api/asset-claims",customerToken(customer),payload).isSuccess());
+        assertFalse(post("/api/asset-claims",customerToken(customer),body("legacy")).isSuccess());
+    }
+    @Test
+    void approveAndRejectRaceLeavesExactlyOneTerminalAndMatchingLedger() {
+        seed();long id=claim();var start=new CountDownLatch(1);
+        var approve=CompletableFuture.supplyAsync(()->{await(start);return review(id,true);});
+        var reject=CompletableFuture.supplyAsync(()->{await(start);return review(id,false);});start.countDown();
+        assertNotEquals(approve.join().isSuccess(),reject.join().isSuccess());
+        String status=get("/api/asset-claims/"+id,customerToken(customer)).data().path("status").asText();
+        assertTrue(java.util.Set.of("APPROVED","REJECTED").contains(status));
+        assertEquals("APPROVED".equals(status)?3:0,rows("station_adjustment"));
+        assertEquals("APPROVED".equals(status)?1:0,rows("customer_station_config"));
+    }
+    @Test
+    void approvalUsesCurrentBalancesWhenAnotherTransactionCreatesAssetsAfterItsSnapshot() {
+        seed();long id=claim();
+        var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
+        tx.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        tx.execute(status -> {
+            // 明确先建立旧RR视图，再让另一连接提交首次账户/桶资产；无sleep与调度猜测。
+            assertEquals(0,rows("ticket_account"));assertEquals(0,rows("customer_barrel_lot"));
+            CompletableFuture.runAsync(() -> {
+                createBarrelLot("synthetic-concurrent",customer,station,product,"30.00",4,4);
+                createBarrelAsset(customer,station,product,4,"120.00");createBarrelOver(customer,station,product,2);
+                createTicketAccount(customer,station,product,5);createDepositBalance(customer,station,"10.00");
+            }).join();
+            com.example.aquaflow.util.AuthContext.set(new com.example.aquaflow.util.AuthContext.AuthUser(manager,"staff","STATION_MANAGER",station));
+            try { assertEquals("APPROVED",claimService.review(id,new com.example.aquaflow.dto.HistoricalAssetClaimDTO.Review(true,"并发合成账核对")).getStatus()); }
+            finally { com.example.aquaflow.util.AuthContext.clear(); }
+            return null;
+        });
+        assertEquals(6,intOf("select sum(remain_qty) from customer_barrel_lot"));
+        assertEquals(2,intOf("select over_qty from customer_barrel_over"));
+        assertEquals(8,intOf("select remain_quantity from ticket_account"));
+        assertEquals(54,decimalOf("select right_amount from ticket_account").intValueExact());
+        assertEquals(85,decimalOf("select balance from customer_deposit_account").intValueExact());
+        assertEquals(4,intOf("select json_extract(before_snapshot,'$.right') from station_adjustment where adjust_type='BARREL_GRANT'"));
+        assertEquals(2,intOf("select over_before from barrel_record where adjustment_id is not null"));
+        assertEquals(2,intOf("select over_after from barrel_record where adjustment_id is not null"));
+        assertEquals(5,intOf("select json_extract(before_snapshot,'$.ticket') from station_adjustment where adjust_type='TICKET_GRANT'"));
+        assertEquals(10,decimalOf("select json_extract(before_snapshot,'$.deposit') from station_adjustment where adjust_type='DEPOSIT_GRANT'").intValueExact());
     }
     @Test
     void schemaGuardRejectsPrefixOnlyIdempotencyIndex() {

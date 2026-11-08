@@ -18,7 +18,7 @@ import java.security.MessageDigest;
 import java.util.*;
 
 /**
- * 一次性期初认领。已提交清单不可由审核者改写；核对不一致则驳回重申请或沿既有调整订正。
+ * 一次性历史资产追加认领。已提交清单不可由审核者改写；核对不一致则驳回重申请或沿既有调整订正。
  * 审核 CAS、建绑定与各账本写入共用一个事务，不产生订单、付款流水或渠道交易。
  */
 @Service
@@ -53,6 +53,7 @@ public class HistoricalAssetClaimService {
             if(!digest.equals(existing.getRequestDigest())) throw new BusinessException("同一申请凭据不能用于不同清单");
             return existing; // 原请求恢复不受后续商品/水站配置变化影响。
         }
+        requireAssets(canonical);
         Long photoStation=claims.photoStation(customer,canonical.clientToken());
         if(photoStation!=null&&!photoStation.equals(canonical.stationId())) throw new BusinessException("照片与水站不一致，请重新选择照片");
         if(stations.getById(canonical.stationId())==null) throw new BusinessException("水站不存在");
@@ -99,22 +100,25 @@ public class HistoricalAssetClaimService {
             throw new BusinessException("申请已处理，请查看原结果");
         }
         if(request.approve()) {
-            var snapshot=read(claim.getRequestJson());validateProducts(snapshot);
+            var snapshot=read(claim.getRequestJson());
+            validate(snapshot);
+            // 旧快照仍原样留存；仅实物数量的旧申请不能变成空入账的“已生效”。
+            snapshot=canonical(snapshot);requireAssets(snapshot);validateProducts(snapshot);
             // 不扩展通用资产调整的资格。只在本次核对事务中建关系；失败时关系也回滚。
             bindings.ensureExists(claim.getCustomerId(),station);
-            for(var item:snapshot.items()) barrels.lockRights(claim.getCustomerId(),station,item.productId());
-            requireEmptyOpeningLedger(claim.getCustomerId(),station);
+            for(var item:snapshot.items()) if(item.rights().signum()>0)
+                barrels.lockRights(claim.getCustomerId(),station,item.productId());
             if(claims.decide(id,target,AuthContext.getUserId(),note)!=1) throw new BusinessException("申请已被处理");
-            postOpening(claim,snapshot);
+            postAssets(claim,snapshot);
         } else if(claims.decide(id,target,AuthContext.getUserId(),note)!=1) throw new BusinessException("申请已被处理");
         return claims.get(id);
     }
 
-    private void postOpening(HistoricalAssetClaim claim,HistoricalAssetClaimDTO snapshot) {
+    private void postAssets(HistoricalAssetClaim claim,HistoricalAssetClaimDTO snapshot) {
         for(var item:snapshot.items()) {
-            int e=item.rights().intValueExact(),h=item.held().intValueExact(),tickets=item.tickets().intValueExact();
+            int e=item.rights().intValueExact(),tickets=item.tickets().intValueExact();
             if(e>0) post(claim,AdjustType.BARREL_GRANT,item.productId(),e,null,item.unitPrice());
-            if(h!=e) post(claim,AdjustType.OVER_ADJUST,item.productId(),h-e,null,null);
+            // 2026-11-08：认领只追加资产，不能把旧 held 推成差额或重写已有 over。
             if(tickets>0) post(claim,AdjustType.TICKET_GRANT,item.productId(),tickets,null,null);
         }
         if(snapshot.depositBalance().signum()>0) post(claim,AdjustType.DEPOSIT_GRANT,null,null,snapshot.depositBalance(),null);
@@ -127,41 +131,36 @@ public class HistoricalAssetClaimService {
         adjustments.execute(adjustment.getId());
     }
 
-    private void requireEmptyOpeningLedger(Long customer,Long station) {
-        boolean conflict=!claims.barrelHistory(customer,station).isEmpty()
-            ||!claims.ticketHistory(customer,station).isEmpty()||!claims.depositHistory(customer,station).isEmpty()
-            ||!claims.pendingPayments(customer,station).isEmpty()||!claims.reservations(customer,station).isEmpty()
-            ||claims.barrelBalances(customer,station).stream().anyMatch(v->v!=null&&v!=0)
-            ||claims.overBalances(customer,station).stream().anyMatch(v->v!=null&&v!=0)
-            ||claims.ticketBalances(customer,station).stream().anyMatch(v->v!=null&&v!=0)
-            ||claims.depositBalances(customer,station).stream().anyMatch(v->v!=null&&v.signum()!=0);
-        if(conflict) throw new BusinessException("本站已有资产账或办理中业务，请核对后使用现有资产调整，不能重复迁入期初账");
-    }
     private void validateProducts(HistoricalAssetClaimDTO request) {
         for(var item:request.items()) {
             var product=products.getById(item.productId());
             if(product==null||inventories.getByStationAndProduct(request.stationId(),item.productId())==null
                 ||(product.getOwnerStationId()!=null&&!request.stationId().equals(product.getOwnerStationId())))
                 throw new BusinessException("认领商品不属于本站");
-            if((item.rights().signum()>0||item.held().signum()>0)&&!BarrelScope.isBarrel(product))
-                throw new BusinessException("非桶装商品不能认领桶权益或实物桶");
+            if(item.rights().signum()>0&&!BarrelScope.isBarrel(product))
+                throw new BusinessException("非桶装商品不能认领桶资产");
         }
     }
     private HistoricalAssetClaimDTO canonical(HistoricalAssetClaimDTO r) {
-        Set<Long> seen=new HashSet<>();boolean nonempty=r.depositBalance().signum()>0;
+        Set<Long> seen=new HashSet<>();
         List<HistoricalAssetClaimDTO.Item> items=new ArrayList<>();
         for(var item:r.items()) {
             if(!seen.add(item.productId())) throw new BusinessException("同一商品只能填写一行");
-            int e=quantity(item.rights()),h=quantity(item.held()),t=quantity(item.tickets());
-            nonempty|=e>0||h>0||t>0;
+            int e=quantity(item.rights()),t=quantity(item.tickets());
+            BigDecimal legacyHeld=item.held()==null?null:BigDecimal.valueOf(quantity(item.held()));
             if(item.unitPrice()!=null&&item.unitPrice().multiply(BigDecimal.valueOf(e)).compareTo(new BigDecimal("99999999.99"))>0)
-                throw new BusinessException("权益快照金额超出可保存范围");
-            items.add(new HistoricalAssetClaimDTO.Item(item.productId(),BigDecimal.valueOf(e),BigDecimal.valueOf(h),BigDecimal.valueOf(t),
+                throw new BusinessException("桶金额超出可保存范围");
+            items.add(new HistoricalAssetClaimDTO.Item(item.productId(),BigDecimal.valueOf(e),legacyHeld,BigDecimal.valueOf(t),
                 item.unitPrice()==null?null:item.unitPrice().setScale(2)));
         }
-        if(!nonempty) throw new BusinessException("请填写需要核对的历史资产");
         items.sort(Comparator.comparing(HistoricalAssetClaimDTO.Item::productId));
         return new HistoricalAssetClaimDTO(r.stationId(),r.clientToken(),true,r.depositBalance().setScale(2),r.note().trim(),List.copyOf(items));
+    }
+    private void requireAssets(HistoricalAssetClaimDTO request) {
+        // 放在原键恢复之后，旧 held-only 申请仍能查回、驳回，但不能新建或批准空资产。
+        if(request.depositBalance().signum()==0&&request.items().stream()
+            .noneMatch(item -> item.rights().signum()>0||item.tickets().signum()>0))
+            throw new BusinessException("请填写需要核对的历史桶资产、押金或水票；仅实物数量的旧申请请驳回后重新填写");
     }
     private int quantity(BigDecimal value) { try{return value.intValueExact();}catch(ArithmeticException e){throw new BusinessException("数量须为可保存的非负整数");} }
     private void validate(Object value) {

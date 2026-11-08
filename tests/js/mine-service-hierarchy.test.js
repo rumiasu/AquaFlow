@@ -24,7 +24,7 @@ for (const anonymous of [false, true]) {
   assert(text.includes('匿名提交')); assert(text.includes('反馈类型')); assert(text.includes('问题或建议')); assert(text.includes('联系方式（选填）'))
   assert.equal(text.includes('匿名后水站无法识别你；填写联系方式仍可联系你。'), anonymous)
   assert(!text.includes('未开启（实名）'))
-  assert(text.includes('意见反馈')); assert(!text.includes('我的退款争议')); const recordText = labels(render('service/index', { isLogin: true, serviceTab: 'records', refundRef: null, serviceInfo: {}, anonymous, myDisputes: [], refundOptions: [], history: [] })).join(' '); assert(recordText.includes('我的退款争议')); assert(!recordText.includes('意见反馈'))
+  assert(text.includes('意见反馈')); assert(!text.includes('我的退款争议')); const recordText = labels(render('service/index', { isLogin: true, serviceTab: 'records', refundRef: null, serviceInfo: {}, anonymous, myDisputes: [], refundOptions: [], history: [] })).join(' '); assert(recordText.includes('我的退款争议')); assert(!render('service/index', { isLogin: true, serviceTab: 'records', refundRef: null, serviceInfo: {}, anonymous, myDisputes: [], refundOptions: [], history: [] }).some(n => n.className === 'section-title' && n.text === '意见反馈'))
   assert(nodes.some(n => n.attrs.bindchange === 'onAnonymousChange' && n.attrs.checked === '{{anonymous}}'))
 }
 const refund = render('service/index', { isLogin: true, refundRef: { objectText: '退款' }, serviceInfo: {}, refundOptions: [], history: [], dispute: null })

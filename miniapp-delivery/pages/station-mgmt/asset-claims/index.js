@@ -88,7 +88,7 @@ Page({
   decide(approve) {
     const selected = this.data.selected
     if (!this.current(this.context()) || this._flight || this.data.pending || !this.data.ready || !this.data.catalogReady
-      || (approve && (!this.data.photoReady || this.data.photoError))
+      || (approve && (!this.data.photoReady || this.data.photoError || selected && selected.assetEmpty))
       || !selected || selected.id !== this._selectedId || selected.status !== 'PENDING'
       || !this.data.records.some(r => r.id === selected.id)) return
     try {

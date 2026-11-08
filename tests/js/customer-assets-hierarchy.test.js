@@ -12,7 +12,7 @@ function setup(){
  wx.__storage.set('selectedStation',{id:11,name:'下单站'})
  let fail=false
  const page=loadPage('miniapp-user/pages/mine/index.js',{wx,app,stubs:{
-  'api/barrel':{getBarrelSummary:async()=>{if(fail)throw Error('无权查看');return{code:0,data:{independentRights:true,depositBalance:300,occupiedBuckets:3}}}},
+  'api/barrel':{getBarrelSummary:async()=>{if(fail)throw Error('无权查看');return{code:0,data:{independentRights:true,depositBalance:300,rightBuckets:3,occupiedBuckets:1}}}},
   'api/ticket':{getTicketAccounts:async()=>{if(fail)throw Error('无权查看');return{code:0,data:[{remainQuantity:28}]}}},
   'api/company':{getCompanyInfo:async()=>({code:0,data:null})}
  }})
@@ -37,12 +37,12 @@ test('water tickets lead, deposit and barrels remain distinct actionable facts',
  assert(hasClass(cards[0],'asset-cell-primary'))
  assert.deepStrictEqual(rendered.filter(e=>hasClass(e,'asset-value')).map(e=>e.text),['28','¥300','3'])
 })
-test('customer-facing copy distinguishes recorded barrels from usable barrel capacity', async () => {
+test('ownership label is consistent on mine and barrel detail without extra explanations', async () => {
  const {page}=setup();await page.onShow()
  const rendered=renderElements(mine,page.data,{includeText:true})
- assert(rendered.some(e=>e.text.includes('按押金和借还记录计算，可能与手中实物不同')))
+ assert(!rendered.some(e=>e.text.includes('可能与手中实物不同')))
  const wxml=fs.readFileSync(path.join(ROOT,'miniapp-user/pages/barrel/index.wxml'),'utf8')
- assert(wxml.includes('用桶份数')); assert(wxml.includes('未领桶也计入')); assert(wxml.includes('与按借还记录计算的“我的桶”数量可能不同'))
+ assert(wxml.includes('我的桶')); assert(!wxml.includes('与按借还记录计算的“我的桶”数量可能不同')); assert(wxml.includes('summary.rightBuckets'))
 })
 test('all three cards carry the asset station without changing the order station',async()=>{
  const {page,wx}=setup();await page.onShow();await page.onAssetStationChange({detail:{id:22,name:'历史资产站'}})

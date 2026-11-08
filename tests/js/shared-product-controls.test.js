@@ -39,7 +39,10 @@ for (const app of ['miniapp-user', 'miniapp-delivery']) {
   selector.onSelect(event(1)); assert.equal(selector.events[0].detail.id, 9); assert.equal(selector.events[0].detail.item, items[1])
   selector.onSelect(event(2)); selector.onSelect(event(-1)); assert.equal(selector.events.length, 1)
   selector.onImageError(event(0)); assert.equal(selector.data.viewItems[0].image, ''); assert.equal(items[0].image, 'synthetic.png')
-  selector.data.disabled = true; selector.syncItems(); selector.onSelect(event(0)); assert.equal(selector.events.length, 1)
+  selector.data.selectedId = ''; selector.data.items = items.map(item => ({ ...item, selected: item.id !== 10 })); selector.syncItems()
+  assert.equal(selector.data.viewItems[0].selected, true); assert.equal(selector.data.viewItems[1].selected, true)
+  selector.onSelect(event(0)); assert.equal(selector.events.length, 2); assert.equal(selector.events[1].detail.id, 8)
+  selector.data.disabled = true; selector.syncItems(); selector.onSelect(event(0)); assert.equal(selector.events.length, 2)
   const registration = JSON.parse(fs.readFileSync(path.join(root, app, 'app.json'), 'utf8')).usingComponents
   assert.equal(registration['integer-stepper'], '/components/IntegerStepper/index')
   assert.equal(registration['product-selector'], '/components/ProductSelector/index')

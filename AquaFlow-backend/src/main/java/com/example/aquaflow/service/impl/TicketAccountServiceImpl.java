@@ -191,22 +191,17 @@ public class TicketAccountServiceImpl implements TicketAccountService {
         boolean increase = delta > 0;
         String source = increase ? "人工调整补入" : "人工调整扣减";
 
-        TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, productId, stationId);
+        // 2026-11-08：RR 旧快照可能看不到刚并发建立的账户，普通 insert 会误撞唯一键。
+        // 增量先无损 upsert 再当前读；扣减不创建空账户，两者锁都保持到流水提交。
+        if (increase) ticketAccountMapper.lockOrCreate(customerId, stationId, productId);
+        TicketAccount account = ticketAccountMapper.lockAccount(customerId, stationId, productId);
+        if (account == null) throw new BusinessException("该客户在本站无此商品的水票账户，无法调整");
 
         // [v36] 人工调整也必须过批次账 —— 它同样改变"客户手上有多少张票"，
         // 不过批次的话对账 E8 会在每次站长订正后报不平。
         BigDecimal adjustUnitPrice;
         Long adjustLotId;
         if (increase) {
-            if (account == null) {
-                account = new TicketAccount();
-                account.setCustomerId(customerId);
-                account.setProductId(productId);
-                account.setStationId(stationId);
-                account.setRemainQuantity(0);
-                account.setUpdateTime(LocalDateTime.now());
-                ticketAccountMapper.insert(account);
-            }
             // 人工补录没有真实付款，单价取本站当前水票价并标记为推断值（与 addTicket 同口径）
             BigDecimal price = inferredUnitPrice(stationId, productId);
             com.example.aquaflow.entity.TicketLot lot = ticketLotService.createLot(
@@ -218,9 +213,6 @@ public class TicketAccountServiceImpl implements TicketAccountService {
             adjustUnitPrice = lot.getUnitPrice();
             adjustLotId = lot.getId();
         } else {
-            if (account == null) {
-                throw new BusinessException("该客户在本站无此商品的水票账户，无法扣减");
-            }
             ticketLotService.assertAvailable(customerId,stationId,productId,qty);
             int affected = ticketAccountMapper.decrementQuantity(account.getId(), qty);
             if (affected == 0) {

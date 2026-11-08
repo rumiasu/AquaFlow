@@ -8,8 +8,7 @@ function assetNotice(page) { const {parseWxml,renderElements}=require('./wxml-tr
  * 真实执行 `miniapp-user/pages/mine/index.js` 的处理函数，断言的是**页面数据与渲染分支**，
  * 不是"某个字符串在不在文件里"：
  *   · C05 —— 资产加载失败**不得**留下看起来像真的 0；换水站不得把上一站的数字当成本站资产；
- *   · C06 —— 「水桶权益」这个标签绑定的是 heldBuckets（持有 = 权益 + 配送中），
- *            配送中的桶既不能抵扣也不能退，标签不能叫"权益"；
+ *   · C06 —— 「我的桶」统一展示服务下发的 rightBuckets，不与持桶差额或用途占用混合；
  *   · C07 —— 桶页标题不得再出现"长期桶资产（按商品聚合）"这类建模语言。
  *
  * ⚠️ 反向验证（把修复改回去，本套件应变红）：
@@ -113,7 +112,7 @@ console.log('顾客「我的 · 押金水票与桶」加载态与文案（真实
     const summaryIds = [], ticketIds = []
     let fail = false
     const { page, wx } = loadMine({
-      summary: async id => { summaryIds.push(id); if (fail) throw new Error('真实读取失败'); return { code: 0, data: { depositBalance: 0, heldBuckets: 0 } } },
+      summary: async id => { summaryIds.push(id); if (fail) throw new Error('真实读取失败'); return { code: 0, data: { depositBalance: 0, rightBuckets: 0, heldBuckets: 0 } } },
       tickets: async id => { ticketIds.push(id); return { code: 0, data: [] } },
       company: async () => ({ code: 0, data: null })
     })
@@ -175,7 +174,7 @@ console.log('顾客「我的 · 押金水票与桶」加载态与文案（真实
 
   await test('C05 真的是 0 时照实写 0（"没有资产"与"没加载出来"必须长得不一样）', async () => {
     const { page } = loadMine({
-      summary: async () => ({ code: 0, data: { depositBalance: 0, heldBuckets: 0 } }),
+      summary: async () => ({ code: 0, data: { depositBalance: 0, rightBuckets: 0, heldBuckets: 0 } }),
       tickets: async () => ({ code: 0, data: [] }),
       company: async () => ({ code: 0, data: null })
     }, { stationId: 11 })
@@ -192,7 +191,7 @@ console.log('顾客「我的 · 押金水票与桶」加载态与文案（真实
     const { page } = loadMine({
       summary: async (id) => {
         stationServed = id
-        return { code: 0, data: { depositBalance: id === 11 ? 450 : 30, heldBuckets: 2 } }
+        return { code: 0, data: { depositBalance: id === 11 ? 450 : 30, rightBuckets: 2, heldBuckets: 2 } }
       },
       tickets: async () => ({ code: 0, data: [] }),
       company: async () => ({ code: 0, data: null })
@@ -230,18 +229,18 @@ console.log('顾客「我的 · 押金水票与桶」加载态与文案（真实
   })
 
   // ---------------------------------------------------------------- C06 / C07：文案口径
-  await test('C06 桶标签是「我的桶」（持有 ≠ 权益：配送中的桶不能退也不能抵扣）', async () => {
+  await test('C06 桶标签是「我的桶」，不再渲染建模术语', async () => {
     const wxml = renderedWxml('miniapp-user/pages/mine/index.wxml')
     assert.ok(wxml.indexOf('我的桶') > -1, '标签应为「我的桶」')
     assert.strictEqual(wxml.indexOf('水桶权益'), -1,
-      '「水桶权益」绑的是 heldBuckets（持有 = 权益 + 配送中），配送中的桶不可退/不可抵扣，不能叫权益')
+      '面向客户保留我的桶，不使用权益术语')
   })
 
-  await test('C06 数据源仍是后端 heldBuckets（口径没被顺手改掉）', async () => {
+  await test('C06 我的桶统一读后端 rightBuckets，不混入实物和配送中', async () => {
     const js = readFile('miniapp-user/pages/mine/index.js')
-    assert.ok(js.indexOf('summaryRes.data.heldBuckets') > -1,
-      '数值口径必须保持后端 heldBuckets；要改口径先回去读 docs/architecture/02-领域模型.md §4')
-    assert.strictEqual(js.indexOf('rightBuckets'), -1, '不许把"权益"（rightBuckets）拿来顶替持有量')
+    assert.ok(js.indexOf('assetCount(summary.rightBuckets)') > -1,
+      '我的桶须用服务下发的 rightBuckets，不在页面计算或混用 heldBuckets')
+    assert.strictEqual(js.indexOf('assetCount(summary.occupiedBuckets)'), -1, '实物差额不能改变我的桶')
   })
 
   await test('C07 桶页标题不得是建模语言「长期桶资产（按商品聚合）」', async () => {

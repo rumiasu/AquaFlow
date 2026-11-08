@@ -20,12 +20,12 @@
          文案与样式照抄 pages/deposit/records（同一条提示条，保持一致）。 -->
     <view class="stats-card" wx:if="{{summary}}">
       <view class="stat-col stat-physical">
-        <text class="stat-label">{{summary.independentRights ? '用桶份数' : '桶账汇总'}}</text>
+        <text class="stat-label">我的桶</text>
         <view class="stat-value-row">
-          <text class="stat-number">{{summary.independentRights ? (summary.rightBuckets == null ? '—' : summary.rightBuckets) : (summary.heldBuckets == null ? '—' : summary.heldBuckets)}}</text>
-          <text class="stat-unit">{{summary.independentRights ? '份' : '个'}}</text>
+          <text class="stat-number">{{summary.rightBuckets == null ? '—' : summary.rightBuckets}}</text>
+          <text class="stat-unit">个</text>
         </view>
-        <text class="stat-link" wx:if="{{summary.independentRights && summary.availableRights != null}}">当前可用 {{summary.availableRights}} 份</text>
+        <text class="stat-link" wx:if="{{summary.independentRights && summary.availableRights != null}}">当前可用 {{summary.availableRights}} 个</text>
       </view>
       <view class="stat-divider"></view>
       <view class="stat-col stat-money" bindtap="onDepositRecords">
@@ -52,8 +52,6 @@
       </view>
     </view>
 
-    <!-- 用桶份数不等于手中实物数量；未领取的桶仍计入。 -->
-    <view class="storage-tip" wx:if="{{summary.independentRights}}"><text>每份对应一个桶的使用资格，未领桶也计入。与按借还记录计算的“我的桶”数量可能不同。</text></view>
 
     <view class="rights-actions" wx:if="{{summary.independentRights}}">
       <button class="af-action af-action--primary rights-purchase" bindtap="onPurchaseRights"><icon name="wallet" size="22px" color="#FFFFFF" /><text>单独交桶押金</text></button>
@@ -92,15 +90,15 @@
             <view class="asset-product-photo asset-photo-placeholder" wx:else><icon name="barrel" size="40px" color="#387A78" /></view>
             <view class="bucket-detail">
               <text class="bucket-id">{{item.productName || '商品名称待确认'}}</text><text class="bucket-spec">{{item.displaySpec}}</text>
-              <text class="bucket-time" wx:if="{{!item.independentRights}}">水桶记录 {{item.heldTotalQty}} 桶<text wx:if="{{item.inTransitQty > 0}}">（含此前配送中 {{item.inTransitQty}} 桶）</text> · 欠桶 {{item.owedQty}} 桶</text>
-              <text class="bucket-time" wx:if="{{item.independentRights}}">用桶份数 {{item.assetQty}} 份 · 当前可用 {{item.availableRights}} 份</text>
+              <text class="bucket-time" wx:if="{{!item.independentRights}}">我的桶 {{item.assetQty}} 个<text wx:if="{{item.inTransitQty > 0}}"> · 此前配送中 {{item.inTransitQty}} 个</text> · 欠桶 {{item.owedQty}} 个</text>
+              <text class="bucket-time" wx:if="{{item.independentRights}}">我的桶 {{item.assetQty}} 个 · 当前可用 {{item.availableRights}} 个</text>
               <text class="bucket-time" wx:if="{{item.storageQty != null && item.storageQty > 0}}">暂存或待领取 {{item.storageQty}} 个（实际交接请向水站确认）</text>
               <text class="asset-deposit-standard">{{item.deposit == null ? '每桶押金待确认' : '每桶押金标准 ¥' + item.deposit}}</text>
               <view class="bucket-detail-toggle" data-id="{{item.productId}}" bindtap="onToggleBarrelDetail" hover-class="bucket-detail-pressed">{{expandedProductId === item.productId ? '收起明细' : '查看桶账明细'}} ›</view>
               <view class="bucket-account-detail" wx:if="{{expandedProductId === item.productId}}">
-                <text>水桶记录 {{item.occupiedQty}} 个 · 欠桶 {{item.owedQty}} 个</text>
+                <text>借还记录中的桶 {{item.occupiedQty}} 个 · 欠桶 {{item.owedQty}} 个</text>
                 <text>以上数量根据押金与借还记录汇总，实际交接请向水站确认。</text>
-                <text wx:if="{{item.independentRights}}">当前可用份数已扣除订单和退还申请占用。</text>
+                <text wx:if="{{item.independentRights}}">当前可用数量已扣除订单和退还申请占用。</text>
               </view>
             </view>
           </view>

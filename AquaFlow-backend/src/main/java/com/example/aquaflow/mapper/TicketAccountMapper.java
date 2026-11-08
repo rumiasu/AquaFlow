@@ -8,6 +8,12 @@ import java.util.Map;
 
 @Mapper
 public interface TicketAccountMapper {
+    /** 写入前固定账户行；已有余额和更新时间均不改，首次并发由唯一键串行。 */
+    @Insert("insert into ticket_account(customer_id,product_id,station_id,remain_quantity,update_time) "
+            + "values(#{customer},#{product},#{station},0,NOW()) "
+            + "on duplicate key update remain_quantity=remain_quantity")
+    int lockOrCreate(@Param("customer") Long customer,@Param("station") Long station,@Param("product") Long product);
+
     @Select("select * from ticket_account where customer_id=#{customer} and station_id=#{station} and product_id=#{product} for update")
     TicketAccount lockAccount(@Param("customer") Long customer,@Param("station") Long station,@Param("product") Long product);
 

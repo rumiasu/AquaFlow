@@ -1,11 +1,12 @@
 package com.example.aquaflow.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.util.List;
 
-/** 客户主动提交的不可改写清单。容量快照单价与真实历史押金余额分别表达。 */
+/** 客户主动提交的不可改写清单。桶单价与真实历史押金金额分别表达。 */
 public record HistoricalAssetClaimDTO(
     @NotNull @Positive Long stationId,
     @NotBlank @Size(max=64) String clientToken,
@@ -18,7 +19,9 @@ public record HistoricalAssetClaimDTO(
     public record Item(
         @NotNull @Positive Long productId,
         @NotNull @DecimalMin("0") @DecimalMax("2147483647") BigDecimal rights,
-        @NotNull @DecimalMin("0") @DecimalMax("2147483647") BigDecimal held,
+        // 仅兼容旧请求摘要，不参与入账；缺失时不伪造实物数量。
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        @DecimalMin("0") @DecimalMax("2147483647") BigDecimal held,
         @NotNull @DecimalMin("0") @DecimalMax("2147483647") BigDecimal tickets,
         @DecimalMin("0.01") @DecimalMax("99999999.99") @Digits(integer=8,fraction=2) BigDecimal unitPrice
     ) {}

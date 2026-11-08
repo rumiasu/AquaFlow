@@ -13,8 +13,8 @@
 
   <block wx:if="{{isLogin}}">
     <!-- 2026-10-07 #10：只展示真实押金账户、水票余量和桶汇总；未加载与真实 0 分开。
-         桶卡保持中性「我的桶」：新路径读 E+over，历史汇总含配送中，说明由 js 区分。 -->
-    <asset-station-view id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
+         「我的桶」统一读取有效桶数，不受持桶差额或用途占用影响。 -->
+    <asset-station-view compact="{{true}}" id="asset-station-view" station-id="{{viewStationId}}" station-name="{{stationName}}" status-text="{{viewStationStatusText}}" order-station-name="{{orderStationName}}" busy="{{submitting || recoveringPurchase}}" bind:change="onAssetStationChange" />
     <view class="card assets-card">
       <text class="asset-refresh-note" wx:if="{{assetsLoading}}">正在读取本站资产…</text>
       <text class="asset-refresh-note" wx:if="{{staleAssetsText}}">{{staleAssetsText}}</text>
@@ -31,7 +31,6 @@
         <view class="asset-cell asset-physical" data-url="/pages/barrel/index" bindtap="onMenuTap" aria-role="button" aria-label="查看我的桶与管理办理">
           <view class="asset-heading"><view class="asset-icon"><icon name="barrel" size="20px" color="#1264D6" variant="duotone" fill-color="#EAF2FF" /></view><text class="asset-label">我的桶</text></view>
           <view class="asset-main"><text class="asset-value {{barrelLoaded ? '' : 'asset-value-unloaded'}}">{{barrelText}}<text class="asset-unit" wx:if="{{barrelLoaded}}"> 个</text></text><text class="asset-entry">管理 ›</text></view>
-          <text class="asset-note-text" wx:if="{{barrelLoaded && barrelHint}}">{{barrelHint}}</text>
         </view>
       </view>
       <view class="asset-note" wx:if="{{assetStationRequired}}">
@@ -49,7 +48,7 @@
     <view class="card quick-actions {{isCompany ? 'company-actions' : ''}}">
       <view class="quick-action" data-url="/pages/payment/records" bindtap="onMenuTap" aria-role="button" aria-label="账单记录"><view class="quick-icon"><icon name="bill" size="20px" color="#1264D6" /></view><text class="quick-label">账单记录</text></view>
       <view class="quick-action" data-url="/pages/address/list" bindtap="onMenuTap" aria-role="button" aria-label="地址管理"><view class="quick-icon"><icon name="location" size="20px" color="#1264D6" /></view><text class="quick-label">地址管理</text></view>
-      <view class="quick-action" data-url="/pages/service/index" bindtap="onMenuTap" aria-role="button" aria-label="客服反馈"><view class="quick-icon"><icon name="chat" size="20px" color="#1264D6" /></view><text class="quick-label">客服反馈</text></view>
+      <view class="quick-action" data-url="/pages/service/index" bindtap="onMenuTap" aria-role="button" aria-label="意见反馈"><view class="quick-icon"><icon name="chat" size="20px" color="#1264D6" /></view><text class="quick-label">意见反馈</text></view>
       <view class="quick-action" wx:if="{{isCompany}}" data-url="/pages/mine/company" bindtap="onMenuTap" aria-role="button" aria-label="企业资料"><view class="quick-icon"><icon name="building" size="20px" color="#1264D6" /></view><text class="quick-label">企业资料</text></view>
     </view>
     <!-- 3:1 场景位于原生导航下；整卡只有一个点击目标。 -->
@@ -85,7 +84,7 @@
         <text class="row-arrow">›</text>
       </view>
       <view class="menu-row af-entry" data-url="/pages/service/index" bindtap="onMenuTap">
-        <icon name="chat" size="20px" color="#1264D6" /><text class="menu-name">联系客服</text>
+        <icon name="chat" size="20px" color="#1264D6" /><text class="menu-name">意见反馈</text>
         <text class="row-arrow">›</text>
       </view>
       <view class="menu-row af-entry" data-url="/pages/mine/about" bindtap="onMenuTap">

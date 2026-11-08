@@ -3,7 +3,8 @@ Component({
   properties: {
     items: { type: Array, value: [] },
     selectedId: { type: String, optionalTypes: [Number], value: '' },
-    disabled: { type: Boolean, value: false }
+    disabled: { type: Boolean, value: false },
+    compact: { type: Boolean, value: false }
   },
   data: { viewItems: [] },
   observers: { 'items, selectedId, disabled': function () { this.syncItems() } },
@@ -15,7 +16,7 @@ Component({
         const value = item || {}, id = text(value.id)
         const name = text(value.name) || '商品名称待确认', spec = text(value.spec)
         const priceText = text(value.priceText) || '价格待确认'
-        return { index, id, name, spec, priceText, image: text(value.image), selected: selected !== '' && id === selected,
+        return { index, id, name, spec, priceText, image: text(value.image), selected: value.selected === true || (selected !== '' && id === selected),
           disabled: this.data.disabled || !!value.disabled || id === '', ariaLabel: [name, spec, priceText].filter(Boolean).join('，') }
       }) })
     },

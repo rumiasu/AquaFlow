@@ -256,8 +256,10 @@ public class TicketLotServiceImpl implements TicketLotService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void refreshRightAmount(Long customerId, Long stationId, Long productId) {
-        TicketAccount account = ticketAccountMapper.getByCustomerProductStation(customerId, productId, stationId);
+        // 2026-11-08：批次金额虽已当前读，账户若仍读 RR 快照会误判不存在而跳过同步。
+        TicketAccount account = ticketAccountMapper.lockAccount(customerId, stationId, productId);
         if (account == null) {
             // 没有账户就没有可同步的汇总行。不抛错：调用方可能正在建账户（先建 lot 后建 account 的顺序），
             // 账户建好后会再调一次。

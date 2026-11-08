@@ -81,11 +81,10 @@ Page({
     // ⚠️ 这三项的 `null` 是有意的：见 assetsView 的说明。**不要**改回 0 当占位。
     deposit: null,       // 押金账户余额；本次可退金额须在退桶办理中预览
     ticket: null,        // 水票张数 = Σ remainQuantity
-    barrel: null,        // 我的桶：新口径 occupiedBuckets，历史 heldBuckets；不以权益量替代
+    barrel: null,        // 我的桶：统一读有效桶数 rightBuckets，不随实物差额或用途占用变化
     depositText: ASSET_UNLOADED,
     ticketText: ASSET_UNLOADED,
     barrelText: ASSET_UNLOADED,
-    barrelHint: '',
     depositLoaded: false,
     ticketLoaded: false,
     barrelLoaded: false,
@@ -118,8 +117,7 @@ Page({
       this.setData({
         deposit: null, ticket: null, barrel: null,
         ...assetsView({ deposit: null, ticket: null, barrel: null }, !stationId),
-        barrelHint: '',
-        isCompany: false
+            isCompany: false
       })
     }
     this.setData({
@@ -143,7 +141,7 @@ Page({
     const keep = this._lastAssetScope && this._lastAssetScope.stationId === stationId && isCurrentSession(this._lastAssetScope.session)
     const previous = keep ? { deposit: this.data.deposit, ticket: this.data.ticket, barrel: this.data.barrel } : {}
     this.setData({ assetsLoading: true, staleAssetsText: '', ...(keep ? {} : { deposit: null, ticket: null, barrel: null,
-      ...assetsView({ deposit: null, ticket: null, barrel: null }, stationRequired), barrelHint: '' }) })
+      ...assetsView({ deposit: null, ticket: null, barrel: null }, stationRequired) }) })
     // [2026-09-20 真机联调] 旧版本多个请求原来各自 `.catch(() => null)` —— 失败被吞成 null，
     // 页面照常显示「押金 ¥0 / 水票 0 张」，与"这个客户确实没有资产"完全无法区分
     // （AGENTS §8.22）。降级保留（部分成功仍然显示），但**失败的那一格必须显式标出来**：
@@ -170,15 +168,14 @@ Page({
     if (this._assetUnloaded || sequence !== this._assetReadSeq || !isCurrentSession(session)
       || !assetViewStation.current(this, context)) return
     const v = { deposit: null, ticket: null, barrel: null }
-    let barrelHint = ''
 
     if (summaryRes && summaryRes.code === 0 && summaryRes.data && typeof summaryRes.data === 'object' && !Array.isArray(summaryRes.data)) {
       const summary = summaryRes.data
       // 2026-10-07 #10：只展示接口真正提供的有限数值；缺字段/畸形值不能冒充真实 0。
       v.deposit = assetNumber(summary.depositBalance)
-      v.barrel = assetCount(summary.independentRights ? summary.occupiedBuckets : summaryRes.data.heldBuckets)
-      // 新路径 H=E+over，不含数量占用 R；旧 held 含遗留配送中桶，故两者均保留中性「我的桶」。
-      barrelHint = summary.independentRights ? '按押金和借还记录计算，可能与手中实物不同' : '按记录汇总，含此前配送中的桶'
+      // 2026-11-08：原先读 H=E+over，借还差额会改变‘我的桶’；此处只读服务给出的 E。
+      // 不用 availableRights（扣用途占用）或 heldBuckets（含遗留配送中）代替，缺值仍按未加载处理。
+      v.barrel = assetCount(summary.rightBuckets)
     }
 
     if (ticketsRes && ticketsRes.code === 0 && Array.isArray(ticketsRes.data)) {
@@ -204,7 +201,6 @@ Page({
       barrel: display.barrel,
       assetsLoading: false,
       staleAssetsText: stale.length ? '刷新未完成，部分资产为上次读取，请重新核对。' : '',
-      barrelHint,
       isCompany,
       companyInfoFailed: !companyVerified,
       ...view
@@ -268,8 +264,7 @@ Page({
             ticket: null,
             barrel: null,
             ...assetsView({ deposit: null, ticket: null, barrel: null }),
-            barrelHint: '',
-            isCompany: false
+                    isCompany: false
           })
           wx.showToast({ title: '已退出', icon: 'success' })
         }

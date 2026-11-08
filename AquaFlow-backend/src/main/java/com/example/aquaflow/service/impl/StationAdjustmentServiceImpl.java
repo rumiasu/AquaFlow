@@ -213,8 +213,9 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
         validateCustomer(a.getCustomerId(), stationId);
         validateProduct(a.getAdjustType(), a.getProductId(), stationId);
 
-        // 1) 先算前后快照（只读）
-        Snapshot before = snapshot(a.getCustomerId(), a.getAdjustType(), a.getProductId());
+        // 2026-11-08：认领允许追加已有资产后，等待锁之前的 RR 快照可能已过期。
+        // 执行记录必须当前读；页面 preview 仍走不加锁、不建账户的普通查询。
+        Snapshot before = snapshot(a.getCustomerId(), a.getAdjustType(), a.getProductId(), true);
         Snapshot after = projectAfter(before, a.getAdjustType(), a.getQty(), a.getAmount(), a.getUnitPrice(), a.getProductId());
 
         // 2) CAS 占用执行权：affected=0 说明已被并发执行/撤销
@@ -705,24 +706,35 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
     }
 
     private Snapshot snapshot(Long customerId, String adjustType, Long productId) {
+        return snapshot(customerId, adjustType, productId, false);
+    }
+
+    private Snapshot snapshot(Long customerId, String adjustType, Long productId, boolean current) {
         Long stationId = requireMyStation();
         Snapshot s = new Snapshot();
         if (productId != null) {
-            s.right = barrelLedgerService.rightQty(customerId, stationId, productId);
-            s.over = barrelLedgerService.overQty(customerId, stationId, productId);
-        }
-        CustomerDepositAccount acc = depositAccountMapper.getByCustomerAndStation(customerId, stationId);
-        s.deposit = (acc != null && acc.getBalance() != null) ? acc.getBalance() : BigDecimal.ZERO;
-        if (productId != null) {
-            List<TicketAccount> tickets = ticketAccountService.listByCustomerAndStation(customerId, stationId);
-            int tq = 0;
-            for (TicketAccount t : tickets) {
-                if (productId.equals(t.getProductId()) && t.getRemainQuantity() != null) {
-                    tq += t.getRemainQuantity();
+            if (current) {
+                // 保持桶→水票→押金的固定顺序；仅本次要增减桶账时创建桶锁行。
+                if (AdjustType.isBarrel(adjustType)) barrelLedgerService.lockRights(customerId, stationId, productId);
+                var balance = barrelLedgerService.currentBalanceForUpdate(customerId, stationId, productId);
+                s.right = balance.right(); s.over = balance.over();
+                // 先 upsert 再当前读，不能对缺失账户先取 gap lock 再竞争插入。
+                if (AdjustType.TICKET_GRANT.equals(adjustType)) ticketAccountMapper.lockOrCreate(customerId, stationId, productId);
+                TicketAccount ticket = ticketAccountMapper.lockAccount(customerId, stationId, productId);
+                s.ticket = ticket == null || ticket.getRemainQuantity() == null ? 0 : ticket.getRemainQuantity();
+            } else {
+                s.right = barrelLedgerService.rightQty(customerId, stationId, productId);
+                s.over = barrelLedgerService.overQty(customerId, stationId, productId);
+                for (TicketAccount ticket : ticketAccountService.listByCustomerAndStation(customerId, stationId)) {
+                    if (productId.equals(ticket.getProductId()) && ticket.getRemainQuantity() != null)
+                        s.ticket += ticket.getRemainQuantity();
                 }
             }
-            s.ticket = tq;
         }
+        CustomerDepositAccount account = current ? depositAccountMapper.getForUpdate(customerId, stationId)
+                : depositAccountMapper.getByCustomerAndStation(customerId, stationId);
+        s.deposit = account == null || account.getBalance() == null ? BigDecimal.ZERO : account.getBalance();
+        s.occupied = s.right + s.over;
         return s;
     }
 

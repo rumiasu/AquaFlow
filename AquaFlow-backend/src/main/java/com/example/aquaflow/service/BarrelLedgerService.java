@@ -144,6 +144,18 @@ public class BarrelLedgerService {
                 .mapToInt(l -> l.getRemainQty() == null ? 0 : l.getRemainQty()).sum();
     }
 
+    /** 执行审计的同事务当前读；不建空行，不能用于页面只读预览。 */
+    @Transactional
+    public CurrentBalance currentBalanceForUpdate(Long customerId, Long stationId, Long productId) {
+        CustomerBarrelOver over = overMapper.getForUpdate(customerId, stationId, productId);
+        int right = lotMapper.listAvailableForUpdate(customerId, stationId, productId).stream()
+                .mapToInt(l -> l.getRemainQty() == null ? 0 : l.getRemainQty()).sum();
+        return new CurrentBalance(right, over == null || over.getOverQty() == null ? 0 : over.getOverQty());
+    }
+
+    /** 当前读返回的权益与差额，不独立记录实际持桶数。 */
+    public record CurrentBalance(int right, int over) {}
+
     /** 预付权益先成立，实物保持不变；新款优先覆盖客户已有超占用。见 design/16 §11。 */
     @Transactional
     public CustomerBarrelLot purchaseRight(Long customerId, Long stationId, Long productId,

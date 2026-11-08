@@ -11,7 +11,7 @@ const source=()=>fs.readFileSync(path.join(ROOT,file.replace('.js','.wxml')),'ut
 function fixture(extra={}){
  const wx=createWx(),app=createApp(),calls=[]
  wx.setStorageSync('selectedStation',{id:1,name:'测试站'})
- const summary={code:0,data:{depositBalance:12,heldBuckets:2,occupiedBuckets:1,independentRights:false}}
+ const summary={code:0,data:{depositBalance:12,rightBuckets: 2, heldBuckets: 2,occupiedBuckets:1,independentRights:false}}
  const page=loadPage(file,{wx,app,stubs:{
   'api/customer':{getCustomerStats:async()=>{calls.push('unused-stats');return {code:0,data:{balance:999,totalOrders:100}}}},
   'api/barrel':{getBarrelSummary:async id=>{calls.push(['summary',id]);return extra.summary?extra.summary(id):summary}},
@@ -22,41 +22,54 @@ function fixture(extra={}){
 }
 test('current APIs have no wallet cell or wallet state even if an unrelated mock returns balance',async()=>{const t=fixture();await t.page.loadAssets();for(const key of ['balance','balanceText','balanceLoaded'])assert.equal(Object.hasOwn(t.page.data,key),false);assert.ok(!source().includes('balanceLoaded'));assert.ok(!source().includes('>余额 ›</text>'));assert.equal(t.calls.includes('unused-stats'),false);assert.equal(t.page.data.unloadedCount,0);assert.equal(t.page.data.deposit,12);assert.equal(t.page.data.ticket,6);assert.equal(t.page.data.barrel,2)})
 test('wallet removal does not depend on a fabricated valid zero field',async()=>{const t=fixture();await t.page.loadAssets();assert.equal(Object.hasOwn(t.page.data,'balance'),false);assert.equal(t.calls.filter(x=>x==='unused-stats').length,0)})
-test('real asset zero values remain valid loaded zeros',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:0,heldBuckets:0}}),tickets:async()=>({code:0,data:[]})});await t.page.loadAssets();for(const key of ['deposit','barrel','ticket']){assert.equal(t.page.data[key],0);assert.equal(t.page.data[key+'Text'],'0');assert.equal(t.page.data[key+'Loaded'],true)}assert.equal(t.page.data.unloadedCount,0)})
-test('numeric strings keep real deposit and count values',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:'12.25',heldBuckets:'2'}}),tickets:async()=>({code:0,data:[{remainQuantity:'3'},{remainQuantity:2}]})});await t.page.loadAssets();assert.equal(t.page.data.depositText,'12.25');assert.equal(t.page.data.ticketText,'5');assert.equal(t.page.data.barrelText,'2')})
+test('real asset zero values remain valid loaded zeros',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:0,rightBuckets: 0, heldBuckets: 0}}),tickets:async()=>({code:0,data:[]})});await t.page.loadAssets();for(const key of ['deposit','barrel','ticket']){assert.equal(t.page.data[key],0);assert.equal(t.page.data[key+'Text'],'0');assert.equal(t.page.data[key+'Loaded'],true)}assert.equal(t.page.data.unloadedCount,0)})
+test('numeric strings keep real deposit and count values',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:'12.25',rightBuckets: '2', heldBuckets: '2'}}),tickets:async()=>({code:0,data:[{remainQuantity:'3'},{remainQuantity:2}]})});await t.page.loadAssets();assert.equal(t.page.data.depositText,'12.25');assert.equal(t.page.data.ticketText,'5');assert.equal(t.page.data.barrelText,'2')})
 test('summary transport failure leaves two actual assets unavailable and tickets valid',async()=>{const t=fixture({summary:async()=>{throw Error('模拟断网')}});await t.page.loadAssets();assert.equal(t.page.data.deposit,null);assert.equal(t.page.data.barrel,null);assert.equal(t.page.data.depositText,'暂未加载');assert.equal(t.page.data.ticket,6);assert.equal(t.page.data.unloadedCount,2)})
 test('ticket failure preserves loaded deposit and barrels',async()=>{const t=fixture({tickets:async()=>{throw Error('模拟断网')}});await t.page.loadAssets();assert.equal(t.page.data.ticketText,'暂未加载');assert.equal(t.page.data.deposit,12);assert.equal(t.page.data.barrel,2);assert.equal(t.page.data.unloadedCount,1)})
 test('all actual asset calls failing shows three missing values rather than zeros',async()=>{const fail=async()=>{throw Error('模拟断网')},t=fixture({summary:fail,tickets:fail,company:fail});await t.page.loadAssets();assert.equal(t.page.data.unloadedCount,3);for(const k of ['deposit','ticket','barrel'])assert.equal(t.page.data[k+'Text'],'暂未加载')})
-for(const value of [undefined,null,'','bad',{},true])test('missing or malformed deposit '+String(value)+' does not become zero',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:value,heldBuckets:2}})});await t.page.loadAssets();assert.equal(t.page.data.deposit,null);assert.equal(t.page.data.depositLoaded,false);assert.equal(t.page.data.barrel,2);assert.equal(t.page.data.unloadedCount,1)})
-test('summary business error cannot supply invented asset zeros',async()=>{const t=fixture({summary:async()=>({code:1,data:{depositBalance:0,heldBuckets:0}})});await t.page.loadAssets();assert.equal(t.page.data.depositLoaded,false);assert.equal(t.page.data.barrelLoaded,false)})
+for(const value of [undefined,null,'','bad',{},true])test('missing or malformed deposit '+String(value)+' does not become zero',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:value,rightBuckets: 2, heldBuckets: 2}})});await t.page.loadAssets();assert.equal(t.page.data.deposit,null);assert.equal(t.page.data.depositLoaded,false);assert.equal(t.page.data.barrel,2);assert.equal(t.page.data.unloadedCount,1)})
+test('summary business error cannot supply invented asset zeros',async()=>{const t=fixture({summary:async()=>({code:1,data:{depositBalance:0,rightBuckets: 0, heldBuckets: 0}})});await t.page.loadAssets();assert.equal(t.page.data.depositLoaded,false);assert.equal(t.page.data.barrelLoaded,false)})
 test('missing required bucket count is unavailable rather than zero',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,independentRights:true,heldBuckets:99}})});await t.page.loadAssets();assert.equal(t.page.data.deposit,12);assert.equal(t.page.data.barrel,null);assert.equal(t.page.data.barrelLoaded,false)})
 test('malformed ticket account shape and missing counts are unavailable',async()=>{for(const data of [{},[{remainQuantity:null}],[{remainQuantity:'bad'}]]){const t=fixture({tickets:async()=>({code:0,data})});await t.page.loadAssets();assert.equal(t.page.data.ticket,null);assert.equal(t.page.data.ticketLoaded,false)}})
-// 2026-11-07: The old technical wording was intentionally replaced with plain
-// language. Preserve the accounting/physical distinction and verify it is visible.
-test('new bucket model uses accounting E plus over projection without substituting rights or reservations',async()=>{
+// 2026-11-08: My barrels show server ownership, never physical differences or reservations.
+test('my barrels use ownership independently of physical differences and reservations',async()=>{
  const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,independentRights:true,occupiedBuckets:1,heldBuckets:9,rightBuckets:7,availableRights:5}})})
  await t.page.loadAssets()
- assert.equal(t.page.data.barrel,1)
- const hint='按押金和借还记录计算，可能与手中实物不同'
- assert.equal(t.page.data.barrelHint,hint)
- assert.ok(!t.page.data.barrelHint.includes('领到手'))
+ assert.equal(t.page.data.barrel,7)
+ assert.equal(Object.hasOwn(t.page.data,'barrelHint'),false)
  const findBarrel=node=>node.attrs?.['data-url']==='/pages/barrel/index'?node:(node.children || []).map(findBarrel).find(Boolean)
  const barrel=findBarrel(parseWxml(source()))
  assert.ok(barrel,'我的桶入口必须存在')
  const rendered=renderElements({children:[barrel]},t.page.data,{includeText:true})
  const textOf=cls=>rendered.find(node=>node.className.split(/\s+/).includes(cls))?.text
  assert.equal(textOf('asset-label'),'我的桶')
- assert.equal(textOf('asset-value'),'1')
- assert.equal(textOf('asset-note-text'),hint)
+ assert.equal(textOf('asset-value'),'7')
+ assert.equal(textOf('asset-note-text'),undefined)
 })
-test('legacy held total remains neutral and explains included pending delivery',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,independentRights:false,occupiedBuckets:1,heldBuckets:9,pendingDeliveryBuckets:2}})});await t.page.loadAssets();assert.equal(t.page.data.barrel,9);assert.ok(t.page.data.barrelHint.includes('配送中'))})
-test('late previous-customer summary cannot overwrite current assets',async()=>{const d=deferred();let n=0;const t=fixture({summary:()=>++n===1?d.promise:Promise.resolve({code:0,data:{depositBalance:22,heldBuckets:3}})});const p=t.page.loadAssets();t.app.globalData.customerId=8;await t.page.loadAssets();d.resolve({code:0,data:{depositBalance:999,heldBuckets:99}});await p;assert.equal(t.page.data.deposit,22);assert.equal(t.page.data.barrel,3)})
-test('late previous-station success is discarded',async()=>{const d=deferred(),t=fixture({summary:()=>d.promise});const p=t.page.loadAssets();t.wx.setStorageSync('selectedStation',{id:2,name:'新站'});d.resolve({code:0,data:{depositBalance:999,heldBuckets:99}});await p;assert.equal(t.page.data.deposit,null);assert.equal(t.page.data.ticket,null)})
-test('newer request wins and old rejection cannot erase it',async()=>{const d=deferred();let n=0;const t=fixture({summary:()=>++n===1?d.promise:Promise.resolve({code:0,data:{depositBalance:22,heldBuckets:3}})});const p=t.page.loadAssets();await t.page.loadAssets();d.reject(Error('旧请求'));await p;assert.equal(t.page.data.deposit,22);assert.equal(t.page.data.unloadedCount,0)})
-test('onShow clears previous identity numbers before its new response',async()=>{const d=deferred();let n=0;const t=fixture({summary:()=>++n===1?Promise.resolve({code:0,data:{depositBalance:12,heldBuckets:2}}):d.promise});await t.page.onShow();t.app.globalData.customerId=8;const p=t.page.onShow();assert.equal(t.page.data.deposit,null);assert.equal(t.page.data.barrel,null);d.resolve({code:0,data:{depositBalance:0,heldBuckets:0}});await p;assert.equal(t.page.data.deposit,0)})
-test('unload invalidates pending asset responses',async()=>{const d=deferred(),t=fixture({summary:()=>d.promise});const p=t.page.loadAssets();t.page.onUnload();d.resolve({code:0,data:{depositBalance:999,heldBuckets:9}});await p;assert.equal(t.page.data.deposit,null)})
-test('logout prevents earlier asset response from repopulating the visitor page',async()=>{const d=deferred(),t=fixture({summary:()=>d.promise});t.app.clearLoginInfo=()=>{t.app.globalData.isLogin=false;t.app.globalData.customerId=null};const p=t.page.loadAssets();t.page.onLogout();d.resolve({code:0,data:{depositBalance:999,heldBuckets:9}});await p;assert.equal(t.page.data.isLogin,false);assert.equal(t.page.data.deposit,null)})
-test('retry performs only the current three reads and recovers real assets',async()=>{let n=0;const t=fixture({summary:async()=>++n===1?Promise.reject(Error('失败')):{code:0,data:{depositBalance:30,heldBuckets:3}}});await t.page.loadAssets();await t.page.onRetryAssets();assert.equal(n,2);assert.equal(t.page.data.deposit,30);assert.equal(t.calls.includes('unused-stats'),false);assert.equal(t.page.data.unloadedCount,0)})
+test('legacy ownership excludes pending delivery without an explanatory line',async()=>{const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,independentRights:false,occupiedBuckets:1,rightBuckets:7,heldBuckets:9,pendingDeliveryBuckets:2}})});await t.page.loadAssets();assert.equal(t.page.data.barrel,7);assert.equal(Object.hasOwn(t.page.data,'barrelHint'),false)})
+for(const independentRights of [true,false]) for(const occupiedBuckets of [0,3,12]) test('ownership does not move with physical differences '+independentRights+' '+occupiedBuckets,async()=>{
+ const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,independentRights,rightBuckets:5,heldBuckets:9,occupiedBuckets,availableRights:2}})})
+ await t.page.loadAssets();assert.equal(t.page.data.barrel,5);assert.equal(t.page.data.barrelText,'5')
+})
+for(const rightBuckets of [undefined,null,'',-1,1.5,true,'broken']) test('invalid ownership never borrows a physical total '+String(rightBuckets),async()=>{
+ const t=fixture({summary:async()=>({code:0,data:{depositBalance:12,rightBuckets,heldBuckets:9,occupiedBuckets:4}})})
+ await t.page.loadAssets();assert.equal(t.page.data.barrel,null);assert.equal(t.page.data.barrelText,'暂未加载')
+})
+test('feedback entries and destination consistently use feedback wording',()=>{
+ const mine=source(),target=jsonParse('miniapp-user/pages/service/index.json')
+ assert(!mine.includes('客服反馈'));assert(!mine.includes('联系客服'));assert(mine.includes('意见反馈'))
+ assert.equal(target.navigationBarTitleText,'意见反馈')
+ const service=fs.readFileSync(path.join(ROOT,'miniapp-user/pages/service/index.wxml'),'utf8')
+ assert(service.includes("'意见反馈'"));assert(service.includes('bindtap="onCallPhone"'))
+})
+
+test('late previous-customer summary cannot overwrite current assets',async()=>{const d=deferred();let n=0;const t=fixture({summary:()=>++n===1?d.promise:Promise.resolve({code:0,data:{depositBalance:22,rightBuckets: 3, heldBuckets: 3}})});const p=t.page.loadAssets();t.app.globalData.customerId=8;await t.page.loadAssets();d.resolve({code:0,data:{depositBalance:999,rightBuckets: 99, heldBuckets: 99}});await p;assert.equal(t.page.data.deposit,22);assert.equal(t.page.data.barrel,3)})
+test('late previous-station success is discarded',async()=>{const d=deferred(),t=fixture({summary:()=>d.promise});const p=t.page.loadAssets();t.wx.setStorageSync('selectedStation',{id:2,name:'新站'});d.resolve({code:0,data:{depositBalance:999,rightBuckets: 99, heldBuckets: 99}});await p;assert.equal(t.page.data.deposit,null);assert.equal(t.page.data.ticket,null)})
+test('newer request wins and old rejection cannot erase it',async()=>{const d=deferred();let n=0;const t=fixture({summary:()=>++n===1?d.promise:Promise.resolve({code:0,data:{depositBalance:22,rightBuckets: 3, heldBuckets: 3}})});const p=t.page.loadAssets();await t.page.loadAssets();d.reject(Error('旧请求'));await p;assert.equal(t.page.data.deposit,22);assert.equal(t.page.data.unloadedCount,0)})
+test('onShow clears previous identity numbers before its new response',async()=>{const d=deferred();let n=0;const t=fixture({summary:()=>++n===1?Promise.resolve({code:0,data:{depositBalance:12,rightBuckets: 2, heldBuckets: 2}}):d.promise});await t.page.onShow();t.app.globalData.customerId=8;const p=t.page.onShow();assert.equal(t.page.data.deposit,null);assert.equal(t.page.data.barrel,null);d.resolve({code:0,data:{depositBalance:0,rightBuckets: 0, heldBuckets: 0}});await p;assert.equal(t.page.data.deposit,0)})
+test('unload invalidates pending asset responses',async()=>{const d=deferred(),t=fixture({summary:()=>d.promise});const p=t.page.loadAssets();t.page.onUnload();d.resolve({code:0,data:{depositBalance:999,rightBuckets: 9, heldBuckets: 9}});await p;assert.equal(t.page.data.deposit,null)})
+test('logout prevents earlier asset response from repopulating the visitor page',async()=>{const d=deferred(),t=fixture({summary:()=>d.promise});t.app.clearLoginInfo=()=>{t.app.globalData.isLogin=false;t.app.globalData.customerId=null};const p=t.page.loadAssets();t.page.onLogout();d.resolve({code:0,data:{depositBalance:999,rightBuckets: 9, heldBuckets: 9}});await p;assert.equal(t.page.data.isLogin,false);assert.equal(t.page.data.deposit,null)})
+test('retry performs only the current three reads and recovers real assets',async()=>{let n=0;const t=fixture({summary:async()=>++n===1?Promise.reject(Error('失败')):{code:0,data:{depositBalance:30,rightBuckets: 3, heldBuckets: 3}}});await t.page.loadAssets();await t.page.onRetryAssets();assert.equal(n,2);assert.equal(t.page.data.deposit,30);assert.equal(t.calls.includes('unused-stats'),false);assert.equal(t.page.data.unloadedCount,0)})
 test('asset clicks use actual WXML routes and preserve deposit handling and bill access',()=>{
  const w=source(),t=fixture(),app=jsonParse('miniapp-user/app.json')
  const hasClass=(node,name)=>(node.attrs?.class || '').split(/\s+/).includes(name)

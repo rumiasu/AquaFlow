@@ -9,3 +9,9 @@
 .product-name{font-size:16px;font-weight:600}.product-spec{font-size:14px;color:var(--af-text-secondary);margin-top:3px}.product-price{font-size:14px;color:var(--af-strong);margin-top:4px}
 .product-choice{flex:none;max-width:64px;font-size:14px;color:var(--af-primary)}.product-option[disabled],button.product-option[disabled]{opacity:1;background:var(--af-disabled-bg);color:var(--af-disabled-text);border-color:var(--af-border)}
 .product-option[disabled] .product-name,.product-option[disabled] .product-spec,.product-option[disabled] .product-price,.product-option[disabled] .product-choice{color:var(--af-disabled-text)}
+
+/* Compact history selection keeps full names and a minimum 44px touch target. */
+.product-options--compact .product-option{min-height:64px;padding:8px 10px;gap:10px}
+.product-options--compact .product-picture{width:44px;height:44px}
+.product-options--compact .product-name{font-size:14px}
+.product-options--compact .product-price{margin-top:2px}

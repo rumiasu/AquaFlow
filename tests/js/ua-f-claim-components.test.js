@@ -10,11 +10,12 @@ const p = loadPage('miniapp-user/pages/mine/asset-claims/index.js', { wx, app, s
  'utils/claim-photo': {lookup:async()=>({exists:false}),upload:async()=>({exists:true})}
 }})
 ;(async()=>{
- await p.onShow(); assert.equal(p.data.selectorCatalog[0].image,'sample.png'); assert.equal(p.data.selectorCatalog[0].priceText,'价格待确认')
- p.onSelectCatalog({detail:{id:11}}); assert.equal(p.data.form.items[0].productId,11); assert.equal(p.data.selectorCatalog[0].disabled,true)
+ await p.onShow(); assert.equal(p.data.selectorCatalog[0].image,'sample.png'); assert.equal(p.data.selectorCatalog[0].priceText,'添加到清单')
+ p.onSelectCatalog({detail:{id:11}}); assert.equal(p.data.form.items[0].productId,11); assert.equal(p.data.selectorCatalog[0].selected,true); assert.notEqual(p.data.selectorCatalog[0].disabled,true)
+ p.onSelectCatalog({detail:{id:11}}); assert.equal(p.data.form.items.length,0); assert.equal(p.data.selectorCatalog[0].selected,false)
  p.onSelectCatalog({detail:{id:11}}); assert.equal(p.data.form.items.length,1)
  p.onField({currentTarget:{dataset:{field:'rights',index:0}},detail:{value:''}}); assert.equal(p.data.form.items[0].rights,'')
- p.onRemoveProduct({currentTarget:{dataset:{index:0}}}); assert.equal(p.data.selectorCatalog[0].disabled,false)
+ p.onRemoveProduct({currentTarget:{dataset:{index:0}}}); assert.equal(p.data.selectorCatalog[0].selected,false); assert.notEqual(p.data.selectorCatalog[0].disabled,true)
  await p.onStation({detail:{value:'1'}});assert.equal(p.data.stationId,2);assert.equal(p.data.form.items.length,0)
  console.log('AQUAFLOW_SUITE_OK 4');done()
 })().catch(e=>{console.error(e);done();process.exitCode=1})

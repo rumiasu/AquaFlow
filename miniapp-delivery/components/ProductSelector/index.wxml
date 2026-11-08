@@ -1,4 +1,4 @@
-<view class="product-options">
+<view class="product-options {{compact ? 'product-options--compact' : ''}}">
   <button wx:for="{{viewItems}}" wx:key="index" class="product-option af-choice {{item.selected ? 'product-selected af-choice--selected' : ''}}" disabled="{{item.disabled}}" data-index="{{index}}" bindtap="onSelect" aria-label="{{item.ariaLabel}}" aria-pressed="{{item.selected}}">
     <image wx:if="{{item.image}}" class="product-picture" src="{{item.image}}" mode="aspectFit" data-index="{{index}}" binderror="onImageError" />
     <view wx:else class="product-picture product-placeholder" aria-hidden="true">水</view>

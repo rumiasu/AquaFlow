@@ -19,7 +19,7 @@ function cents(value) {
   return amount
 }
 function money(value) { const n = cents(value); return Math.floor(n / 100) + '.' + String(n % 100).padStart(2, '0') }
-function body(raw) {
+function body(raw, options = {}) {
   if (!object(raw) || !id(raw.stationId) || raw.confirmed !== true || typeof raw.clientToken !== 'string'
     || !raw.clientToken.trim() || raw.clientToken.length > 64 || typeof raw.note !== 'string'
     || !raw.note.trim() || raw.note.trim().length > 500 || !Array.isArray(raw.items) || raw.items.length > 100) fail('请完整核对认领水站、历史资产和说明')
@@ -28,13 +28,16 @@ function body(raw) {
   const items = raw.items.map(row => {
     if (!object(row) || !id(row.productId) || seen.has(id(row.productId))) fail('同一商品只能填写一行，请重新核对')
     const productId = id(row.productId); seen.add(productId)
-    const rights = quantity(row.rights), held = quantity(row.held), tickets = quantity(row.tickets)
+    const rights = quantity(row.rights), tickets = quantity(row.tickets)
     const unitPrice = row.unitPrice == null || row.unitPrice === '' ? null : money(row.unitPrice)
-    if (unitPrice !== null && (cents(unitPrice) === 0 || cents(unitPrice) * rights > 9999999999)) fail('历史单价须大于零，权益金额不能超出可保存范围')
-    nonempty = nonempty || rights > 0 || held > 0 || tickets > 0
-    return { productId, rights, held, tickets, unitPrice }
+    if (unitPrice !== null && (cents(unitPrice) === 0 || cents(unitPrice) * rights > 9999999999)) fail('历史单价须大于零，桶金额不能超出可保存范围')
+    nonempty = nonempty || rights > 0 || tickets > 0
+    // 旧申请保留实传字段以核实原请求；它不再代表本次认领要登记的资产。
+    const item = { productId, rights }
+    if (row.held != null) item.held = quantity(row.held)
+    return Object.assign(item, { tickets, unitPrice })
   }).sort((a, b) => a.productId - b.productId)
-  if (!nonempty) fail('请填写需要认领的历史资产')
+  if (!nonempty && !(options.legacySnapshot && items.some(row => row.held > 0))) fail('请填写需要认领的历史资产')
   return { stationId: id(raw.stationId), clientToken: raw.clientToken, confirmed: true, depositBalance, note: raw.note.trim(), items }
 }
 function reviewBody(raw) {
@@ -64,17 +67,17 @@ function record(raw, expected = {}, products = []) {
     || !['PENDING', 'APPROVED', 'REJECTED'].includes(raw.status) || typeof raw.statusText !== 'string' || !raw.statusText.trim()) fail('认领记录暂时无法核实，请重试或联系水站')
   let snapshot = raw.requestJson
   if (typeof snapshot === 'string') { try { snapshot = JSON.parse(snapshot) } catch (e) { fail('原认领清单无法读取，请联系水站') } }
-  const normalized = body(snapshot)
+  const normalized = body(snapshot, { legacySnapshot: true })
   if (normalized.stationId !== id(raw.stationId) || normalized.clientToken !== raw.clientToken
-    || (expected.body && JSON.stringify(normalized) !== JSON.stringify(body(expected.body)))) fail('原申请与查回清单不一致，请保留记录并联系水站')
+    || (expected.body && JSON.stringify(normalized) !== JSON.stringify(body(expected.body, { legacySnapshot: true })))) fail('原申请与查回清单不一致，请保留记录并联系水站')
   if (raw.status !== 'PENDING' && (!id(raw.reviewerId) || typeof raw.reviewTime !== 'string' || !raw.reviewTime)) fail('核对结果不完整，请查询原申请')
   if (raw.status === 'REJECTED' && (typeof raw.reviewNote !== 'string' || !raw.reviewNote.trim())) fail('拒绝反馈尚未核实，请联系水站')
   const names = new Map(products.map(row => [row.id, row]))
   return { id: id(raw.id), customerId: id(raw.customerId), stationId: id(raw.stationId), clientToken: raw.clientToken,
     status: raw.status, statusText: raw.statusText, depositText: normalized.depositBalance, note: normalized.note,
     reviewNote: typeof raw.reviewNote === 'string' ? raw.reviewNote : '', createTime: String(raw.createTime || '').replace('T', ' '),
-    body: normalized, items: normalized.items.map(row => ({ ...row, name: (names.get(row.productId) || {}).name || '历史商品',
-      spec: (names.get(row.productId) || {}).spec || '', over: row.held - row.rights,
+    body: normalized, assetEmpty: cents(normalized.depositBalance) === 0 && normalized.items.every(row => row.rights === 0 && row.tickets === 0), items: normalized.items.map(row => ({ productId: row.productId, rights: row.rights, tickets: row.tickets, unitPrice: row.unitPrice, name: (names.get(row.productId) || {}).name || '历史商品',
+      spec: (names.get(row.productId) || {}).spec || '',
       unitPriceText: row.unitPrice == null ? '未填写，按补录规则推断' : row.unitPrice })) }
 }
 function records(response, expected, products) {
@@ -91,7 +94,7 @@ function read(actor, target) {
   try { value = wx.getStorageSync(key(actor, target)) } catch (e) { fail('原认领记录无法读取，请保留记录并重试') }
   if (value === undefined || value === null || value === '') return null
   if (!object(value) || value.version !== 1 || value.actor !== actor || value.target !== target || !['SUBMIT', 'REVIEW'].includes(value.operation)) fail('原认领记录不完整，请保留记录并联系水站')
-  const normalized = value.operation === 'SUBMIT' ? body(value.body) : reviewBody(value.body)
+  const normalized = value.operation === 'SUBMIT' ? body(value.body, { legacySnapshot: true }) : reviewBody(value.body)
   if (value.operation === 'SUBMIT' && ('station:' + normalized.stationId !== target || !actor.startsWith('customer:'))) fail('原认领身份不一致，请联系水站')
   if (value.operation === 'REVIEW' && (!actor.startsWith('manager:') || target !== 'reviews:' + actor.split(':')[2] || !id(value.objectId))) fail('原核对身份不一致，请联系水站')
   return Object.assign({ version: 1, actor, target, operation: value.operation, body: normalized }, value.operation === 'REVIEW' ? { objectId: id(value.objectId) } : {})

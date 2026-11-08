@@ -188,7 +188,7 @@ const knownFacts = [
   ['manager-customers', 'miniapp-delivery/pages/station-mgmt/customers/index.wxml', '未填写电话', 'miniapp-delivery/pages/station-mgmt/customers/index.wxss', '.customer-phone.muted'],
   ['order-delivery same-order customer readback', 'miniapp-user/pages/order/detail.wxml', '订单编号', 'miniapp-user/pages/order/detail.wxss', '.label'],
   ['return-refund manager amount', 'miniapp-delivery/pages/station-mgmt/barrel-return/index.wxml', '应退押金', 'miniapp-delivery/pages/station-mgmt/barrel-return/index.wxss', '.muted'],
-  ['barrel-rights', 'miniapp-user/pages/barrel/index.wxml', '用桶份数', 'miniapp-user/pages/barrel/index.wxss', '.stat-label'],
+  ['barrel-rights', 'miniapp-user/pages/barrel/index.wxml', '我的桶', 'miniapp-user/pages/barrel/index.wxss', '.stat-label'],
   ['barrel-return-station', 'miniapp-user/pages/barrel/index.wxml', '办理水站', 'miniapp-user/pages/barrel/index.wxss', '.return-tip'],
   ['roles-stations', 'miniapp-delivery/pages/role-select/index.wxml', '选择身份只是登记意向', 'miniapp-delivery/pages/role-select/index.wxss', '.footer-tip']
 ]
@@ -201,7 +201,7 @@ for (const [object, wxml, fact, wxss, selector] of knownFacts) test('known A01 b
   }
 })
 
-// 2026-11-07: The customer copy now says 用桶份数. Bind that fact to the actual
+// 2026-11-08: My barrels consistently show ownership in both model paths. Bind to the actual
 // summary label and value, so unrelated text cannot make a missing label pass.
 test('barrel summary binds current rights and legacy labels to the contrasted stat text', () => {
   const hasClass = (node, name) => (node.attrs?.class || '').split(/\s+/).includes(name)
@@ -209,7 +209,7 @@ test('barrel summary binds current rights and legacy labels to the contrasted st
   const card = findCard(parseWxml(read('miniapp-user/pages/barrel/index.wxml')))
   assert(card, 'barrel summary card missing')
   for (const [independentRights, label, quantity, unit] of [
-    [true, '用桶份数', '7', '份'], [false, '桶账汇总', '9', '个']
+    [true, '我的桶', '7', '个'], [false, '我的桶', '7', '个']
   ]) {
     const rendered = renderElements({ children: [card] }, { summary: {
       independentRights, rightBuckets: 7, heldBuckets: 9, occupiedBuckets: 1,

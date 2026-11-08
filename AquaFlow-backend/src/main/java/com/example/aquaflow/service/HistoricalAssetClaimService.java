@@ -12,6 +12,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.dao.PessimisticLockingFailureException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -33,12 +37,13 @@ public class HistoricalAssetClaimService {
     private final ObjectMapper json=new ObjectMapper();
     private final Validator validator;
     private final ProductImageResolver images;
+    private final PlatformTransactionManager transactions;
 
     public HistoricalAssetClaimService(HistoricalAssetClaimMapper claims,CustomerStationConfigMapper bindings,
         StationMapper stations,ProductMapper products,InventoryMapper inventories,BarrelLedgerService barrels,
-        StationAdjustmentService adjustments,Validator validator,ProductImageResolver images) {
+        StationAdjustmentService adjustments,Validator validator,ProductImageResolver images,PlatformTransactionManager transactions) {
         this.claims=claims;this.bindings=bindings;this.stations=stations;this.products=products;
-        this.inventories=inventories;this.barrels=barrels;this.adjustments=adjustments;this.validator=validator;this.images=images;
+        this.inventories=inventories;this.barrels=barrels;this.adjustments=adjustments;this.validator=validator;this.images=images;this.transactions=transactions;
     }
 
     @Transactional(rollbackFor=Exception.class)
@@ -85,8 +90,21 @@ public class HistoricalAssetClaimService {
         return claim;
     }
 
-    @Transactional(rollbackFor=Exception.class)
     public HistoricalAssetClaim review(Long id,HistoricalAssetClaimDTO.Review request) {
+        // 2026-11-08：不同客户的空批次区间仍可能发生死锁；必须完整回滚后重试原决定。
+        // 被别的事务调用时不能在已失败事务中循环，异常交给真正的最外层处理。
+        if(TransactionSynchronizationManager.isActualTransactionActive()) return reviewInternal(id,request);
+        for(int attempt=0;attempt<5;attempt++) {
+            try {
+                return new TransactionTemplate(transactions).execute(status -> reviewInternal(id,request));
+            } catch(PessimisticLockingFailureException conflict) {
+                if(attempt==4) throw new BusinessException("认领正在处理中，请用原决定重试");
+            }
+        }
+        throw new IllegalStateException("unreachable claim retry state");
+    }
+
+    private HistoricalAssetClaim reviewInternal(Long id,HistoricalAssetClaimDTO.Review request) {
         Long station=managerStation();validate(request);
         String note=request.note()==null?null:request.note().trim();
         if(!request.approve()&&(note==null||note.isEmpty())) throw new BusinessException("驳回请说明核对差异");

@@ -33,6 +33,7 @@ class HistoricalAssetClaimAppendTest {
     private final BarrelLedgerService barrels=mock(BarrelLedgerService.class);
     private final StationAdjustmentService adjustments=mock(StationAdjustmentService.class);
     private final ObjectMapper json=new ObjectMapper();
+    private final org.springframework.transaction.PlatformTransactionManager transactions=mock(org.springframework.transaction.PlatformTransactionManager.class);
     private ValidatorFactory factory;
     private HistoricalAssetClaimService service;
     private HistoricalAssetClaim saved;
@@ -40,7 +41,8 @@ class HistoricalAssetClaimAppendTest {
     @BeforeEach void setup() {
         factory=Validation.buildDefaultValidatorFactory();
         service=new HistoricalAssetClaimService(claims,bindings,stations,products,inventories,barrels,
-            adjustments,factory.getValidator(),mock(ProductImageResolver.class));
+            adjustments,factory.getValidator(),mock(ProductImageResolver.class),transactions);
+        when(transactions.getTransaction(any())).thenAnswer(call -> mock(org.springframework.transaction.TransactionStatus.class));
         customer();when(claims.lockCustomer(7L)).thenReturn(7L);
         when(claims.photoStation(anyLong(),anyString())).thenReturn(null);
         when(stations.getById(1L)).thenReturn(new Station());
@@ -59,7 +61,7 @@ class HistoricalAssetClaimAppendTest {
             nullable(BigDecimal.class),nullable(BigDecimal.class),anyString(),isNull(),anyString()))
             .thenAnswer(call -> { var a=new StationAdjustment();a.setId(100L);return a; });
     }
-    @AfterEach void cleanup() { AuthContext.clear();factory.close(); }
+    @AfterEach void cleanup() { AuthContext.clear();org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(false);factory.close(); }
     private void customer() { AuthContext.set(new AuthContext.AuthUser(7L,"customer",null,null)); }
     private void manager() { AuthContext.set(new AuthContext.AuthUser(9L,"staff","STATION_MANAGER",1L)); }
     private HistoricalAssetClaimDTO request(BigDecimal held) {
@@ -159,10 +161,44 @@ class HistoricalAssetClaimAppendTest {
         }
         verifyNoInteractions(bindings,barrels,adjustments);verify(claims,never()).decide(any(),any(),any(),any());
     }
-    @Test void failurePropagatesAndEntryPointsRequireRollbackForAllExceptions() throws Exception {
+    @Test void failurePropagatesAndReviewTransactionRollsBack() throws Exception {
         legacy("2","1","3","75.00","30.00");manager();doThrow(new IllegalStateException("synthetic failure")).when(adjustments).execute(100L);
         assertThrows(IllegalStateException.class,()->service.review(19L,new HistoricalAssetClaimDTO.Review(true,"ok")));
-        for(var method:HistoricalAssetClaimService.class.getMethods()) if(Set.of("submit","review").contains(method.getName()))
-            assertArrayEquals(new Class[]{Exception.class},method.getAnnotation(org.springframework.transaction.annotation.Transactional.class).rollbackFor());
+        verify(transactions).rollback(any());verify(transactions,never()).commit(any());
+        assertArrayEquals(new Class[]{Exception.class},HistoricalAssetClaimService.class.getMethod("submit",HistoricalAssetClaimDTO.class)
+            .getAnnotation(org.springframework.transaction.annotation.Transactional.class).rollbackFor());
+        assertNull(HistoricalAssetClaimService.class.getMethod("review",Long.class,HistoricalAssetClaimDTO.Review.class)
+            .getAnnotation(org.springframework.transaction.annotation.Transactional.class));
     }
+    @Test void reviewRetriesOnlyAfterFullRollbackWithTheOriginalDecision() throws Exception {
+        legacy("2","1","3","75.00","30.00");manager();
+        when(claims.get(19L)).thenThrow(new org.springframework.dao.CannotAcquireLockException("synthetic lock timeout"))
+            .thenAnswer(call -> saved);
+        var decision=new HistoricalAssetClaimDTO.Review(true,"ok");
+        assertEquals("APPROVED",service.review(19L,decision).getStatus());
+        var order=inOrder(transactions,claims);
+        order.verify(transactions).getTransaction(any());order.verify(claims).get(19L);
+        order.verify(transactions).rollback(any());order.verify(transactions).getTransaction(any());order.verify(claims).get(19L);
+        verify(transactions).commit(any());verify(claims,times(1)).decide(19L,"APPROVED",9L,"ok");
+        verify(adjustments,times(3)).execute(100L);
+    }
+    @Test void reviewHasBoundedRetriesAndDoesNotRetryBusinessErrors() throws Exception {
+        legacy("2","1","3","75.00","30.00");manager();
+        when(claims.get(19L)).thenThrow(new org.springframework.dao.CannotAcquireLockException("synthetic conflict"));
+        assertThrows(BusinessException.class,()->service.review(19L,new HistoricalAssetClaimDTO.Review(true,"ok")));
+        verify(transactions,times(5)).getTransaction(any());verify(transactions,times(5)).rollback(any());
+        verifyNoInteractions(adjustments);
+        clearInvocations(transactions);doThrow(new BusinessException("synthetic business rejection")).when(claims).get(19L);
+        assertThrows(BusinessException.class,()->service.review(19L,new HistoricalAssetClaimDTO.Review(true,"ok")));
+        verify(transactions,times(1)).getTransaction(any());verify(transactions,times(1)).rollback(any());
+    }
+    @Test void reviewWithinAnExistingTransactionNeverRetriesThatFailedTransaction() throws Exception {
+        legacy("2","1","3","75.00","30.00");manager();
+        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+        when(claims.get(19L)).thenThrow(new org.springframework.dao.CannotAcquireLockException("synthetic outer conflict"));
+        assertThrows(org.springframework.dao.CannotAcquireLockException.class,
+            ()->service.review(19L,new HistoricalAssetClaimDTO.Review(true,"ok")));
+        verify(claims,times(1)).get(19L);verifyNoInteractions(transactions,adjustments);
+    }
+
 }

@@ -15,6 +15,11 @@ public interface CustomerDepositAccountMapper {
     @Select("select * from customer_deposit_account where customer_id = #{customerId} and station_id = #{stationId}")
     CustomerDepositAccount getByCustomerAndStation(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
+    /** 先固定中性账户再当前读，避免缺行 gap lock 升级插入；已有金额和更新时间不改。 */
+    @Insert("insert into customer_deposit_account(customer_id,station_id,balance,update_time) "
+            + "values(#{customerId},#{stationId},0,NOW()) on duplicate key update balance=balance")
+    int lockOrCreate(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
+
     /** 执行审计使用当前读，不能把等待并发事务前的快照写进调整单。 */
     @Select("select * from customer_deposit_account where customer_id=#{customerId} and station_id=#{stationId} for update")
     CustomerDepositAccount getForUpdate(@Param("customerId") Long customerId, @Param("stationId") Long stationId);

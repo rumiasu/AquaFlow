@@ -28,6 +28,7 @@ import com.example.aquaflow.mapper.TicketLotMapper;
 import com.example.aquaflow.mapper.TicketRecordMapper;
 import com.example.aquaflow.service.AuditLogService;
 import com.example.aquaflow.service.BarrelLedgerService;
+import com.example.aquaflow.service.BarrelBalanceReader;
 import com.example.aquaflow.service.DepositRecordService;
 import com.example.aquaflow.service.StationAdjustmentService;
 import com.example.aquaflow.service.TicketAccountService;
@@ -37,9 +38,8 @@ import com.example.aquaflow.util.PriceUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.dao.DeadlockLoserDataAccessException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -72,6 +72,7 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
 
     @Autowired private StationAdjustmentMapper adjustmentMapper;
     @Autowired private BarrelLedgerService barrelLedgerService;
+    @Autowired private BarrelBalanceReader barrelBalanceReader;
     @Autowired private DepositRecordService depositRecordService;
     @Autowired private TicketAccountService ticketAccountService;
     @Autowired private BarrelRecordMapper barrelRecordMapper;
@@ -127,12 +128,13 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
 
     private <T> T withDeadlockRetry(Supplier<T> command) {
         // 2026-10-08 实库反例：两个唯一索引及临时单号更新仍可能在 INSERT 阶段死锁。
+        // 2026-11-08：执行阶段也会竞争缺失账户/批次的 gap lock；死锁及锁等待失败只整事务重试。
         // 必须等事务完整回滚后再用原凭据重试；已有外层事务时交给外层回滚，不在坏事务里继续。
         if (TransactionSynchronizationManager.isActualTransactionActive()) return command.get();
         for (int attempt = 0; attempt < 5; attempt++) {
             try {
                 return new TransactionTemplate(transactionManager).execute(status -> command.get());
-            } catch (DeadlockLoserDataAccessException conflict) {
+            } catch (PessimisticLockingFailureException conflict) {
                 if (attempt == 4) throw new BusinessException("调整凭据正在处理，请使用原凭据重试");
             }
         }
@@ -200,8 +202,12 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
     /* ==================== 执行 ==================== */
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void execute(Long id) {
+        // 外部独立执行由此开启/重试事务；认领、冲正已持有外层事务时失败必须向外透传。
+        withDeadlockRetry(() -> { executeInternal(id); return null; });
+    }
+
+    private void executeInternal(Long id) {
         Long stationId = requireMyStation();
         StationAdjustment a = adjustmentMapper.getById(id);
         if (a == null || !stationId.equals(a.getStationId())) {
@@ -716,10 +722,11 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
             if (current) {
                 // 保持桶→水票→押金的固定顺序；仅本次要增减桶账时创建桶锁行。
                 if (AdjustType.isBarrel(adjustType)) barrelLedgerService.lockRights(customerId, stationId, productId);
-                var balance = barrelLedgerService.currentBalanceForUpdate(customerId, stationId, productId);
+                var balance = barrelBalanceReader.currentBalanceForUpdate(customerId, stationId, productId);
                 s.right = balance.right(); s.over = balance.over();
-                // 先 upsert 再当前读，不能对缺失账户先取 gap lock 再竞争插入。
-                if (AdjustType.TICKET_GRANT.equals(adjustType)) ticketAccountMapper.lockOrCreate(customerId, stationId, productId);
+                // 桶调整也会先读票快照，不能等后续 TICKET_GRANT 才消除缺行 gap lock。
+                // 中性账户不代表新增资产；已有数量、金额、更新时间均保持原值。
+                ticketAccountMapper.lockOrCreate(customerId, stationId, productId);
                 TicketAccount ticket = ticketAccountMapper.lockAccount(customerId, stationId, productId);
                 s.ticket = ticket == null || ticket.getRemainQuantity() == null ? 0 : ticket.getRemainQuantity();
             } else {
@@ -731,6 +738,8 @@ public class StationAdjustmentServiceImpl implements StationAdjustmentService {
                 }
             }
         }
+        // 认领最后才追加押金，前序桶/票快照也必须先固定账户，不能先锁缺行再升级插入。
+        if (current) depositAccountMapper.lockOrCreate(customerId, stationId);
         CustomerDepositAccount account = current ? depositAccountMapper.getForUpdate(customerId, stationId)
                 : depositAccountMapper.getByCustomerAndStation(customerId, stationId);
         s.deposit = account == null || account.getBalance() == null ? BigDecimal.ZERO : account.getBalance();

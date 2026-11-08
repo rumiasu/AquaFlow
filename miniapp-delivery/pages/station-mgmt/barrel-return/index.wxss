@@ -175,6 +175,6 @@ button.af-entry::after { border:0; }
 .record-card { padding:28rpx; margin-bottom:20rpx; background:var(--bg-white); border:1rpx solid var(--border-light); border-radius:var(--radius-lg); }
 .customer-name,.product-name,.sheet-scope,.detail-value { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; min-width:0; }
 .quantity-summary,.money-summary { min-width:0; max-width:100%; }
-.record-number,.page-scope { font-size:24rpx; color:var(--text-secondary); line-height:1.6; }
+.record-number,.page-scope { font-size:24rpx; color:var(--text-regular); line-height:1.6; }
 .sheet-content .detail-row { align-items:flex-start; gap:24rpx; }
 .sheet-footer { padding-bottom:calc(24rpx + env(safe-area-inset-bottom)); }

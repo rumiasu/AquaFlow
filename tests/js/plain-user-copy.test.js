@@ -120,9 +120,11 @@ test('rendered product and delivery copy explains the next action without repeat
   assert(text(detail).includes('安排配送时参考。'))
   assert(!detail.some(n => (n.attrs.text || '').includes('期望时间不代表')))
   const paymentSource = fs.readFileSync(path.join(ROOT, 'AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/PaymentServiceImpl.java'), 'utf8')
-  const offlineNote = paymentSource.match(/DEPOSIT_OFFLINE_RISK_NOTE\s*=([\s\S]*?);\n/)[1]
-  assert(offlineNote.includes('现金押金由水站当面收取并登记，请保留收据。'))
-  assert(!/纠纷|自行协商|系统无法核实/.test(offlineNote))
+  for (const newline of ['\n', '\r\n']) {
+    const offlineNote = paymentSource.replace(/\r?\n/g, newline).match(/DEPOSIT_OFFLINE_RISK_NOTE\s*=([\s\S]*?);\r?\n/)[1]
+    assert(offlineNote.includes('现金押金由水站当面收取并登记，请保留收据。'))
+    assert(!/纠纷|自行协商|系统无法核实/.test(offlineNote))
+  }
 })
 
 async function main() {

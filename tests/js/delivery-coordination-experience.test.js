@@ -275,9 +275,12 @@ async function main() {
     assert(steps.some(t => t.includes('桶折款：水站之间交接桶时，按约定折算的金额')))
     assert(!steps.join('').match(/履约|风险需双方确认|接单前查看|负责/))
     const source = read('AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/OrderWorkflowServiceImpl.java')
-    const riskCopy = source.match(/DEPOSIT_BARREL_RISK_TEXT\s*=([\s\S]*?);\n/)[1]
-    for (const fact of ['押金和客户桶账仍记在原水站', '双方确认', '不能放入抢单池']) assert(riskCopy.includes(fact), fact)
-    assert(!riskCopy.match(/共同承担|口径不清|建议直接拒单|无处登记/))
+    // Windows autocrlf must not turn this copy check into a null-match failure.
+    for (const newline of ['\n', '\r\n']) {
+      const riskCopy = source.replace(/\r?\n/g, newline).match(/DEPOSIT_BARREL_RISK_TEXT\s*=([\s\S]*?);\r?\n/)[1]
+      for (const fact of ['押金和客户桶账仍记在原水站', '双方确认', '不能放入抢单池']) assert(riskCopy.includes(fact), fact)
+      assert(!riskCopy.match(/共同承担|口径不清|建议直接拒单|无处登记/))
+    }
   })
   await test('guide can be skipped and replayed without blocking task actions', () => {
     const wx = createWx(); const values = {}

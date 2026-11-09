@@ -429,7 +429,7 @@ Page({
     const risk = await fetchCrossStationRisk(orderId)
     if (risk.unavailable) {
       const result = await new Promise(resolve => showBusinessModal({
-        title: '风险提示未读取', content: '暂时无法核实押金和桶权益风险。继续后仍会核验，请留意处理结果。',
+        title: '风险提示未读取', content: '押金和桶的交接信息暂未读到，提交时将再次核对。',
         confirmText: '继续', cancelText: '取消', success: resolve, fail: () => resolve({ confirm: false })
       }))
       return { ok: !!(result && result.confirm), acknowledged: false }
@@ -445,7 +445,7 @@ Page({
     }
     const res = await new Promise((resolve) => {
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
-        title: '押金/桶权益风险',
+        title: '确认押金与桶交接',
         content: risk.note,
         confirmText: confirmLabel,
         cancelText: '取消',
@@ -757,7 +757,7 @@ Page({
     const id = e.currentTarget.dataset.id
     showBusinessModal({ cancelColor: '#637083',
       title: '同意取消',
-      content: '同意后将取消订单，按原单规则处理退款并回补库存。独立押金不随取消自动退还；到账以实际退款结果为准。此操作不可撤销。',
+      content: '取消后按原单规则处理退款并回补库存，单独购买的押金不自动退还。取消后不可恢复。',
       confirmText: '同意取消',
       confirmColor: '#BD3328',
       success: async (res) => {
@@ -1189,7 +1189,7 @@ Page({
     }
     showBusinessModal({ cancelColor: '#637083',
       title: '拒绝退回',
-      content: directed ? '拒绝后保留原配送状态和安排，仍由接单水站负责。' : '拒绝后恢复申请前的配送状态，仍由原配送员负责。',
+      content: directed ? '拒绝后仍由接单水站按原安排配送。' : '拒绝后恢复申请前的配送状态，仍由原配送员配送。',
       confirmText: '拒绝',
       confirmColor: '#BD3328',
       success: async (res) => {
@@ -1220,7 +1220,7 @@ Page({
     const id = e.currentTarget.dataset.id
     showBusinessModal({ cancelColor: '#637083',
       title: '撤回转单',
-      content: '撤回后仍由原配送员负责，对方将不再收到这条转单申请。',
+      content: '撤回后仍由原配送员配送，对方不再收到这条转单申请。',
       confirmText: '撤回',
       confirmColor: '#BD3328',
       success: async (res) => {
@@ -1259,7 +1259,7 @@ Page({
     }
     showBusinessModal({ cancelColor: '#637083',
       title: '退回原水站',
-      content: '申请需原水站同意；同意后由原水站重新安排，确认前仍由本站负责。',
+      content: '原水站同意后重新安排配送，同意前保留本站配送安排。',
       confirmText: '确定退回',
       confirmColor: '#A95516',
       success: async (res) => {

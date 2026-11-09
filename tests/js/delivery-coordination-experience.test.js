@@ -265,6 +265,20 @@ async function main() {
     assert(!orderActions({ ...order, transferPendingSubKind: 'TRANSFER' }, { role: 'STATION_MANAGER', stationId: 8, staffId: 30 }).canWithdrawTransfer)
     for (const status of [1, 3, 4, 5]) assert(!orderActions({ ...order, status }, { role: 'DELIVERY', stationId: 8, staffId: 20 }).canComplete)
   })
+  await test('rendered guide explains barrel settlement without repeated dispatch cautions', () => {
+    const page = loadPage('miniapp-delivery/pages/coordination/index.js', { wx: createWx(), stubs: { 'api/delivery': {} } })
+    const elements = renderElements(parseWxml(read('miniapp-delivery/pages/coordination/index.wxml')),
+      { ...page.data, isManager: true, showGuide: true }, { includeText: true })
+    const steps = elements.filter(e => e.className.split(/\s+/).includes('guide-step')).map(e => e.text)
+    assert.strictEqual(steps.length, 5)
+    assert(steps.some(t => t.includes('查看本站派出订单的接单和配送进度')))
+    assert(steps.some(t => t.includes('桶折款：水站之间交接桶时，按约定折算的金额')))
+    assert(!steps.join('').match(/履约|风险需双方确认|接单前查看|负责/))
+    const source = read('AquaFlow-backend/src/main/java/com/example/aquaflow/service/impl/OrderWorkflowServiceImpl.java')
+    const riskCopy = source.match(/DEPOSIT_BARREL_RISK_TEXT\s*=([\s\S]*?);\n/)[1]
+    for (const fact of ['押金和客户桶账仍记在原水站', '双方确认', '不能放入抢单池']) assert(riskCopy.includes(fact), fact)
+    assert(!riskCopy.match(/共同承担|口径不清|建议直接拒单|无处登记/))
+  })
   await test('guide can be skipped and replayed without blocking task actions', () => {
     const wx = createWx(); const values = {}
     wx.setStorageSync = (key, value) => { values[key] = value }

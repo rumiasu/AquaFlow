@@ -77,7 +77,7 @@ async function main() {
   failReport = true
   await page.load()
   assert.equal(page.data.report, null)
-  assert(textContains(visible(), '当前期间报表尚未读取'))
+  assert(textContains(visible(), '本期报表加载失败'))
   const homeTree = parseWxml(homeWxml)
   const homeNodes = renderElements(homeTree, { activeTab: 'completed', completedOrders: [
     { id: 1, status: 4, isUnpaid: false }, { id: 2, status: 3, isUnpaid: true },

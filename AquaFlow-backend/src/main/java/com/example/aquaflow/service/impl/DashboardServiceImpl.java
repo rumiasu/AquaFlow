@@ -91,8 +91,7 @@ public class DashboardServiceImpl implements DashboardService {
         result.put("comparisonNote", "today".equals(rangeKey)
                 ? "截至 " + now.format(DateTimeFormatter.ofPattern("HH:mm")) + " · 对比昨日同一时刻"
                 : "对比上一完整周期（本期含今日）");
-        result.put("orderAmountNote", "订单金额按订单创建时间、结算站统计未取消订单的金额；"
-                + "不是实收净额，不扣售后退款。时间按上海时区。" );
+        result.put("orderAmountNote", "统计未取消订单的金额，按下单时间计入，不扣售后退款。时间为北京时间。");
 
         // ==================== 汇总 + 环比 ====================
         Map<String, Object> cur = dashboardMapper.summary(stationId, start, end);
@@ -135,8 +134,7 @@ public class DashboardServiceImpl implements DashboardService {
          * 也不要写 markdown 的星号（会原样渲染）。同 ManagerGrossProfitController 的两条提示。
          */
         result.put("scopeNote",
-                "这里按营收归属统计：外派给别站配送的单，钱算接单站的，不计入本站。"
-                        + "所以单数可能和订单列表不一样 —— 那边显示的是挂在本站名下的单。");
+                "外派单计入接单站；订单列表仍按原下单站展示。");
 
         /*
          * 「订单已付款」这一格的口径说明（2026-09-27 产品裁定 1.b，正本 docs/design/32）。
@@ -152,8 +150,7 @@ public class DashboardServiceImpl implements DashboardService {
          * ⚠️ 同 scopeNote：只留"最容易被误读的那一句"，不写财务教材，也不写 markdown 星号（会原样渲染）。
          */
         result.put("paidAmountNote",
-                "「订单已付款」= 已付款订单的金额合计，不等于本站收到的现金："
-                        + "外派出去的单算接单站的，客户先买票、还没兑水的钱也不在内。");
+                "订单已付款是已付订单金额，不是现金实收；未兑水票款不计入。");
 
         // 环比对比表：key -> {current, previous, deltaText, deltaDir}
         Map<String, Map<String, Object>> compare = new LinkedHashMap<>();
@@ -165,10 +162,9 @@ public class DashboardServiceImpl implements DashboardService {
         compare.put("barrelsIn", deltaCount(num(barrelCur.get("in")), num(barrelPrev.get("in")), "个", false));
         // 取消率上升是坏事 → inverted=true
         compare.put("cancelledOrders", deltaCount(num(cur.get("cancelledOrders")), num(prev.get("cancelledOrders")), "单", true));
-        if (dec(prev.get("grossAmount")).signum() == 0) {
-            String period = "today".equals(rangeKey) ? "昨日同期" : "上期";
-            compare.get("grossAmount").put("deltaText", period
-                    + (num(prev.get("orderCount")) == 0 ? "暂无记录" : "为 0"));
+        // 2026-11-09：比较期间在标题说明一次；没有基准记录仍须与零金额区分。
+        if (dec(prev.get("grossAmount")).signum() == 0 && num(prev.get("orderCount")) == 0) {
+            compare.get("grossAmount").put("deltaText", "无对比记录");
         }
         result.put("compare", compare);
 
@@ -260,7 +256,7 @@ public class DashboardServiceImpl implements DashboardService {
         m.put("unit", "元");
         int cmp = cur.compareTo(prev);
         if (prev.signum() == 0) {
-            m.put("deltaText", "上期为 0");
+            m.put("deltaText", cmp > 0 ? "新增" : cmp < 0 ? "减少" : "持平");
             m.put("deltaDir", cmp > 0 ? "up" : cmp < 0 ? "down" : "flat");
             m.put("good", null);
             return m;

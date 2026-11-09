@@ -45,7 +45,6 @@
 
 /* 2026-11-09：短提示常驻，完整口径按需展开，避免三段正文挤走指标。 */
 .scope-summary { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0 16rpx; margin-top:8rpx; }
-.scope-caution { font-size:24rpx; line-height:34rpx; color:var(--text-secondary); }
 button.scope-toggle { flex:none; width:auto; min-height:44px; margin:0; padding:8px 0; background:transparent; color:var(--primary-color); font-size:24rpx; line-height:28px; border:0; }
 button.scope-toggle::after { border:0; }
 .scope-note {

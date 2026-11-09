@@ -95,15 +95,11 @@ public class PaymentServiceImpl implements PaymentService {
             "本单含桶押金。当前微信付款为模拟测试，不会扣真实款；真实押金请与水站核实后办理。";
 
     /**
-     * 押金选线下的**风险与责任**文案（同一次裁定）。
-     *
-     * <p>产品原话：「线下的提示风险，**系统无法检测**，产生纠纷时自负」——
-     * 所以这句话必须点破两件事：① 系统核实不了这笔钱收没收到；② 出了纠纷由双方自行解决。
-     * 只写"注意风险"而不写清"系统管不了这一段"，等于把责任含糊过去。</p>
+     * 线下押金办理说明；收款事实仍由水站确认。
+     * 2026-11-09：用户要求去掉操作提示里的免责/责任教学，只保留收取、登记与收据。
      */
     private static final String DEPOSIT_OFFLINE_RISK_NOTE =
-            "现金押金由水站当面收取并手工登记，系统无法核实这笔钱是否已收到。"
-                    + "请向水站索取收据；发生纠纷时需双方自行协商解决。";
+            "现金押金由水站当面收取并登记，请保留收据。";
 
     @Autowired
     private PaymentRecordMapper paymentRecordMapper;
@@ -1564,8 +1560,7 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("depositAmount", totalExtraDeposit);
         result.put("depositBuckets", totalExtraBuckets);
 
-        // ===== 押金收款方式：线上建议 / 线下风险（2026-09-27 产品裁定，正本 docs/design/34）=====
-        // 产品原话：「建议第一单押金单走线上吧，弹个建议。线下的提示风险，系统无法检测，产生纠纷时自负。」
+        // ===== 押金收款方式：模拟渠道说明 / 线下办理说明（docs/design/34，2026-11-09 文案续修）=====
         // 三条实现判据：
         //   ① 只有**本次真要收押金**（totalExtraDeposit > 0）才谈这件事 —— 不收押金的单没有这个选择；
         //   ② **线上渠道当前不可用就不给线上建议**：生产上真实微信支付尚未接入（mockWechatPay 关），

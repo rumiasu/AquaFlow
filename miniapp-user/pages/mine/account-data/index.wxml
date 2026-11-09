@@ -2,7 +2,7 @@
 <block wx:if="{{recordsOnly}}">
   <view class="card">
     <text class="title">申请记录</text>
-    <text class="body">仅查看已登记的本人申请，不会办理新的申请。</text>
+    <text class="body">查看本人已登记的申请及进度。</text>
     <text wx:if="{{loading}}">正在查询…</text>
     <text class="error" wx:if="{{error}}">{{error}}</text>
     <button wx:if="{{error && !recordsNeedLogin}}" bindtap="onRetry" disabled="{{loading}}" class="af-action af-action--quiet"><text class="af-action__face">重新查询</text></button>

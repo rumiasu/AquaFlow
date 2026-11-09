@@ -270,7 +270,7 @@ test('票报价失效立即清除现金0结论，网络失败仍保持未知和�
   assert.strictEqual(t.calls.orders, 0); assert.strictEqual(t.calls.payments, 0)
 })
 // Refund wording is projected from the real page/modal; the original action remains unchanged.
-test('取消确认说明独立押金与实际到账边界，关闭弹窗不提交，确认仍只提交原单一次', async () => {
+test('取消确认说明独立押金与取消后果，关闭弹窗不提交，确认仍只提交原单一次', async () => {
   const wx = createWx(), modals = [], calls = []
   wx.showModal = options => modals.push(options)
   const page = loadPage('miniapp-delivery/pages/coordination/index.js', { wx, stubs: {
@@ -280,8 +280,9 @@ test('取消确认说明独立押金与实际到账边界，关闭弹窗不提�
   page.loadAllData = () => { refreshed++ }
   const event = { currentTarget: { dataset: { id: 91 } } }
   page.onApproveCancel(event)
-  assert.match(modals[0].content, /独立押金不随取消自动退还/)
-  assert.match(modals[0].content, /到账以实际退款结果为准/)
+  assert.match(modals[0].content, /单独购买的押金不自动退还/)
+  assert.match(modals[0].content, /按原单规则处理退款/)
+  assert.match(modals[0].content, /取消后不可恢复/)
   assert.ok(!modals[0].content.includes('退还水票/押金'))
   assert.strictEqual(modals[0].confirmText, '同意取消')
   await modals[0].success({ confirm: false })

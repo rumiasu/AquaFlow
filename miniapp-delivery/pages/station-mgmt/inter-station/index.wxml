@@ -28,7 +28,7 @@
     </view>
   </view>
 
-  <view class="scope-note" wx:if="{{scopeNote}}"><text>结算口径</text><help-tip title="站间结算口径" text="{{scopeNote}}" /></view>
+  <view class="scope-note" wx:if="{{scopeNote}}"><text>结算说明</text><help-tip title="站间结算说明" text="{{scopeNote}}" /></view>
 
   <!-- 需要冲销的那一批：已登记结清、但订单后来被取消/退款。
        ⚠️ 它们**不在正常列表里**（那批单已经不算数了），所以必须单独一块 ——

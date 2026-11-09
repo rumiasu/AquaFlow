@@ -295,11 +295,7 @@
     <view class="popup-content">
       <view class="popup-title">确认货到付款</view>
       <text class="popup-desc">送达时向配送员付款，金额以本单明细为准</text>
-      <!-- 押金走线下的风险与责任（2026-09-27 产品裁定，正本 docs/design/34）：
-           产品原话「线下的提示风险，系统无法检测，产生纠纷时自负」。
-           文案由**服务端下发**（报价的 depositOfflineRiskNote），这里只判"这次要不要收押金" ——
-           属口径的话术只有服务端一份，前端自造同义句就会与它分叉。
-           ⚠️ 有押金才说：没有押金的货到付款单不该背一句"押金风险"。 -->
+      <!-- 线下押金办理说明由报价下发，仅本次收押金时显示；不在页面另造责任式话术。 -->
       <text class="popup-desc" wx:if="{{assetNotice.offlineRiskNote}}">{{assetNotice.offlineRiskNote}}</text>
       <view class="popup-btns">
         <button class="af-action af-action--cancel af-action--form" bindtap="onOfflineConfirmCancel">取消</button>

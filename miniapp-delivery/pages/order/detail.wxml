@@ -137,11 +137,11 @@
   <view class="section" wx:if="{{order.deliveryTimeRequest}}">
     <text class="section-title">客户期望送达</text>
     <text class="info-text">{{order.deliveryTimeRequest}}</text>
-    <text class="section-tip">期望时间供安排参考，不代表已约定送达时间。</text>
+    <text class="section-tip">安排配送时参考。</text>
   </view>
   <view class="section" wx:if="{{order.notes && order.notes.length > 0}}">
     <text class="section-title">订单备注</text>
-    <help-tip title="订单备注" text="客户留言与处理记录分列；期望时间不代表已约定送达。" />
+    <help-tip title="订单备注" text="客户留言与处理记录分开展示。" />
     <view class="notes-list">
       <view class="note-item" wx:for="{{order.notes}}" wx:key="index">
         <text class="note-icon">⚠</text>

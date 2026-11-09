@@ -37,13 +37,13 @@
             <text class="delta-arrow" wx:else>—</text>
             <text class="delta-text">{{item.deltaText}}</text>
           </view>
-          <text class="delta-prev">{{report.previousLabel}} {{item.previousText}}</text>
+          <!-- 2026-11-09：比较期间在区块标题说明一次，各指标只保留对应基准值。 -->
+          <text class="delta-prev">{{item.previousText}}</text>
         </view>
       </view>
-      <!-- 2026-11-09：三段说明曾挤占主要画面；默认保留现金区别，展开后仍逐字展示服务端口径。 -->
+      <!-- 2026-11-09：指标名称已经区分订单金额与收款；口径说明按需查看，不常驻重复警告。 -->
       <view class="scope-summary" wx:if="{{report.orderAmountNote || report.scopeNote || report.paidAmountNote}}">
-        <text class="scope-caution" wx:if="{{report.paidAmountNote}}">订单已付款 ≠ 实收现金</text>
-        <button class="scope-toggle" bindtap="onToggleScope" aria-label="统计口径，{{scopeExpanded ? '收起' : '展开'}}">{{scopeExpanded ? '收起口径说明' : '统计口径 ›'}}</button>
+        <button class="scope-toggle" bindtap="onToggleScope" aria-label="统计说明，{{scopeExpanded ? '收起' : '展开'}}">{{scopeExpanded ? '收起统计说明' : '统计说明 ›'}}</button>
       </view>
       <view wx:if="{{scopeExpanded}}">
         <view class="scope-note" wx:if="{{report.orderAmountNote}}">{{report.orderAmountNote}}</view>

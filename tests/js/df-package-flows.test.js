@@ -206,7 +206,7 @@ test('D25 status summaries are read-only and retain a single navigation strip', 
   assert.equal(summary.tag, 'view'); assert(!summary.attrs.bindtap); assert.equal(nodes.filter(n => n.attrs.class === 'fee-section-nav').length, 1)
 })
 test('D31 missing help never falls back to quantity times current purchase price', () => {
-  const t = mount('station-mgmt/gross-profit'); t.p.onShowHelp(); const note = t.wx.__calls.modal.at(-1).content; assert(!note.includes('卖出数量 × 当前')); assert(note.includes('成本不全'))
+  const t = mount('station-mgmt/gross-profit'); t.p.onShowHelp(); const note = t.wx.__calls.modal.at(-1).content; assert(!note.includes('卖出数量 × 当前')); assert.equal(note, '统计说明暂未加载，请重试。')
 })
 test('D36 customer precedes amount and historical status does not use pending coloring', () => {
   const t = mount('station-mgmt/payments'); const nodes = view('station-mgmt/payments', { ...t.p.data, view: 'ticketHistory', list: [{ id: 1, customerName: '长客户名', amountText: '0.00', statusText: '已确认' }] })

@@ -90,14 +90,19 @@ test('failed or incomplete report keeps retry state and never produces a comfort
     assert.equal(t.page.data.report, null); assert(t.page.data.error); assert.equal(t.page.data.loading, false)
   }
 })
-test('same-time and real zero baseline wording is passed through without client percentages', async () => {
+test('comparison period is shown once and zero-baseline wording uses no invented percentage', async () => {
   const r = report('today', 2, 5)
   r.comparisonNote = '截至 08:30 · 对比昨日同一时刻'
-  r.compare = { grossAmount: { previous: 0, unit: '元', deltaText: '昨日同期为 0', deltaDir: 'flat' } }
+  r.compare = { grossAmount: { previous: 0, unit: '元', deltaText: '新增', deltaDir: 'up' } }
   const t = fixture(async () => ok(r)); await t.page.loadData()
   assert.equal(t.page.data.report.comparisonNote, r.comparisonNote)
-  assert.equal(t.page.data.report.previousLabel, '昨日同期')
-  assert.equal(t.page.data.report.metricCards[1].deltaText, '昨日同期为 0')
+  assert.equal(t.page.data.report.metricCards[1].deltaText, '新增')
+  const fs = require('node:fs'), path = require('node:path'), { parseWxml, renderElements } = require('./wxml-tree')
+  const tree = parseWxml(fs.readFileSync(path.resolve(__dirname, '../../miniapp-delivery/pages/station-mgmt/dashboard/index.wxml'), 'utf8'))
+  const text = renderElements(tree, t.page.data, { includeText: true }).map(n => n.text || '').join(' ')
+  assert.equal((text.match(/昨日/g) || []).length, 1)
+  assert.equal(renderElements(tree, t.page.data).filter(n => n.attrs.class === 'delta-prev').length, 6)
+  assert.equal(t.page.data.report.metricCards[1].previousText, '¥0.00')
 })
 test('quiet icons stay inside confirmed-empty conditions and reuse registered line icons', () => {
   const fs = require('node:fs'), path = require('node:path'), root = path.resolve(__dirname, '../..')
@@ -144,7 +149,7 @@ test('scope is collapsed by default and repeated toggles preserve all server not
   const texts = () => visible().map(n => n.text || '').join(' ')
   for (let cycle = 0; cycle < 3; cycle++) {
     assert.equal(t.page.data.scopeExpanded, false)
-    assert(texts().includes('订单已付款 ≠ 实收现金'))
+    assert(!texts().includes('订单已付款 ≠ 实收现金'))
     for (const note of Object.values(notes)) assert(!texts().includes(note))
     assert(visible().some(n => n.tag === 'button' && n.attrs.bindtap === 'onToggleScope'))
     t.page.onToggleScope()

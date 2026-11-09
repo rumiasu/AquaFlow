@@ -58,7 +58,7 @@ class DashboardComparisonTest {
         assertEquals(24, ((List<?>) r.get("hourDistribution")).size());
     }
 
-    @ParameterizedTest @CsvSource({"0, 昨日同期暂无记录", "2, 昨日同期为 0"})
+    @ParameterizedTest @CsvSource({"0, 无对比记录", "2, 减少"})
     void zeroAmountDistinguishesMissingOrdersWithoutInventingAPercentage(long previousOrders, String text) {
         Map<String, Object> r = report("2026-11-03T00:27:15Z", "today", previousOrders, "-3", "0");
         Map<?, ?> amount = (Map<?, ?>) ((Map<?, ?>) r.get("compare")).get("grossAmount");
@@ -73,6 +73,17 @@ class DashboardComparisonTest {
         assertEquals("+50%", amount.get("deltaText"));
         assertEquals(new BigDecimal("-5.00"), amount.get("current"));
         assertEquals(new BigDecimal("-10.00"), amount.get("previous"));
+        // Short labels still distinguish zero-baseline directions without inventing percentages.
+        DashboardServiceImpl service = new DashboardServiceImpl();
+        for (String[] sample : new String[][]{{"-3", "减少", "down"}, {"0", "持平", "flat"}, {"3", "新增", "up"}}) {
+            Map<?, ?> zero = ReflectionTestUtils.invokeMethod(service, "deltaAmount", new BigDecimal(sample[0]), BigDecimal.ZERO);
+            assertNotNull(zero);
+            assertEquals(sample[1], zero.get("deltaText"));
+            assertEquals(sample[2], zero.get("deltaDir"));
+            assertEquals(new BigDecimal(sample[0]), zero.get("current"));
+            assertEquals(BigDecimal.ZERO, zero.get("previous"));
+            assertFalse(zero.containsKey("deltaPct"));
+        }
     }
 
     @ParameterizedTest @CsvSource({"7d, 7", "30d, 30"})

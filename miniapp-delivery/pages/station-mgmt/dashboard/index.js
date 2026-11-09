@@ -79,7 +79,7 @@ Page({
       const known = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
       const fields = ['orderCount', 'grossAmount', 'paidAmount', 'newCustomers', 'cancelledOrders', 'barrelsIn']
       const groups = { trend: ['orders', 'amount'], statusDistribution: ['cnt', 'share'], payMethodDistribution: ['cnt', 'share'], topProducts: ['qty', 'revenue', 'share'], topCustomers: ['orders', 'amount'], staffPerformance: ['totalOrders', 'completedOrders', 'completeRate'], hourDistribution: ['orders'] }
-      if (!summary || !fields.every(key => known(summary[key])) || !Object.keys(groups).every(key => Array.isArray(res.data[key]) && res.data[key].every(row => row && groups[key].every(field => known(row[field]))))) throw new Error('经营报表资料不完整，金额和统计尚未核实，请重新读取')
+      if (!summary || !fields.every(key => known(summary[key])) || !Object.keys(groups).every(key => Array.isArray(res.data[key]) && res.data[key].every(row => row && groups[key].every(field => known(row[field]))))) throw new Error('报表加载不完整，请重试')
       const report = this.decorate(res.data)
       // Canvas位于!loading分支，渲染完成后再绘制，旧报表回调不能覆盖新周期。
       this.setData({ report, loading: false }, () => {
@@ -159,7 +159,6 @@ Page({
     // 前端不再读它 —— 别为了"看起来没浪费"又把它们渲染出来。
     r.hasData = Number(s.orderCount) > 0
     r.comparisonNote = r.comparisonNote || '对比上一周期'
-    r.previousLabel = r.range === 'today' ? '昨日同期' : '上期'
     r.emptyTitle = r.range === 'today' ? '截至当前暂无订单' : '所选周期内暂无订单'
     r.emptyCare = r.range === 'today' ? '可切换时间范围查看。' : '可切换时间范围查看。'
     return r

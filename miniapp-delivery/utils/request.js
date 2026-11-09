@@ -8,6 +8,8 @@ const navigation = require('./navigation')
 function displayMessage(value, fallback = '操作未完成，请稍后重试') {
   const text = typeof value === 'string' ? value.trim() : ''
   if (/^云连接(?:失败|初始化未成功)/.test(text)) return '暂时连不上服务，请稍后重试'
+  // 2026-11-09：中文内部报错也只在诊断中保留，避免把排障任务交给用户。
+  if (/接口|后端|前端|服务端|落库|端点|字段|部署|重新构建|数据库|幂等/.test(text)) return fallback
   if (!text) return fallback
   // 2026-10-22：接口异常曾把堆栈、内部码和英文直接带到弹窗；只保留可读的中文业务原因。
   if (!/[\u3400-\u9fff]/.test(text)

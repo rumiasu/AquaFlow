@@ -650,9 +650,9 @@
       <scroll-view class="modal-list" scroll-y>
         <view class="guide-step">待分配：安排本站配送员，或把本单外派。</view>
         <view class="guide-step">接单：公开订单可抢；指定给本站的任务单独接受并分配。</view>
-        <view class="guide-step">外派：只跟踪本站派出的订单。被接手后由接单站负责履约。</view>
-        <view class="guide-step">审批：退回、取消各走对应入口；同事转让由当事人接手、拒绝或撤回，不占本站审批。</view>
-        <view class="guide-step">接单前查看报酬、桶折款和结算去向；押金风险需双方确认。</view>
+        <view class="guide-step">外派：查看本站派出订单的接单和配送进度。</view>
+        <view class="guide-step">审批：处理退回和取消申请；同事之间的转单由双方处理。</view>
+        <view class="guide-step">桶折款：水站之间交接桶时，按约定折算的金额。</view>
       </scroll-view>
       <button bindtap="onCloseGuide" class="af-action af-action--cancel">知道了</button>
     </view>

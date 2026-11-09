@@ -26,7 +26,6 @@
           {{profitView.totalProfitText}}
         </text>
       </view>
-      <text class="hero-income-basis" wx:if="{{report.incomeBasisNote}}">{{report.incomeBasisNote}}</text>
     </view>
 
     <text class="income-only-note" wx:if="{{!costComplete}}">本期成本不全，利润暂不显示。</text>
@@ -35,9 +34,9 @@
   <!-- 期间 -->
   <view class="card period-card">
     <view class="period-toggle" bindtap="onTogglePeriod" role="button" aria-label="统计期间，{{periodExpanded ? '收起' : '调整统计期间'}}">
-      <view class="period-toggle-heading"><text class="card-title">统计期间</text><text class="period-action">{{periodExpanded ? '收起' : '调整统计期间'}}</text></view>
-      <text class="period-current" wx:if="{{report && report.from && report.to}}">{{report.from}} 至 {{report.to}}</text>
-      <text class="period-current" wx:else>{{from || '本月 1 号'}} 至 {{to || '今天'}}</text>
+      <view class="period-toggle-heading"><text class="card-title">统计期间</text><text class="period-action">{{periodExpanded ? '收起' : '调整'}}</text></view>
+      <!-- 已读取期间在顶部金额卡显示一次；还没读到报表时才在此展示所选范围。 -->
+      <text class="period-current" wx:if="{{!report || !report.from || !report.to}}">{{from || '本月 1 号'}} 至 {{to || '今天'}}</text>
     </view>
     <block wx:if="{{periodExpanded}}">
     <picker mode="date" value="{{from}}" bindchange="onDate" data-field="from">
@@ -198,8 +197,8 @@
   </block>
 
   <view class="card profit-help-card" wx:if="{{report}}">
-    <view class="af-entry profit-help-entry" bindtap="onToggleHelpVisible" role="button" aria-label="统计口径与计算说明，{{profitHelpVisible ? '收起' : '展开'}}">
-      <text class="profit-help-entry-title">? 统计口径</text>
+    <view class="af-entry profit-help-entry" bindtap="onToggleHelpVisible" role="button" aria-label="统计与计算说明，{{profitHelpVisible ? '收起' : '展开'}}">
+      <text class="profit-help-entry-title">? 统计说明</text>
       <text class="profit-help-action">{{profitHelpVisible ? '收起' : '查看'}}</text>
     </view>
     <block wx:if="{{profitHelpVisible}}">

@@ -161,7 +161,7 @@
         <view class="modal-header">{{isAdd ? '新建自定义商品' : productInactive ? '商品资料' : '编辑商品'}}</view>
           <button class="af-action af-action--cancel b3-close-edit" bindtap="closeEdit" disabled="{{saving || inboundBusy}}" aria-label="关闭编辑" hover-class="af-action--pressed">关闭 ×</button>
         </view>
-        <text class="modal-sub">{{productInactive ? '商品停用中，资料与价格只读；可从商品卡片进入库存操作。' : '修改在本站生效；库存需从商品卡片独立办理，保存不改变当前库存。'}}</text>
+        <text class="modal-sub">{{productInactive ? '商品已停用，资料与价格不可修改；库存请在商品卡片中办理。' : '修改仅在本站生效；库存请在商品卡片中办理。'}}</text>
       </view>
       <view class="product-section-nav">
         <button class="af-choice b3-on-product-section-tap {{productEditorSection === 'details' ? 'af-choice--selected' : ''}}" data-section="details" bindtap="onProductSectionTap" hover-class="af-action--pressed"><view class="af-choice__face">资料与图片</view></button>
@@ -178,7 +178,7 @@
           <view class="template-edit-note" wx:if="{{editTemplateId}}">
             <text>已带入名称与图片，规格以实物标签为准；金额和库存由本站填写，默认不上架。</text>
             <button class="af-action af-action--quiet b3-on-toggle-edit-help" bindtap="onToggleEditHelp" hover-class="af-action--pressed"><view class="af-action__face">{{editHelpExpanded ? '收起说明' : '查看建档说明'}}</view></button>
-            <text class="edit-help-detail" wx:if="{{editHelpExpanded}}">模板用于快速填写商品资料，不代表当前实物规格或官方定价。请核对商品包装、净容量和本站售价；需要时可换成实际商品图。</text>
+            <text class="edit-help-detail" wx:if="{{editHelpExpanded}}">模板图片可更换为实际商品图。</text>
           </view>
 
           <view class="product-edit-group product-edit-group-details">
@@ -275,7 +275,7 @@
       <text class="product-field-help" wx:if="{{editForm.enabled && editForm.category !== 1}}">商品可先保存上架。若配送计费设置了桶数门槛，请在「配送计费」补齐对应金额门槛；上线准备会提示缺项。</text>
       <!-- 档位：与「本站设置」共用同一份行数据（新建商品时用 create 返回的 id 挂上去） -->
       <view class="pkg-block" wx:if="{{editForm.category !== 3 && editForm.ticketEnabled}}">
-        <text class="product-field-help">开关不会自动生成票价。已有单张价可保留；新票价可设置1张或多张套餐，也可到「水票档位」设置适用的统一折扣。未填写的默认草稿不阻止保存商品。</text>
+        <text class="product-field-help">开启后请设置票价，可保留已有单张价，也可填写套餐或到「水票档位」设置统一折扣。</text>
         <view class="pkg-head">
           <view class="pkg-title-row">
             <text class="pkg-title">水票套餐</text>
@@ -330,7 +330,7 @@
   <view class="modal-mask product-preset-mask" wx:if="{{showPresetPicker}}" catchtouchmove="preventMove" bindtap="closePresetPicker">
     <view class="modal" catchtap="stopPropagation">
       <view class="modal-header">选择平台图</view>
-      <view class="modal-sub">通用桶装水示意图，不代表具体品牌包装；选中后可更换为实际商品图</view>
+      <view class="modal-sub">通用桶装水示意图，可更换为实际商品图</view>
 
       <view class="preset-loading" wx:if="{{presetLoading}}"><text>加载中...</text></view>
       <view class="ui-state" wx:elif="{{presetError}}"><text class="ui-state-copy">{{presetError}}</text><button size="mini" bindtap="openPresetPicker" class="af-action af-action--quiet b3-open-preset-picker" hover-class="af-action--pressed"><view class="af-action__face">重新读取图库</view></button></view>

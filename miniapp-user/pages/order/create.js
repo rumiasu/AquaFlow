@@ -1161,8 +1161,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
             depositAmount: (Number(d.depositAmount) || 0).toFixed(2),
             buckets: Number(d.depositBuckets) || 0,
             totalAmountText: totalAmount.toFixed(2),
-            // [2026-09-27 产品裁定，正本 docs/design/34] 押金收款方式的两句话
-            // （「建议第一单押金单走线上」+「线下提示风险，系统无法检测，纠纷自负」）。
+            // 押金收款方式说明来自 docs/design/34；2026-11-09 已去掉线下免责式话术。
             // ⚠️ **文案由服务端下发**（PaymentServiceImpl.quote 的 depositOnlineAdvice /
             //   depositOfflineRiskNote），前端一个字都不自己拼 —— 文案属口径、不属呈现。
             // ⚠️ 线上渠道当前不可用时服务端不下发 onlineAdvice（不给走不通的建议），

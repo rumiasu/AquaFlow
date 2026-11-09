@@ -21,7 +21,8 @@ function buildProfitHelpSections(report) {
     const match = part.match(/^(\d+)\.\s*/)
     if (match) clauses[Number(match[1])] = part.slice(match[0].length).trim()
   })
-  const scopeNotes = [preface, clauses[1]]
+  // 2026-11-09：收入说明收进帮助，不在金额旁常驻重复提醒。
+  const scopeNotes = [report.incomeBasisNote, preface, clauses[1]]
   const feeNotes = [clauses[2], clauses[3], clauses[4], clauses[5], report.cooperation && report.cooperation.scopeNote]
   const costNotes = [clauses[6], clauses[7]]
   if (!note) {
@@ -185,7 +186,7 @@ Page({
         profitChart: costComplete ? buildProfitChart(d, profitView) : [],
         from: d.from || this.data.from, to: d.to || this.data.to
       })
-    } else patch.reportError = '当前期间报表尚未读取，收入、成本与利润待核实'
+    } else patch.reportError = '本期报表加载失败，请重试'
     this.setData(patch)
   },
 
@@ -230,8 +231,8 @@ Page({
       const note = this.data.report && this.data.report.helpNote
       // 老版本服务端没有 helpNote：给一句能用的最小说明，别弹一个空框
       showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',  confirmText: '知道了',
-        title: '统计口径',
-        content: note || '统计口径暂未读取，请重新读取报表后核对。历史利润按订单记录的成本统计；成本不全时仅展示收入，不按当前进货价补算。',
+        title: '统计说明',
+        content: note || '统计说明暂未加载，请重试。',
         showCancel: false
       })
       return

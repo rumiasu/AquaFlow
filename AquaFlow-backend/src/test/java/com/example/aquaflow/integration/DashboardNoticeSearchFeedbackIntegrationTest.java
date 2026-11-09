@@ -111,8 +111,8 @@ class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTe
         // 站里一旦发生外派，两个数就不一样。没有这行说明，站长只能猜哪个是错的。
         String note = res.data().path("scopeNote").asText(null);
         assertNotNull(note, "报表必须下发 scopeNote —— 口径说明是这一页的一部分，不是可选项");
-        assertTrue(note.contains("营收归属"),
-                "说明要讲清'按营收归属统计'这一层，实际=" + note);
+        assertTrue(note.contains("计入接单站"),
+                "说明用直白文字讲清外派金额的统计归属，实际=" + note);
         assertTrue(note.contains("外派"),
                 "说明要讲清外派单为什么不计入本站（那正是两个数不一样的唯一原因），实际=" + note);
         // ⚠️ 这是**站长界面上的正文**：不许出现 markdown 的星号（会原样渲染），也不许出现开发词
@@ -136,14 +136,13 @@ class DashboardNoticeSearchFeedbackIntegrationTest extends AbstractIntegrationTe
         // 站长读它 = "本站收到了多少钱"，而算法是"已付款订单的金额合计"（payment_status = 2）。
         // 两者在没有外派、也没有预售时数值相同 ⇒ 一直没被看出来；
         // 实测反例：接单站显示 ¥168 而它名下**一条流水都没有**。
-        // 拍板选的是"保留算法、改名 + 在画面上写清口径"，所以名字的解释必须**真的下发**，
-        // 否则改名只是把误导从"读错名字"挪到"看不见名字旁边那句话"。
+        // 2026-11-09：解释按需展开，外派归属集中在 scopeNote，不能逼着每段重复。
         String note = res.data().path("paidAmountNote").asText(null);
         assertNotNull(note, "报表必须下发 paidAmountNote —— 它替代的是原来的「已收款」这个名字");
-        assertTrue(note.contains("不等于"),
-                "说明必须点破「不等于本站收到的钱」，那正是原名的误导点，实际=" + note);
-        assertTrue(note.contains("外派") || note.contains("接单站"),
-                "说明要讲清外派单为什么不算本站收的钱，实际=" + note);
+        assertTrue(note.contains("不是现金实收"),
+                "说明仍须区分订单已付与现金实收，实际=" + note);
+        assertTrue(res.data().path("scopeNote").asText().contains("接单站"),
+                "外派统计去向集中在一段说明，不要求重复");
         assertTrue(!note.contains("*"), "画面文案不许带星号（会原样显示），实际=" + note);
         for (String devWord : new String[]{"接口", "后端", "字段", "落库", "端点"}) {
             assertTrue(!note.contains(devWord), "画面文案不许出现开发词「" + devWord + "」，实际=" + note);

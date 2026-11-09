@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <b>被取代的到底只有那一下</b>：</p>
  * <ol>
  *   <li><b>渠道可见</b>：{@code POST /api/payments/quote} 下发的 methods 里微信必须
- *       {@code enabled=true}，且文案写明是<b>模拟</b>（避免联调的人以为真接了支付）；</li>
+ *       {@code enabled=true}，且文案写明是<b>测试付款、不扣真实款</b>（避免联调的人以为真接了支付）；</li>
  *   <li><b>副作用照跑</b>：置为已付款之后，订单必须<b>自动进入站长/配送员视野</b> ——
  *       这条判据是查询时按 {@code payment_status=2} 现算的，能过说明
  *       {@code markPaidIfCollectable} 走了同一条真实路径，而不是只改了一张流水表；</li>
@@ -84,7 +84,7 @@ class MockWechatPayIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("报价：微信项变为可选，且文案明确标注是模拟渠道")
+    @DisplayName("报价：微信项变为可选，且文案明确标注测试付款、不扣真实款")
     void quoteExposesWechatAsMockChannel() {
         long[] s = seed();
         Api res = post("/api/payments/quote", customerToken(s[2]),
@@ -102,8 +102,8 @@ class MockWechatPayIntegrationTest extends AbstractIntegrationTest {
         assertTrue(wechat != null, "methods 里必须有微信这一项（前端不自带映射表）");
         assertTrue(wechat.get("enabled").asBoolean(),
                 "模拟渠道开启时微信必须可选，否则顾客根本点不到: " + wechat);
-        assertTrue(wechat.get("desc").asText().contains("模拟"),
-                "文案必须写明是模拟，否则联调的人会以为真接了微信支付: " + wechat.get("desc").asText());
+        assertTrue(wechat.get("desc").asText().contains("测试付款，不扣真实款"),
+                "文案必须写明是测试付款且不扣真实款，否则会被误认为真实微信付款: " + wechat.get("desc").asText());
 
         // [2026-09-26 返工契约 P0-b] 报价还要把**收款渠道能力**单独下发一份（wechatPay）：
         // 客户端的判据是"建单成功后要不要对同一张单发起 createPayment"，这件事只有服务端知道

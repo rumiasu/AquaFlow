@@ -351,7 +351,7 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
         // 入口一：/outsource 不带 targetStationId = 放入抢单池
         Api out = post("/api/delivery/orders/transfer/" + order + "/outsource", tokenA(), "{}");
         assertFalse(out.isSuccess(), "含押金单不得放入抢单池: " + out);
-        assertTrue(out.message().contains("押金/桶权益"), "拒绝文案要点明原因，实际=" + out.message());
+        assertTrue(out.message().contains("押金或客户桶资产"), "拒绝文案要点明原因，实际=" + out.message());
         assertTrue(out.message().contains("定向外派"), "文案要给出出路（不是一句干巴巴的'不行'），实际=" + out.message());
 
         // 入口二：站长拒单时勾"尝试外派"
@@ -382,7 +382,7 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
 
         Api out = post("/api/delivery/orders/transfer/" + order + "/outsource", tokenA(), "{}");
         assertFalse(out.isSuccess(), "要核对回桶的单不得放入抢单池: " + out);
-        assertTrue(out.message().contains("押金/桶权益"), "实际=" + out.message());
+        assertTrue(out.message().contains("押金或客户桶资产"), "实际=" + out.message());
 
         // 池子的出口：模拟"规则上线前已经放进池里的历史单"
         long legacy = pendingBarrelOrderAtA();
@@ -392,7 +392,7 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
         Api claim = post("/api/delivery/orders/" + legacy + "/claim-pool", tokenB(),
                 "{\"deliveryStaffId\":" + driverB + "}");
         assertFalse(claim.isSuccess(), "池中风险单不得被跨站抢走: " + claim);
-        assertTrue(claim.message().contains("押金/桶权益"), "实际=" + claim.message());
+        assertTrue(claim.message().contains("押金或客户桶资产"), "实际=" + claim.message());
 
         // 未变的证明：仍在池中、状态仍是待配送、没有配送员
         assertEquals("NULL", jdbc.queryForObject(
@@ -419,7 +419,7 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
         Api noAck = post("/api/delivery/orders/" + order + "/dispatch", tokenA,
                 "{\"targetStationId\":" + stationB + "}");
         assertFalse(noAck.isSuccess(), "涉押金单未确认不得外派: " + noAck);
-        assertTrue(noAck.message().contains("押金/桶权益"), "实际=" + noAck.message());
+        assertTrue(noAck.message().contains("押金或客户桶资产"), "实际=" + noAck.message());
         assertEquals(stationA, longOf("SELECT delivery_station_id FROM orders WHERE id=?", order));
         assertEquals("", specialNote(order), "被拒不得留痕");
 
@@ -432,7 +432,7 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
         Api risk = get("/api/delivery/orders/" + order + "/cross-station-risk", tokenA);
         assertEquals(0, risk.code(), "风险查询应可读: " + risk);
         assertTrue(risk.data().path("depositBarrelRisk").asBoolean(), "本单应被判为风险单");
-        assertTrue(risk.data().path("riskNote").asText().contains("押金/桶权益"),
+        assertTrue(risk.data().path("riskNote").asText().contains("押金或客户桶资产"),
                 "风险文案由后端下发，实际=" + risk.data());
         assertFalse(risk.data().path("crossStation").asBoolean(),
                 "③ 这一步问的是归属站自己（delivery_station_id 此刻仍是 A）⇒ crossStation 必须是 false。"
@@ -456,7 +456,7 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
         Api assignNoAck = post("/api/delivery/orders/assign/" + order, tokenB,
                 "{\"deliveryStaffId\":" + driverB + "}");
         assertFalse(assignNoAck.isSuccess(), "接收站未确认不得受理这一单: " + assignNoAck);
-        assertTrue(assignNoAck.message().contains("押金/桶权益"), "实际=" + assignNoAck.message());
+        assertTrue(assignNoAck.message().contains("押金或客户桶资产"), "实际=" + assignNoAck.message());
         assertEquals("NULL", jdbc.queryForObject(
                         "SELECT IFNULL(delivery_staff_id,'NULL') FROM orders WHERE id=?", String.class, order),
                 "被拒不得分配配送员");

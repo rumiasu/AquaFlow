@@ -222,7 +222,7 @@ class StationSetupGuideIntegrationTest extends AbstractIntegrationTest {
         assertNotEquals(0, res.code(), "客户不得读站长完善度，实际=" + res);
         // [F-31 2026-09-30] 原来只断言 code != 0：路由写错（404）或任何别的原因都能通过，
         // 而本用例要证明的是**角色切面拦住了客户**。现钉住拒绝文案来自 @RequireRole。
-        assertTrue(res.message() != null && res.message().contains("权限不足"),
+        assertTrue(res.message() != null && res.message().contains("当前客户身份无权使用此功能"),
                 "拒绝必须来自 @RequireRole({STATION_MANAGER})，实际=" + res.message());
     }
 

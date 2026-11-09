@@ -92,7 +92,7 @@ class CustomerPrivilegeIntegrationTest extends AbstractIntegrationTest {
         // 收下它就是一个"看着开了、其实没用"的开关
         Api money = post(base, mgr, "{\"type\":\"DISCOUNT_RATE\"}");
         assertNotEquals(0, money.code(), "未实现的折扣率必须被拒");
-        assertTrue(money.message().contains("尚未实现"), "拒绝原因应说明清楚: " + money.message());
+        assertTrue(money.message().contains("暂未开放"), "拒绝原因应说明清楚: " + money.message());
         assertNotEquals(0, post(base, mgr, "{\"type\":\"FREE_DELIVERY_TIMES\"}").code(),
                 "未实现的免配送次数必须被拒");
         assertNotEquals(0, post(base, mgr, "{\"type\":\"TICKET_RETURNABLE\"}").code(),

@@ -262,7 +262,7 @@ class InventoryLockProtocolIntegrationTest extends AbstractIntegrationTest {
 
         assertFalse(done.isSuccess(), "资源集合已经变了，不该照旧集合出库，实际=" + done);
         assertEquals(1, done.code(), "必须是可读冲突（code=1），不是 500，实际=" + done);
-        assertTrue(done.message().contains("变更"), "文案要说明发生了并发变更，实际=" + done.message());
+        assertTrue(done.message().contains("该订单的备货安排已变化"), "文案要说明发生了并发变更，实际=" + done.message());
         assertEquals(2, intOf("SELECT status FROM orders WHERE id=?", order), "被拒后订单状态不变");
         assertEquals(10, physical(stationB, product), "被拒后不得扣 B 站的货");
         assertEquals(10, physical(stationA, product), "被拒后不得扣 A 站的货");

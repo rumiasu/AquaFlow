@@ -129,7 +129,7 @@ class BarrelOwedIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("欠桶只提醒不阻断：下单成功，且提醒面向客户（记得还桶）；幂等命中同样带提醒")
+    @DisplayName("欠桶只提醒不阻断：下单成功，且提醒面向客户（送水时交回空桶）；幂等命中同样带提醒")
     void orderWarnsAndNeverBlocks() {
         seed();
         barrelLedgerService.adjustOver(customer, station, product, 2, mgr);
@@ -140,7 +140,7 @@ class BarrelOwedIntegrationTest extends AbstractIntegrationTest {
 
         String joined = res.data().path("warnings").toString();
         assertTrue(joined.contains("欠桶"), "warnings 应含欠桶提醒，实际=" + joined);
-        assertTrue(joined.contains("记得还桶"), "提醒要面向客户（记得还桶），实际=" + joined);
+        assertTrue(joined.contains("送水时请一并交回空桶"), "提醒要面向客户（送水时交回空桶），实际=" + joined);
 
         // 幂等命中走的是另一条返回分支，提醒也必须照发（客户可能只看到这一次响应）
         Api again = createOrderApi("idem-owed-warn", 1);

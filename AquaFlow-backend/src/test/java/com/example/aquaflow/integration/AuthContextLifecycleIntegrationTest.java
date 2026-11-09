@@ -62,7 +62,7 @@ class AuthContextLifecycleIntegrationTest extends AbstractIntegrationTest {
 
         assertFalse(proceed, "未选身份的会话不得访问业务端点");
         assertEquals(200, res.getStatus(), "业务拒绝仍是 HTTP 200（客户端一律判 body code）");
-        assertTrue(res.getContentAsString().contains("请先完成身份选择"), "拒绝文案，实际=" + res.getContentAsString());
+        assertTrue(res.getContentAsString().contains("请选择站长或配送员身份"), "拒绝文案，实际=" + res.getContentAsString());
         assertNull(AuthContext.get(), "★ 拒绝路径必须清空 AuthContext —— 否则线程复用时下一条请求会读到上一个人的身份");
     }
 

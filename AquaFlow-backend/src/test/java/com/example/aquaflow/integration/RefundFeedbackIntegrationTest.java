@@ -85,7 +85,7 @@ class RefundFeedbackIntegrationTest extends AbstractIntegrationTest {
         String eligibilityPath="/api/barrels/records/"+unavailableReturn+"/refund-eligibility";
         Api eligibility=get(eligibilityPath,mgrA);assertEquals(0,eligibility.code(),eligibility.toString());
         assertFalse(eligibility.data().path("available").asBoolean());assertTrue(eligibility.data().path("legacy").asBoolean());
-        assertTrue(eligibility.data().path("reason").asText().contains("超过拥有的桶权益数"),eligibility.toString());
+        assertTrue(eligibility.data().path("reason").asText().contains("退桶数(1)超过拥有桶数(0)"),eligibility.toString());
         assertEquals(1,get(eligibilityPath,mgrB).code());assertEquals(1,get(eligibilityPath,cus).code());assertEquals(1,get(eligibilityPath,dlv).code());
         assertEquals(beforeEligibility,facts());assertEquals(systemAlerts,intOf("select count(*) from alert_log where alert_type='SYSTEM'"));
         long r=insert("insert into barrel_record(customer_id,station_id,product_id,type,quantity,status,note,handle_note) values(?,?,1,2,1,3,'原申请','原处理')",customer,a);

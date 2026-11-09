@@ -188,13 +188,13 @@ class ManagerPayrollListAndDirectionsIntegrationTest extends AbstractIntegration
         // ① 顾客调员工端点 → 明拒。若回 code=0 空数组，界面就是"本站没有结算单"（§8.22）
         Api asCustomer = get(PAYROLL, customerToken(customer));
         assertEquals(1, asCustomer.code(), "顾客必须被拒，而不是拿到空列表：" + asCustomer);
-        assertTrue(asCustomer.message().contains("权限不足"), "拒绝要给出权限类可读文案：" + asCustomer);
+        assertTrue(asCustomer.message().contains("当前客户身份无权使用此功能"), "拒绝要给出权限类可读文案：" + asCustomer);
         assertTrue(asCustomer.data().isNull(), "被拒时不得下发 data 数组（否则与合法空列表混淆）：" + asCustomer);
 
         // ② 配送员：工资是站长台账（docs/design/18），配送员只能查自己的「我的工资」
         Api asRider = get(PAYROLL, staffToken(rider, "DELIVERY", station));
         assertEquals(1, asRider.code(), "配送员不该能看全站工资台账：" + asRider);
-        assertTrue(asRider.message().contains("权限不足"), "拒绝文案要具体：" + asRider);
+        assertTrue(asRider.message().contains("当前身份无权使用此功能"), "拒绝文案要具体：" + asRider);
         assertTrue(asRider.data().isNull(), "被拒时不得下发 data：" + asRider);
 
         // ③ 没绑水站的站长（staff.station_id 为 NULL）→ 必须给「未绑定水站」，
@@ -303,7 +303,7 @@ class ManagerPayrollListAndDirectionsIntegrationTest extends AbstractIntegration
         // ③ 顾客调它 → 明拒（不是"店铺还没配置可选项"）
         Api asCustomer = get(DIRECTIONS, customerToken(customer));
         assertEquals(1, asCustomer.code(), "顾客不该拿到工资条目的可选项：" + asCustomer);
-        assertTrue(asCustomer.message().contains("权限不足"), "拒绝文案要具体：" + asCustomer);
+        assertTrue(asCustomer.message().contains("当前客户身份无权使用此功能"), "拒绝文案要具体：" + asCustomer);
         assertTrue(asCustomer.data().isNull(), "被拒时不得下发 data 数组（否则与「确实没有可选项」混淆）：" + asCustomer);
 
         // ④ 未认证是真 401
@@ -339,7 +339,7 @@ class ManagerPayrollListAndDirectionsIntegrationTest extends AbstractIntegration
         // 配送员 → 明拒：这个字典会被前端用来建工资条目，而条目方向决定从谁工资里扣钱
         Api asRider = get(DIRECTIONS, staffToken(riderA, "DELIVERY", stationA));
         assertEquals(1, asRider.code(), "配送员不该拿到工资条目的可选项：" + asRider);
-        assertTrue(asRider.message().contains("权限不足"), "拒绝文案要具体：" + asRider);
+        assertTrue(asRider.message().contains("当前身份无权使用此功能"), "拒绝文案要具体：" + asRider);
         assertTrue(asRider.data().isNull(), "被拒时不得下发 data：" + asRider);
     }
 

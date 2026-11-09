@@ -190,8 +190,8 @@ class BarrelRefundDeliveryIntegrationTest extends AbstractIntegrationTest {
         Api refund = approve(recordId, "{\"status\":3,\"refundChannel\":\"ONLINE\"}");
 
         assertFalse(refund.isSuccess(), "线上通道未接入时必须明确拒绝（不许假装已退），实际=" + refund);
-        assertTrue(refund.message().contains("微信退款通道未接入"),
-                "拒绝原因必须点明通道未接入，实际=" + refund.message());
+        assertTrue(refund.message().contains("当前无法办理微信原路退款"),
+                "拒绝原因必须点明当前无法办理微信原路退款，实际=" + refund.message());
 
         // 拒绝 = 什么都没发生：状态、权益、押金账户、流水、核销明细、交付时间
         assertEquals(2, intOf("SELECT status FROM barrel_record WHERE id=?", recordId),
@@ -218,10 +218,10 @@ class BarrelRefundDeliveryIntegrationTest extends AbstractIntegrationTest {
 
         Api numeric = approve(recordId, "{\"status\":3,\"refundChannel\":99}");
         assertFalse(numeric.isSuccess(), "数值型非法通道必须被拒，实际=" + numeric);
-        assertTrue(numeric.message().contains("退款方式不合法"),
+        assertTrue(numeric.message().contains("退款方式无效：99"),
                 "拒绝原因要点明是退款方式的问题，实际=" + numeric.message());
-        assertTrue(numeric.message().contains("CASH"),
-                "要告诉站长合法取值（否则他不知道怎么改），实际=" + numeric.message());
+        assertTrue(numeric.message().contains("请选择现金当面交付或线上原路退回"),
+                "要告诉站长可选择的退款方式（否则他不知道怎么改），实际=" + numeric.message());
 
         Api text = approve(recordId, "{\"status\":3,\"refundChannel\":\"abc\"}");
         assertFalse(text.isSuccess(), "字符串型非法通道必须被拒，实际=" + text);

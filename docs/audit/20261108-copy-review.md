@@ -119,8 +119,18 @@
 - `check-miniapp-requires`：2个包、217个JS、590个require闭包通过。两端JS语法检查及站长JSON解析通过。
 - `sync-agreement-drafts.js --check`通过；协议生成件无改动。`git diff --check`通过。
 - 后端在本机独立临时clone以JDK17、Gradle9.4.1既有缓存离线补验，未触原工作区或数据库：精确`1e734be496ebb344eb60c404c4d3429cc8412728`的`compileJava compileTestJava`通过；17类280项首轮279通过、1项旧文案断言失败。随后`dfc1ce0e1f63e1075997a74bbff778b9c7b4cad4`仅同步该测试一行中的三个完整提示，`compileTestJava`实际重编译及`ManagerFeedbackRepairTest`全12项通过，0失败/错误/跳过。其余16类268项沿用父提交通过结果，未重复跑全集；生产源码与父提交相同。云端因缺JDK17/Gradle且下载站点不可达未作后端编译。
-- 不运行会清表的数据库集成测试；已同步的4个数据库集成测试断言本次未执行。无库单测不能替代集成验证。
+- 本机未运行会清表的数据库集成测试。正式CI在一次性MySQL容器执行数据库集成验证，结果见下方续验记录；无库单测不能替代集成验证。
 - 未执行微信开发者工具编译、真机视觉、真实微信收退款、线上部署或真实业务数据验证。不得将静态与模拟回归称作这些项目已通过。
+
+## 2026-11-09 正式CI续验记录
+
+本节冻结于本轮测试修正提交时；待验修正不记为已通过，最终完整结果以对应提交的正式CI为准。
+
+- [CI #236](https://github.com/rumiasu/AquaFlow/actions/runs/42536589400)对应`4d0d7a477470ef2a19869d3d6f3cb1e7688c9f0b`：298类、2426项，2405通过、21失败，0错误、0跳过。后端步骤失败，后续静态、JS、bootJar及包检查未执行；没有可交付后端包。
+- 已逐一读取14个失败类的源码、实际响应和生产提示正本，21项均停在旧文案contains断言。修正同方法后续尚未执行的同类旧词，保留全部权限来源、身份隔离、金额数量、状态不变、无写入、渠道拒绝与资金不重复办理断言。仅改测试文字及对应说明，不改生产代码、测试数据或预期业务结果。
+- `RefundFeedbackIntegrationTest.barrelReturnUsesAssetStationAndWrongRecordTypeCannotBeLinked`故意只插入退还记录而无拥有桶批次；`available=false`、`legacy=true`是原有预期且已通过。失败点是旧词“超过拥有的桶权益数”，新断言钉住实际“退桶数(1)超过拥有桶数(0)”。不补资产、不放宽退款资格，后续越权拒绝、资金桶账不变及不产生系统告警检查仍保留。
+- 涉及测试类：AuthContextLifecycle、AuthzIsolation、BarrelOwed、BarrelRefundDelivery、CrossStationPoolRiskAndProfileIsolation、CustomerPrivilege、InventoryLockProtocol、ManagerPayrollListAndDirections、MockWechatPay、PaymentReadEndpoints、RefundFeedback、StationExceptionConfig、StationSetupGuide、TicketPayPreview（均为IntegrationTest）。
+- 本轮推前仅完成逐项语义与差异核对、UTF-8/无BOM及非字符串token不变检查；云端缺JDK17/Gradle/MySQL，未宣称本地执行通过。经本次明确授权，测试修正正常快进至原开发分支，由既有正式CI在隔离MySQL重新执行全部用例，包含首次失败断言之后尚未执行的检查。不改CI、不跳过测试、不动本机或真实业务库。
 
 ## 协议待决定（正文未改）
 

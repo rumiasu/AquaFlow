@@ -74,7 +74,7 @@ class TicketPayPreviewIntegrationTest extends AbstractIntegrationTest {
                 "票不够 → 本单用不了票，要付就是全额");
         String hint = tp.path("hint").asText("");
         assertTrue(hint.contains("不支持部分水票抵水费"), "必须说清不支持部分票补水费: " + hint);
-        assertTrue(hint.contains("仍留在你的账户"), "必须说清票不会被扣: " + hint);
+        assertTrue(hint.contains("本次未扣票"), "必须说清票不会被扣: " + hint);
 
         // 逐行提示仍在 warnings 里（与结构化数据同源），且**不能是 null 元素**（null 会进 JSON 数组）
         JsonNode warnings = d.path("warnings");

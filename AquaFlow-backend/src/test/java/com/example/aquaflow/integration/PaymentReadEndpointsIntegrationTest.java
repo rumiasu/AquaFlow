@@ -100,7 +100,7 @@ class PaymentReadEndpointsIntegrationTest extends AbstractIntegrationTest {
 
         Api asDriver = get("/api/payments/by-order?orderId=" + order, staffToken(driver, "DELIVERY", station));
         assertEquals(1, asDriver.code(), "配送员不是站长，必须被拒：" + asDriver);
-        assertTrue(asDriver.message().contains("权限不足"), "拒绝要给权限文案：" + asDriver);
+        assertTrue(asDriver.message().contains("当前身份无权使用此功能"), "拒绝要给权限文案：" + asDriver);
 
         assertEquals(401, get("/api/payments/by-order?orderId=" + order, null).status(),
                 "无令牌应被 AuthInterceptor 拒成真 401");
@@ -193,13 +193,13 @@ class PaymentReadEndpointsIntegrationTest extends AbstractIntegrationTest {
         Api asDriver = get("/api/payments/customer/" + customer + "?stationId=" + stationA,
                 staffToken(driver, "DELIVERY", stationA));
         assertEquals(1, asDriver.code(), "配送员不得查客户资金档案：" + asDriver);
-        assertTrue(asDriver.message().contains("权限不足"), "拒绝要给权限文案：" + asDriver);
+        assertTrue(asDriver.message().contains("当前身份无权使用此功能"), "拒绝要给权限文案：" + asDriver);
 
         // ④ 顾客调员工端点 → 被拒，且不许回空数组（否则会被读成"这个客户没消费"）
         Api asCustomer = get("/api/payments/customer/" + customer + "?stationId=" + stationA,
                 customerToken(customer));
         assertEquals(1, asCustomer.code(), "顾客不得调员工端点：" + asCustomer);
-        assertTrue(asCustomer.message().contains("权限不足"), "拒绝要给权限文案：" + asCustomer);
+        assertTrue(asCustomer.message().contains("当前客户身份无权使用此功能"), "拒绝要给权限文案：" + asCustomer);
         assertTrue(asCustomer.data().isNull(), "被拒时不得下发 data：" + asCustomer);
 
         assertEquals(401, get("/api/payments/customer/" + customer + "?stationId=" + stationA, null).status(),
@@ -257,7 +257,7 @@ class PaymentReadEndpointsIntegrationTest extends AbstractIntegrationTest {
         // ⑤ 角色与认证
         Api asDriver = get("/api/payments?limit=100", staffToken(driver, "DELIVERY", stationA));
         assertEquals(1, asDriver.code(), "配送员不得看资金列表：" + asDriver);
-        assertTrue(asDriver.message().contains("权限不足"), "拒绝要给权限文案：" + asDriver);
+        assertTrue(asDriver.message().contains("当前身份无权使用此功能"), "拒绝要给权限文案：" + asDriver);
 
         assertEquals(401, get("/api/payments?limit=100", null).status(), "无令牌应是真 401");
     }

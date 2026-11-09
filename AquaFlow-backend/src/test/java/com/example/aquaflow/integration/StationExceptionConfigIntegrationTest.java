@@ -137,7 +137,7 @@ class StationExceptionConfigIntegrationTest extends AbstractIntegrationTest {
         var byDelivery = put(CONFIG_PATH, staffToken(deliveryId, "DELIVERY", stationId),
                 "{\"compensationPriority\":[\"REFUND_CASH\"]}");
         assertFalse(byDelivery.isSuccess(), "配送员不应能改站点配置，实际=" + byDelivery);
-        assertTrue(byDelivery.message().contains("权限不足"), "应是权限拒绝，实际=" + byDelivery.message());
+        assertTrue(byDelivery.message().contains("当前身份无权使用此功能"), "应是权限拒绝，实际=" + byDelivery.message());
 
         var byCustomer = get(CONFIG_PATH, customerToken(customerId));
         assertFalse(byCustomer.isSuccess(), "顾客不应能读站点配置，实际=" + byCustomer);

@@ -12,7 +12,7 @@ const { getBarrelSummary, getBarrelSummaryByType, getPendingReturnConfirmations 
 const { getUnreadNotifications, markRead } = require('../../api/notification')
 const { getDiscoverStations, getStationStatus } = require('../../api/station')
 const { getQuote } = require('../../api/payment')
-const { storage, stationStorage, payMethodStorage, selectedAddressStorage } = require('../../utils/storage')
+const { storage, stationStorage, payMethodStorage, selectedAddressStorage, deliveryAddressStorage } = require('../../utils/storage')
 const { captureSession, isCurrentSession } = require('../../utils/token')
 const { formatAddress } = require('../../utils/address')
 const { itemUnit } = require('../../utils/order-item-view')
@@ -418,6 +418,7 @@ Page({
   onStationLocationStart() { this._stationLocationOpen = true },
   onStationLocationEnd() { this._stationLocationOpen = false },
   onStationDiscoveryChange(event) {
+    this._discoverySession = captureSession()
     const scope = discoveryScope(event && event.detail)
     this.setData({ stationDiscoveryScope: scope, stationDiscoveryReady: !!scope, stationList: [], stationListError: '' })
     return this.loadStationList()
@@ -426,6 +427,9 @@ Page({
   async loadStationList() {
     if (this._homeDestroyed || this._homeHidden) return
     const session = captureSession()
+    if (this._discoverySession && !isCurrentSession(this._discoverySession)) {
+      this.setData({ stationDiscoveryScope: null, stationList: [] })
+    }
     const sequence = this._stationListSeq = (this._stationListSeq || 0) + 1
     const scope = discoveryScope(this.data.stationDiscoveryScope), scopeKey = discoveryKey(scope)
     this.setData({ stationDiscoveryReady: !!scope })
@@ -620,6 +624,7 @@ Page({
         const list = addressRes.data
         address = chosenId != null ? list.find(a => String(a.id) === String(chosenId)) || null
           : list.find(a => a.isDefault) || list[0] || null
+        deliveryAddressStorage.remember(address, session)
       }
       const addressHint = address ? `配送至：${formatAddress(address)}`
         : chosenId != null ? '先前选择的地址已不可用，请重新选择' : '点击设置配送地址'

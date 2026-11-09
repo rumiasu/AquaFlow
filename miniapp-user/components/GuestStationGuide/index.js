@@ -29,12 +29,14 @@ Component({
     onLocationStart() { this._mapOpen = true },
     onLocationEnd() { this._mapOpen = false },
     onScopeChange(event) {
+      this._scopeSession = captureSession()
       const scope = discoveryScope(event && event.detail)
       this.setData({ scope, scopeReady: !!scope, stations: [], error: false })
       return this.load()
     },
     async load() {
       const session = captureSession()
+      if (this._scopeSession && !isCurrentSession(this._scopeSession)) this.setData({ scope: null, stations: [] })
       const seq = this._read = (this._read || 0) + 1
       const scope = discoveryScope(this.data.scope), scopeKey = discoveryKey(scope)
       this.setData({ scopeReady: !!scope })

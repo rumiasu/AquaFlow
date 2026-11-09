@@ -33,4 +33,15 @@ for (const file of ['miniapp-user/pages/mine/index.wxss', 'miniapp-user/pages/se
   const css = read(file); assert(!css.includes('\ufeff')); assert(/min-height:\s*(?:44px|88rpx)/.test(css))
 }
 assert(!read('miniapp-user/pages/mine/index.wxml').includes('/pages/mine/account-data/index'))
+// The phone defect came from sharing one row with the entry plus inherited global card padding.
+const mineCss = read('miniapp-user/pages/mine/index.wxss')
+assert(/\.asset-main\s*\{[^}]*flex-direction:column/.test(mineCss))
+assert(/\.asset-value\s*\{[^}]*white-space:nowrap/.test(mineCss))
+assert(/\.assets-card\s*\{[^}]*margin-bottom:0;[^}]*padding:0;/.test(mineCss))
+assert(/\.assets-card \+ \.group-title\s*\{[^}]*margin-top:12px/.test(mineCss))
+assert(/\.assets-grid--stacked \.asset-value\s*\{[^}]*white-space:normal/.test(mineCss))
+for (const amount of ['0', '150', '150.50', '1234567.89']) {
+  const nodes = render('mine/index', { isLogin: true, userInfo: {}, depositLoaded: true, depositText: amount, ticketLoaded: true, barrelLoaded: true, ticketText: '7', barrelText: '3', unloadedCount: 0 })
+  assert(labels(nodes).includes('¥' + amount), 'amount must remain exact, never abbreviated or truncated')
+}
 console.log('AQUAFLOW_SUITE_OK 1')

@@ -1,16 +1,14 @@
 <view class="discovery-scope">
   <text class="discovery-title">查找送水水站</text>
   <view class="discovery-actions">
+    <button class="discovery-button" bindtap="onChooseLocation" disabled="{{!active || locating}}">{{locating ? '正在打开地图' : '更换地图位置'}}</button>
     <picker mode="region" level="city" value="{{region}}" bindchange="onCityChange" disabled="{{!active || locating}}">
-      <view class="discovery-button">{{scope && scope.city ? scope.city : scope ? '补选地图所在城市' : '选择城市'}} ▾</view>
+      <view class="discovery-button">{{scope && scope.city ? scope.city : '手动选城市'}} ▾</view>
     </picker>
-    <button class="discovery-button" bindtap="onChooseLocation" disabled="{{!active || locating}}">{{locating ? '正在打开地图' : '选择地图位置'}}</button>
   </view>
-  <text class="discovery-hint" wx:if="{{!scope}}">先选择城市或地图位置，再查看可选水站。</text>
-  <block wx:else>
-    <text class="discovery-hint">{{scope.city ? '城市：' + scope.city : '城市：待确认'}}</text>
-    <text class="discovery-hint">{{scope.lat !== undefined ? '地图位置：已选择' : '地图位置：未选择，请补选以核对配送范围'}}</text>
-    <text class="discovery-hint">能否配送以送水地址核对结果为准。</text>
-  </block>
+  <text class="discovery-hint" wx:if="{{addressLoading}}">正在读取送水地址…</text>
+  <text class="discovery-hint" wx:elif="{{scope}}">{{source || (scope.lat !== undefined ? '地图位置附近' : scope.city)}}{{scope.lat !== undefined ? ' · 按距离排序' : ''}}</text>
+  <text class="discovery-hint" wx:else>可在地图选点，或手动选择城市。</text>
   <text class="discovery-message" wx:if="{{message}}">{{message}}</text>
+  <button class="discovery-button" wx:if="{{message && !scope && !addressLoading}}" bindtap="initializeAddress">重读送水地址</button>
 </view>

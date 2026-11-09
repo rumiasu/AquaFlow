@@ -1,4 +1,4 @@
-/* Mine density: two asset rows, inline service icons, native tab bar owns its footprint. */
+/* Mine density: value and entry use separate lines; native tab bar owns its footprint. */
 .page { min-height:100vh; padding:16px; box-sizing:border-box; background:#F2F6F9; color:#203047; }
 .card { box-sizing:border-box; background:#FFFFFF; border:1px solid #DCE5ED; border-radius:14px; box-shadow:0 2px 10px rgba(29,67,101,.025); }
 .row-arrow { flex:none; font-size:20px; line-height:24px; color:#53687B; }
@@ -8,7 +8,8 @@
 .user-info { flex:1; min-width:0; overflow-wrap:anywhere; }
 .nickname { font-size:20px; line-height:28px; font-weight:600; }
 
-.assets-card { margin-top:12px; border:0; background:transparent; box-shadow:none; }
+/* 2026-11-09：清掉全局 .card 的内边距和下边距，避免资产与常用服务之间叠出空白。 */
+.assets-card { margin-top:12px; margin-bottom:0; padding:0; border:0; background:transparent; box-shadow:none; }
 .assets-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .assets-grid .asset-cell { box-sizing:border-box; display:flex; flex-direction:column; align-items:stretch; gap:4px; width:auto; min-width:0; min-height:76px; padding:8px 10px; border:1px solid #DCE5ED; border-radius:12px; background:#F9FBFC; }
 .asset-heading { display:flex; align-items:center; gap:6px; min-width:0; }
@@ -17,14 +18,17 @@
 .asset-money-tone .asset-icon { background:var(--af2-surface-money); }
 .asset-physical .asset-icon { background:var(--af2-surface-physical); }
 .asset-label { min-width:0; font-size:13px; line-height:20px; color:#53687B; overflow-wrap:anywhere; }
-.asset-main { display:flex; align-items:baseline; gap:6px; width:100%; min-width:0; min-height:32px; }
-.asset-value { flex:1; min-width:0; font-size:26px; line-height:32px; font-weight:700; color:#203047; overflow-wrap:anywhere; }
+/* 2026-11-09：入口与金额同行曾把 ¥150 挤成两行；入口独占下一行，金额保留整串。 */
+.asset-main { display:flex; flex-direction:column; align-items:stretch; gap:6px; width:100%; min-width:0; min-height:32px; }
+.asset-value { flex:none; white-space:nowrap; min-width:0; font-size:26px; line-height:32px; font-weight:700; color:#203047; overflow-wrap:anywhere; }
 .asset-money { font-size:22px; }
 .asset-value.asset-value-unloaded { font-size:14px; line-height:22px; font-weight:500; color:#526176; }
 .asset-unit { font-size:12px; line-height:20px; font-weight:400; color:#53687B; }
-.asset-entry { flex:none; margin:0; color:#1F5EA8; font-size:12px; line-height:20px; white-space:nowrap; }
+.asset-entry { flex:none; align-self:flex-end; margin:0; color:#1F5EA8; font-size:12px; line-height:20px; white-space:nowrap; }
 .assets-grid--stacked { grid-template-columns:minmax(0,1fr); }
 .assets-grid--stacked .asset-cell { width:auto; }
+.assets-grid--stacked .asset-value { white-space:normal; overflow-wrap:anywhere; }
+.assets-card + .group-title { margin-top:12px; }
 .asset-refresh-note { display:block; margin:8px 0; font-size:13px; line-height:21px; color:#53687B; overflow-wrap:anywhere; }
 .asset-note { display:flex; align-items:center; gap:8px; margin-top:8px; }
 .asset-note-text { font-size:13px; line-height:21px; color:#53687B; }

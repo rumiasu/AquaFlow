@@ -1,29 +1,72 @@
-const { discoveryScope } = require('../../utils/station-discovery')
+const { discoveryScope, addressDiscovery } = require('../../utils/station-discovery')
 const { parseRegion } = require('../../utils/address')
 const { captureSession, isCurrentSession } = require('../../utils/token')
+const { getAddresses } = require('../../api/address')
+const { deliveryAddressStorage } = require('../../utils/storage')
 
 // Native chooseLocation can hide the page. Keep only its own pending result until return;
 // closing the selector, changing city, detaching, or changing account invalidates that result.
 Component({
   properties: {
-    active: { type: Boolean, value: false, observer(value) { if (!value) this.invalidate() } },
+    active: { type: Boolean, value: false, observer(value) {
+      if (!value) this.invalidate()
+      else if (this._alive) this.initializeAddress()
+    } },
     scope: { type: Object, value: null }
   },
-  data: { locating: false, message: '', region: [] },
+  data: { locating: false, addressLoading: false, source: '', message: '', region: [] },
   lifetimes: {
-    attached() { this._alive = true; this._visible = true },
+    attached() {
+      this._alive = true; this._visible = true
+      if (this.properties.active) this.initializeAddress()
+    },
     detached() { this._alive = false; this.invalidate() }
   },
   pageLifetimes: {
     hide() { this._visible = false; if (!this._mapOpen) this.invalidate() },
-    show() { this._visible = true; this.applyPendingLocation() }
+    show() {
+      this._visible = true
+      if (this._addressSession && !isCurrentSession(this._addressSession) && this.properties.active) return this.initializeAddress()
+      this.applyPendingLocation()
+    }
   },
   methods: {
     invalidate() {
       this._sequence = (this._sequence || 0) + 1
       this._pendingLocation = null
       this._mapOpen = false
-      if (this._alive) this.setData({ locating: false })
+      if (this._alive) this.setData({ locating: false, addressLoading: false })
+    },
+    /** 2026-11-09: Manual-city-first ignored delivery addresses. Re-read owned addresses on each opening;
+     * any newer manual choice, close, navigation or account change must invalidate this automatic result. */
+    async initializeAddress() {
+      if (!this._alive || !this._visible || !this.properties.active) return
+      this.invalidate()
+      const sequence = this._sequence, session = this._addressSession = captureSession()
+      const current = () => this._alive && this._visible && this.properties.active
+        && sequence === this._sequence && isCurrentSession(session)
+      this.setData({ source: '', message: '', region: [] })
+      if (this.properties.scope) this.triggerEvent('scopechange', null)
+      if (!session.loggedIn || !session.customerId) return
+      this.setData({ addressLoading: true })
+      try {
+        const response = await getAddresses()
+        if (!current()) return
+        if (!response || response.code !== 0 || !Array.isArray(response.data)) throw new Error('address unavailable')
+        // Home may finish loading its address while this read is pending. Use the latest
+        // same-session ID from the freshly owned list, instead of abandoning valid discovery.
+        const resolved = addressDiscovery(response.data, deliveryAddressStorage.getId(session))
+        if (!resolved) { this.setData({ message: '地址位置未完善，可在地图选点。' }); return }
+        const scope = resolved.scope
+        this.setData({ source: resolved.coordinates ? (resolved.source === 'active' ? '正在使用的地址附近' : '默认地址附近') : '地址所在城市',
+          region: scope.city ? [scope.province, scope.city] : [],
+          message: resolved.coordinates ? '' : '地址无坐标，暂按同城查找；可选地图位置。' })
+        this.triggerEvent('scopechange', scope)
+      } catch (_) {
+        if (current()) this.setData({ message: '地址暂未加载，可重试或在地图选点。' })
+      } finally {
+        if (this._alive && sequence === this._sequence) this.setData({ addressLoading: false })
+      }
     },
     onCityChange(event) {
       if (!this._alive || !this.properties.active) return
@@ -34,7 +77,7 @@ Component({
       const changedCity = previous && previous.city && (previous.city !== scope.city || (previous.province && previous.province !== scope.province))
       if (previous && typeof previous.lat === 'number' && !changedCity) scope = { ...scope, lat: previous.lat, lng: previous.lng }
       this.invalidate()
-      this.setData({ region, message: changedCity && typeof previous.lat === 'number' ? '已切换城市，原地图位置已清除。'
+      this.setData({ source: '', region, message: changedCity && typeof previous.lat === 'number' ? '已切换城市，原地图位置已清除。'
         : typeof scope.lat === 'number' ? '已确认地图所在城市。' : '已选择城市，可补选位置核对配送范围。' })
       this.triggerEvent('scopechange', scope)
     },
@@ -43,12 +86,13 @@ Component({
       if (!pending || !this._alive || !this._visible || !this.properties.active) return
       this._pendingLocation = null
       if (pending.sequence !== this._sequence || !isCurrentSession(pending.session)) return
-      this.setData({ message: pending.scope.city ? '已选择地图位置及所在城市。'
+      this.setData({ source: '地图位置附近', message: pending.scope.city ? ''
         : '位置已选，城市暂未识别，可补选城市查找同城水站。', region: pending.scope.city ? [pending.scope.province, pending.scope.city] : [] })
       this.triggerEvent('scopechange', pending.scope)
     },
     onChooseLocation() {
       if (!this._alive || !this.properties.active || this.data.locating) return
+      this.invalidate()
       const session = captureSession(), sequence = this._sequence = (this._sequence || 0) + 1
       const current = () => this._alive && this.properties.active && sequence === this._sequence && isCurrentSession(session)
       if (typeof wx.chooseLocation !== 'function') {

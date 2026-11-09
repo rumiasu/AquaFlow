@@ -126,11 +126,28 @@ const payMethodStorage = {
 
 // 2026-11-04：原 selectedAddress 裸对象在异常退出后会被下一账号消费。
 // 归属随选择一起保存；不推断旧条目的主人，读取时按当前账号核对并一次性消费。
+// 2026-11-09: Only keep the address ID for this login epoch; finding stations re-reads
+// the owned address list rather than reusing old coordinates or another account's address.
+let activeDeliveryAddress = null
+const deliveryAddressStorage = {
+  remember(address, session = captureSession()) {
+    if (!session.loggedIn || !session.customerId || !isCurrentSession(session)) return false
+    activeDeliveryAddress = address && address.id ? { session, id: address.id } : null
+    return true
+  },
+  getId(session = captureSession()) {
+    return session.loggedIn && isCurrentSession(session) && activeDeliveryAddress
+      && isCurrentSession(activeDeliveryAddress.session) ? activeDeliveryAddress.id : null
+  }
+}
+
 const selectedAddressStorage = {
   set: (address, session = captureSession()) => {
     if (!session.loggedIn || !session.customerId || !isCurrentSession(session)
       || !address || !address.id) return false
-    return storage.set('selectedAddress', { customerId: String(session.customerId), address })
+    const saved = storage.set('selectedAddress', { customerId: String(session.customerId), address })
+    if (saved) deliveryAddressStorage.remember(address, session)
+    return saved
   },
   take: (session = captureSession()) => {
     const selection = storage.get('selectedAddress')
@@ -138,6 +155,7 @@ const selectedAddressStorage = {
     if (!session.loggedIn || !session.customerId || !isCurrentSession(session)
       || !selection || selection.customerId !== String(session.customerId)
       || !selection.address || !selection.address.id) return null
+    deliveryAddressStorage.remember(selection.address, session)
     return selection.address
   }
 }
@@ -149,5 +167,6 @@ module.exports = {
   searchStorage,
   stationStorage,
   payMethodStorage,
-  selectedAddressStorage
+  selectedAddressStorage,
+  deliveryAddressStorage
 }

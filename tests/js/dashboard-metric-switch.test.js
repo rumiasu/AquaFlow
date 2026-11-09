@@ -134,6 +134,26 @@ test('real mine template shows caring copy only for confirmed manager zero order
   assert.equal(visible({}), true)
   for (const extra of [{ managerStatsLoading: true }, { managerStatsError: '失败' }, { todayProfit: { orderCount: 0, readFailed: true } }, { todayProfit: { orderCount: 1, readFailed: false } }, { isManager: false }]) assert.equal(visible(extra), false)
 })
+test('scope is collapsed by default and repeated toggles preserve all server notes verbatim', async () => {
+  const fs = require('node:fs'), path = require('node:path'), { parseWxml, renderElements } = require('./wxml-tree')
+  const r = report(), notes = { orderAmountNote: '订单金额按创建时间统计，不扣售后退款。', scopeNote: '外派金额归接单站，不计入本站。', paidAmountNote: '已付款订单金额不等于本站实收现金，未兑水的预购票款不在内。' }
+  Object.assign(r, notes)
+  const t = fixture(async () => ok(r)); await t.page.loadData()
+  const tree = parseWxml(fs.readFileSync(path.resolve(__dirname, '../../miniapp-delivery/pages/station-mgmt/dashboard/index.wxml'), 'utf8'))
+  const visible = () => renderElements(tree, t.page.data, { includeText: true })
+  const texts = () => visible().map(n => n.text || '').join(' ')
+  for (let cycle = 0; cycle < 3; cycle++) {
+    assert.equal(t.page.data.scopeExpanded, false)
+    assert(texts().includes('订单已付款 ≠ 实收现金'))
+    for (const note of Object.values(notes)) assert(!texts().includes(note))
+    assert(visible().some(n => n.tag === 'button' && n.attrs.bindtap === 'onToggleScope'))
+    t.page.onToggleScope()
+    for (const [key, note] of Object.entries(notes)) { assert.equal(t.page.data.report[key], note); assert(texts().includes(note)) }
+    t.page.onToggleScope()
+  }
+  t.page.setData({ report: { ...r, orderAmountNote: '', scopeNote: '', paidAmountNote: '' } })
+  assert(!visible().some(n => n.attrs.bindtap === 'onToggleScope'))
+})
 ;(async () => {
   let failed = 0
   for (const t of tests) { try { await t.run(); console.log('PASS ' + t.name) } catch (e) { failed++; console.error('FAIL ' + t.name + ': ' + e.stack) } }

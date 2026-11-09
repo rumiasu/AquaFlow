@@ -23,4 +23,17 @@ function discoveryKey(value) {
   return JSON.stringify(discoveryScope(value))
 }
 
-module.exports = { discoveryScope, discoveryKey }
+/** Use the actual active address, then the default. Missing coordinates do not borrow another address's point. */
+function addressDiscovery(list, activeId) {
+  if (!Array.isArray(list)) return null
+  const active = activeId == null ? null : list.find(address => address && String(address.id) === String(activeId))
+  const address = active || list.find(address => address && (address.isDefault === true || address.isDefault === 1))
+  if (!address) return null
+  const region = { province: address.province, city: address.city }
+  // Addresses are decoded from JSON BigDecimals. Do not coerce empty/null coordinates to zero.
+  const point = discoveryScope({ lat: address.lat, lng: address.lng, ...region })
+  const scope = point || discoveryScope(region)
+  return scope ? { scope, source: active ? 'active' : 'default', coordinates: !!point } : null
+}
+
+module.exports = { discoveryScope, discoveryKey, addressDiscovery }

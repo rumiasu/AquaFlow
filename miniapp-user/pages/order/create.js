@@ -9,7 +9,7 @@ const { createOrder, createPayment } = require('../../api/order')
 const { getQuote } = require('../../api/payment')
 const { getStationPublicPhone, getStationStatus } = require('../../api/station')
 const { submitEnterpriseApply, getMyEnterpriseApplies } = require('../../api/enterprise')
-const { stationStorage, payMethodStorage, selectedAddressStorage } = require('../../utils/storage')
+const { stationStorage, payMethodStorage, selectedAddressStorage, deliveryAddressStorage } = require('../../utils/storage')
 const { resolveStationId } = require('../../utils/station')
 const { getCustomerId, captureSession, isCurrentSession } = require('../../utils/token')
 const { simulationAllowed } = require('../../utils/payment-channel')
@@ -684,6 +684,7 @@ this.setData({ products, stationName: effectiveStationName, stationNameStationId
       // 2026-10-11：地址后到曾只 setData，留下无地址报价；地址响应也须防旧请求覆盖新选择。
       this.invalidateQuote()
       this.setData({ address: addr, addressText: addr ? formatAddress(addr) : '', addressLoadError: '', addressLoading: false })
+      deliveryAddressStorage.remember(addr, session)
       if ((this.data.products || []).length) await this.refreshQuote()
     } catch (error) {
       if (!current()) return

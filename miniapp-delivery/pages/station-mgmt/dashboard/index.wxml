@@ -40,21 +40,16 @@
           <text class="delta-prev">{{report.previousLabel}} {{item.previousText}}</text>
         </view>
       </view>
-      <!--
-        口径说明由**服务端下发**（report.scopeNote），前端不自造这句话 ——
-        文案属口径、不属呈现，改口径时只该改一处（同 statusText / methodText 的既定判据）。
-        为什么这行非有不可：上面的「订单数 / 营业额」按营收归属统计，而订单列表按归属站，
-        发生过外派后两个数就不一样；没有这行说明，站长只能猜哪个是错的。
-      -->
-      <view class="scope-note" wx:if="{{report.orderAmountNote}}">{{report.orderAmountNote}}</view>
-      <view class="scope-note" wx:if="{{report.scopeNote}}">{{report.scopeNote}}</view>
-      <!--
-        第二行同样是**服务端下发**的口径说明（report.paidAmountNote），配套上面「订单已付款」那一格。
-        为什么非有不可：那一格的口径是"已付款订单的金额合计"，不是"本站收到的钱"——
-        标签只有 5 个字的位置，说明必须在画面上，否则站长会拿它当实收去对账
-        （2026-09-27 实测：接单站显示 ¥168 而它名下一条流水都没有）。
-      -->
-      <view class="scope-note" wx:if="{{report.paidAmountNote}}">{{report.paidAmountNote}}</view>
+      <!-- 2026-11-09：三段说明曾挤占主要画面；默认保留现金区别，展开后仍逐字展示服务端口径。 -->
+      <view class="scope-summary" wx:if="{{report.orderAmountNote || report.scopeNote || report.paidAmountNote}}">
+        <text class="scope-caution" wx:if="{{report.paidAmountNote}}">订单已付款 ≠ 实收现金</text>
+        <button class="scope-toggle" bindtap="onToggleScope" aria-label="统计口径，{{scopeExpanded ? '收起' : '展开'}}">{{scopeExpanded ? '收起口径说明' : '统计口径 ›'}}</button>
+      </view>
+      <view wx:if="{{scopeExpanded}}">
+        <view class="scope-note" wx:if="{{report.orderAmountNote}}">{{report.orderAmountNote}}</view>
+        <view class="scope-note" wx:if="{{report.scopeNote}}">{{report.scopeNote}}</view>
+        <view class="scope-note" wx:if="{{report.paidAmountNote}}">{{report.paidAmountNote}}</view>
+      </view>
     </view>
 
     <!-- 空数据提示 -->

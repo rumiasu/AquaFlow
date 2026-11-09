@@ -1,7 +1,7 @@
 'use strict'
 const assert = require('node:assert/strict')
 const { loadPage, createWx, createApp, armWatchdog } = require('./harness')
-const { selectedAddressStorage } = require('../../miniapp-user/utils/storage')
+const { selectedAddressStorage, deliveryAddressStorage } = require('../../miniapp-user/utils/storage')
 const { captureSession, beginSession } = require('../../miniapp-user/utils/token')
 const done = armWatchdog(), tests = []
 const test = (name, run) => tests.push({ name, run })
@@ -119,6 +119,24 @@ test('退出为游客后首页立即清除内存中的收货地址', async () =>
   selectedAddressStorage.set(addressA); home.onShow(); assert.equal(home.data.address.id, addressA.id)
   t.switchAccount(null); home.onShow()
   assert.equal(home.data.address, null); assert.equal(home.data.addressHint, '点击设置配送地址')
+})
+
+test('正在使用的地址只保留当前登录周期的ID，换号或重新登录不会带给找站', () => {
+  const t = fixture(); t.home()
+  selectedAddressStorage.set(addressA)
+  assert.equal(deliveryAddressStorage.getId(), addressA.id)
+  assert.equal(t.wx.getStorageSync('activeDeliveryAddress'), '', '不持久化地址或坐标副本')
+  t.switchAccount(8); assert.equal(deliveryAddressStorage.getId(), null)
+  deliveryAddressStorage.remember(addressB); assert.equal(deliveryAddressStorage.getId(), addressB.id)
+  t.switchAccount(8); assert.equal(deliveryAddressStorage.getId(), null)
+})
+
+test('默认地址读取成功可作为当前地址，旧会话回执不能覆写', () => {
+  const t = fixture(); t.home(); const old = captureSession()
+  assert.equal(deliveryAddressStorage.remember(addressA, old), true)
+  t.switchAccount(8); deliveryAddressStorage.remember(addressB)
+  assert.equal(deliveryAddressStorage.remember(addressA, old), false)
+  assert.equal(deliveryAddressStorage.getId(), addressB.id)
 })
 
 ;(async () => {

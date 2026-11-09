@@ -190,6 +190,7 @@ Page({
   onStationLocationStart() { this._stationLocationOpen = true },
   onStationLocationEnd() { this._stationLocationOpen = false },
   onStationDiscoveryChange(event) {
+    this._discoverySession = captureSession()
     const scope = discoveryScope(event && event.detail)
     this.setData({ stationDiscoveryScope: scope, stationDiscoveryReady: !!scope, stationList: [], stationListError: '' })
     return this.loadStationList()
@@ -198,6 +199,9 @@ Page({
   async loadStationList() {
     const context = this._captureShopContext(stationStorage.getId())
     if (!this._isShopContextCurrent(context)) return
+    if (this._discoverySession && !isCurrentSession(this._discoverySession)) {
+      this.setData({ stationDiscoveryScope: null, stationList: [] })
+    }
     const sequence = this._shopListSeq = (this._shopListSeq || 0) + 1
     const scope = discoveryScope(this.data.stationDiscoveryScope), scopeKey = discoveryKey(scope)
     this.setData({ stationDiscoveryReady: !!scope })

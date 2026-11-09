@@ -111,6 +111,7 @@
         <view class="station-picker-item-info">
           <text class="station-picker-item-name">{{item.name}}</text>
           <text class="station-picker-item-addr" wx:if="{{item.address}}">{{item.address}}</text>
+          <text class="station-picker-item-addr" wx:if="{{item.distanceKm !== null && item.distanceKm !== undefined}}">距所选地址 {{item.distanceKm}} 公里</text>
         </view>
         <text class="station-picker-item-check" wx:if="{{item.id === currentStationId}}">当前</text>
       </view>

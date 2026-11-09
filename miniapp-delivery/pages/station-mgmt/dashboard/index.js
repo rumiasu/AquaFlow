@@ -21,7 +21,7 @@ Page({
     metricSwitchable: true,
     payChart: null,            // 环形图数据
     hourChart: null,           // {bars:[{label,height,orders}]}
-    analysisExpanded: false, recordsExpanded: false,
+    analysisExpanded: false, recordsExpanded: false, scopeExpanded: false,
     recordsPreviewCount: 3
   },
 
@@ -54,6 +54,10 @@ Page({
     this.setData({ trendMetric: key }, () => {
       if (this.data.report === report && !this.data.loading) this.prepareCharts(report)
     })
+  },
+
+  onToggleScope() {
+    this.setData({ scopeExpanded: !this.data.scopeExpanded })
   },
 
   onToggleRecords() {

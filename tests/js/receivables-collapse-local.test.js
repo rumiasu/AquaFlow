@@ -25,5 +25,8 @@ const p=loadPage('miniapp-delivery/pages/station-mgmt/receivables/index.js',{wx:
  assert.equal(p.data.customer.customerId,2);assert.equal(p.data.selectedCount,0);assert.equal(p.data.orders[0].checked,false);assert.equal(posts,0)
  const rendered=renderElements(tree,p.data);assert(rendered.some(n=>n.attrs.bindtap==='onBack'));assert(rendered.some(n=>n.attrs.bindtap==='onEditTerms'));assert(rendered.some(n=>n.attrs.bindtap==='onShowTermsHelp'))
  p.onBack();await new Promise(setImmediate);p.onFilterOverdue();assert.equal(p.data.customers.length,1);assert.equal(p.data.customers[0].customerId,1);assert.equal(posts,0)
- console.log('AQUAFLOW_SUITE_OK 4')
+ const customerWithoutDueDate={...B,orderCount:1,dueDays:30,earliestDueDate:null}
+ const overview=renderElements(tree,{...p.data,customer:null,onlyOverdue:false,loading:false,loadError:'',customers:[customerWithoutDueDate]},{includeText:true})
+ assert(overview.some(n=>(n.text||'').includes('待收订单无到期日')),'订单到期日缺失不得被说成客户未设账期')
+ console.log('AQUAFLOW_SUITE_OK 5')
 })().catch(e=>{console.error(e);process.exitCode=1})

@@ -40,6 +40,8 @@ page { background:var(--af2-page); color:var(--af2-ink); }
 @media (max-width:350px) { .field-2col { flex-direction:column; }.row-amount { max-width:100%; } }
 
 .hero { display:flex; flex-wrap:wrap; gap:16px; padding:20px; margin-bottom:16px; border-radius:16px; }
+.hero-period { order:-1; flex-basis:100%; font-size:13px; line-height:20px; color:var(--af2-ink-money); opacity:.85; }
+.hero-income-basis { order:3; flex-basis:100%; font-size:13px; line-height:20px; color:var(--af2-ink-money); opacity:.85; }
 .hero-item { min-width:0; flex:1 1 100px; }.hero-label { display:block; font-size:14px; color:var(--af2-ink-money); }.hero-num { display:block; font-size:22px; line-height:30px; font-weight:600; color:var(--af2-ink-money); overflow-wrap:anywhere; }
 .hero-profit { position:relative; order:0; flex-basis:100%; padding-bottom:16px; border-bottom:1px solid var(--af2-line); }.hero-profit icon { position:absolute; right:0; top:0; }.hero-profit .hero-num { font-size:30px; line-height:40px; margin-top:6px; }.hero-income { order:1; }.hero-cost { order:2; }.hero-income-only .hero-num { font-size:30px; line-height:40px; }
 .income-only-note { display:block; padding:0 4px 16px; color:var(--af2-muted); font-size:14px; line-height:22px; }

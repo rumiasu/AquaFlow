@@ -35,14 +35,15 @@ Page({
     // 所以这里复用已在用的通用列表；站别由后端按登录态强制覆盖（OrderController:90-95），
     // 前端传的 stationId 只用于后端比对、传错会被覆盖，不构成越权读取他站数据的通道。
     tabs: [
-      { id: 0, name: '全部' },
       { id: 1, name: '待配送' },
       { id: 2, name: '配送中' },
       { id: 3, name: '已送达' },
       { id: 4, name: '已完成' },
-      { id: 5, name: '已取消' }
+      { id: 5, name: '已取消' },
+      { id: 0, name: '全部' }
     ],
-    currentTab: 0,
+    // 先看当前待安排订单；全量历史仍在「全部」，不把已完成/取消挤在首屏。
+    currentTab: 1,
     // 跨站履约单（本站是履约站、归属站是别站）：默认**归并成一行**，点开才看逐单明细。
     // 后端一次给全（总数/金额合计/按状态分类/明细），明细里没有客户画像（后端已掩码）。
     crossStation: null,
@@ -67,6 +68,11 @@ Page({
   },
 
   onToggleFilters() { this.setData({ filtersExpanded: !this.data.filtersExpanded }) },
+
+  // [2026-11-09] 订单列表是查询入口，不是派单队列。原来站长从这里看到未分配单，
+  // 却只能逐单进详情找操作；派单/外派的完整待办与守卫在工作台，不能在列表另造一套。
+  onOpenDispatchWork() { wx.switchTab({ url: '/pages/coordination/index' }) },
+  onOpenCollectionWork() { wx.navigateTo({ url: '/pages/station-mgmt/payments/index' }) },
 
   onPullDownRefresh() {
     this.loadData().then(() => wx.stopPullDownRefresh())
@@ -133,6 +139,10 @@ Page({
         ...o,
         customerNotePreview: employeeCustomerNotePreview(o),
         statusText: o.statusText || '未知',
+        // 只看配送员是否已分配，不用订单状态推断为「待接单」或「外派中」：
+        // 跨站/转单的实际待办须去工作台核对，不能把它误报为本站可分配。
+        assignmentText: o.status === 1 && o.deliveryStationId != null && String(o.deliveryStationId) === String(stationId)
+          ? (o.deliveryStaffId ? '已安排配送员' : '尚未安排配送员') : '',
         statusCls: STATUS_CLASS_MAP[o.status] || 'default'
       }))
       const prior = reset ? [] : this.data.list, ids = new Set(prior.map(it => it.id))

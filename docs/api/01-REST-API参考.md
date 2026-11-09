@@ -708,7 +708,7 @@
 
 `POST /api/inventory/inbound-with-cost-receipt?stationId=...` 为本站站长入口，与原入库回执契约一致：`clientRequestId` 必填，每个 `items` 行带 `productId/quantity`，可选 `costAmount` 表示本次该行的进货总成本。省略或 `null` 保持未知；0 有效；金额非负、最多两位小数且不得超过数据库金额精度。同编号同数量同成本重放原回执，改成本也视为改内容并拒绝；结果未知时沿原编号和内容核对。旧 `/inbound-with-receipt` 保留兼容，新员工端使用独立的新路径，避免旧后台忽略成本后误报成功。
 
-`GET /api/inventory` 与 `/api/inventory/records` 新增的 `costAmount` 只向本站站长返回，站号取登录态；顾客可售商品使用不含成本字段的 `StationProductVO`。`GET /api/manager/gross-profit` 新增 `costComplete`；所选期间任一商品缺实际出库成本时，`totalCost/totalProfit/netProfit` 与所有明细的 `profit` 均为 `null`，收入仍沿原订单、真实票款与退款口径给出。商品目录中无关的未填成本不影响完整期间。旧 `PUT /cost` 保留路径并返回业务拒绝，提示入库时选填；`GET /missing-cost` 保留兼容，不再形成补价任务。
+`GET /api/inventory` 与 `/api/inventory/records` 新增的 `costAmount` 只向本站站长返回，站号取登录态；顾客可售商品使用不含成本字段的 `StationProductVO`。`GET /api/manager/gross-profit` 的 `incomeBasisNote` 说明销售收入包含尚未收款的订单水费/服务费与已收票款，不等于到账现金；计算口径未改。新增 `costComplete`；所选期间任一商品缺实际出库成本时，`totalCost/totalProfit/netProfit` 与所有明细的 `profit` 均为 `null`，收入仍沿原订单、真实票款与退款口径给出。商品目录中无关的未填成本不影响完整期间。旧 `PUT /cost` 保留路径并返回业务拒绝，提示入库时选填；`GET /missing-cost` 保留兼容，不再形成补价任务。
 
 ## 2026-10-11 合作款经营摘要与停业站接入边界
 

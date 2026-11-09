@@ -6,8 +6,9 @@
   <block wx:if="{{report}}">
     <!-- 合计 -->
     <view class="hero af2-tone-panel af2-tone-money {{!costComplete ? 'hero-income-only' : ''}}">
+      <text class="hero-period" wx:if="{{report.from && report.to}}">{{report.from}} 至 {{report.to}}</text>
       <view class="hero-item hero-income">
-        <text class="hero-label">总收入</text>
+        <text class="hero-label">销售收入</text>
         <text class="hero-num">{{profitView.totalIncomeText}}</text>
         <!-- [2026-09-25] 标签从「水费收入」改成「收入合计」：这个数是 totalRevenue，
              它=订单收入（水费）+ 水票收入（买票实收），下面那张卡会逐项拆开。
@@ -25,9 +26,10 @@
           {{profitView.totalProfitText}}
         </text>
       </view>
+      <text class="hero-income-basis" wx:if="{{report.incomeBasisNote}}">{{report.incomeBasisNote}}</text>
     </view>
 
-    <text class="income-only-note" wx:if="{{!costComplete}}">本期成本未完整记录，仅显示收入。</text>
+    <text class="income-only-note" wx:if="{{!costComplete}}">本期成本不全，利润暂不显示。</text>
   </block>
 
   <!-- 期间 -->
@@ -133,8 +135,9 @@
     </view>
 
     <!-- 合作款独立于销售利润；摘要与折叠明细均直接展示服务端行。 -->
-    <view class="card cooperation-card" wx:if="{{costComplete && report.cooperation}}">
-      <view class="finance-section-head"><icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><view class="card-title">合作款与登记实款</view></view>
+    <view class="card cooperation-card" wx:if="{{report.cooperation}}">
+      <view class="finance-section-head"><icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><view class="card-title">合作待交与待收</view></view>
+      <text class="card-sub">合作款单独核对，不并入上方销售利润。</text>
       <view class="ledger-row" wx:for="{{cooperationView.summary}}" wx:key="key">
         <text class="ledger-label">{{item.label}}</text>
         <text class="ledger-value">{{item.amountText}}</text>
@@ -157,7 +160,7 @@
     <!-- 成本口径集中在页面底部的分组说明，避免与收入构成重复铺开。 -->
 
     <!-- 明细 -->
-    <view class="card" wx:if="{{costComplete}}">
+    <view class="card">
       <view class="card-title">按商品明细（{{report.items.length}} 项）</view>
       <view class="empty finance-empty" wx:if="{{!report.items.length}}"><icon name="chart" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text>该期间暂无销售记录</text></view>
       <view class="row" wx:for="{{report.items}}" wx:key="productId">

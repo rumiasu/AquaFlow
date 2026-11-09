@@ -46,9 +46,10 @@ function buildProfitHelpSections(report) {
 // 只分组服务端已有行，未知字段也保留在“其他合作款”中。
 function buildCooperationView(cooperation, moneyText) {
   const rows = cooperation && Array.isArray(cooperation.rows) ? cooperation.rows : []
-  const summaryKeys = ['pendingPayAmount', 'pendingReceiveAmount', 'recordedCashNetAmount']
+  const summaryKeys = ['pendingPayAmount', 'pendingReceiveAmount']
   const groups = [
-    { key: 'agreement', title: '合作约定与客户款', keys: ['agreedPayAmount', 'agreedReceiveAmount', 'quoteDifferenceAmount', 'customerReceivedAmount', 'customerRefundedAmount'] },
+    { key: 'agreement', title: '原合作约定', keys: ['agreedPayAmount', 'agreedReceiveAmount', 'quoteDifferenceAmount'] },
+    { key: 'customerCash', title: '客户实款与登记净额', keys: ['customerReceivedAmount', 'customerRefundedAmount', 'recordedCashNetAmount'] },
     { key: 'settlement', title: '合作交款与收款', keys: ['settledPayAmount', 'settledReceiveAmount'] },
     { key: 'recovery', title: '退款后返还', keys: ['recoveryPendingPayAmount', 'recoveryPendingReceiveAmount', 'recoverySentPayAmount', 'recoveryReceivedAmount', 'recoveryAwaitingConfirmationAmount'] }
   ]
@@ -130,6 +131,10 @@ Page({
       return
     }
     this.setData({ stationId })
+    if ([1, 7, 30].includes(this.data.quickRange)) {
+      const dates = this._rangeDates(this.data.quickRange)
+      this.setData({ from: dates.from, to: dates.to })
+    }
     this.load()
   },
 
@@ -156,8 +161,9 @@ Page({
     const seq = this._loadSeq = (this._loadSeq || 0) + 1
     this.setData({ loading: true, costComplete: false, report: null, reportError: '', missingError: '', missingReady: false, missingCost: [], profitView: {} })
     const qs = []
-    if (this.data.from) qs.push('from=' + this.data.from)
-    if (this.data.to) qs.push('to=' + this.data.to)
+    // The month shortcut stays relative when the page is reopened after a month boundary.
+    if (this.data.quickRange !== 0 && this.data.from) qs.push('from=' + this.data.from)
+    if (this.data.quickRange !== 0 && this.data.to) qs.push('to=' + this.data.to)
     const [reportResult] = await Promise.allSettled([get(GP + (qs.length ? '?' + qs.join('&') : ''))])
     if (seq !== this._loadSeq) return
     const patch = { loading: false }
@@ -187,19 +193,25 @@ Page({
   },
 
   /** 快捷区间：只改 from/to 再拉一次，日期口径仍由服务端解释。 */
+  _rangeDates(days) {
+    const fmt = d => d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+    const end = new Date()
+    const start = new Date(end.getFullYear(), end.getMonth(), end.getDate())
+    start.setDate(start.getDate() - days + 1)
+    return { from: fmt(start), to: fmt(end) }
+  },
+
   onQuickRange(e) {
     const days = Number(e.currentTarget.dataset.days)
-    const fmt = (d) => d.getFullYear() + '-' +
-      String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
-    const now = new Date()
     if (days === 0) {
       // 本月：交给服务端默认（清空 from/to）
       this.setData({ range: '', quickRange: 0, from: '', to: '' }, () => this.load())
       return
     }
-    const start = new Date(now.getTime() - (days - 1) * 24 * 3600 * 1000)
+    const dates = this._rangeDates(days)
     // days === 1 才是"今日"；其余区间必须把 range 清掉（同 onDate 的理由）
-    this.setData({ range: days === 1 ? 'today' : '', quickRange: days, from: fmt(start), to: fmt(now) }, () => this.load())
+    this.setData({ range: days === 1 ? 'today' : '', quickRange: days, from: dates.from, to: dates.to }, () => this.load())
   },
 
   /**

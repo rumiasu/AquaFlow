@@ -109,3 +109,30 @@ button.af-entry::after { border:0; }
 .order-card .amount-info { padding-top:20rpx; }
 .order-card .order-amount { color:var(--af2-ink-money); font-size:36rpx; font-weight:700; }
 .customer-note-preview { color:var(--text-regular); line-height:1.65; }
+
+/* 2026-11-09：首屏先读当前配送、客户与付款事实。长姓名/商品/地址自然换行，
+   不用省略号藏掉到门信息；金额始终标为订单金额，不暗示已收或应收。 */
+.order-shortcuts { display:flex; gap:12rpx; margin:0 0 20rpx; }
+.order-shortcuts .af-action { flex:1; min-width:0; margin:0; }
+.order-shortcuts .af-action__face { justify-content:center; text-align:center; white-space:normal; }
+.tab-bar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6rpx; padding:6rpx; }
+.tab-bar .af-choice { min-width:0; }
+.tab-bar .af-choice__face { justify-content:center; min-height:70rpx; box-sizing:border-box; white-space:normal; text-align:center; }
+.order-card .card-header { align-items:flex-start; }
+.order-card .order-id { flex:0 1 auto; }
+.order-card .order-time { margin-left:auto; overflow-wrap:anywhere; }
+.order-card .customer-info { display:flex; align-items:baseline; gap:8rpx 20rpx; }
+.order-card .customer-name { min-width:0; flex:1 1 200rpx; }
+.order-card .customer-phone { flex:0 1 auto; overflow-wrap:anywhere; }
+.order-assignment { color:var(--af-strong); font-weight:600; margin:12rpx 0; }
+.order-payment { color:var(--text-primary); font-weight:600; margin:12rpx 0; overflow-wrap:anywhere; line-height:1.55; }
+.order-collect { color:var(--af-strong); font-weight:700; margin:12rpx 0; overflow-wrap:anywhere; }
+.order-address,.product-name,.customer-note-preview { overflow-wrap:anywhere; word-break:break-word; white-space:normal; }
+.order-address { color:var(--text-regular); line-height:1.55; margin:12rpx 0; }
+.order-card .product-info { padding:10rpx 0; }
+.order-card .amount-info { flex-wrap:wrap; gap:8rpx; }
+.order-detail-cue { margin-top:14rpx; text-align:right; color:var(--primary-color); font-size:26rpx; }
+.cross-head,.cross-row-body { flex-wrap:wrap; gap:8rpx 16rpx; }
+.cross-amount,.cross-row .order-amount { overflow-wrap:anywhere; font-size:28rpx; }
+.cross-sub { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:8rpx 20rpx; }
+.cross-row .customer-name { min-width:0; overflow-wrap:anywhere; }

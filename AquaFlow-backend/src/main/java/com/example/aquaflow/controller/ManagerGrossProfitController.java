@@ -87,8 +87,8 @@ public class ManagerGrossProfitController {
     private static final String HELP_NOTE =
             "利润 = 该期间的销售收入 − 本期出库成本快照；"
                     + "净利 = 收入 − 进货成本 − 计件工钱。\n\n"
-                    + "1. 按「下单时间」统计这一批订单（不是按哪天送完），后续实际退款扣回原订单批次：它是这批生意本身的账，"
-                    + "不是当天进账的现金。\n"
+                    + "1. 按「下单时间」统计这一批未取消订单（含尚未收款），另计本期已收购票款；后续实际退款扣回原批次。"
+                    + "它是这批生意本身的账，不是当天进账的现金。\n"
                     + "2. 工钱在该单送到时才产生，还没送完的单暂时不计工钱 —— 那几天净利会偏高。\n"
                     + "3. 迟到扣款、高温补贴这类人工调整不计入净利。\n"
                     + "4. 水票收入只在客户买票那一刻计一次：用票下单不再重复计水费，另付的配送费、楼层费按实收计入，"
@@ -258,6 +258,7 @@ public class ManagerGrossProfitController {
         data.put("orderRevenue", orderRevenue);
         data.put("ticketRevenue", ticketRevenue);
         data.put("totalRevenue", revenueAll);
+        data.put("incomeBasisNote", "含尚未收款的订单水费、服务费与已收票款，不等于到账现金。");
         data.put("totalCost", missingCostKinds > 0 ? null : totalCost);
         data.put("costComplete", missingCostKinds == 0);
         if (missingCostKinds > 0) for (Map<String,Object> item : items) { item.put("profit", null); item.put("profitText", "成本未完整记录"); item.put("profitRateText", "—"); }
@@ -267,7 +268,7 @@ public class ManagerGrossProfitController {
         data.put("costBasisNote", COST_BASIS_NOTE);
         // 缺失历史成本不催填、不追算；只说明本期采用收入视图。
         data.put("missingCostHint", missingCostKinds > 0
-                ? "本期成本未完整记录，当前仅展示收入；不影响正常经营。"
+                ? "本期成本未完整记录，利润暂不显示；收入与合作款仍可单独核对。"
                 : null);
 
         // ===== 净利（2026-09-19）：同一批订单的 收入 − 成本 − 工钱 =====

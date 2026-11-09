@@ -44,6 +44,7 @@ class CooperationOperatingReportIntegrationTest extends AbstractIntegrationTest 
     @Test void sourceHeldTwentyMustShowNegativeFiveCommitmentBeforePayment() {
         seed(); paidOrder(a,"25.00");
         JsonNode aReport=report(at), bReport=report(bt);
+        assertEquals("含尚未收款的订单水费、服务费与已收票款，不等于到账现金。", aReport.path("incomeBasisNote").asText());
         assertTrue(aReport.has("cooperation"), "A收20、应付B25：经营报表必须列外包补差，不能只给A销售净利0");
         JsonNode ac=aReport.path("cooperation"),bc=bReport.path("cooperation");
         money("20.00",ac.path("customerReceivedAmount"));
@@ -54,6 +55,38 @@ class CooperationOperatingReportIntegrationTest extends AbstractIntegrationTest 
         money("25.00",bc.path("agreedReceiveAmount"));
         money("25.00",bc.path("pendingReceiveAmount"));
         money("0.00",bc.path("customerReceivedAmount"));
+    }
+    @Test void reservedTicketValueIsInOriginalQuoteBeforeConsumptionAndAfterRefund() {
+        seed();
+        long id=createOrderCrossStation(customer,address,a,b,product,1,1,3,"40.00","0.00","45.00");
+        jdbc.update("update orders set settle_station_id=?,delivery_fee=4,floor_fee=1 where id=?",b,id);
+        jdbc.update("insert into dispatch_agreement(order_id,source_station_id,target_station_id,service_amount,net_barrels,barrel_mode,barrel_amount,barrel_items,status,accepted_by,accepted_time,create_time) values(?,?,?,25,0,'RETURN_EMPTY',0,'','ACCEPTED',?,now(),now())",id,a,b,bm);
+        jdbc.update("insert into order_ticket_payment(order_id,customer_id,station_id,water_amount,delivery_fee,floor_fee,delivery_credit,cash_due,cash_method,state) values(?,?,?,40,4,1,0,5,2,'HELD')",id,customer,a);
+        jdbc.update("insert into order_ticket_hold(order_id,lot_id,product_id,quantity,unit_price,state) values(?,?,?,?,?,'HELD')",id,10001L,product,2,new BigDecimal("18.75"));
+        JsonNode initial=report(at).path("cooperation");
+        money("17.50",initial.path("quoteDifferenceAmount"));
+        money("25.00",initial.path("agreedPayAmount"));
+        assertEquals(0,intOf("select count(*) from ticket_record where order_id=?",id));
+        jdbc.update("update order_ticket_hold set state='CONSUMED' where order_id=?",id);
+        jdbc.update("insert into ticket_record(customer_id,station_id,product_id,order_id,decrease_qty,unit_price,source) values(?,?,?,?,2,18.75,'消费')",customer,a,product,id);
+        assertEquals(1,intOf("select count(*) from ticket_record where order_id=?",id));
+        money("17.50",report(at).path("cooperation").path("quoteDifferenceAmount"));
+        jdbc.update("update order_ticket_hold set state='REFUNDED' where order_id=?",id);
+        money("17.50",report(at).path("cooperation").path("quoteDifferenceAmount"));
+    }
+    @Test void releasedTicketReservationRetainsOriginalQuoteAfterCancellation() {
+        seed();
+        long id=createOrderCrossStation(customer,address,a,b,product,1,1,3,"40.00","0.00","45.00");
+        jdbc.update("update orders set settle_station_id=?,delivery_fee=4,floor_fee=1 where id=?",b,id);
+        jdbc.update("insert into dispatch_agreement(order_id,source_station_id,target_station_id,service_amount,net_barrels,barrel_mode,barrel_amount,barrel_items,status,accepted_by,accepted_time,create_time) values(?,?,?,25,0,'RETURN_EMPTY',0,'','ACCEPTED',?,now(),now())",id,a,b,bm);
+        jdbc.update("insert into order_ticket_payment(order_id,customer_id,station_id,water_amount,delivery_fee,floor_fee,delivery_credit,cash_due,cash_method,state) values(?,?,?,40,4,1,0,5,2,'HELD')",id,customer,a);
+        jdbc.update("insert into order_ticket_hold(order_id,lot_id,product_id,quantity,unit_price,state) values(?,?,?,?,?,'HELD')",id,10001L,product,2,new BigDecimal("18.75"));
+        money("17.50",report(at).path("cooperation").path("quoteDifferenceAmount"));
+        jdbc.update("update order_ticket_hold set state='RELEASED' where order_id=?",id);
+        jdbc.update("update order_ticket_payment set state='CANCELLED' where order_id=?",id);
+        jdbc.update("update orders set status=5,payment_status=4 where id=?",id);
+        money("17.50",report(at).path("cooperation").path("quoteDifferenceAmount"));
+        money("25.00",report(at).path("cooperation").path("agreedPayAmount"));
     }
     @Test void fullRefundAndReturnPreserveActualPaymentHistoryUntilBothSidesClose() {
         seed();long id=paidOrder(a,"25.00");settle(id,at);

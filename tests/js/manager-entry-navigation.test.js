@@ -118,6 +118,28 @@ test('首页员工申请和工作台带参数跳转均完整到达申请页签�
   const staff = f.load('staff'); staff.onLoad({ tab: 'apply' }); assert.equal(staff.data.activeTab, 'apply')
 })
 
+test('工作台逾期角标落到逾期客户视图，普通应收入口仍落全量', () => {
+  const f = fixture(), menu = f.load('workbench')
+  menu.setData({ receivablesBadgeCount: 2, businessWaitingBadgeCount: 0,
+    barrelReturnBadgeCount: 0, refundDisputeBadgeCount: 0 })
+  const pending = entries('workbench', menu, 'onNavigate').find(n => n.className.includes('v2-pending--money'))
+  assert(pending, '逾期角标应可见')
+  assert.equal(pending.attrs['data-url'], '/pages/station-mgmt/receivables/index?overdue=1')
+  global.getCurrentPages = () => [{ route: 'pages/station-mgmt/index' }, menu]
+  menu.onNavigate(tap({ url: pending.attrs['data-url'] }))
+  assert.equal(f.calls.at(-1).url, pending.attrs['data-url'])
+  // onLoad 是应收页的真实落地筛选，入口不能只改一段文案。
+  const ledger = loadPage('miniapp-delivery/pages/station-mgmt/receivables/index.js', { wx: f.wx, app: f.app })
+  ledger.onLoad(Object.fromEntries(new URLSearchParams(f.calls.at(-1).url.split('?')[1])))
+  assert.equal(ledger.data.onlyOverdue, true)
+  const ordinary = entries('workbench', menu, 'onNavigate').find(n => n.attrs['data-url'] === '/pages/station-mgmt/receivables/index')
+  assert(ordinary)
+  assert.equal(ordinary.attrs['data-url'], '/pages/station-mgmt/receivables/index')
+  const ordinaryLedger = loadPage('miniapp-delivery/pages/station-mgmt/receivables/index.js', { wx: f.wx, app: f.app })
+  ordinaryLedger.onLoad({})
+  assert.equal(ordinaryLedger.data.onlyOverdue, false)
+})
+
 test('员工页只接受两个合法页签，坏事件不会让申请页面变空或退回名单', () => {
   const f = fixture(), staff = f.load('staff'); staff.onLoad({ tab: 'apply' })
   for (const tab of ['', null, undefined, 'unknown', '0']) {

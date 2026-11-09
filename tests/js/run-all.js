@@ -24,6 +24,7 @@ const SUITES = [
   { file: 'delivery-task-read-recovery.test.js', name: 'delivery task stale reads and action confirmation recovery' },
   { file: 'manager-entry-navigation.test.js', name: 'manager workbench and application tab navigation' },
   { file: 'cross-station-order-navigation.test.js', name: 'cross-station order detail navigation and event boundaries' },
+  { file: 'manager-order-priority.test.js', name: 'manager pending-order hierarchy, collection facts and cross-station scope' },
   { file: 'payment-record-navigation.test.js', name: 'payment record navigation with current access checks' },
   { file: 'delivery-config-concurrency.test.js', name: 'delivery fee snapshots and stale draft recovery' },
   { file: 'selected-address-account.test.js', name: 'customer selected address account isolation' },

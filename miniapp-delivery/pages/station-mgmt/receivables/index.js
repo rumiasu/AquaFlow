@@ -90,6 +90,7 @@ Page({
     ordersError: '',
     selectedCount: 0, selectedAmountText: '', allCashSelected: false,
     settling: false,
+    settlementReceipt: '',
     // 账期编辑弹层
     termsVisible: false,
     termsInput: '',
@@ -123,7 +124,7 @@ Page({
     if (this._viewSession && !sameSession(this._viewSession, session)) {
       this.onCloseTerms()
       this.setData({ overview: null, allCustomers: [], customers: [], customer: null, orders: [],
-        selectedCount: 0, selectedAmountText: '', ordersLoading: false, ordersError: '' })
+        selectedCount: 0, selectedAmountText: '', ordersLoading: false, ordersError: '', settlementReceipt: '' })
     }
     this._viewSession = session
     this._orderNavigating = false
@@ -197,7 +198,8 @@ Page({
     this.onCloseTerms()
     this._ordersRequest = (this._ordersRequest || 0) + 1
     this._settleRevision = (this._settleRevision || 0) + 1
-    this.setData({ customer: null, orders: [], selectedCount: 0, selectedAmountText: '', ordersLoading: false, ordersError: '' })
+    // 2026-11-09：旧收款回执曾留到下一位客户明细，金额看似属于新客户；回客户列表即结束回执上下文。
+    this.setData({ customer: null, orders: [], selectedCount: 0, selectedAmountText: '', ordersLoading: false, ordersError: '', settlementReceipt: '' })
     this.load()
   },
 
@@ -246,7 +248,7 @@ Page({
     if (!customer) return
     this.onCloseTerms()
     this._settleRevision = (this._settleRevision || 0) + 1
-    this.setData({ customer, orders: [], selectedCount: 0, selectedAmountText: '' })
+    this.setData({ customer, orders: [], selectedCount: 0, selectedAmountText: '', settlementReceipt: '' })
     await this.loadOrders()
   },
 
@@ -358,6 +360,10 @@ Page({
     const flight = this._settleFlight = {}, revision = this._settleRevision || 0
     const overviewRequest = this._overviewRequest, ordersRequest = this._ordersRequest, onlyOverdue = this.data.onlyOverdue
     const current = () => !this._hidden && !this._unloaded && sameSession(session, receivableSession()) && receivableSession().allowed
+    // 2026-11-09：POST 已发出后，返回列表再选另一客户不能取消实际登记；但旧请求的回执、
+    // 勾选态和明细刷新也不能写进新客户。原来只核登录，迟到成功会把 A 的金额贴到 B 身上。
+    const settlementViewCurrent = () => current() && revision === (this._settleRevision || 0)
+      && this.data.customer && String(this.data.customer.customerId) === String(c.customerId)
     const confirmationCurrent = () => {
       const next = selectedReceivables(this.data.orders, this.data.customer)
       return current() && !this.data.loadError && !this.data.ordersError && !this.data.ordersLoading
@@ -365,7 +371,7 @@ Page({
         && this.data.onlyOverdue === onlyOverdue && this.data.customer && this.data.customer.customerId === c.customerId
         && this.data.customer.customerName === c.customerName && !next.error && next.signature === selection.signature
     }
-    this.setData({ settling: true })
+    this.setData({ settling: true, settlementReceipt: '' })
     try {
       const confirmed = await new Promise(resolve => {
         flight.cancelConfirmation = () => resolve(false)
@@ -385,12 +391,14 @@ Page({
       if (!d || !Number.isSafeInteger(d.settledCount) || d.settledCount < 0 || amountCents(d.settledAmount) === null) {
         throw Object.assign(new Error('收款登记结果暂未查到'), { malformedResponse: true })
       }
+      if (!settlementViewCurrent()) { await this.load(); return }
       this.setData({ settlementReceipt: '已登记 ' + d.settledCount + ' 单 · ¥' + d.settledAmount + (d.alreadySettledCount ? '；此前已登记 ' + d.alreadySettledCount + ' 单已跳过' : '') })
       wx.showToast({ title: '已登记收款', icon: 'success' })
       this.setData({ selectedCount: 0, selectedAmountText: '' })
       await Promise.all([this.load(), this.loadOrders()])
     } catch (err) {
       if (!current()) return
+      if (!settlementViewCurrent()) { await this.load(); return }
       const unknown = err && (err.requestMayHaveOccurred === true || err.resultUnknown || err.malformedResponse
         || Number(err.statusCode) >= 500 || Number(err.backendCode) >= 500)
       if (unknown) {

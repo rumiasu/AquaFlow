@@ -31,8 +31,8 @@ function visible() { return renderElements(tree, page.data, { includeText: true 
 function textContains(nodes, text) { return nodes.some(node => String(node.text || '').includes(text)) }
 async function main() {
   await page.load()
-  assert.deepEqual(page.data.cooperationView.summary.map(row => row.key), ['pendingPayAmount', 'pendingReceiveAmount', 'recordedCashNetAmount'])
-  assert.deepEqual(page.data.cooperationView.sections.map(group => group.key), ['agreement', 'settlement', 'recovery', 'other'])
+  assert.deepEqual(page.data.cooperationView.summary.map(row => row.key), ['pendingPayAmount', 'pendingReceiveAmount'])
+  assert.deepEqual(page.data.cooperationView.sections.map(group => group.key), ['agreement', 'customerCash', 'settlement', 'recovery', 'other'])
   assert.equal(page.data.cooperationView.sections.flatMap(group => group.rows).length + page.data.cooperationView.summary.length, rows.length)
   assert.deepEqual(page.data.profitChart.map(row => row.width), [100 / 150 * 100, 100, 50 / 150 * 100])
   assert.equal(page.data.profitChart[2].negative, true)
@@ -61,7 +61,7 @@ async function main() {
   assert.equal(page.data.profitChart.length, 0)
   assert.equal(page.data.profitView.totalProfitText, '未填成本')
   nodes = visible()
-  assert(textContains(nodes, '本期成本未完整记录'))
+  assert(textContains(nodes, '本期成本不全，利润暂不显示'))
   assert(!textContains(nodes, '本期金额对比'))
   report = { ...report, totalProfit: undefined, missingCostHint: '' }
   missing = []

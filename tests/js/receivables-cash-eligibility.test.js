@@ -10,18 +10,23 @@ const row = (orderId, extra = {}) => ({ orderId, customerId: 7, totalAmount: '10
   canRegisterCash: true, canViewOrder: true, collectionMethodText: '现金（货到付款）',
   collectionBlockReason: '', collectionNextStep: '实际收到现金后勾选登记。', ...extra })
 
-async function fixture(rows) {
-  const wx = createWx(), posts = [], customer = { customerId: 7, customerName: '渠道核对客户' }
+async function fixture(rows, options = {}) {
+  const wx = createWx(), posts = [], reads = [], customer = { customerId: 7, customerName: '渠道核对客户' }
   const app = createApp({ _loginGeneration: 1, globalData: { isLogin: true, accessToken: 'synthetic',
     userInfo: { staffId: 1, stationId: 11, role: 'STATION_MANAGER' } } })
   wx.showModal = modal => wx.__calls.modal.push(modal)
   const page = loadPage('miniapp-delivery/pages/station-mgmt/receivables/index.js', { wx, app, stubs: {
-    'utils/request': { get: async url => url.includes('/orders?')
-      ? { data: JSON.parse(JSON.stringify(rows)) } : { data: { customers: [customer] } },
-    post: async (url, body) => { posts.push({ url, body }); return { data: { settledCount: body.orderIds.length, settledAmount: '17.00' } } } }
+    'utils/request': { get: async url => {
+      reads.push(url)
+      return url.includes('/orders?')
+        ? { data: JSON.parse(JSON.stringify(rows.filter(o => String(o.customerId) === url.split('customerId=')[1]))) }
+        : { data: { customers: options.customers || [customer] } }
+    },
+    post: async (url, body) => { posts.push({ url, body }); return options.post
+      ? options.post(url, body) : { data: { settledCount: body.orderIds.length, settledAmount: '17.00' } } } }
   } })
   page.onShow(); await tick(); await page.onPickCustomer(event(7))
-  return { page, wx, posts }
+  return { page, wx, posts, reads }
 }
 
 test('select all admits cash and ticket cash remainder only when the server explicitly permits them', async () => {
@@ -35,6 +40,7 @@ test('select all admits cash and ticket cash remainder only when the server expl
   assert(modal); assert(modal.content.includes('所选 2 单，合计 ¥17.00'))
   modal.success({ confirm: true }); await work
   assert.deepEqual(t.posts[0].body, { customerId: 7, orderIds: [101, 102] })
+  assert.equal(t.page.data.settlementReceipt, '已登记 2 单 · ¥17.00')
 })
 
 test('blocked and unknown rows cannot toggle but their order detail remains available', async () => {
@@ -44,6 +50,56 @@ test('blocked and unknown rows cannot toggle but their order detail remains avai
   t.page.onOpenOrder(event(101))
   assert.equal(t.wx.__calls.nav.at(-1).url, '/pages/order/detail?id=101')
   assert.equal(t.posts.length, 0)
+})
+
+test('cash registration receipt never follows the manager into another customer or login session', async () => {
+  const t = await fixture([row(101)])
+  t.page.setData({ settlementReceipt: '已登记 1 单 · ¥10.00' })
+  t.page.onBack()
+  assert.equal(t.page.data.settlementReceipt, '')
+  t.page.setData({ customers: [{ customerId: 8, customerName: '另一客户' }],
+    settlementReceipt: '已登记 1 单 · ¥10.00' })
+  await t.page.onPickCustomer(event(8))
+  assert.equal(t.page.data.customer.customerId, 8)
+  assert.equal(t.page.data.settlementReceipt, '')
+  t.page.setData({ settlementReceipt: '已登记 1 单 · ¥10.00' })
+  t.page.onHide()
+  const app = t.page._viewSession.app
+  app._loginGeneration++
+  app.globalData.userInfo.staffId = 2
+  t.page.onShow()
+  assert.equal(t.page.data.settlementReceipt, '')
+})
+
+test('late successful registration refreshes the overview without painting customer A receipt on customer B', async () => {
+  let resolvePost
+  const posted = new Promise(resolve => { resolvePost = resolve })
+  const t = await fixture([row(101), row(202, { customerId: 8, totalAmount: '20.00' })], { customers: [
+    { customerId: 7, customerName: '客户甲', outstandingAmount: '10.00' },
+    { customerId: 8, customerName: '客户乙', outstandingAmount: '20.00' }
+  ], post: () => posted })
+  t.page.onSelectAll()
+  const work = t.page.onSettle(), modal = t.wx.__calls.modal.at(-1)
+  assert(modal)
+  modal.success({ confirm: true })
+  await tick()
+  assert.equal(t.posts.length, 1, '甲的收款登记已经发出，之后不能假装撤销')
+  t.page.onBack()
+  await t.page.onPickCustomer(event(8))
+  t.page.onSelectAll()
+  assert.equal(t.page.data.selectedCount, 1)
+  const overviewReads = t.reads.filter(url => url === '/api/manager/receivables').length
+  resolvePost({ data: { settledCount: 1, settledAmount: '10.00' } })
+  await work
+  assert.equal(t.page.data.customer.customerId, 8)
+  assert.equal(t.page.data.settlementReceipt, '')
+  assert.equal(t.page.data.selectedCount, 1, '甲的回调不能清掉乙已勾选的订单')
+  assert.equal(t.page.data.orders[0].orderId, 202)
+  assert.equal(t.page.data.orders[0].checked, true)
+  assert.equal(t.reads.filter(url => url === '/api/manager/receivables').length, overviewReads + 1,
+    '迟到的成功仍须只读刷新总台账')
+  assert.equal(t.reads.filter(url => url.includes('/orders?customerId=8')).length, 1,
+    '甲的回调不能替乙重读明细')
 })
 
 test('unpaid WeChat preserves the customer payment instruction without an inaccessible employee order link', async () => {

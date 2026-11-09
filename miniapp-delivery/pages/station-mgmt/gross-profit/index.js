@@ -78,6 +78,7 @@ Page({
     stationId: null,
     costComplete: false, loading: true, reportError: '', missingError: '', missingReady: false,
     quickRange: 0,
+    periodExpanded: false,
     incomeDetailsExpanded: false,
     from: '',
     to: '',
@@ -156,6 +157,8 @@ Page({
   },
 
   onRetryReport() { return this.load() },
+
+  onTogglePeriod() { this.setData({ periodExpanded: !this.data.periodExpanded }) },
 
   async load() {
     const seq = this._loadSeq = (this._loadSeq || 0) + 1

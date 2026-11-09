@@ -34,7 +34,12 @@
 
   <!-- 期间 -->
   <view class="card period-card">
-    <view class="finance-section-head"><text class="card-title">统计期间</text><text class="period-note">含结束日</text></view>
+    <view class="period-toggle" bindtap="onTogglePeriod" role="button" aria-label="统计期间，{{periodExpanded ? '收起' : '调整统计期间'}}">
+      <view class="period-toggle-heading"><text class="card-title">统计期间</text><text class="period-action">{{periodExpanded ? '收起' : '调整统计期间'}}</text></view>
+      <text class="period-current" wx:if="{{report && report.from && report.to}}">{{report.from}} 至 {{report.to}}</text>
+      <text class="period-current" wx:else>{{from || '本月 1 号'}} 至 {{to || '今天'}}</text>
+    </view>
+    <block wx:if="{{periodExpanded}}">
     <picker mode="date" value="{{from}}" bindchange="onDate" data-field="from">
       <view class="picker">开始：{{from || '本月 1 号'}}</view>
     </picker>
@@ -47,6 +52,8 @@
       <view class="af-choice {{quickRange === 7 ? 'af-choice--selected' : ''}}" bindtap="onQuickRange" data-days="7"><text class="af-choice__face">近7天</text></view>
       <view class="af-choice {{quickRange === 30 ? 'af-choice--selected' : ''}}" bindtap="onQuickRange" data-days="30"><text class="af-choice__face">近30天</text></view>
     </view>
+    <text class="period-note">含结束日</text>
+    </block>
     <!-- [2026-09-24] 原文"服务端按「结束日 + 1 天」做上界"是实现口径（对应 AGENTS §8.19），
          站长只需要知道"结束日当天算在内、今天的销量不会漏"这一条结论。 -->
 

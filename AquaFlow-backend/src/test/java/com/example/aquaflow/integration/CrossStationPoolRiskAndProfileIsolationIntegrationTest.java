@@ -352,7 +352,7 @@ class CrossStationPoolRiskAndProfileIsolationIntegrationTest extends AbstractInt
         Api out = post("/api/delivery/orders/transfer/" + order + "/outsource", tokenA(), "{}");
         assertFalse(out.isSuccess(), "含押金单不得放入抢单池: " + out);
         assertTrue(out.message().contains("押金或客户桶资产"), "拒绝文案要点明原因，实际=" + out.message());
-        assertTrue(out.message().contains("定向外派"), "文案要给出出路（不是一句干巴巴的'不行'），实际=" + out.message());
+        assertTrue(out.message().contains("指定水站外派"), "文案仍须给出指定水站的办理出路，实际=" + out.message());
 
         // 入口二：站长拒单时勾"尝试外派"
         Api reject = post("/api/delivery/orders/" + order + "/station-reject", tokenA(),

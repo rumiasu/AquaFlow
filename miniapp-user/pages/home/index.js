@@ -695,12 +695,10 @@ Page({
       this.setData({ barrelVisible: false, barrelLine1: '', barrelLine2: '' })
       return
     }
-    const owed = Number(s.owedBuckets) || 0
     const balance = Number(s.depositBalance) || 0
     const parts = []
-    if (owed > 0) parts.push(`欠 ${owed} 个空桶，还清前不能退桶`)
     if (balance > 0) parts.push(`押金余额 ¥${fmtMoney(balance)}`)
-    this.setData({ barrelVisible: true, barrelLine1: '水桶与押金',
+    this.setData({ barrelVisible: true, barrelLine1: '我的桶',
       barrelLine2: parts.join(' · ') })
   },
 

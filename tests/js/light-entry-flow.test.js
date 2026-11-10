@@ -53,10 +53,13 @@ test('stationless page does not expose a station asset entry', async () => {
   page.renderBarrelLine({depositBalance:30})
   assert.equal(page.data.barrelVisible,false)
 })
-test('existing debt reminders and actual deposit amount remain visible', async () => {
+test('home keeps the bucket entry calm while details retain debt facts', async () => {
   const {page}=home(async()=>({data:{owedBuckets:2,depositBalance:60}})); await page.loadData()
-  assert.ok(page.data.barrelLine2.includes('欠 2 个空桶'))
+  assert.equal(page.data.barrelLine1,'我的桶')
   assert.ok(page.data.barrelLine2.includes('押金余额 ¥60'))
+  assert.ok(!page.data.barrelLine2.includes('欠桶')&&!page.data.barrelLine2.includes('还清前不能退桶'))
+  const detail=fs.readFileSync(path.join(ROOT,'miniapp-user/pages/barrel/index.wxml'),'utf8')
+  assert.ok(detail.includes('欠桶 {{summary.owedBuckets}} 个：不影响下单；退桶前需先还清对应商品的欠桶'))
 })
 test('late station response cannot restore the prior station asset entry', async () => {
   const wait=deferred(), {page}=home(()=>wait.promise)

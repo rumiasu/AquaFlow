@@ -80,6 +80,68 @@ async function test(name, fn) { try { await fn(); passed++; console.log('PASS ' 
     await invalid(page); await page.onClearHistoryDates(); await page.onLoadMore()
     assert.equal(requests[0].createTimeStart,undefined); assert.equal(requests[0].createTimeEnd,undefined); assert.equal(requests[1].page,2); assert.equal(page.data.list.length,21); assert.equal(page.data.listError,'')
   })
+  await test('returning from details retains the loaded range, refreshes it, and continues pagination', async () => {
+    const refresh = deferred()
+    let restoring = false
+    const { page, requests } = fixture(async q => {
+      if (restoring) return refresh.promise
+      return { data: rows(1, 42).slice((q.page - 1) * q.pageSize, q.page * q.pageSize) }
+    })
+    page.setData({ customerId: 7, filtersExpanded: true })
+    await page.loadData()
+    await page.onLoadMore()
+    page.onOrderTap(event('', 25))
+    page.onHide()
+    restoring = true
+    const pending = page.onShow()
+    assert.equal(page.data.loading, false)
+    assert.equal(page.data.list.length, 40)
+    assert.equal(page.data.filtersExpanded, true)
+    assert.equal(requests.at(-1).customerId, 7)
+    assert.equal(requests.at(-1).page, 1)
+    assert.equal(requests.at(-1).pageSize, 40)
+    refresh.resolve({ data: rows(1, 41).filter(row => row.id !== 25) })
+    await pending
+    assert.equal(page.data.page, 2)
+    assert(!page.data.list.some(row => row.id === 25), 'a changed order must leave the filtered list')
+    assert.equal(page.data.list.at(-1).id, 41)
+    restoring = false
+    await page.onLoadMore()
+    assert.equal(requests.at(-1).page, 3)
+    assert.equal(requests.at(-1).pageSize, 20)
+    assert.equal(page.data.list.at(-1).id, 42)
+  })
+  await test('restoring more than one server batch preserves the visible range and next page', async () => {
+    const all = rows(1, 521)
+    const { page, requests } = fixture(async q => ({ data: all.slice((q.page - 1) * q.pageSize, q.page * q.pageSize) }))
+    await page.loadData()
+    for (let i = 1; i < 26; i++) await page.onLoadMore()
+    page.onHide()
+    await page.onShow()
+    assert.equal(page.data.list.length, 520)
+    assert.equal(page.data.page, 26)
+    assert.deepEqual(requests.slice(-2).map(q => [q.page, q.pageSize]), [[1, 500], [2, 500]])
+    await page.onLoadMore()
+    assert.equal(requests.at(-1).page, 27)
+    assert.equal(page.data.list.at(-1).id, 521)
+  })
+  await test('a new login generation never reuses the old order rows on show', async () => {
+    const fresh = deferred()
+    const { page, app, requests } = fixture(async q => app._loginGeneration === 2
+      ? fresh.promise : { data: rows((q.page - 1) * q.pageSize + 1, q.pageSize) })
+    app._loginGeneration = 1
+    await page.loadData()
+    await page.onLoadMore()
+    page.onHide()
+    app._loginGeneration = 2
+    const loading = page.onShow()
+    assert.equal(page.data.list.length, 0)
+    assert.equal(requests.at(-1).page, 1)
+    assert.equal(requests.at(-1).pageSize, 20)
+    fresh.resolve({ data: rows(100) })
+    await loading
+    assert.equal(page.data.list[0].id, 100)
+  })
   console.log(`order query boundary: ${passed} passed, ${failed} failed`)
   if (failed) process.exitCode=1; else console.log('AQUAFLOW_SUITE_OK '+passed)
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(done)

@@ -1,5 +1,6 @@
 'use strict'
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path')
+const vm = require('node:vm')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
 const { parseWxml, renderElements } = require('./wxml-tree')
 const { createNavigator } = require('../../miniapp-delivery/utils/navigation')
@@ -13,7 +14,7 @@ const row = (extra = {}) => ({ id: 101, stationId: 11, orderId: 51, customerId: 
   paymentMethod: 2, createTime: '2026-11-04 12:00:00', ...extra })
 
 function fixture(rows = [row()], read = async url => ok({ id: Number(url.split('/').at(-1)) })) {
-  const wx = createWx(), calls = [], dialogs = []
+  const wx = createWx(), calls = [], dialogs = [], writtenIds = []
   const app = createApp({ _loginGeneration: 1, globalData: { isLogin: true,
     userInfo: { staffId: 9, stationId: 11, role: 'STATION_MANAGER', bindStatus: 'BOUND' } } })
   let writes = 0, listReads = 0
@@ -26,11 +27,11 @@ function fixture(rows = [row()], read = async url => ok({ id: Number(url.split('
   page = loadPage(PAGE + '.js', { app, wx, stubs: {
     'utils/navigation': navigation,
     'utils/business-dialog': { showBusinessModal: options => dialogs.push(options) },
-    'api/station-mgmt': { getPendingPayments: async () => { listReads++; return ok(rows) },
-      confirmPayment: async () => { writes++; return ok(null) } },
+    'api/station-mgmt': { getPendingPayments: async () => { listReads++; return ok({ items: rows, nextCursor: null }) },
+      confirmPayment: async id => { writes++; writtenIds.push(id); return ok(null) } },
     'utils/request': { get: async url => { calls.push(url); return url === '/api/payments' ? ok(rows) : read(url) } }
   } })
-  return { page, wx, app, calls, dialogs, navigationFeedback,
+  return { page, wx, app, calls, dialogs, writtenIds, navigationFeedback,
     tickNavigation: () => { for (const [id, fn] of [...timers]) { timers.delete(id); fn() } },
     writes: () => writes, listReads: () => listReads }
 }
@@ -125,6 +126,48 @@ test('fast repeated taps share one read and do not open a collection confirmatio
 test('an open collection confirmation prevents a concurrent navigation read', async () => {
   const t = fixture(); await t.page.onShow(); t.page.onConfirm(event(101)); await t.page.onOpenPaymentCustomer(event(101))
   assert.equal(t.dialogs.length, 1); assert.deepEqual(t.calls, []); assert.equal(t.wx.__calls.nav.length, 0)
+})
+test('same-amount rows confirm the selected order number and its actual collection record', async () => {
+  const t = fixture([row({ amount: '7.00' }), row({ id: 102, orderId: 52, amount: '7.00' })])
+  await t.page.onShow()
+  t.page.onConfirm(event('102'))
+  assert.equal(t.dialogs[0].content, '确认已收到订单 #52 的 ¥7.00？')
+  assert.deepEqual(t.writtenIds, [])
+  await t.dialogs[0].success({ confirm: true })
+  assert.deepEqual(t.writtenIds, [102])
+})
+test('an unverified amount neither looks like zero nor opens collection confirmation', async () => {
+  for (const amount of [null, '', false, '7.001', -1]) {
+    const t = fixture([row({ amount })]); await t.page.onShow()
+    const nodes = view(t)
+    assert(nodes.some(n => n.text === '金额待核实'))
+    assert(!nodes.some(n => n.text === '¥0.00'))
+    const button = nodes.find(n => n.attrs.catchtap === 'onConfirm')
+    assert.equal(vm.runInNewContext(button.attrs.disabled.slice(2, -2),
+      { ...t.page.data, item: t.page.data.list[0] }), true)
+    t.page.onConfirm(event(101))
+    assert.deepEqual(t.dialogs, [])
+    assert.equal(t.writes(), 0)
+  }
+  const t = fixture([row({ amount: 0 })]); await t.page.onShow()
+  assert(view(t).some(n => n.text === '¥0.00'))
+})
+test('a receipt from before relogin cannot open a new confirmation until reread', async () => {
+  const t = fixture(); await t.page.onShow()
+  t.app._loginGeneration++
+  t.page.onConfirm(event(101))
+  assert.deepEqual(t.dialogs, [])
+  await t.page.onRetryLoad()
+  t.page.onConfirm(event(101))
+  assert.equal(t.dialogs.length, 1)
+  assert.equal(t.writes(), 0)
+})
+test('signed history amounts remain visible without a confirmation action', async () => {
+  const t = fixture([row({ orderId: null, ticketQty: 10, amount: '-7.00' })])
+  t.page.onLoad({ view: 'ticketHistory' })
+  await t.page.onShow()
+  assert(view(t).some(n => n.text === '¥-7.00'))
+  assert(!view(t).some(n => n.attrs.catchtap === 'onConfirm'))
 })
 test('navigation failure is visible and retry can succeed', async () => {
   const t = fixture(); await t.page.onShow(); const original = t.wx.navigateTo

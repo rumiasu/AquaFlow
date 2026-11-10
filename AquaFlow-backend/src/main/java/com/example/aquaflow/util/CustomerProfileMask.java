@@ -10,7 +10,8 @@ import java.util.Map;
  *
  * <p>口径：一行订单只要<b>履约站 ≠ 归属站</b>，履约站这一侧看到的 {@code customerName} /
  * {@code customerPhone}（{@code left join customer} 带出来的，是<b>归属站</b>的客户档案）
- * 一律置 null；订单自身的 {@code receiverName} / {@code receiverPhone} / 地址 / 商品 / 金额快照
+ * 一律置 null；详情还清除当前地址的关联字段（见 {@link #maskDetailIfCrossStation(Orders)}）。
+ * 订单自身的 {@code receiverName} / {@code receiverPhone} / 地址 / 商品 / 金额快照
  * <b>照常下发</b> —— 那是「订单有关的信息」，跨站配送必需（点名收件人、送对地址）。</p>
  *
  * <p>⚠️ 为什么是「保留键、显式置 null」而不是从 SQL 里删掉那两列：① 形状统一 —— 前端对同一种情况
@@ -77,6 +78,21 @@ public final class CustomerProfileMask {
             return;
         }
         mask(order);
+    }
+
+    /**
+     * 2026-11-10：详情曾只抹姓名和电话，仍会暴露客户后来更新的地址和楼层信息。
+     * 两个员工详情入口统一清除当前地址关联，保留下单时的地址和坐标快照。
+     */
+    public static void maskDetailIfCrossStation(Orders order) {
+        if (!isCrossStation(order.getStationId(), order.getDeliveryStationId())) {
+            return;
+        }
+        mask(order);
+        order.setAddressId(null);
+        order.setAddressDetail(null);
+        order.setAddressFloor(null);
+        order.setAddressHasElevator(null);
     }
 
     /**

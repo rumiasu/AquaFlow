@@ -53,13 +53,14 @@
           bindtap="onPickCustomer" data-id="{{item.customerId}}">
       <view class="receivable-customer-body">
       <view class="row-between">
-        <text class="row-title">{{item.customerName}}</text>
+        <text class="row-title">{{item.customerName || '客户 #' + item.customerId}}</text>
         <text class="row-amount">¥{{item.outstandingAmount}}</text>
       </view>
       <!-- 2026-11-09：原“未设账期”把订单到期日误说成客户当前账期；两者可因后改账期而不同。 -->
       <view class="row-sub">
         {{item.orderCount}} 单待收
-        <text wx:if="{{item.earliestDueDate}}"> · 最早 {{item.earliestDueDate}} 到期</text>
+        <text wx:if="{{item.earliestDueDateText}}"> · 最早 {{item.earliestDueDateText}} 到期</text>
+        <text wx:elif="{{item.earliestDueDate}}"> · 到期日待核实</text>
         <text wx:else> · 待收订单无到期日</text>
       </view>
       <view class="overdue-tag" wx:if="{{item.overdueAmount > 0}}">
@@ -75,7 +76,7 @@
       <view class="receivable-customer-toggle" bindtap="onBack" aria-role="button" aria-label="收起客户明细">
         <view class="receivable-customer-body">
           <view class="row-between">
-            <text class="row-title">{{customer.customerName}}</text>
+            <text class="row-title">{{customer.customerName || '客户 #' + customer.customerId}}</text>
             <text class="row-amount">¥{{customer.outstandingAmount}}</text>
           </view>
           <view class="row-sub">

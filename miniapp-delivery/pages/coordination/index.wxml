@@ -95,16 +95,18 @@
     </scroll-view>
 
     <!-- pending 页签仅保留此处一个查单入口，空列表时仍可进入完整订单台账。 -->
-    <view class="list" wx:if="{{activeTab === 'pending'}}">
+    <view id="pending-dispatch-queue" class="list" wx:if="{{activeTab === 'pending'}}">
       <view class="queue-head">
         <text class="queue-title">待分配</text>
         <text bindtap="onOpenOrders" class="af-action af-action--quiet b2-inline-tool"><text class="af-action__face">查全部订单 ›</text></text>
       </view>
+      <view class="ui-state" wx:if="{{dispatchFocusMessage}}"><text class="ui-state-copy">{{dispatchFocusMessage}}</text></view>
       <view class="order-card {{item.showRisk ? item.riskClass : ''}}" wx:for="{{lists.pending}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
         <view class="card-header">
           <view class="tag-row">
             <text class="status-tag status-transfer" wx:if="{{item.transferPending}}">转单中</text>
             <text class="status-tag status-pending" wx:else>待分配</text>
+            <text class="status-tag" wx:if="{{dispatchFocusId && dispatchFocusId == item.id}}">刚查的订单</text>
             <!--
               客户信用标（2026-09-22）：徽标文字（riskText）与下面那句话（riskNote）
               **都由后端下发**，前端只按等级挑一个颜色（riskClass 在 index.js 的 riskView 里算）。
@@ -450,7 +452,8 @@
       （判据是备注，见 constant/DispatchKind）—— 前端不解析 specialNote：同一段自由文本
       两端各判一次，迟早分叉。
     -->
-    <view class="list" wx:elif="{{activeTab === 'dispatch'}}">
+    <view id="outgoing-dispatch-queue" class="list" wx:elif="{{activeTab === 'dispatch'}}">
+      <view class="ui-state" wx:if="{{dispatchFocusMessage}}"><text class="ui-state-copy">{{dispatchFocusMessage}}</text></view>
       <view class="sub-tab-bar">
         <view
               bindtap="switchDispatchTab" data-tab="pool" class="af-choice b2-choice {{dispatchTab === 'pool' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{dispatchTab === 'pool'}}">✓</text>
@@ -466,10 +469,11 @@
 
       <!-- 一键外派：放进抢单池、等别站来抢（不用管，出事了才需要召回） -->
       <block wx:if="{{dispatchTab === 'pool'}}">
-        <view class="order-card dispatch-card" wx:for="{{lists.dispatchPool}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="order-card dispatch-card" wx:for="{{lists.dispatchPool}}" wx:key="id" data-id="{{item.id}}" bindtap="onDispatchTrackingTap">
           <view class="card-header">
             <view class="tag-row">
               <text class="status-tag status-dispatch">一键外派</text>
+              <text class="status-tag" wx:if="{{dispatchFocusId && dispatchFocusId == item.id}}">刚查的订单</text>
               <!-- 订单状态文案由后端下发（Orders.statusText），前端不写 1..5 映射表 -->
               <text class="dispatch-status-tag" wx:if="{{item.statusText}}">{{item.statusText}}</text>
             </view>
@@ -523,11 +527,12 @@
 
       <!-- 指定外派：本站指定给别站的（_dir='out'）+ 别站指定本店的（_dir='in'），别站指定的排前面 -->
       <block wx:else>
-        <view class="order-card dispatch-card {{item._dir === 'in' ? 'incoming-card' : ''}}" wx:for="{{lists.dispatchDirected}}" wx:key="id" data-id="{{item.id}}" bindtap="onOrderTap">
+        <view class="order-card dispatch-card {{item._dir === 'in' ? 'incoming-card' : ''}}" wx:for="{{lists.dispatchDirected}}" wx:key="id" data-id="{{item.id}}" bindtap="onDispatchTrackingTap">
           <view class="card-header">
             <view class="tag-row">
               <!-- 方向标签：别站指定给我要回话（可退回原水站），本站指定给别站的可召回/改派 -->
               <text class="status-tag {{item._dir === 'in' ? 'status-incoming' : 'status-dispatch'}}">{{item._dir === 'in' ? '别站指定给我' : '本站指定给别站'}}</text>
+              <text class="status-tag" wx:if="{{dispatchFocusId && dispatchFocusId == item.id}}">刚查的订单</text>
               <text class="dispatch-status-tag" wx:if="{{item.statusText}}">{{item.statusText}}</text>
             </view>
             <text class="order-id">#{{item.id}}</text>

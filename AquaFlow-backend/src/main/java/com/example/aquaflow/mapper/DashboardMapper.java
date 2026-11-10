@@ -104,10 +104,10 @@ public interface DashboardMapper {
                                           @Param("end") LocalDateTime end,
                                           @Param("limit") int limit);
 
-    /** 客户消费排行 TOP N */
+    /** 客户消费排行 TOP N。2026-11-10：按结算站直接关联客户曾暴露外派客户姓名，档案按独立经营关系关联。 */
     @Select("select o.customer_id as customerId, c.name as customerName, count(*) as orders, "
             + "coalesce(sum(o.total_amount), 0) as amount "
-            + "from orders o left join customer c on c.id = o.customer_id "
+            + "from orders o left join customer c on c.id = o.customer_id and " + CustomerMapper.STATION_CUSTOMER_RELATION + " "
             + "where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "and o.create_time >= #{start} and o.create_time < #{end} and o.status != 5 "
             + "group by o.customer_id, c.name order by amount desc limit #{limit}")

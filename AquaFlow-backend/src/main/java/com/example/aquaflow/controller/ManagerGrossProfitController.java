@@ -69,7 +69,7 @@ public class ManagerGrossProfitController {
      * <b>不要写 Markdown 记号</b>。</p>
      */
     private static final String PROFIT_BASIS_NOTE =
-            "净利 = 退款后收入 − 进货成本 − 计件工钱。按下单时间统计这批订单，后续实际退款扣回原批次；未送达的订单暂不计件。";
+            "销售净利 = 退款后销售收入 − 出库成本 − 计件工钱。按下单时间统计这批订单，后续实际退款扣回原批次；未送达的订单暂不计件。";
 
     /**
      * 「利润怎么算」帮助弹窗里的**长解释**（[2026-09-26] 从上面两条口径提示里搬出来的）。
@@ -85,14 +85,13 @@ public class ManagerGrossProfitController {
      * <p>⚠️ 同样不要写 Markdown 记号（渲染在 wx.showModal 里，星号会原样显示）。</p>
      */
     private static final String HELP_NOTE =
-            "利润 = 该期间的销售收入 − 本期出库成本快照；"
-                    + "净利 = 收入 − 进货成本 − 计件工钱。\n\n"
+            "销售净利 = 销售收入 − 出库成本 − 计件工钱。\n\n"
                     + "1. 按「下单时间」统计这一批未取消订单（含尚未收款），另计本期已收购票款；后续实际退款扣回原批次。"
                     + "它是这批生意本身的账，不是当天进账的现金。\n"
                     + "2. 工钱在该单送到时才产生，还没送完的单暂时不计工钱 —— 那几天净利会偏高。\n"
                     + "3. 迟到扣款、高温补贴这类人工调整不计入净利。\n"
                     + "4. 水票收入只在客户买票那一刻计一次：用票下单不再重复计水费，另付的配送费、楼层费按实收计入，"
-                    + "退出未用的真实购票批次会扣回该批次收入。所以单看某一张水票单的利润会是负的（成本在、收入不在它身上），请看期间合计。\n"
+                    + "退出未用的真实购票批次会扣回该批次收入。购票和兑付分属不同时段时，票款与兑付成本可能落在不同报表期间。\n"
                     + "5. 明细里「卖出」与「成本合计」算的是本期实际履约的货（含用票兑出去的）；"
                     + "只卖票、本期还没兑货的商品会单列一行，只显示票款收入。\n"
                     + "6. 进货成本可在入库时选填，出库按库存成本分摊并留存快照，历史缺失保持未知。\n"
@@ -131,13 +130,11 @@ public class ManagerGrossProfitController {
     /**
      * 期间利润 + 净利报表。
      *
-     * <p>利润（字段名仍是 {@code totalProfit}）的构成：{@code totalRevenue}（水费，来自
-     * {@code order_item.subtotal}）与 {@code totalCost}（销量 × 进货成本）。
-     * <b>2026-09-19 起同一响应里再给出净利</b>：
-     * {@code orderCount} / {@code deliveryFee} / {@code floorFee} / {@code totalIncome}
-     * / {@code wage} / {@code netProfit} —— 六个字段全部取自<b>同一订单集合</b>，
-     * 看 {@code profitBasisNote} 了解口径。</p>
-     * <p>{@code barrelCount} 供员工端我的页展示，同一订单集合只累加桶装水明细数量；保留原单数字段。</p>
+     * <p>首屏、金额结构与展开明细共用 {@code totalIncome}、{@code totalCost}、{@code wage} 和 {@code netProfit}。
+     * 兼容字段 {@code totalRevenue} 只含订单水费和购票收入，{@code totalProfit} 以它为收入基数。
+     * 购票收入独立按实收时间统计，跨期决策见 design/16 §12。</p>
+     * <p>{@code deliveryBucketQty} 供员工端我的页展示，来自同一订单集合的下单快照。
+     * {@code deliveryBucketQtyKnown} 与 {@code deliveryBucketUnknownOrders} 区分已核实的零和历史缺失。</p>
      *
      * <p>所选期间缺失出库成本时，成本合计与两个利润字段均为 null；客户端只展示收入。
      * 入库成本为选填，不要求事后补价，也不影响商品或营业。</p>
@@ -259,6 +256,8 @@ public class ManagerGrossProfitController {
         data.put("ticketRevenue", ticketRevenue);
         data.put("totalRevenue", revenueAll);
         data.put("incomeBasisNote", "含尚未收款的订单水费、服务费与已收票款，不等于到账现金。");
+        // 2026-11-11：跨期购票与兑水不能默认为同批收支，首屏简述现行日期口径；归期决策仍见 design/16 §12。
+        data.put("periodBasisNote", "订单按下单日，购票按收款日；水票收款与兑水成本可能跨期。");
         data.put("totalCost", missingCostKinds > 0 ? null : totalCost);
         data.put("costComplete", missingCostKinds == 0);
         if (missingCostKinds > 0) for (Map<String,Object> item : items) { item.put("profit", null); item.put("profitText", "成本未完整记录"); item.put("profitRateText", "—"); }
@@ -280,8 +279,10 @@ public class ManagerGrossProfitController {
                 start.atStartOfDay(), end.plusDays(1).atStartOfDay());
         int orderCount = fees == null || fees.get("orderCount") == null
                 ? 0 : ((Number) fees.get("orderCount")).intValue();
-        long barrelCount = fees == null || fees.get("barrelCount") == null
-                ? 0L : ((Number) fees.get("barrelCount")).longValue();
+        Number bucketQty = fees == null ? null : (Number) fees.get("deliveryBucketQty");
+        Number bucketUnknownOrders = fees == null ? null : (Number) fees.get("deliveryBucketUnknownOrders");
+        boolean bucketKnown = bucketQty != null && bucketUnknownOrders != null && bucketUnknownOrders.longValue() == 0L;
+        Long deliveryBucketQty = bucketKnown ? bucketQty.longValue() : null;
         BigDecimal deliveryFee = fees == null ? BigDecimal.ZERO : dec(fees.get("deliveryFee"));
         BigDecimal floorFee = fees == null ? BigDecimal.ZERO : dec(fees.get("floorFee"));
         BigDecimal wage = wageRow == null ? BigDecimal.ZERO : dec(wageRow.get("wage"));
@@ -295,7 +296,10 @@ public class ManagerGrossProfitController {
                 ? null : totalIncome.subtract(totalCost).subtract(wage);
 
         data.put("orderCount", orderCount);
-        data.put("barrelCount", barrelCount);
+        data.put("deliveryBucketQty", deliveryBucketQty);
+        data.put("deliveryBucketQtyKnown", bucketKnown);
+        data.put("deliveryBucketUnknownOrders", bucketUnknownOrders);
+        data.put("barrelCount", deliveryBucketQty); // 兼容旧员工端；新员工端必须确认快照契约。
         data.put("deliveryFee", deliveryFee);
         data.put("floorFee", floorFee);
         data.put("totalIncome", totalIncome);

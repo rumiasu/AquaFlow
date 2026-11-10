@@ -59,7 +59,8 @@ public interface ReceivableMapper {
             + "                  then 1 else 0 end), 0) as overdueOrderCount, "
             + "coalesce(max(case when o.due_date is not null and o.due_date < curdate() "
             + "                  then datediff(curdate(), o.due_date) else 0 end), 0) as maxOverdueDays "
-            + "from orders o join customer c on c.id = o.customer_id "
+            // 2026-11-10：直接关联曾暴露外派客户姓名。仅限制档案关联，保留结算站应收行供核销。
+            + "from orders o left join customer c on c.id = o.customer_id and " + CustomerMapper.STATION_CUSTOMER_RELATION + " "
             + "left join customer_station_config csc on csc.customer_id = o.customer_id "
             + "     and csc.station_id = #{stationId} "
             + "where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "

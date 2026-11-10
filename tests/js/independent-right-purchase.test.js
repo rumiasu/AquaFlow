@@ -35,10 +35,11 @@ async function main(){
   for (const purpose of ['独立桶押金','上门收桶费']) {
     await test(purpose+'确认不伪称水票或订单已付款',async()=>{
       const wx=createWx();wx.__modalAutoConfirm=false;let confirms=0
-      const page=loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js',{wx,app:createApp(),stubs:{
-        'api/station-mgmt':{getPendingPayments:async()=>({data:[{id:8,amount:30,purposeText:purpose}]}),confirmPayment:async()=>{confirms++}}
+      const app=createApp({globalData:{isLogin:true,userInfo:{staffId:9,stationId:1,role:'STATION_MANAGER',bindStatus:'BOUND'}}})
+      const page=loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js',{wx,app,stubs:{
+        'api/station-mgmt':{getPendingPayments:async()=>({code:0,data:{items:[{id:8,amount:30,purposeText:purpose}],nextCursor:null}}),confirmPayment:async()=>{confirms++}}
       }})
-      await page.loadData();page.onConfirm({currentTarget:{dataset:{id:8}}})
+      await page.onShow();page.onConfirm({currentTarget:{dataset:{id:8}}})
       assert.equal(page.data.list[0].isTicketPurchase,false);assert(wx.__calls.modal.at(-1).content.includes(purpose))
       assert(!wx.__calls.modal.at(-1).content.includes('订单将标记'));assert(!wx.__calls.modal.at(-1).content.includes('张水票'))
       assert.equal(confirms,0)

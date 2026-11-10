@@ -12,6 +12,12 @@ import java.util.Map;
 @Mapper
 public interface CustomerMapper {
 
+    /** 客户档案可见范围（外层客户别名 c）：站级绑定或以本站为归属站的订单。 */
+    String STATION_CUSTOMER_RELATION = "(exists (select 1 from customer_station_config relation_config "
+            + "where relation_config.customer_id = c.id and relation_config.station_id = #{stationId}) "
+            + "or exists (select 1 from orders relation_order "
+            + "where relation_order.customer_id = c.id and relation_order.station_id = #{stationId}))";
+
     @Insert("insert into customer(openid, name, phone, customer_type, note, first_order_time, last_delivery_time, create_time, update_time) " +
             "values(#{openid}, #{name}, #{phone}, #{customerType}, #{note}, #{firstOrderTime}, #{lastDeliveryTime}, #{createTime}, #{updateTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
@@ -183,9 +189,7 @@ public interface CustomerMapper {
      * @return 1 = 归属本站；0 = 不归属本站或客户不存在。用 int 而不是 boolean：
      *         MyBatis 对 boolean 的映射依赖驱动，用 count 更稳
      */
-    @Select("select count(*) from customer c where c.id = #{customerId} and (" +
-            "exists (select 1 from customer_station_config csc where csc.customer_id = c.id and csc.station_id = #{stationId}) " +
-            "or exists (select 1 from orders o where o.customer_id = c.id and o.station_id = #{stationId}))")
+    @Select("select count(*) from customer c where c.id = #{customerId} and " + STATION_CUSTOMER_RELATION)
     int countCustomerOfStation(@Param("customerId") Long customerId, @Param("stationId") Long stationId);
 
     // [2026-09-18 客户地址搜索] 删除 listOrderCustomers（代客下单选择器的关键字 LIKE 查询）：

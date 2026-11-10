@@ -153,7 +153,8 @@
                 and (o.payment_status = 2 or (o.payment_method=2 or exists(select 1 from order_ticket_payment tp where tp.order_id=o.id and tp.cash_method=2 and tp.state in ('HELD','CONSUMED'))) or o.status in (3, 4, 5))
             </if>
         </where>
-        order by o.create_time desc
+        <!-- 同一秒的订单也要有固定顺序，详情返回用较大的页重读时才能接回原分页。 -->
+        order by o.create_time desc, o.id desc
         <!-- [AQ-046] 分页兜底：limit 非空时生效，避免单站上万单一次性全量返回拖垮接口 -->
         <if test="limit != null">
             limit #{limit}

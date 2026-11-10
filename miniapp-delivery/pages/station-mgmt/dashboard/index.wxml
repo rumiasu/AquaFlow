@@ -31,14 +31,15 @@
         <view class="metric-card {{item.key === 'grossAmount' || item.key === 'paidAmount' ? 's-money-metric' : (item.key === 'deliveryBucketQty' ? 's-physical-metric' : 's-neutral-metric')}}" wx:for="{{report.metricCards}}" wx:key="key">
           <text class="metric-value">{{item.valueText}}</text>
           <text class="metric-label">{{item.label}}</text>
-          <view class="delta {{item.deltaDir}} {{item.good === true ? 'good' : (item.good === false ? 'bad' : '')}}">
+          <view wx:if="{{item.showComparison}}" class="delta {{item.deltaDir}} {{item.good === true ? 'good' : (item.good === false ? 'bad' : '')}}">
             <text class="delta-arrow" wx:if="{{item.deltaDir === 'up'}}"></text>
             <text class="delta-arrow" wx:elif="{{item.deltaDir === 'down'}}"></text>
             <text class="delta-arrow" wx:else>—</text>
             <text class="delta-text">{{item.deltaText}}</text>
           </view>
           <!-- 2026-11-09：比较期间在区块标题说明一次，各指标只保留对应基准值。 -->
-          <text class="delta-prev">{{item.previousText}}</text>
+          <text wx:if="{{item.showComparison}}" class="delta-prev">{{item.previousText}}</text>
+          <text wx:elif="{{item.comparisonPending}}" class="delta-prev">对比待核实</text>
         </view>
       </view>
       <!-- 2026-11-09：指标名称已经区分订单金额与收款；口径说明按需查看，不常驻重复警告。 -->

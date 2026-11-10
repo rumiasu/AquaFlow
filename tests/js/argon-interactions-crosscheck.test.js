@@ -49,8 +49,8 @@ async function station(){
 async function collection(){
  const wx=createWx(),app=createApp({_loginGeneration:1,globalData:{isLogin:true,userInfo:{staffId:7,stationId:11,role:'STATION_MANAGER'}}});let resolveWrite,writes=0
  const pending=new Promise(r=>{resolveWrite=r});wx.showModal=()=>{throw Error('native fallback used')}
- const page=loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js',{wx,app,stubs:{'api/station-mgmt':{confirmPayment:async()=>{writes++;return pending},getPendingPayments:async()=>ok([])}}})
- page._paymentsSeq=1;page._paymentsHidden=false;page.setData({view:'pending',list:[{id:42,orderId:44,amountText:'25.00'}]});page.loadData=()=>{}
+ const page=loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js',{wx,app,stubs:{'api/station-mgmt':{confirmPayment:async()=>{writes++;return pending},getPendingPayments:async()=>ok({items:[{id:42,orderId:44,amount:'25.00'}],nextCursor:null})}}})
+ await page.onShow();page.loadData=()=>{}
  const d=dialog('miniapp-delivery',wx,page),e={currentTarget:{dataset:{id:42}}};page.onConfirm(e);page.onConfirm(e)
  assert.equal(d.c.data.visible,true);assert.equal(d.c._queue.length,0);assert(d.c.data.content.includes('确认已收到'));d.c.onConfirm();page.onConfirm(e);assert.equal(writes,1);assert.equal(d.c._queue.length,0);resolveWrite();await tick();assert(wx.__calls.toast.some(x=>x.title==='已确认到账'))
  const wxml=fs.readFileSync(path.join(ROOT,'miniapp-delivery/pages/station-mgmt/payments/index.wxml'),'utf8');assert(wxml.includes('待确认不代表已到账'));assert(wxml.includes('核对收款方及款项后登记'))

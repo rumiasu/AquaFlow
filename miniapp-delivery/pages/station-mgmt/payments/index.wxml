@@ -31,7 +31,7 @@
 
   <view class="record-card" wx:for="{{list}}" wx:key="id">
     <view class="card-header"><view class="record-icon"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /></view><text class="payment-person">{{item.customerName || ('客户编号：' + item.customerId)}}</text><text class="status pending" wx:if="{{view === 'pending'}}">待确认</text><text class="status history-status" wx:else>{{item.statusText}}</text></view>
-    <view class="info-row amount-row"><text class="label">{{view === 'pending' ? '本笔待确认金额' : '流水金额'}}</text><text class="amount">¥{{item.amountText}}</text></view>
+    <view class="info-row amount-row"><text class="label">{{view === 'pending' ? '本笔待确认金额' : '流水金额'}}</text><text class="amount">{{item.amountText}}</text></view>
     <text class="status ticket" wx:if="{{item.isTicketPurchase}}">线上购票</text>
     <view class="info-row" wx:if="{{item.customerPhone}}">
       <text class="label">电话</text>
@@ -62,11 +62,16 @@
     <view class="record-link-error" wx:if="{{item.orderNavigationError}}"><text>订单：{{item.orderNavigationError}}</text></view>
     <view class="record-link-error" wx:if="{{item.customerNavigationError}}"><text>客户：{{item.customerNavigationError}}</text></view>
     <view class="card-actions" wx:if="{{view === 'pending'}}">
-      <button class="af-action af-action--primary" data-id="{{item.id}}" catchtap="onConfirm" disabled="{{paymentNavigationBusy}}">确认已到账</button>
+      <button class="af-action af-action--primary" data-id="{{item.id}}" catchtap="onConfirm" disabled="{{paymentNavigationBusy || item.amountText === '金额待核实'}}">确认已到账</button>
     </view>
   </view>
 
   <view class="history-more" wx:if="{{view === 'ticketHistory' && historyHasMore}}" bindtap="onHistoryMore">显示更多已取回记录</view>
+  <view wx:if="{{view === 'pending' && !loading && !loadError && list.length}}">
+    <view class="history-scope">已加载 {{list.length}} 笔 · 按生成时间先后排列</view>
+    <view class="load-error" wx:if="{{pendingMoreError}}">{{pendingMoreError}}</view>
+    <button class="af-action af-action--quiet" wx:if="{{pendingHasMore}}" bindtap="onPendingMore" loading="{{pendingLoadingMore}}" disabled="{{pendingLoadingMore || paymentNavigationBusy}}"><view class="af-action__face">{{pendingMoreError ? '重试加载更多' : '加载更多待确认收款'}}</view></button>
+  </view>
   <view class="empty" wx:if="{{!loading && !loadError && list.length === 0}}">
     <icon name="wallet" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text>{{view === 'pending' ? '暂无待确认收款' : '当前范围内暂无购票收款记录'}}</text>
   </view>

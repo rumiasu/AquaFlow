@@ -5,6 +5,7 @@ const { showBusinessModal } = require('../../../utils/business-dialog')
 // 原来说"config/api.js 也在被别的改动占着"，那个改动早已合并，本页再留一份副本
 // 只会让同一条路径有两个定义（本仓最忌讳的"口径分叉"）。
 const { get } = require('../../../utils/request')
+const navigation = require('../../../utils/navigation')
 const { API } = require('../../../config/api')
 
 const GP = API.MANAGER_GROSS_PROFIT
@@ -63,10 +64,12 @@ function buildCooperationView(cooperation, moneyText) {
 
 // 条长只表示服务端金额的相对大小，不计算利润；负值用绝对值长度及明确标记。
 function buildProfitChart(report, profitView) {
+  // 2026-11-10：旧图只计水费与票款，少了服务费和计件。与首屏、明细共用销售收入口径。
   const fields = [
-    { key: 'revenue', label: '收入合计', value: report.totalRevenue, text: profitView.totalRevenueText },
-    { key: 'cost', label: '进货成本', value: report.totalCost, text: profitView.totalCostText },
-    { key: 'profit', label: '利润', value: report.totalProfit, text: profitView.totalProfitText }
+    { key: 'revenue', label: '销售收入', value: report.totalIncome, text: profitView.totalIncomeText },
+    { key: 'cost', label: '出库成本', value: report.totalCost, text: profitView.totalCostText },
+    { key: 'wage', label: '计件工钱', value: report.wage, text: profitView.wageText },
+    { key: 'profit', label: '销售净利', value: report.netProfit, text: profitView.netProfitText }
   ]
   if (fields.some(item => item.value === null || item.value === undefined || item.value === '' || !Number.isFinite(Number(item.value)))) return []
   const max = Math.max(...fields.map(item => Math.abs(Number(item.value))))
@@ -103,7 +106,7 @@ Page({
   },
 
   /**
-   * ⚠️ `?range=today` = 看今天（我的页那两格点进来的就是这个）。
+   * `?range=today` 来自「我的」页收入卡片。
    * 日期仍由这里算好后当 with from/to 传给服务端 —— 但**口径解释权仍在服务端**
    * （它会把生效区间回传，界面显示回传值而不是本地这份）。
    */
@@ -132,12 +135,25 @@ Page({
       wx.showToast({ title: '未识别到所属水站', icon: 'none' })
       return
     }
+    // 2026-11-10：缺少可见登记时，微信漏回导航回调会让已打开的利润页误报超时。
+    // 页面可见即登记，报表是否读完由页内状态单独反馈。
+    navigation.show(this)
     this.setData({ stationId })
     if ([1, 7, 30].includes(this.data.quickRange)) {
       const dates = this._rangeDates(this.data.quickRange)
       this.setData({ from: dates.from, to: dates.to })
     }
     this.load()
+  },
+
+  onHide() {
+    navigation.hide(this)
+    this._loadSeq = (this._loadSeq || 0) + 1
+  },
+
+  onUnload() {
+    this.onHide()
+    navigation.dispose(this)
   },
 
   /**
@@ -173,10 +189,10 @@ Page({
     const patch = { loading: false }
     if (reportResult.status === 'fulfilled' && reportResult.value && reportResult.value.data && Array.isArray(reportResult.value.data.items)) {
       const d = reportResult.value.data
-      const costComplete = d.costComplete === true && [d.totalCost,d.totalProfit,d.netProfit].every(v => v !== null && v !== undefined && Number.isFinite(Number(v)))
+      const costComplete = d.costComplete === true && [d.totalCost, d.netProfit].every(v => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)))
       patch.costComplete = costComplete
-      const profitView = { totalProfitText: this._withheldMoney(d.totalProfit), netProfitText: this._withheldMoney(d.netProfit), totalProfitWarn: d.totalProfit === null, netProfitWarn: d.netProfit === null }
-      for (const key of ['totalRevenue', 'totalCost', 'orderRevenue', 'ticketRevenue', 'deliveryFee', 'floorFee', 'totalIncome', 'wage']) profitView[key + 'Text'] = this._moneyText(d[key])
+      const profitView = { netProfitText: this._withheldMoney(d.netProfit) }
+      for (const key of ['totalCost', 'orderRevenue', 'ticketRevenue', 'deliveryFee', 'floorFee', 'totalIncome', 'wage']) profitView[key + 'Text'] = this._moneyText(d[key])
       profitView.orderCountText = d.orderCount === null || d.orderCount === undefined || d.orderCount === '' ? '待核实' : d.orderCount
       const report = { ...d, items: d.items.map(item => ({ ...item, revenueTotalText: this._moneyText(item.revenueTotal), costAmountText: this._moneyText(item.costAmount), soldQtyText: item.soldQty === null || item.soldQty === undefined ? '待核实' : item.soldQty })) }
       if (d.cooperation && Array.isArray(d.cooperation.rows)) report.cooperation = { ...d.cooperation, rows: d.cooperation.rows.map(item => ({ ...item, amountText: this._moneyText(item.amount) })) }

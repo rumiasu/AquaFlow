@@ -353,7 +353,7 @@
 | `GET` | `/api/payments/by-order` | {"STATION_MANAGER"} | `PaymentController.listByOrderId` |
 | `GET` | `/api/payments/capabilities` | 客户会话 | `PaymentController.capabilities`；身份仅取登录态，只读本人 `wechatPay` 能力，不创建/确认收款。模拟授权含 version、scope、customerId；云 sandbox 另含 environmentId/serviceId/bindingId，不含凭据或数据库目标。 |
 | `GET` | `/api/payments/customer/{customerId}` | {"STATION_MANAGER"} | `PaymentController.listByCustomerIdForStaff` |
-| `GET` | `/api/payments/pending` | {"STATION_MANAGER"} | `PaymentController.listPending` |
+| `GET` | `/api/payments/pending` | {"STATION_MANAGER"} | `PaymentController.listPending`；无 `pageSize` 时沿用数组响应，`limit` 默认200、上限500；显式 `pageSize=1..200` 时返回 `{items,nextCursor}`，后续原样传 `cursor`，末页 `nextCursor=null`。按生成时间、流水ID升序继续读取，空生成时间在前；确认或其他记录离开待收集合不导致偏移跳笔。站别只取登录态，确认仍用原端点。新生成或迁入到已读位置之前的款项须刷新从头核对。员工清单每次50笔，仅显示已加载数量。 |
 | `POST` | `/api/payments/quote` | 客户会话 | `PaymentController.quote`；仅试算本人订单，客户编号取登录态。 |
 | `PUT` | `/api/payments/{id}/cash-confirm` | {"STATION_MANAGER"} | `PaymentController.confirmCashById` |
 | `PUT` | `/api/payments/{id}/confirm` | {"STATION_MANAGER"} | `PaymentController.confirm` |
@@ -873,9 +873,9 @@ quoted 新路径让旧后端明确拒绝，不会把 token 当未知字段忽略
 
 `GET /api/delivery/stats/today` 新增 `deliveringBarrels`（本人当前配送中的桶装水数量）和 `completedBarrels`（本人今日实际送达的桶装水数量），均在原任务权限、状态与时间范围内累计订单明细 `quantity`，只计商品分类为桶装水的明细。今日送达仍按服务端上海业务日的实际送达事件统计，包含已送达待收款及已完成订单，后续补收款不挪动送达日期；取消或退回待配送的订单不计入这两项。原 `deliveringCount`、`completedCount` 保留为订单数，`returnBarrels` 仍是独立的回桶统计，不与送水桶数相加。
 
-`GET /api/manager/gross-profit` 新增 `barrelCount`，与原 `orderCount` 使用相同订单集合：当前登录站长的结算站（沿用结算站、配送站、归属站的既有回退顺序）、创建日期范围、排除已取消订单。员工端我的页传当天日期，显示“今日下单桶数”；待配送、配送中、已送达及已完成均沿用原下单统计规则，不把它解释为今日实际送达量。现金退款或退货不另减这一原下单数量，订单变为取消状态后才从该集合排除。
+`GET /api/manager/gross-profit` 的 `deliveryBucketQty`、`deliveryBucketQtyKnown`、`deliveryBucketUnknownOrders` 与看板使用相同的下单快照口径。按当前登录站长的结算站归集，依次回退到配送站、归属站，按创建日期筛选未取消订单。汇总 `orders.delivery_bucket_qty`，空集或快照全为明确的 0 时返回 0。任一纳入订单缺快照时，数量为 null，已核实标记为 false，并返回缺快照的订单数。旧 `barrelCount` 仍返回同值供兼容，新版「我的」只读快照字段。已确认缺历史快照时，桶数格显示“待核实”。真实读取失败仍可重试。
 
-桶数不取订单头总件数，也不把瓶装水、设备或购票数量当作实物桶数；商品分类沿用现有 `BarrelScope` 的当前商品分类口径，无新增历史分类快照或数据库迁移。旧订单数字段保持兼容；新员工端遇旧后端缺失桶数字段时显示“待核实”，不会将单数换单位冒充桶数。后端与员工端应配套更新，本说明不代表部署已完成。
+「我的」传当天日期，按北京时间整日统计，显示“今日下单桶数”。看板「今日」截至查询时刻。相同日期窗口内两者的桶数可对照。退货和售后退款沿用既有规则，订单变为取消状态后才从下单桶数中排除。配送员统计继续按原任务范围及 `BarrelScope` 商品分类累计，桶数与单数分别返回。
 
 ### 客户订单备注投影（2026-11-07）
 

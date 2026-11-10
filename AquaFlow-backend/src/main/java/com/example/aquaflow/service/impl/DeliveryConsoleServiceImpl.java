@@ -268,9 +268,8 @@ public class DeliveryConsoleServiceImpl implements DeliveryConsoleService {
         order.setIndependentBusinessRules(barrelPolicy.isEnabled() || barrelLedger.independentOrder(orderId));
         // 仅详情下发凭据存在事实；前端据 needCollect 提示先收齐现金，不改后端交桶守卫。
         order.setHasOrderBarrelPurchase(orderBarrelPurchases.hasPurchase(orderId));
-        // 楼层 / 电梯：送货的人要知道这一单要不要上楼。
-        // orderMapper.getById 是纯 orders 查询（不带 address 关联），所以在这里补一次读；
-        // 取的是**当前地址**的值而不是下单快照 —— 详见 Orders.addressFloor 的字段注释。
+        // getById 关联了地址文本，这里补读同站详情所需的楼层 / 电梯。
+        // 两者来自当前地址，跨站详情由 OrderTaskAccess 统一清除。
         if (order.getAddressId() != null) {
             Address addr = addressMapper.getById(order.getAddressId());
             if (addr != null) {

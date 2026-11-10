@@ -11,7 +11,7 @@ module.exports = { percent: percent }
 <view class="container">
   <view class="work-head"><text class="work-title">订单</text><text class="work-desc">本站订单 · 跨站履约另列</text></view>
   <view class="order-shortcuts">
-    <button class="af-action af-action--quiet" bindtap="onOpenDispatchWork"><view class="af-action__face">去工作台派单 ›</view></button>
+    <button class="af-action af-action--quiet" bindtap="onOpenDispatchWork"><view class="af-action__face">去待分配 ›</view></button>
     <button class="af-action af-action--quiet" bindtap="onOpenCollectionWork"><view class="af-action__face">去收款确认 ›</view></button>
   </view>
   <view class="tab-bar">
@@ -50,11 +50,16 @@ module.exports = { percent: percent }
         <text class="order-amount">¥{{item.totalAmount}}</text>
       </view>
       <view class="customer-note-preview" wx:if="{{item.customerNotePreview}}">备注：{{item.customerNotePreview}}</view>
-      <view class="order-detail-cue">查看详情 ›</view>
+      <view class="order-detail-cue">{{item.otherStationDelivery ? '查看外派进度 ›' : '查看详情 ›'}}</view>
+      <button wx:if="{{item.canLocateDispatch}}" class="af-action af-action--secondary" catchtap="onOpenDispatchWork" data-id="{{item.id}}"><view class="af-action__face">到待分配找这单 ›</view></button>
     </view>
     <view class="empty" wx:if="{{!loading && !listError && list.length === 0}}"><icon name="order" size="28px" color="#8391A2" /><text>当前筛选下暂无本站订单</text><button wx:if="{{!filtersExpanded}}" class="af-action af-action--quiet" bindtap="onToggleFilters"><text class="af-action__face">调整筛选</text></button></view>
+    <view class="history-more" wx:if="{{hasMore}}" bindtap="onLoadMore">{{loadingMore ? '加载中…' : '加载更多本站订单'}}</view>
+  </view>
+  <view class="loading" wx:if="{{loading}}">正在读取本站订单…</view>
+  <view wx:if="{{crossState !== 'idle'}}">
     <view class="cross-card" wx:if="{{crossState === 'loading'}}">跨站履约记录读取中…</view>
-    <view class="cross-card" wx:elif="{{crossState === 'error'}}">跨站履约记录未读取，无法确认是否有订单。<button size="mini" bindtap="onRetryCrossStation" class="af-action af-action--quiet b3-on-retry-cross-station" hover-class="af-action--pressed"><view class="af-action__face">重新读取</view></button></view>
+    <view class="cross-card" wx:elif="{{crossState === 'error'}}">跨站履约记录加载失败<button size="mini" bindtap="onRetryCrossStation" class="af-action af-action--quiet b3-on-retry-cross-station" hover-class="af-action--pressed"><view class="af-action__face">重试</view></button></view>
     <view class="cross-card" wx:elif="{{crossState === 'ready' && crossStation.count === 0}}">暂无跨站履约订单（不受本站筛选影响）</view>
     <!--
       跨站履约单**归并成一行**（2026-09-18 产品裁定）：本站接下的别站单不逐个铺在列表里，
@@ -94,7 +99,5 @@ module.exports = { percent: percent }
     </view>
 
   </view>
-  <view class="history-more" wx:if="{{hasMore}}" bindtap="onLoadMore">{{loadingMore ? '加载中…' : '加载更多历史订单'}}</view>
-  <view class="loading" wx:if="{{loading}}">加载中...</view>
 </view>
 <business-dialog id="business-dialog" />

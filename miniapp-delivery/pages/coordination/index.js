@@ -164,6 +164,8 @@ Page({
     isManager: false,
     canOpenWorkbench: false,
     activeTab: 'pending',
+    dispatchFocusId: '',
+    dispatchFocusMessage: '',
     // 「审批」大页签内的子页签：customer 客户发起 / station 站内（配送员）发起
     approvalTab: 'customer',
     // 站长按操作方向找任务：待分配、审批、接单（公开/指定）、本站外派。
@@ -478,8 +480,21 @@ Page({
   onShow() {
     navigation.show(this)
     this._todoHidden = false
-    this.syncTodoScope()
+    const scope = this.syncTodoScope()
     const app = getApp()
+    const user = app.globalData.userInfo || {}
+    const intent = app.globalData.orderDispatchIntent
+    delete app.globalData.orderDispatchIntent
+    // 2026-11-10：tab 跳转不能带查询参数。只接收同一登录、同一水站的一次定位请求。
+    this._dispatchFocus = scope.allowed && intent && intent.expiresAt >= Date.now()
+      && intent.generation === (app._loginGeneration || 0)
+      && intent.staffId === user.staffId && intent.stationId === user.stationId
+      && ['pending', 'dispatch'].includes(intent.queue)
+      ? { id: intent.id, queue: intent.queue, scopeKey: scope.key, scrollPending: true, located: false } : null
+    this.setData({ dispatchFocusId: '', dispatchFocusMessage: '',
+      // 缓存里的待分配状态可能已变化，定位时等新清单再显示操作。
+      ...(this._dispatchFocus ? { activeTab: intent.queue,
+        lists: { ...this.data.lists, pending: [], dispatchPool: [], dispatchDirected: [] } } : {}) })
     // 自绘底栏：站长看到 首页/配送/我的，配送员只看到 配送/我的（本页对配送员不显示）
     syncTabBar(this, '/pages/coordination/index')
     this.updateModalViewport()
@@ -496,13 +511,14 @@ Page({
       // 非站长会直接 return，不发请求 —— setup-guide 是站长专属接口）
       this.loadStationPending()
       this.loadTodo()
-      this.loadAllData()
+      const queues = this.loadAllData()
       if (!wx.getStorageSync('delivery-coordination-guide-v2')) this.setModalState({ showGuide: true })
+      return queues
     }
   },
 
-  onHide() { this.stopTodoRead(false); navigation.hide(this); this.syncModalTabBar(false) },
-  onUnload() { this.stopTodoRead(true); navigation.dispose(this); this.syncModalTabBar(false) },
+  onHide() { this._dispatchFocus = null; this.stopTodoRead(false); navigation.hide(this); this.syncModalTabBar(false) },
+  onUnload() { this._dispatchFocus = null; this.stopTodoRead(true); navigation.dispose(this); this.syncModalTabBar(false) },
   onResize() { this.updateModalViewport() },
 
   updateModalViewport() {
@@ -545,6 +561,8 @@ Page({
 
   async loadAllData() {
     const seq = this._queueSeq = (this._queueSeq || 0) + 1
+    const focus = this._dispatchFocus
+    const currentFocus = () => focus && focus === this._dispatchFocus && focus.scopeKey === todoScope().key
     this.setData({ queuesLoading: true, sectionRead: {} })
     wx.showLoading({ title: '加载中...' })
     try {
@@ -686,6 +704,36 @@ Page({
 
       if (seq !== this._queueSeq) return
       const sectionRead = { pending: !failed.includes('待分配') && !failed.includes('转单请求'), approvalCustomer: !failed.includes('待审批'), approvalStation: !failed.includes('待审批'), pool: !failed.includes('抢单池'), directedIncoming: !failed.includes('指定外派（别站指定本店）'), dispatchPool: !failed.includes('外派'), dispatchDirected: !failed.includes('外派') }
+      const focusPatch = { dispatchFocusId: '', dispatchFocusMessage: '' }
+      let focusTab = focus?.queue
+      if (currentFocus() && focus.id) {
+        const outgoing = focus.queue === 'dispatch'
+        // 退回待确认会离开外派列表，改用待分配清单里已有的退回处理行。
+        const candidates = outgoing ? [
+          { rows: dispatchPool, subtab: 'pool' },
+          { rows: dispatchDirected, subtab: 'directed' },
+          { rows: pendingList, directedReturn: true }
+        ] : [{ rows: pendingList }]
+        for (const { rows, subtab, directedReturn } of candidates) {
+          const index = rows.findIndex(row => String(row.id) === focus.id && (!directedReturn || row.transferKind === 'directed'))
+          if (index < 0) continue
+          rows.unshift(...rows.splice(index, 1))
+          focusPatch.dispatchFocusId = focus.id
+          focusTab = subtab ? 'dispatch' : 'pending'
+          if (!focus.located && this.data.activeTab === focus.queue) {
+            focusPatch.activeTab = focusTab
+            if (subtab) focusPatch.dispatchTab = subtab
+          }
+          focus.located = true
+          break
+        }
+        if (!focusPatch.dispatchFocusId) {
+          const verified = sectionRead.pending && (!outgoing || sectionRead.dispatchPool)
+          focusPatch.dispatchFocusMessage = verified
+            ? '订单 #' + focus.id + (outgoing ? ' 当前不在外派清单' : ' 当前不在待分配清单')
+            : '暂未查到订单 #' + focus.id + '，请重新加载'
+        }
+      }
       const tabs = this.data.tabs.map(t => ({
         ...t,
         // 「审批」角标 = 客户 + 站内 两组待审批之和；
@@ -703,6 +751,7 @@ Page({
 
       this.setData({
         lists, sectionRead, queuesLoading: false,
+        ...focusPatch,
         tabs,
         dispatchCount,
         staffList,
@@ -710,6 +759,15 @@ Page({
         loadError: failed.length
           ? '有 ' + failed.length + ' 项尚未读取：' + failed.join('、') + '。请重新加载后核对。'
           : ''
+      }, () => {
+        if (seq !== this._queueSeq || !currentFocus() || !focus.scrollPending || this.data.activeTab !== focusTab) return
+        focus.scrollPending = false
+        if (typeof wx.pageScrollTo === 'function') wx.pageScrollTo({
+          selector: focusTab === 'dispatch' ? '#outgoing-dispatch-queue' : '#pending-dispatch-queue',
+          // 2026-11-10：队列贴顶时，常驻微信胶囊会遮住右侧「查全部订单」。
+          offsetTop: -(this.data.statusBarHeight + this.data.navBarHeight + 8),
+          duration: 0
+        })
       })
       // ⚠️ 顺序要紧：wx.showToast 与 wx.showLoading 共用同一个浮层实例，
       // 先 toast 再 hideLoading 会把刚弹出的提示一起关掉 —— 必须先 hideLoading。
@@ -804,6 +862,15 @@ Page({
     wx.navigateTo({ url: `/pages/order/detail?id=${id}` })
   },
 
+  onDispatchTrackingTap(e) {
+    const id = e.currentTarget.dataset.id
+    const key = this.data.dispatchTab === 'pool' ? 'dispatchPool' : 'dispatchDirected'
+    const row = this.data.lists[key].find(order => String(order.id) === String(id))
+    const stationId = getApp().globalData.userInfo?.stationId
+    if (!row || !stationId || (row.deliveryStationId != null && String(row.deliveryStationId) !== String(stationId))) return
+    return this.onOrderTap(e)
+  },
+
   /**
    * 「看全部订单 ›」→ 站长端订单台账（pages/station-mgmt/orders）。
    *
@@ -812,19 +879,10 @@ Page({
    * 所以不要指望它们互斥，也别把状态页签并进本页那一排（两种维度混排会让站长分不清
    * "待配送"与"待分配"的差别）。
    *
-   * ⚠️ 本页是 **tabBar 页**：`switchTab` 会把本页从页面栈里销毁，所以**只能用 navigateTo**；
-   * 但来回点几次会堆栈，所以先查一眼栈里有没有它，有就 navigateBack。
+   * 2026-11-10：「查全部订单」首次进入必须查全部状态，避免沿用台账的待配送默认值。
    */
   onOpenOrders() {
-    const pages = getCurrentPages()
-    for (let i = pages.length - 1; i >= 0; i--) {
-      // delta 必须算出来、不能写死 1：栈里中间可能还夹着别的页（如从台账进过订单详情）
-      if (pages[i] && pages[i].route === 'pages/station-mgmt/orders/index') {
-        wx.navigateBack({ delta: pages.length - 1 - i })
-        return
-      }
-    }
-    wx.navigateTo({ url: '/pages/station-mgmt/orders/index' })
+    navigation.open('/pages/station-mgmt/orders/index?scope=all', { owner: this })
   },
 
   /**

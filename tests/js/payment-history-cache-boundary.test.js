@@ -12,7 +12,7 @@ function fixture(get) {
   const app = createApp({ globalData: { isLogin: true, userInfo: { staffId: 11, role: 'STATION_MANAGER', stationId: 1 } } })
   let writes = 0
   const request = { get }
-  const page = loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js', { app, wx: createWx(), stubs: { 'utils/request': request, './request': request, 'api/station-mgmt': { getPendingPayments: async () => ({ data: [] }), confirmPayment: async () => { writes++ } } } })
+  const page = loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js', { app, wx: createWx(), stubs: { 'utils/request': request, './request': request, 'api/station-mgmt': { getPendingPayments: async () => ({ code: 0, data: { items: [], nextCursor: null } }), confirmPayment: async () => { writes++ } } } })
   page.onLoad({ view: 'ticketHistory', customerId: '7' })
   return { page, app, writes: () => writes }
 }

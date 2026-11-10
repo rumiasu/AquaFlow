@@ -117,9 +117,10 @@ public interface GrossProfitMapper {
      * <p>本查询恒返回一行（{@code count(*)} 是聚合），金额字段用 coalesce 兜 0。</p>
      */
     @Select("select count(*) as orderCount, "
-            // [2026-11-05] 我的页原先显示单数，不能拿它或混合商品总件数充当桶数；逐单汇总桶装水，避免放大费用。
-            + "       coalesce(sum((select sum(oi.quantity) from order_item oi join product p on p.id=oi.product_id "
-            + "           where oi.order_id=o.id and p.category=1)), 0) as barrelCount, "
+            // 2026-11-10：按商品当前分类重算会改写历史桶数。与 DashboardMapper.summary 一样，
+            // 使用下单快照；任一未取消订单缺快照则整期未知，空集和明确的 0 才按 0 计。
+            + "       case when count(o.delivery_bucket_qty) = count(*) then coalesce(sum(o.delivery_bucket_qty), 0) end as deliveryBucketQty, "
+            + "       count(*) - count(o.delivery_bucket_qty) as deliveryBucketUnknownOrders, "
             // [2026-09-20] 金额只算**非水票单**：票单的配送费 / 楼层费已被票抵掉，钱在购票时收过了
             // （见 ticketPurchaseRevenueByProduct），算进来就是重复。单数仍是全部单（票单也是单）。
             + "       round(coalesce(sum(case when exists(select 1 from order_ticket_payment tp where tp.order_id=o.id) then greatest(0,coalesce((select sum(p.delivery_fee) from payment_record p where p.order_id=o.id and p.status in (2,3) and p.payment_method in (1,2)),0)) when o.payment_method <> 3 and " + SERVICE_RETAINED + " then o.delivery_fee else 0 end), 0), 2) as deliveryFee, "

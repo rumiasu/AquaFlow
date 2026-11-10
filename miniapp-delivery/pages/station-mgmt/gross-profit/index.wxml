@@ -7,27 +7,26 @@
     <!-- 合计 -->
     <view class="hero af2-tone-panel af2-tone-money {{!costComplete ? 'hero-income-only' : ''}}">
       <text class="hero-period" wx:if="{{report.from && report.to}}">{{report.from}} 至 {{report.to}}</text>
+      <!-- 2026-11-10：销售收入已含服务费，旧 totalProfit 未计服务费，和首屏收入对不上。此处沿用明细的销售净利。 -->
+      <view class="hero-item hero-profit" wx:if="{{costComplete}}"><icon name="chart" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" />
+        <text class="hero-label">销售净利</text>
+        <text class="hero-num">{{profitView.netProfitText}}</text>
+      </view>
       <view class="hero-item hero-income">
         <text class="hero-label">销售收入</text>
         <text class="hero-num">{{profitView.totalIncomeText}}</text>
-        <!-- [2026-09-25] 标签从「水费收入」改成「收入合计」：这个数是 totalRevenue，
-             它=订单收入（水费）+ 水票收入（买票实收），下面那张卡会逐项拆开。
-             老标签会让站长把票款也算进"水费"，正好是报表口径最容易混的一处。 -->
       </view>
       <view class="hero-item hero-cost" wx:if="{{costComplete}}">
-        <text class="hero-label">进货成本</text>
+        <text class="hero-label">出库成本</text>
         <text class="hero-num">{{profitView.totalCostText}}</text>
       </view>
-      <view class="hero-item hero-profit" wx:if="{{costComplete}}"><icon name="chart" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" />
-        <!-- 缺成本时后端把 totalProfit 下发成 null：这里显示「未填成本」（js 里算好的展示态），
-             下面的 missingCostHint 会接着说清是哪些商品 —— 既不显示 0，也不整块不显示。 -->
-        <text class="hero-label">利润</text>
-        <text class="hero-num {{profitView.totalProfitWarn ? 'hero-warn' : 'hero-ok'}}">
-          {{profitView.totalProfitText}}
-        </text>
+      <view class="hero-item hero-wage" wx:if="{{costComplete}}">
+        <text class="hero-label">计件工钱</text>
+        <text class="hero-num">{{profitView.wageText}}</text>
       </view>
     </view>
 
+    <text class="report-period-note" wx:if="{{report.periodBasisNote}}">{{report.periodBasisNote}}</text>
     <text class="income-only-note" wx:if="{{!costComplete}}">本期成本不全，利润暂不显示。</text>
   </block>
 
@@ -76,15 +75,7 @@
       <text class="profit-chart-note" wx:else>金额或成本待核实，暂不显示对比。</text>
     </view>
 
-    <!--
-      收入构成与净利（[2026-09-19] 新增）：与上面的利润是**同一批订单**（同结算站、同时间窗、排除已取消），
-      所以两张卡的数字必须对得上 —— 上面「收入合计」= 这里的 订单收入 + 水票收入
-      （[2026-09-25] 顺带把上面那个标签从"水费收入"改成了"收入合计"：它本来就含票款）。
-      · 净利 = 订单收入 + 水票收入 + 配送费 + 楼层费 − 进货成本 − 计件工钱（= 上面的利润再扣工钱）
-      · wx:if 用 profitBasisNote 当开关：它是本次新增的字段，老响应里没有 → 整块不显示，
-        避免在字段缺失时把 undefined 渲染成"¥undefined"（那是最坏的一种"看起来正常"）
-      · netProfit 为 null = 有商品没填成本 → 显示「未填成本」（profitView 里算好），**绝不能当 0**
-    -->
+    <!-- 这里逐项展开首屏与金额结构的同一组金额。票款与履约的跨期选择见 design/16 §12。 -->
     <view class="card" wx:if="{{report.profitBasisNote}}">
       <view class="af-entry analysis-entry" bindtap="onToggleIncomeDetails"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="af-entry__body">{{costComplete ? '收入与销售净利' : '收入构成'}}</text><text class="af-entry__arrow">{{incomeDetailsExpanded ? '收起' : '展开 ›'}}</text></view>
       <block wx:if="{{incomeDetailsExpanded}}">
@@ -92,9 +83,7 @@
         <text class="ledger-label">单数</text>
         <text class="ledger-value">{{profitView.orderCountText}} 单</text>
       </view>
-      <!-- 收入按【来源】分列（2026-09-20 产品口径）：水票收入只在客户「买票」那一刻计一次，
-           用票下的单不再重复计水费与配送费 —— 所以它必须单独一行，否则站长看不出来钱从哪来。
-           明细：订单收入（水费） + 水票收入 + 配送费 + 楼层费 = 收入合计（与后端同一条加法）。 -->
+      <!-- 购票实收与订单水费分列。兑票单单独支付的费用由后端计入下方服务费。 -->
       <view class="ledger-row">
         <text class="ledger-label">订单收入（水费）</text>
         <text class="ledger-value">{{profitView.orderRevenueText}}</text>
@@ -112,12 +101,12 @@
         <text class="ledger-value">{{profitView.floorFeeText}}</text>
       </view>
       <view class="ledger-row ledger-strong">
-        <text class="ledger-label">收入合计</text>
+        <text class="ledger-label">销售收入</text>
         <text class="ledger-value">{{profitView.totalIncomeText}}</text>
       </view>
       <block wx:if="{{costComplete}}">
       <view class="ledger-row">
-        <text class="ledger-label">− 进货成本</text>
+        <text class="ledger-label">− 出库成本</text>
         <text class="ledger-value">{{profitView.totalCostText}}</text>
       </view>
       <view class="ledger-row">
@@ -126,9 +115,7 @@
       </view>
       <view class="ledger-row ledger-strong">
         <text class="ledger-label">销售净利</text>
-        <text class="ledger-value {{profitView.netProfitWarn ? 'ledger-warn' : 'ledger-ok'}}">
-          {{profitView.netProfitText}}
-        </text>
+        <text class="ledger-value">{{profitView.netProfitText}}</text>
       </view>
       </block>
       </block>

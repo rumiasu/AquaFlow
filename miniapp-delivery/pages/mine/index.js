@@ -240,15 +240,19 @@ Page({
     const amount = complete ? d.netProfit : d.totalIncome
     const known = finiteMoney(amount)
     const countKnown = this._knownCount(d.orderCount)
-    const barrelsKnown = this._knownCount(d.barrelCount)
+    // 2026-11-10：旧 barrelCount 按当前商品分类重算。只有快照契约能确认桶数或历史缺失。
+    const missingSnapshots = this._knownCount(d.deliveryBucketUnknownOrders) ? Number(d.deliveryBucketUnknownOrders) : null
+    const barrelsKnown = d.deliveryBucketQtyKnown === true && missingSnapshots === 0 && this._knownCount(d.deliveryBucketQty)
+    const historyIncomplete = d.deliveryBucketQtyKnown === false && d.deliveryBucketQty === null
+      && missingSnapshots !== null && missingSnapshots > 0
     return {
       netProfitText: known ? '¥' + Number(amount).toFixed(2) : '待核实',
       metricLabel: complete ? '今日净利' : '今日收入',
       netProfitWarn: !known,
       costMissing: false,
       orderCount: countKnown ? Number(d.orderCount) : '待核实',
-      barrelCountText: barrelsKnown ? Number(d.barrelCount) + ' 桶' : '待核实',
-      readFailed: !known || !countKnown || !barrelsKnown
+      barrelCountText: barrelsKnown ? Number(d.deliveryBucketQty) + ' 桶' : '待核实',
+      readFailed: !known || !countKnown || (!barrelsKnown && !historyIncomplete)
     }
   },
 
@@ -264,9 +268,13 @@ Page({
       String(d.getDate()).padStart(2, '0')
   },
 
-  /** 点「今日净利 / 今日下单桶数」→ 利润报表页，并把期间锁定为今天（页面据 range=today 设 from/to）。 */
+  /** 打开今天的收入与利润。 */
   onGoTodayProfit() {
     wx.navigateTo({ url: '/pages/station-mgmt/gross-profit/index?range=today' })
+  },
+
+  onGoTodayBuckets() {
+    wx.navigateTo({ url: '/pages/station-mgmt/dashboard/index?range=today' })
   },
 
   /** 第三格主数字 → 「异常订单」页（页签 1 就是桶异常单，故不带 ?tab=）。 */

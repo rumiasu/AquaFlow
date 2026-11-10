@@ -1,5 +1,6 @@
 const assert = require('assert'), fs = require('fs'), path = require('path')
 const { loadPage, createWx, createApp, armWatchdog, ROOT } = require('./harness')
+const { parseWxml, renderElements } = require('./wxml-tree')
 const done = armWatchdog(30000), tests = []
 const test = (name, run) => tests.push({ name, run })
 const tick = () => new Promise(resolve => setImmediate(resolve))
@@ -20,6 +21,26 @@ function fixture(extra = {}) {
   return {page,app,wx,order,api,modals,sheets,calls}
 }
 const more = (t,act) => {t.page.onOpenMoreActions();return t.page.onMoreAction({currentTarget:{dataset:{act}}})}
+test('order total stays labelled while only the cash balance disappears after collection', async () => {
+  const t = fixture({ order: { paymentMethod: 3, ticketFeePaymentMethod: 2, totalAmount: 24, collectAmount: 4 } })
+  const tree = parseWxml(fs.readFileSync(path.join(ROOT, source.replace(/\.js$/, '.wxml')), 'utf8'))
+  const facts = () => renderElements(tree, t.page.data, { includeText: true })
+    .filter(node => ['fact-amount-label', 'fact-amount', 'fact-collection-amount'].includes(node.className))
+    .map(node => node.text)
+  await t.page.loadOrderDetail(20)
+  assert.deepStrictEqual(facts(), ['订单金额', '¥24.00', '现场待收', '¥4.00'])
+  t.order.collectAmount = null
+  await t.page.loadOrderDetail(20)
+  assert.deepStrictEqual(facts(), ['订单金额', '¥24.00', '现场待收', '待核实'])
+  t.order.collectAmount = 24
+  await t.page.loadOrderDetail(20)
+  assert.deepStrictEqual(facts(), ['订单金额', '¥24.00'])
+  assert(renderElements(tree, t.page.data, { includeText: true }).some(node =>
+    node.className === 'fact-pay fact-pay-need' && node.text === '现场待收全款'))
+  Object.assign(t.order, { needCollect: false, paymentStatus: 2, payStateText: '已付款' })
+  await t.page.loadOrderDetail(20)
+  assert.deepStrictEqual(facts(), ['订单金额', '¥24.00'])
+})
 for(const [name,change] of [['hide',t=>t.page.onHide()],['unload',t=>t.page.onUnload()],['login generation',t=>t.app._loginGeneration++],['staff switch',t=>t.app.globalData.userInfo.staffId=99],['station switch',t=>t.app.globalData.userInfo.stationId=2],['order switch',t=>t.page.setData({orderId:21})]]) {
  test('late detail discarded after '+name,async()=>{const d=deferred(),t=fixture({api:{getOrderDetail:()=>d.promise}});const pending=t.page.loadOrderDetail(20);change(t);d.resolve({data:{...t.order,orderNo:'late'}});await pending;assert.notEqual(t.page.data.order.orderNo,'late')})
 }

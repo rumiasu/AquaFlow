@@ -272,7 +272,7 @@ async function test(name, fn) { try { await fn(); passed++; console.log('PASS ' 
   await test('payment navigation title follows entry view, switch and return without clearing filters', async () => {
     const wx = createWx(), titles = []; wx.setNavigationBarTitle = o => titles.push(o.title)
     const page = loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js', { wx,
-      app: createApp({ globalData: { userInfo: { stationId: 1 } } }), stubs: { 'utils/request': { get: async () => ({ data: [] }) }, 'api/station-mgmt': { getPendingPayments: async () => ({ data: [] }) } } })
+      app: createApp({ globalData: { userInfo: { stationId: 1 } } }), stubs: { 'utils/request': { get: async () => ({ data: [] }) }, 'api/station-mgmt': { getPendingPayments: async () => ({ code: 0, data: { items: [], nextCursor: null } }) } } })
     page.onLoad({ view: 'ticketHistory', customerId: '7' }); assert.equal(titles.at(-1), '水票购买收款历史')
     page.setData({ startDate: '2026-10-01' }); await page.onShow(); assert.equal(page.data.customerId, 7)
     assert.equal(page.data.startDate, '2026-10-01'); assert.equal(titles.at(-1), '水票购买收款历史')

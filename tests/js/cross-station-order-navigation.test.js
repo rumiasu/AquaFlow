@@ -139,6 +139,22 @@ async function test(name, fn) {
     const u = await loaded({ getOrders: async () => ({ data: Array.from({ length: 20 }, (_, index) => ({ id: index + 100 })) }) })
     await u.page.onLoadMore(); u.page.onCrossStationOrderTap(event(71)); assert.strictEqual(u.wx.__calls.nav.length, 1)
   })
+  await test('owned orders display and paginate while cross-station reads are pending', async () => {
+    const cross = deferred()
+    const t = fixture({ getCross: () => cross.promise, getOrders: async ({ page }) => ({
+      data: Array.from({ length: page === 1 ? 20 : 1 }, (_, index) => row(page * 100 + index))
+    }) })
+    await t.page.loadData()
+    assert.strictEqual(t.page.data.loading, false)
+    assert.strictEqual(t.page.data.crossState, 'loading')
+    assert(renderElements(tree, t.page.data).some(node => node.className.split(/\s+/).includes('order-card') && node.id === 100))
+    await t.page.onLoadMore()
+    cross.reject(new Error('合成跨站超时'))
+    await new Promise(setImmediate)
+    assert.strictEqual(t.page.data.crossState, 'error')
+    assert.strictEqual(t.page.data.list.length, 21)
+    assert(renderElements(tree, t.page.data).some(node => node.attrs.bindtap === 'onRetryCrossStation'))
+  })
   await test('own-station row keeps its existing detail handler', async () => {
     const t = await loaded({ getOrders: async () => ({ data: [row(81)] }) })
     assert.deepStrictEqual(tap(t.page, findPath(tree, hasClass('order-card')), row(81)), ['onOrderTap'])

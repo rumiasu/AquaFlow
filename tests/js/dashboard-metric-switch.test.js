@@ -1,6 +1,7 @@
 // Actual report Page / drawing data only; Canvas lookup is stubbed, no pixels or HTTP.
 const assert = require('node:assert/strict')
 const { loadPage, createApp, armWatchdog } = require('./harness')
+const { createNavigator } = require('../../miniapp-delivery/utils/navigation')
 const done = armWatchdog(30000), tests = [], test = (name, run) => tests.push({ name, run })
 const event = key => ({ currentTarget: { dataset: { key } } })
 const ok = data => ({ code: 0, data })
@@ -18,6 +19,51 @@ function fixture(read = async range => ok(report(range))) {
     values: structuredClone(page.data.trendChart && page.data.trendChart.values), title: page.data.trendTitle }) }
   return { page, draws }
 }
+test('visible dashboard suppresses a false open timeout and drops its pending read when closed', async () => {
+  const route = 'pages/station-mgmt/dashboard/index'
+  const owner = { route: 'pages/station-mgmt/index' }
+  const feedback = []
+  let stack = [owner], timeout, resolveReport
+  const navigator = createNavigator({
+    wx: { navigateTo() {} },
+    pages: () => stack,
+    setTimer(fn) { timeout = fn; return 1 },
+    clearTimer() {},
+    feedback: event => feedback.push(event)
+  })
+  const page = Object.assign(loadPage('miniapp-delivery/' + route + '.js', {
+    app: createApp(),
+    stubs: {
+      'utils/navigation': navigator,
+      'api/station-mgmt': { getDashboardReport: () => new Promise(resolve => { resolveReport = resolve }) }
+    }
+  }), { route, options: {} })
+  page.getCanvas = () => {}
+
+  assert.equal(navigator.open('/' + route, { owner }), true)
+  navigator.hide(owner)
+  stack.push(page)
+  page.onShow()
+  assert.equal(page.data.loading, true)
+  timeout()
+  assert.deepEqual(feedback, [], 'a visible dashboard waiting for data must not report a navigation failure')
+
+  page.onUnload()
+  stack.pop()
+  navigator.show(owner)
+  resolveReport(ok(report()))
+  await new Promise(setImmediate)
+  assert.equal(page.data.report, null)
+  assert.equal(navigator.open('/' + route, { owner }), true)
+})
+test('the Mine bucket shortcut opens the today range while the workbench retains the seven-day default', async () => {
+  const t = fixture()
+  t.page.onLoad({})
+  assert.equal(t.page.data.range, '7d')
+  t.page.onLoad({ range: 'today' })
+  await t.page.loadData()
+  assert.equal(t.page.data.report.range, 'today')
+})
 test('WB-05 order count 3 / amount 120 switch uses the selected values and title, then switches back', async () => {
   const t = fixture(); await t.page.loadData()
   assert.deepEqual(t.page.data.trendChart.values, [3, 0])
@@ -74,13 +120,13 @@ test('delivery bucket card leads while staff performance keeps order and complet
   r.staffPerformance = [{ staffId: 1, staffName: '张师傅', totalOrders: 4, completedOrders: 3, completeRate: 75, deliveryBucketQty: 8, amount: 120 }]
   const t = fixture(async () => ok(r)); await t.page.loadData()
   assert.deepEqual(t.page.data.report.metricCards.map(card => card.key), ['deliveryBucketQty', 'orderCount', 'grossAmount', 'paidAmount', 'newCustomers', 'cancelledOrders'])
-  assert.deepEqual(t.page.data.report.metricCards.map(card => card.label), ['配送桶数', '订单数', '订单金额', '订单已付款', '新客户', '取消单'])
+  assert.deepEqual(t.page.data.report.metricCards.map(card => card.label), ['下单桶数', '订单数', '订单金额', '订单已付款', '新客户', '取消单'])
   assert(!t.page.data.report.metricCards.some(card => card.label === '新增桶'))
   t.page.setData({ analysisExpanded: true })
   const fs = require('node:fs'), path = require('node:path'), { parseWxml, renderElements } = require('./wxml-tree')
   const tree = parseWxml(fs.readFileSync(path.resolve(__dirname, '../../miniapp-delivery/pages/station-mgmt/dashboard/index.wxml'), 'utf8'))
   const text = renderElements(tree, t.page.data, { includeText: true }).map(n => n.text || '').join(' ')
-  assert(text.includes('8 桶 · 4 单')); assert(text.includes('完成 3 单 · 完成率 75%'))
+  assert(text.includes('下单 8 桶 · 4 单')); assert(text.includes('完成 3 单 · 完成率 75%'))
 })
 test('successful zero amount with orders never becomes an empty comforting state', async () => {
   const t = fixture(async () => ok(report('today', 3, 0))); await t.page.loadData()
@@ -98,10 +144,31 @@ test('successful empty today and historical ranges receive different quiet empty
   assert(t.page.data.report.emptyTitle.includes('所选周期'))
 })
 test('failed or incomplete report keeps retry state and never produces a comforting zero', async () => {
-  for (const response of [{ code: 1, message: '读取失败' }, ok({ summary: { orderCount: 0 } })]) {
+  const badAmounts = [undefined, false, [], ' '].map(grossAmount => {
+    const r = report()
+    r.summary.grossAmount = grossAmount
+    return ok(r)
+  })
+  for (const response of [{ code: 1, message: '读取失败' }, ok({ summary: { orderCount: 0 } }), ...badAmounts]) {
     const t = fixture(async () => response); await t.page.loadData()
     assert.equal(t.page.data.report, null); assert(t.page.data.error); assert.equal(t.page.data.loading, false)
   }
+})
+test('the pre-snapshot response still shows the order overview and only withholds bucket figures', async () => {
+  const r = report('7d', 3, 120)
+  delete r.summary.deliveryBucketQty
+  r.staffPerformance = [{ staffName: '张师傅', totalOrders: 3, completedOrders: 2, completeRate: 67 }]
+  const t = fixture(async () => ok(r)); await t.page.loadData()
+  assert.equal(t.page.data.error, '')
+  const view = t.page.data.report
+  assert.equal(view.metricCards.find(card => card.key === 'orderCount').valueText, '3')
+  assert.equal(view.metricCards.find(card => card.key === 'grossAmount').valueText, '¥120.00')
+  const card = view.metricCards.find(card => card.key === 'deliveryBucketQty')
+  assert.equal(card.valueText, '待核实')
+  assert.equal(card.showComparison, false)
+  assert.equal(card.comparisonPending, false)
+  assert.equal(view.staffPerformance[0].deliveryBucketText, '桶数待核实')
+  assert.deepEqual(t.page.data.trendChart.values, [3, 0])
 })
 test('comparison period is shown once and zero-baseline wording uses no invented percentage', async () => {
   const r = report('today', 2, 5)
@@ -202,7 +269,7 @@ test('previous unknown stays unknown independently while explicit current zero s
     assert.equal(c.deltaDir, 'flat'); assert.equal(c.good, null)
   }
 })
-test('missing malformed and contradictory bucket facts reject incomplete reports', async () => {
+test('missing malformed and contradictory bucket facts only withhold the affected bucket figures', async () => {
   const invalid = [
     {}, { deliveryBucketQty: null }, { deliveryBucketQty: null, deliveryBucketQtyKnown: false, deliveryBucketUnknownOrders: 0 },
     { deliveryBucketQty: null, deliveryBucketQtyKnown: true, deliveryBucketUnknownOrders: 1 },
@@ -214,8 +281,20 @@ test('missing malformed and contradictory bucket facts reject incomplete reports
     const r = report()
     if (target === 'summary') { delete r.summary.deliveryBucketQty; Object.assign(r.summary, fields) }
     else r.staffPerformance = [{ totalOrders: 1, completedOrders: 0, completeRate: 0, ...fields }]
+    r.compare = { deliveryBucketQty: { current: 8, previous: 4, known: true, unit: '桶', deltaDir: 'up', deltaText: '+100%', good: true } }
     const t = fixture(async () => ok(r)); await t.page.loadData()
-    assert.equal(t.page.data.report, null, JSON.stringify({ target, fields })); assert(t.page.data.error)
+    const view = t.page.data.report
+    const desc = JSON.stringify({ target, fields })
+    assert.equal(t.page.data.error, '', desc)
+    const card = view.metricCards[0]
+    assert.equal(card.valueText, target === 'summary' ? '待核实' : '8', desc)
+    assert.equal(card.showComparison, target !== 'summary', desc)
+    assert.equal(card.good, target === 'summary' ? null : true, desc)
+    assert.equal(view.metricCards[2].valueText, '¥120.00', desc)
+    if (target === 'staff') {
+      assert.equal(view.staffPerformance[0].deliveryBucketText, '桶数待核实', desc)
+      assert.equal(view.staffPerformance[0].totalOrders, 1, desc)
+    }
   }
 })
 test('contradictory bucket comparison never creates a performance judgment', async () => {
@@ -223,7 +302,13 @@ test('contradictory bucket comparison never creates a performance judgment', asy
     const r = report()
     r.compare = { deliveryBucketQty: { current: 8, previous: null, known: false, unit: '桶', deltaDir: 'flat', good: null, deltaText: '历史数据不完整', ...change } }
     const t = fixture(async () => ok(r)); await t.page.loadData()
-    assert.equal(t.page.data.report, null); assert(t.page.data.error)
+    assert.equal(t.page.data.error, '')
+    const card = t.page.data.report.metricCards[0]
+    assert.equal(card.valueText, '8')
+    assert.equal(card.showComparison, false)
+    assert.equal(card.comparisonPending, true)
+    assert.equal(card.good, null)
+    assert.equal(card.deltaDir, 'flat')
   }
 })
 ;(async () => {

@@ -440,8 +440,8 @@ const detachStaff = (id) => {
  * 待确认收款列表（订单待收款 + 线上买水票的无订单待收款）。
  * 水站由后端按登录站长判定，前端不传 stationId。
  */
-const getPendingPayments = () => {
-  return get(API.PAYMENTS_PENDING)
+const getPendingPayments = (params) => {
+  return get(API.PAYMENTS_PENDING, params)
 }
 
 /**

@@ -8,7 +8,6 @@ import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -17,7 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p><b>为什么单独建一个类</b>（2026-09-19）：给平台通用库补「一次性桶」（4.5L–15L，
  * 免押金、不回收）时，采用「归入 {@code category=2}」的方案来绕开桶逻辑。
  * 下单侧确实是干净的 —— {@code OrderServiceImpl:367} 只数 {@code category=1}，
- * 于是 {@code delivery_bucket_qty = null}、{@code first_barrel_order = 0}、押金 0。
+ * 当时写入 {@code delivery_bucket_qty = null}、{@code first_barrel_order = 0}、押金 0。
+ * 自 2026-11-10 起，新单确认无循环桶写 {@code 0}，{@code null} 表示历史桶数缺少可信快照。
  * 但**配送完成侧未必干净**：{@code BarrelLedgerService.applyDelivery} 的
  * 「本单送出」是按 {@code order_item} 数量统计的，**完全不看 category**：
  *
@@ -112,8 +112,8 @@ class DisposableBarrelLedgerBoundaryIntegrationTest extends AbstractIntegrationT
     // =========================================================================
 
     @Test
-    @DisplayName("下单侧：一次性桶(category=2) 押金 0、delivery_bucket_qty 为空、不打首单买桶标记")
-    void disposableBarrelOrderCarriesNoBarrelSnapshot() {
+    @DisplayName("下单侧：一次性桶(category=2) 押金 0、循环桶快照为 0、不打首单买桶标记")
+    void disposableBarrelOrderCarriesZeroBarrelSnapshot() {
         seed();
         long product = createProduct("农夫山泉 12L 一次性桶", 2, "22.00", "0.00", 1, "22.00");
         createInventoryFull(station, product, 50, 1, "22.00");
@@ -122,10 +122,10 @@ class DisposableBarrelLedgerBoundaryIntegrationTest extends AbstractIntegrationT
 
         assertEquals(0, decimalOf("SELECT deposit_amount FROM orders WHERE id = ?", order)
                         .compareTo(BigDecimal.ZERO),
-                "一次性桶不得收押金（OrderServiceImpl:361 的 else 分支按 deposit×qty 收取，deposit=0 才是 0）");
-        assertNull(jdbc.queryForObject("SELECT delivery_bucket_qty FROM orders WHERE id = ?",
-                        Integer.class, order),
-                "delivery_bucket_qty 必须为空 —— 它是回桶核对的唯一总闸");
+                "一次性桶不得收押金");
+        assertEquals(Integer.valueOf(0), jdbc.queryForObject(
+                        "SELECT delivery_bucket_qty FROM orders WHERE id = ?", Integer.class, order),
+                "新单确认无循环桶必须写入 0，避免被当作桶数未知");
         assertEquals(0, intOf("SELECT first_barrel_order FROM orders WHERE id = ?", order),
                 "一次性桶订单不得打上「本站第一笔买桶订单」");
     }

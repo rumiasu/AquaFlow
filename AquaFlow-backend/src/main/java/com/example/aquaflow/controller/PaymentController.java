@@ -20,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -295,18 +297,48 @@ public class PaymentController {
      */
     @RequireRole({"STATION_MANAGER"})
     @GetMapping("/pending")
-    public Result<List<Map<String, Object>>> listPending(@RequestParam(defaultValue = "200") int limit) {
-        int n = limit <= 0 ? 200 : Math.min(limit, 500);
-        List<Map<String, Object>> rows = paymentRecordMapper.listPendingByStation(AuthContext.requireStationId(), n);
+    public Result<?> listPending(@RequestParam(defaultValue = "200") int limit,
+                                 @RequestParam(required = false) Integer pageSize,
+                                 @RequestParam(required = false) String cursor) {
+        if (pageSize == null && cursor != null) return Result.error("分页读取请指定 pageSize");
+        if (pageSize != null && (pageSize < 1 || pageSize > 200)) return Result.error("每页条数须为 1 至 200");
+        LocalDateTime afterTime = null;
+        Long afterId = null;
+        if (cursor != null) {
+            if (!cursor.matches("(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6})?~[1-9][0-9]{0,18}")) {
+                return Result.error("读取位置无效，请重新加载收款清单");
+            }
+            String[] parts = cursor.split("~", -1);
+            try {
+                afterId = Long.valueOf(parts[1]);
+                if (!parts[0].isEmpty()) {
+                    afterTime = LocalDateTime.parse(parts[0]);
+                    if (afterTime.getYear() < 1000) return Result.error("读取位置无效，请重新加载收款清单");
+                }
+            } catch (DateTimeParseException | NumberFormatException error) {
+                return Result.error("读取位置无效，请重新加载收款清单");
+            }
+        }
+        int n = pageSize == null ? (limit <= 0 ? 200 : Math.min(limit, 500)) : pageSize;
+        List<Map<String, Object>> rows = paymentRecordMapper.listPendingPage(
+                AuthContext.requireStationId(), pageSize == null ? n : n + 1, afterTime, afterId);
+        boolean hasMore = pageSize != null && rows.size() > n;
+        if (hasMore) rows.remove(rows.size() - 1);
+        String nextCursor = hasMore ? (String) rows.get(rows.size() - 1).get("pendingCursor") : null;
         // 本端点返回的是原始列 Map（非实体），派生 getter 不参与序列化，故在此显式补两条文案。
         // 文案真相源仍是常量类（PayMethod / PaymentStatus），**不在 SQL 里复制映射**，
         // 前端也不得自建映射表 —— 历史上两端各写一套导致展示与实际状态不符。
         for (Map<String, Object> r : rows) {
+            r.remove("pendingCursor");
             r.put("methodText", com.example.aquaflow.constant.PayMethod.textOf(asInt(r.get("paymentMethod"))));
             r.put("statusText", com.example.aquaflow.constant.PaymentStatus.textOf(asInt(r.get("status"))));
             r.put("purposeText", paymentPurposeOf(r));
         }
-        return Result.success(rows);
+        if (pageSize == null) return Result.success(rows);
+        Map<String, Object> page = new HashMap<>();
+        page.put("items", rows);
+        page.put("nextCursor", nextCursor);
+        return Result.success(page);
     }
 
     /** Map 结果里的数值列可能来自不同数值类型，统一取 Integer */

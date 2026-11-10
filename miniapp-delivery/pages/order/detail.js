@@ -441,6 +441,9 @@ Page({
       // 动作判据一处（utils/order-actions）：订单对象里展开的同一份 acts 既驱动主按钮，
       // 也驱动「更多操作」弹层有没有内容（hasMoreActions = 任一低频动作可显示）。
       const acts = orderActions(order, getApp().globalData.userInfo)
+      const totalAmountText = moneyText(order.totalAmount)
+      const collectAmountText = order.needCollect === true ? moneyText(order.collectAmount) : ''
+      const collectFullAmount = !!collectAmountText && collectAmountText !== '¥0.00' && collectAmountText === totalAmountText
       this._orderContext = ctx
 
       this.setData({
@@ -459,10 +462,11 @@ Page({
           isTransfer: !!order.transferPending,
           // 当前地址的楼层信息并非订单快照，文本不一致时不能混在目的地下。
           floorText: order.addressSnapshot && order.addressDetail === order.addressSnapshot ? buildFloorText(order) : '',
-          // 事实卡金额行（2026-10-07 #19 R4）：金额只做定长格式化，口径是后端 totalAmount；
-          // 收款章的文案是后端 payStateText，章的配色（need/paid/plain）由后端投影
-          // needCollect / payState 选出 —— 与完成配送页 _moneyView 同一套判据，前端不自推。
-          amountText: moneyText(order.needCollect ? order.collectAmount : order.totalAmount) || '金额待核实',
+          // 2026-11-10：原来收齐余款后主金额会跳成订单总额。两项各用后端金额，收款前后总额含义一致。
+          // 已知应收等于订单金额时合并展示，避免普通现金单把同一个数字写两遍。
+          amountText: totalAmountText || '待核实',
+          collectAmountText: order.needCollect === true ? (collectAmountText || '待核实') : '',
+          collectFullAmount,
           payChipClass: order.needCollect ? 'need' : (order.payState === 'PAID' ? 'paid' : 'plain'),
           // 备货情况（契约 C4）：出发前/上门前用一句话说清"这单备齐了没、还缺哪些商品"。
           // 与金额、状态文案一样取自后端投影（stockPrep），前端不拿 inventory.quantity 自己推算。

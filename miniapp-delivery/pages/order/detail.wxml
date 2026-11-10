@@ -33,8 +33,15 @@
       <text class="aux-tag aux-{{l.type}}" wx:for="{{order.labels}}" wx:for-item="l" wx:key="type">{{l.text}}</text>
     </view>
     <view class="fact-amount-row lv2-fact-money" wx:if="{{order.amountText}}">
-      <text class="fact-amount">{{order.amountText}}</text>
-      <text class="fact-pay fact-pay-{{order.payChipClass}}" wx:if="{{order.payStateText}}">{{order.payStateText}}</text>
+      <view class="fact-total">
+        <text class="fact-amount-label">订单金额</text>
+        <text class="fact-amount">{{order.amountText}}</text>
+      </view>
+      <text class="fact-pay fact-pay-{{order.payChipClass}}" wx:if="{{order.collectFullAmount || order.payStateText}}">{{order.collectFullAmount ? '现场待收全款' : order.payStateText}}</text>
+      <view class="fact-collection" wx:if="{{order.collectAmountText && !order.collectFullAmount}}">
+        <text class="fact-amount-label">现场待收</text>
+        <text class="fact-collection-amount">{{order.collectAmountText}}</text>
+      </view>
     </view>
   </view>
 

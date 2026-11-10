@@ -3,6 +3,7 @@ const { getPendingPayments, confirmPayment } = require('../../../api/station-mgm
 const historyCustomer = require('../../../utils/station-history-customer')
 const { get } = require('../../../utils/request')
 const navigation = require('../../../utils/navigation')
+const { moneyText } = require('../../../utils/collection-confirmation')
 
 const associationId = value => {
   if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) return null
@@ -20,6 +21,7 @@ Page({
     list: [],
     view: 'pending', startDate: '', endDate: '', historyScope: '', historyPage: 1, historyHasMore: false,
     loading: false, paymentNavigationBusy: false,
+    pendingHasMore: false, pendingLoadingMore: false, pendingMoreError: '',
     /**
      * [2026-09-27 走查 C05/U01 同族修] 加载失败的原因（空串 = 成功）。
      *
@@ -62,13 +64,15 @@ Page({
       && query.owner === current.owner && query.key === current.key
   },
   clearHistoryCache() {
+    this._pendingCursor = null
     this._paymentListQuery = null
     this._paymentNavigationFlight = null
     this._historyRecords = []
     this._filteredHistory = []
     this._historyCacheQuery = null
     this._historyState = 'idle'
-    this.setData({ list: [], historyScope: '', historyPage: 1, historyHasMore: false, paymentNavigationBusy: false })
+    this.setData({ list: [], historyScope: '', historyPage: 1, historyHasMore: false, paymentNavigationBusy: false,
+      pendingHasMore: false, pendingLoadingMore: false, pendingMoreError: '' })
   },
   hasCurrentHistory() {
     if (this._historyState === 'ready' && this.paymentQueryMatches(this._historyCacheQuery)
@@ -164,34 +168,19 @@ Page({
     this._historyLoadError = ''
     this.setData({ loading: true, loadError: '' })
     try {
-      const res = view === 'pending' ? await getPendingPayments()
+      const res = view === 'pending' ? await getPendingPayments({ pageSize: 50 })
         : customerId ? await get('/api/payments/customer/' + customerId, { stationId })
           : await get('/api/payments', { limit: 200 })
       if (seq !== this._paymentsSeq || !this.paymentQueryMatches(query)) return
-      if (!Array.isArray(res.data)) throw new Error('收款记录尚未核对')
+      const rows = view === 'pending' ? this.pendingPage(res).items : res.data
+      if (!Array.isArray(rows)) throw new Error('收款记录尚未核对')
       // wxml 里不能做函数调用与三元嵌套，所有展示字段在 JS 里预计算好。
-      const list = (res.data || []).map(item => Object.assign({}, item, {
-        // [2026-11-04] 支付所属站不等于订单履约站，也不授予客户画像权限；点击后由目标读取核实。
-        canOpenOrder: this.canNavigatePaymentAssociations() && !!associationId(item.orderId),
-        canOpenCustomer: this.canNavigatePaymentAssociations() && !!associationId(item.customerId),
-        orderNavigationError: '', customerNavigationError: '',
-        methodText: item.methodText || '—',
-        // [2026-09-27 走查 M01 修] 兜底从 `'—'` 改成 `'待核实到账'`：
-        // 本列表按 `status = 1`（待收款）过滤，缺文案时写"待核实到账"是**照实说**，
-        // 与页面顶部说明、按钮（确认已到账）同口径；写 `'—'` 则等于把这一格的信息丢掉，
-        // 而写"已收到"会与事实相反。⚠️ 这**不是**前端自带映射表 ——
-        // 文案正本仍是后端 PaymentStatus.textOf（有值就用它），这里只是缺值时的兜底。
-        statusText: item.statusText || (view === 'pending' ? '待核实到账' : '状态未核对'),
-        amountText: item.amount !== null && item.amount !== undefined && Number.isFinite(Number(item.amount))
-          ? Number(item.amount).toFixed(2) : '未核对',
-        // 无订单收款还包括独立押金和上门收桶费，不能统一当成购票。
-        isTicketPurchase: !item.orderId && item.ticketQty > 0,
-        purposeText: item.purposeText || item.note || '请核实款项用途',
-        // 备注后端带的是「线上购买水票」等中文，直接展示；为空时给个兜底
-        noteText: item.note || item.purposeText || '独立款项待核实',
-      }))
+      const list = this.decoratePayments(rows, view)
       this._paymentListQuery = query
-      if (view === 'pending') this.setData({ list, loadError: '' })
+      if (view === 'pending') {
+        this._pendingCursor = res.data.nextCursor
+        this.setData({ list, pendingHasMore: !!this._pendingCursor, loadError: '' })
+      }
       else {
         this._historyRecords = list
         this._historyCacheQuery = query
@@ -203,7 +192,7 @@ Page({
         this.applyHistoryFilters()
       }
     } catch (err) {
-      // 失败必须**常驻可见**（不是只弹一次 toast）：见 data.loadError 的注释
+      // 失败必须常驻可见，不能显示成暂无记录。
       if (seq !== this._paymentsSeq || !this.paymentQueryMatches(query)) return
       this.clearHistoryCache()
       this._historyState = 'error'
@@ -220,6 +209,73 @@ Page({
         this.setData({ loading: false })
       }
     }
+  },
+
+  pendingPage(res) {
+    const page = res && res.data
+    if (!res || res.code !== 0 || !page || !Array.isArray(page.items)
+        || !(page.nextCursor === null || typeof page.nextCursor === 'string' && page.nextCursor.length > 0)
+        || (page.nextCursor && !page.items.length)) throw new Error('收款记录尚未核对，请重新加载')
+    return page
+  },
+
+  async onPendingMore() {
+    if (this.data.view !== 'pending' || this.data.loading || this.data.pendingLoadingMore
+        || !this.data.pendingHasMore || this._confirmFlight || this._paymentNavigationFlight) return
+    const seq = this._paymentsSeq, query = this._paymentListQuery, cursor = this._pendingCursor
+    if (!this.paymentQueryMatches(query)) {
+      this.clearHistoryCache()
+      this.setData({ loadError: '登录或水站已变化，请重新加载收款清单' })
+      return
+    }
+    this.setData({ pendingLoadingMore: true, pendingMoreError: '' })
+    try {
+      const res = await getPendingPayments({ pageSize: 50, cursor })
+      if (seq !== this._paymentsSeq || !this.paymentQueryMatches(query)) return
+      const page = this.pendingPage(res)
+      if (page.nextCursor === cursor) throw new Error('读取位置未更新，请重新加载清单')
+      const ids = new Set(this.data.list.map(row => String(row.id)))
+      const added = this.decoratePayments(page.items, 'pending').filter(row => !ids.has(String(row.id)))
+      this._pendingCursor = page.nextCursor
+      this.setData({ list: this.data.list.concat(added), pendingHasMore: !!page.nextCursor })
+    } catch (error) {
+      if (seq === this._paymentsSeq && this.paymentQueryMatches(query)) {
+        this.setData({ pendingMoreError: error.message || '更多记录加载失败，请重试' })
+      }
+    } finally {
+      if (seq === this._paymentsSeq) {
+        if (!this.paymentQueryMatches(query)) {
+          this.clearHistoryCache()
+          this.setData({ loadError: '登录或水站已变化，请重新加载收款清单' })
+        }
+        this.setData({ pendingLoadingMore: false })
+      }
+    }
+  },
+
+  decoratePayments(rows, view) {
+    return rows.map(item => Object.assign({}, item, {
+        // [2026-11-04] 支付所属站不等于订单履约站，也不授予客户画像权限；点击后由目标读取核实。
+        canOpenOrder: this.canNavigatePaymentAssociations() && !!associationId(item.orderId),
+        canOpenCustomer: this.canNavigatePaymentAssociations() && !!associationId(item.customerId),
+        orderNavigationError: '', customerNavigationError: '',
+        methodText: item.methodText || '—',
+        // [2026-09-27 走查 M01 修] 兜底从 `'—'` 改成 `'待核实到账'`：
+        // 本列表按 `status = 1`（待收款）过滤，缺文案时写"待核实到账"是**照实说**，
+        // 与页面顶部说明、按钮（确认已到账）同口径；写 `'—'` 则等于把这一格的信息丢掉，
+        // 而写"已收到"会与事实相反。⚠️ 这**不是**前端自带映射表 ——
+        // 文案正本仍是后端 PaymentStatus.textOf（有值就用它），这里只是缺值时的兜底。
+        statusText: item.statusText || (view === 'pending' ? '待核实到账' : '状态未核对'),
+        amountText: view === 'pending'
+          ? (moneyText(item.amount) || '金额待核实')
+          : (item.amount !== null && item.amount !== undefined && Number.isFinite(Number(item.amount))
+            ? '¥' + Number(item.amount).toFixed(2) : '金额待核实'),
+        // 无订单收款还包括独立押金和上门收桶费，不能统一当成购票。
+        isTicketPurchase: !item.orderId && item.ticketQty > 0,
+        purposeText: item.purposeText || item.note || '请核实款项用途',
+        // 备注后端带的是「线上购买水票」等中文，直接展示；为空时给个兜底
+        noteText: item.note || item.purposeText || '独立款项待核实',
+    }))
   },
 
   /** 失败提示条上的「重新加载」（wxml 绑定，不存在会导致点击静默无反应） */
@@ -297,20 +353,29 @@ Page({
    */
   onConfirm(e) {
     // 2026-10-30: 连点曾排入多个确认框并重复发请求；一次确认从弹窗到回执只允许一个。
-    if (this.data.view !== 'pending' || this._confirmFlight || this._paymentNavigationFlight || this._paymentsHidden) return
+    if (this.data.view !== 'pending' || this._confirmFlight || this._paymentNavigationFlight || this.data.loading
+        || !this.canNavigatePaymentAssociations()) return
     const seq = this._paymentsSeq
-    const query = this.paymentQueryIdentity()
+    const query = this._paymentListQuery
+    if (!this.paymentQueryMatches(query)) return
     const id = e.currentTarget.dataset.id
-    const item = this.data.list.find(x => x.id === id)
+    const item = this.data.list.find(x => String(x.id) === String(id))
     if (!item) return
+    // 2026-11-10：同金额的订单要能在确认框里区分；金额缺失时不能登记到账。
+    const amount = moneyText(item.amount)
+    if (!amount) {
+      wx.showToast({ title: '金额待核实，请重新加载', icon: 'none' })
+      return
+    }
+    const orderId = associationId(item.orderId)
     const flight = this._confirmFlight = { started: false }
     const current = () => seq === this._paymentsSeq && this.paymentQueryMatches(query) && this.data.view === 'pending'
     const release = () => { if (this._confirmFlight === flight) this._confirmFlight = null }
     const what = item.isTicketPurchase
-      ? `确认已收到该客户购买 ${item.ticketQty || 0} 张水票的款项 ¥${item.amountText}？确认后水票立即入账。`
-      : item.orderId
-        ? `确认已收到该客户支付 ¥${item.amountText}？确认后订单将标记为已付款。`
-        : `确认已收到该客户的${item.purposeText} ¥${item.amountText}？请核对款项用途和实际到账后登记。`
+      ? `确认已收到购买 ${item.ticketQty || 0} 张水票的款项 ${amount}？确认后水票入账。`
+      : orderId
+        ? `确认已收到订单 #${orderId} 的 ${amount}？`
+        : `确认已收到这笔款 ${amount}？\n用途：${item.purposeText}`
 
     showBusinessModal({ cancelColor: '#637083',
       title: '确认收款',
@@ -323,11 +388,12 @@ Page({
         flight.started = true
         wx.showLoading({ title: '确认中...' })
         try {
-          await confirmPayment(id)
+          await confirmPayment(item.id)
           if (!current()) { flight.stale = true; return }
           wx.hideLoading()
           wx.showToast({ title: '已确认到账', icon: 'success' })
-          this.loadData()
+          this.setData({ list: this.data.list.filter(row => String(row.id) !== String(item.id)) })
+          if (!this.data.list.length) this.loadData()
         } catch (err) {
           if (!current()) { flight.stale = true; return }
           wx.hideLoading()

@@ -222,7 +222,7 @@ console.log('员工端运行时事实表达（真实执行页面处理函数）'
     const page = loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js', {
       stubs: {
         'api/station-mgmt': {
-          getPendingPayments: async () => ({ code: 0, data: list }),
+          getPendingPayments: async () => ({ code: 0, data: { items: list, nextCursor: null } }),
           confirmPayment: async () => ({ code: 0, data: {} })
         }
       },

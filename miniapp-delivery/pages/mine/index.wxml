@@ -93,7 +93,7 @@
         <text class="stats-value stats-money {{todayProfit && todayProfit.netProfitWarn ? 'stats-warn' : ''}}">{{managerStatsLoading ? '加载中…' : ((todayProfit && todayProfit.netProfitText) || '待核实')}}</text>
         <text class="stats-label">{{(todayProfit && todayProfit.metricLabel) || '今日收入'}}</text>
       </view>
-      <view class="stats-item" bindtap="onGoTodayProfit">
+      <view class="stats-item" bindtap="onGoTodayBuckets">
         <text class="stats-value">{{managerStatsLoading ? '加载中…' : ((todayProfit && todayProfit.barrelCountText) || '待核实')}}</text>
         <text class="stats-label">今日下单桶数</text>
       </view>

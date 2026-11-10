@@ -178,6 +178,7 @@ const SUITES = [
   { file: 'payroll-adjust-intent.test.js', name: '人工工资录入原意图、重放和内容变化隔离' },
   { file: 'light-entry-flow.test.js', name: '零资产入口、真实商品单位与收件快照联系' },
   { file: 'payment-records-recovery.test.js', name: '账单用途、首次失败重试、缓存及身份隔离' },
+  { file: 'pending-payment-pagination.test.js', name: '待确认收款游标分页与会话保护' },
   { file: 'payment-confirm-singleflight.test.js', name: '待确认收款单次提交、会话与离页保护' },
   { file: 'mixed-product-summary.test.js', name: '历史与转单混合商品逐行单位、失图与迟到响应' },
   { file: 'approval-presentation-flow.test.js', name: '退桶办理状态、原款资格、重复操作与原申请恢复' },

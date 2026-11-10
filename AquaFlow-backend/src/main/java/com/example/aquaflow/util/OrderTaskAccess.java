@@ -42,7 +42,7 @@ public final class OrderTaskAccess {
         if (!visibleToEmployee(order)) {
             throw new BusinessException("该订单尚未支付，暂不可查看配送任务");
         }
-        CustomerProfileMask.maskIfCrossStation(order);
+        CustomerProfileMask.maskDetailIfCrossStation(order);
     }
 
     /** Current active tasks require a binding; personal historical records keep their existing scope. */

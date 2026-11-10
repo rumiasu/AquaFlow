@@ -4,6 +4,7 @@ const { showBusinessModal } = require('../../../utils/business-dialog')
 // 路径常量写在本文件里，理由同上。
 const { get, post, put } = require('../../../utils/request')
 const { amountCents } = require('../../../utils/collection-confirmation')
+const navigation = require('../../../utils/navigation')
 
 const AR = '/api/manager/receivables'
 const CREDIT_TERMS = '/api/manager/customers/'
@@ -12,6 +13,8 @@ const CREDIT_TERMS = '/api/manager/customers/'
 const validId = value => (typeof value === 'number' || typeof value === 'string')
   && /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value))
 const amountText = cents => '¥' + Math.floor(cents / 100) + '.' + String(cents % 100).padStart(2, '0')
+const calendarDate = value => typeof value === 'string'
+  ? (/^\d{4}-\d{2}-\d{2}(?=$|[T ])/.exec(value)?.[0] || '') : ''
 function receivableSession() {
   const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
   return { app, generation: app._loginGeneration || 0,
@@ -120,6 +123,8 @@ Page({
       app.routeByRole(true)
       return
     }
+    // 2026-11-11：页面已显示但原生导航漏回调时，不能把报表读取误报成页面未打开。
+    navigation.show(this)
     const session = receivableSession()
     if (this._viewSession && !sameSession(this._viewSession, session)) {
       this.onCloseTerms()
@@ -138,6 +143,7 @@ Page({
   },
 
   onHide() {
+    navigation.hide(this)
     // Backgrounding invalidates old callbacks/confirmations, but keeps the unsaved draft.
     this._termsRevision = (this._termsRevision || 0) + 1
     if (this._recalcFlight && this._recalcFlight.cancelConfirmation) this._recalcFlight.cancelConfirmation()
@@ -148,6 +154,7 @@ Page({
   },
   onUnload() {
     this.onHide()
+    navigation.dispose(this)
     this._unloaded = true
     this._overviewRequest = (this._overviewRequest || 0) + 1
     this._ordersRequest = (this._ordersRequest || 0) + 1
@@ -213,19 +220,21 @@ Page({
       if (!isCurrent()) return
       const d = res && res.data
       if (!d || !Array.isArray(d.customers)) throw new Error('待收账款数据不完整，请重试')
+      // 2026-11-10：应付日只展示日期，避免完整时间戳挤占金额旁的空间。
+      const customers = d.customers.map(row => ({ ...row, earliestDueDateText: calendarDate(row.earliestDueDate) }))
       const current = this.data.customer
       // 此接口返回完整、未分页的待收客户集合；成功响应中缺席才表示无待收。
       // 保留当前客户身份/账期，不按本次核销金额在前端做减法。
-      const customer = current && (d.customers.find(c => c.customerId === current.customerId) ||
+      const customer = current && (customers.find(c => c.customerId === current.customerId) ||
         Object.assign({}, current, { outstandingAmount: 0, orderCount: 0, creditOrderCount: 0,
-          overdueAmount: 0, overdueOrderCount: 0, maxOverdueDays: 0, earliestDueDate: null }))
+          overdueAmount: 0, overdueOrderCount: 0, maxOverdueDays: 0, earliestDueDate: null, earliestDueDateText: '' }))
       // WXML 解析器不支持 {{ (''+x).length }}（Bad attr: unexpected token `.`），长度判断在这里算好再下发
       d.outstandingAmountLong = String(d.outstandingAmount == null ? '' : d.outstandingAmount).length > 11
       this.setData({
         overview: d,
         customer,
         // 全量留一份：筛选是**展示层**的事，切来切去不该重新请求（也不该动总览数字）
-        allCustomers: d.customers || []
+        allCustomers: customers
       })
       this._applyOverdueFilter()
     } catch (err) {
@@ -266,8 +275,8 @@ Page({
       if (!res || !Array.isArray(res.data)) throw new Error('待收明细数据不完整，请重试')
       // 展示用的截断放在这里做：wxml 里不能调方法/函数，而 ISO 串直接渲染又太长
       const orders = res.data.map(o => Object.assign({}, o, {
-        createDateText: String(o.createTime || '').slice(0, 10),
-        dueDateText: o.dueDate ? String(o.dueDate).slice(0, 10) : '',
+        createDateText: calendarDate(o.createTime),
+        dueDateText: calendarDate(o.dueDate) || (o.dueDate ? '日期待核实' : ''),
         overdue: o.overdueDays > 0, checked: false,
         cashSelectable: canRegister(o),
         canViewOrder: o.canViewOrder === true,

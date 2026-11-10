@@ -176,17 +176,32 @@ public interface PaymentRecordMapper {
      * <p>返回 Map 而非 {@code PaymentRecord}：customerName / productName 是关联列，
      * 不该往实体里加非数据库字段。列表只取展示与确认所需字段，不回传整行。</p>
      */
-    @Select("select p.id, p.order_id as orderId, p.customer_id as customerId, "
+    @Select("<script>select p.id, p.order_id as orderId, p.customer_id as customerId, "
             + "c.name as customerName, c.phone as customerPhone, "
             + "p.station_id as stationId, p.amount, p.payment_method as paymentMethod, "
             + "p.barrel_deposit as barrelDeposit,p.delivery_fee as deliveryFee, "
             + "p.ticket_water_type_id as ticketProductId, p.ticket_qty as ticketQty, "
             + "p.note, p.create_time as createTime, "
+            + "concat(coalesce(date_format(p.create_time, '%Y-%m-%dT%H:%i:%s.%f'), ''), '~', p.id) as pendingCursor, "
             + "(select oi.product_name_snapshot from order_item oi where oi.order_id = p.order_id order by oi.id limit 1) as productName "
             + "from payment_record p "
-            + "left join customer c on c.id = p.customer_id "
+            // 2026-11-10：外派订单流水跟随结算站，直接关联会带出未归属本站的客户档案。
+            + "left join customer c on c.id = p.customer_id and (p.order_id is null or "
+            + CustomerMapper.STATION_CUSTOMER_RELATION + ") "
             + "where p.station_id = #{stationId} and p.status = 1 "
-            + "order by p.create_time asc limit #{limit}")
-    List<java.util.Map<String, Object>> listPendingByStation(@Param("stationId") Long stationId,
-                                                             @Param("limit") int limit);
+            + "<if test='afterId != null'><choose>"
+            + "<when test='afterTime == null'>and (p.create_time is not null or (p.create_time is null and p.id &gt; #{afterId})) </when>"
+            + "<otherwise>and (p.create_time &gt; #{afterTime} or (p.create_time = #{afterTime} and p.id &gt; #{afterId})) </otherwise>"
+            + "</choose></if>"
+            + "order by p.create_time asc, p.id asc limit #{limit}</script>")
+    List<java.util.Map<String, Object>> listPendingPage(@Param("stationId") Long stationId,
+                                                       @Param("limit") int limit,
+                                                       @Param("afterTime") java.time.LocalDateTime afterTime,
+                                                       @Param("afterId") Long afterId);
+
+    default List<java.util.Map<String, Object>> listPendingByStation(Long stationId, int limit) {
+        List<java.util.Map<String, Object>> rows = listPendingPage(stationId, limit, null, null);
+        rows.forEach(row -> row.remove("pendingCursor"));
+        return rows;
+    }
 }

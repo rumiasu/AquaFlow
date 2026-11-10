@@ -77,7 +77,7 @@ async function test(name, fn) { try { await fn(); passed++; console.log('PASS ' 
     await page.onSelectHistoryCustomer(ev('', 7)); assert.equal(page.data.customerId, 7)
   })
   function payments(get, confirm) {
-    return loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js', { wx: createWx(), app: app(), stubs: { 'utils/request': { get }, 'api/station-mgmt': { getPendingPayments: async () => ({ data: [] }), confirmPayment: confirm || (async () => ({})) } } })
+    return loadPage('miniapp-delivery/pages/station-mgmt/payments/index.js', { wx: createWx(), app: app(), stubs: { 'utils/request': { get }, 'api/station-mgmt': { getPendingPayments: async () => ({ code: 0, data: { items: [], nextCursor: null } }), confirmPayment: confirm || (async () => ({})) } } })
   }
   await test('ticket history separates purchase payments from deposits, water orders and balance', async () => {
     const page = payments(async () => ({ data: [{ id: 1, ticketQty: 10, amount: 80, statusText: '已付款' }, { id: 2, amount: 30 }, { id: 3, orderId: 99, ticketQty: 10, amount: 80 }] }))

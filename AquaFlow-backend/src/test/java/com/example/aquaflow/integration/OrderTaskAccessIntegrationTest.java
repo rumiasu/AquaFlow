@@ -90,6 +90,27 @@ class OrderTaskAccessIntegrationTest extends AbstractIntegrationTest {
         assertDenied(get("/api/delivery/orders/" + unassigned, del));
     }
 
+    @Test void managerOrderPaginationIsStableAcrossPageSizesForOrdersCreatedInTheSameSecond() {
+        seed();
+        long newer = task(station, station, null, 1, 1, 2);
+        long first = task(station, station, null, 1, 1, 2);
+        long second = task(station, station, null, 3, 1, 2);
+        jdbc.update("update orders set create_time='2026-10-01 10:00:00' where id in (?,?)", first, second);
+        jdbc.update("update orders set create_time='2026-10-01 10:00:01' where id=?", newer);
+
+        Api combined = get("/api/orders?page=1&pageSize=3", mgr);
+        assertEquals(0, combined.code(), combined.toString());
+        List<Long> expected = List.of(newer, second, first);
+        assertEquals(3, combined.data().size());
+        for (int index = 0; index < expected.size(); index++) {
+            Api single = get("/api/orders?page=" + (index + 1) + "&pageSize=1", mgr);
+            assertEquals(0, single.code(), single.toString());
+            assertEquals(1, single.data().size());
+            assertEquals(expected.get(index).longValue(), single.data().get(0).path("id").asLong());
+            assertEquals(expected.get(index).longValue(), combined.data().get(index).path("id").asLong());
+        }
+    }
+
     @Test void genericListsAndBothDetailsRespectCurrentAssignedTask() {
         seed();
         long own = task(station, station, driver, 1, 1, 2);

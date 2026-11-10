@@ -1,5 +1,6 @@
 // 站长数据看板（综合报表）
 const { getDashboardReport } = require('../../../api/station-mgmt')
+const navigation = require('../../../utils/navigation')
 
 const RANGES = [
   { key: 'today', label: '今日' },
@@ -23,7 +24,6 @@ function validBucket(row) {
     && (count === undefined || bucketNumber(count) === 0)
 }
 function validBucketComparison(d, summary) {
-  if (d === undefined) return true
   if (!d || d.unit !== '桶') return false
   if (d.current !== summary.deliveryBucketQty && !(bucketNumber(d.current) !== null && bucketNumber(d.current) === bucketNumber(summary.deliveryBucketQty))) return false
   if (d.current === null || d.previous === null) return d.known === false
@@ -53,13 +53,29 @@ Page({
     recordsPreviewCount: 3
   },
 
+  onLoad(options) {
+    if (options && options.range === 'today') this.setData({ range: 'today' })
+  },
+
   onShow() {
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
       app.routeByRole(true)
       return
     }
+    // 页面已经打开时，由页内加载状态反馈报表请求。
+    navigation.show(this)
     this.loadData()
+  },
+
+  onHide() {
+    navigation.hide(this)
+    this._reportSeq = (this._reportSeq || 0) + 1
+  },
+
+  onUnload() {
+    this.onHide()
+    navigation.dispose(this)
   },
 
   onPullDownRefresh() {
@@ -104,11 +120,11 @@ Page({
       }
       if (seq !== this._reportSeq) return
       const summary = res.data.summary
-      const known = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+      const known = value => (typeof value === 'number' || (typeof value === 'string' && value.trim() !== ''))
+        && Number.isFinite(Number(value))
       const fields = ['orderCount', 'grossAmount', 'paidAmount', 'newCustomers', 'cancelledOrders']
       const groups = { trend: ['orders', 'amount'], statusDistribution: ['cnt', 'share'], payMethodDistribution: ['cnt', 'share'], topProducts: ['qty', 'revenue', 'share'], topCustomers: ['orders', 'amount'], staffPerformance: ['totalOrders', 'completedOrders', 'completeRate'], hourDistribution: ['orders'] }
       if (!summary || !fields.every(key => known(summary[key])) || !Object.keys(groups).every(key => Array.isArray(res.data[key]) && res.data[key].every(row => row && groups[key].every(field => known(row[field]))))) throw new Error('报表加载不完整，请重试')
-      if (!validBucket(summary) || !res.data.staffPerformance.every(validBucket) || !validBucketComparison(res.data.compare && res.data.compare.deliveryBucketQty, summary)) throw new Error('报表加载不完整，请重试')
       const report = this.decorate(res.data)
       // Canvas位于!loading分支，渲染完成后再绘制，旧报表回调不能覆盖新周期。
       this.setData({ report, loading: false }, () => {
@@ -136,19 +152,26 @@ Page({
 
     // 核心指标卡：环比方向/文案由后端给（deltaDir, good），这里只补展示用文本
     const c = r.compare || {}
+    // 2026-11-10：旧报表未下发桶快照时，整页被拒。桶数或环比缺证据只影响对应展示。
+    const bucketValid = validBucket(s)
+    const bucketQty = bucketValid ? bucketNumber(s.deliveryBucketQty) : null
+    const bucketComparison = bucketValid && validBucketComparison(c.deliveryBucketQty, s) ? c.deliveryBucketQty : null
     const mk = (key, label, valueText) => {
-      const d = c[key] || {}
-      const unknownBucket = key === 'deliveryBucketQty' && (s.deliveryBucketQty === null || d.known === false)
+      const bucketMetric = key === 'deliveryBucketQty'
+      const d = (bucketMetric ? bucketComparison : c[key]) || {}
+      const unknownBucket = bucketMetric && (!bucketComparison || d.known === false)
       return {
         key, label, valueText,
-        deltaText: unknownBucket ? (d.deltaText || '历史数据不完整') : (d.deltaText || '对比待核实'),
+        showComparison: !bucketMetric || !!bucketComparison,
+        comparisonPending: bucketMetric && bucketQty !== null && !bucketComparison,
+        deltaText: d.deltaText || '对比待核实',
         deltaDir: unknownBucket ? 'flat' : (d.deltaDir || 'flat'),
         good: unknownBucket ? null : d.good,
         previousText: this.fmtValue(d.previous, d.unit)
       }
     }
     r.metricCards = [
-      mk('deliveryBucketQty', '配送桶数', s.deliveryBucketQty === null ? '待核实' : String(Number(s.deliveryBucketQty))),
+      mk('deliveryBucketQty', '下单桶数', bucketQty === null ? '待核实' : String(bucketQty)),
       mk('orderCount', '订单数', String(Number(s.orderCount) || 0)),
       mk('grossAmount', '订单金额', '¥' + r.grossAmountText),
       // [2026-09-27 产品裁定 1.b，正本 docs/design/32] 标签原为「已收款」——
@@ -177,14 +200,17 @@ Page({
       ...x, idx: i, rank: i + 1, amountText: money(x.amount)
     }))
 
-    r.staffPerformance = (r.staffPerformance || []).map((x, i) => ({
-      ...x, idx: i,
-      totalOrders: Number(x.totalOrders) || 0,
-      completedOrders: Number(x.completedOrders) || 0,
-      deliveryBucketQty: x.deliveryBucketQty === null ? null : Number(x.deliveryBucketQty),
-      deliveryBucketText: x.deliveryBucketQty === null ? '桶数待核实' : Number(x.deliveryBucketQty) + ' 桶',
-      width: Math.min(100, Number(x.completeRate) || 0)
-    }))
+    r.staffPerformance = (r.staffPerformance || []).map((x, i) => {
+      const qty = validBucket(x) ? bucketNumber(x.deliveryBucketQty) : null
+      return {
+        ...x, idx: i,
+        totalOrders: Number(x.totalOrders) || 0,
+        completedOrders: Number(x.completedOrders) || 0,
+        deliveryBucketQty: qty,
+        deliveryBucketText: qty === null ? '桶数待核实' : '下单 ' + qty + ' 桶',
+        width: Math.min(100, Number(x.completeRate) || 0)
+      }
+    })
 
     // [2026-09-19 IA 重组 C2] 原有两行派生字段（owedCustomers / hasPending）只为已删除的
     // 「欠桶客户 TOP」与待收款横幅服务，一并删除。后端响应里仍有这两个字段（不改后端），

@@ -54,15 +54,15 @@
   <view id="home-task-filters" class="tab-bar">
     <view bindtap="switchTab" data-tab="assigned" class="af-choice b2-choice {{activeTab === 'assigned' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeTab === 'assigned'}}">✓</text>
       <text class="stat-label">待配送</text>
-      <text class="stat-unit">{{readReady.assigned ? assignedOrders.length + ' 单' : '—'}}</text>
+      <text class="stat-unit">{{readReady.assigned ? assignedMetricText : '—'}}</text>
     </view></view>
     <view bindtap="switchTab" data-tab="delivering" class="af-choice b2-choice {{activeTab === 'delivering' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeTab === 'delivering'}}">✓</text>
       <text class="stat-label">配送中</text>
-      <text class="stat-unit">{{readReady.delivering ? deliveringOrders.length + ' 单' : '—'}}</text>
+      <text class="stat-unit">{{readReady.delivering ? deliveringMetricText : '—'}}</text>
     </view></view>
     <view bindtap="switchTab" data-tab="completed" class="af-choice b2-choice {{activeTab === 'completed' ? 'af-choice--selected' : ''}}"><view class="af-choice__face"><text class="af-choice__mark" wx:if="{{activeTab === 'completed'}}">✓</text>
       <text class="stat-label">今日送达</text>
-      <text class="stat-unit">{{readReady.completed ? completedOrders.length + ' 单' : '—'}}</text>
+      <text class="stat-unit">{{readReady.completed ? completedMetricText : '—'}}</text>
     </view></view>
   </view>
 

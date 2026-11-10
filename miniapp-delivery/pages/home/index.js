@@ -14,6 +14,31 @@ const { syncTabBar } = require('../../utils/tabbar')
 // 配送异常上报（原因文案与上报实现与订单详情页共用一份）
 const { reportDeliveryProblem } = require('../../utils/delivery-problem')
 
+function metricInteger(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  if (typeof value === 'string' && !/^\d+$/.test(value)) return null
+  const number = Number(value)
+  return Number.isSafeInteger(number) && number >= 0 ? number : null
+}
+
+function deliveryTaskMetric(orders) {
+  const list = Array.isArray(orders) ? orders : []
+  let buckets = 0
+  for (const order of list) {
+    const raw = order && order.deliveryBucketQty
+    if (raw !== null && raw !== undefined && raw !== '') {
+      const qty = metricInteger(raw)
+      if (qty === null) return `桶数待核实 · ${list.length} 单`
+      buckets += qty
+      if (!Number.isSafeInteger(buckets)) return `桶数待核实 · ${list.length} 单`
+      continue
+    }
+    // 2026-11-10: 商品品类和摘要单位来自当前商品表，不是历史快照；缺快照不得推断零桶。
+    return `桶数待核实 · ${list.length} 单`
+  }
+  return `${buckets} 桶 · ${list.length} 单`
+}
+
 function homeStationSession() {
   const app = getApp(), g = app.globalData || {}, u = g.userInfo || {}
   return { app, generation: app._loginGeneration || 0,
@@ -31,6 +56,9 @@ Page({
     assignedOrders: [],
     deliveringOrders: [],
     completedOrders: [],
+    assignedMetricText: '0 桶 · 0 单',
+    deliveringMetricText: '0 桶 · 0 单',
+    completedMetricText: '0 桶 · 0 单',
     deliveredUnpaidOrders: [],
     incomingTransfers: [],
     staffList: [],
@@ -262,11 +290,16 @@ Page({
         return true
       }).map(enrichOrder)
 
+      const deliveringOrders = (deliveringRes.data || []).map(enrichOrder)
+      const completedOrders = (completedRes.data || []).map(enrichOrder)
       this._taskDataContext = context
       this.setData({
         readReady, assignedOrders: mergedAssigned,
-        deliveringOrders: (deliveringRes.data || []).map(enrichOrder),
-        completedOrders: (completedRes.data || []).map(enrichOrder),
+        deliveringOrders,
+        completedOrders,
+        assignedMetricText: deliveryTaskMetric(mergedAssigned),
+        deliveringMetricText: deliveryTaskMetric(deliveringOrders),
+        completedMetricText: deliveryTaskMetric(completedOrders),
         deliveredUnpaidOrders: unpaidOrders,
         // 待我确认的同事转单（后端只返回「待确认且指向我」的那些，见 listIncomingTransfers）。
         // 走同一个 enrichOrder：金额/收款口径、商品摘要、楼层文案全部同一套映射，不另写一份。
@@ -287,7 +320,8 @@ Page({
       if (seq === this._taskReadSeq && !this._homeIdentityHidden && !this._collectionCurrent(context)) {
         this._taskDataContext = null
         this.setData({ loading: false, readReady: {}, assignedOrders: [], deliveringOrders: [],
-          completedOrders: [], deliveredUnpaidOrders: [], incomingTransfers: [],
+          completedOrders: [], assignedMetricText: '', deliveringMetricText: '', completedMetricText: '',
+          deliveredUnpaidOrders: [], incomingTransfers: [],
           loadError: '身份或水站已变化，请重新加载后核对' })
       }
     }

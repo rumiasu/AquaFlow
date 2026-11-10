@@ -7,6 +7,34 @@ const RANGES = [
   { key: '30d', label: '近30天' }
 ]
 
+// 2026-11-10: 历史快照缺失是未知，不得转成零或差评；其余报表仍可阅读。
+function bucketNumber(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  if (typeof value === 'string' && !/^\d+$/.test(value)) return null
+  const number = Number(value)
+  return Number.isSafeInteger(number) && number >= 0 ? number : null
+}
+function validBucket(row) {
+  if (!row) return false
+  const qty = row.deliveryBucketQty, count = row.deliveryBucketUnknownOrders
+  if (qty === null) return row.deliveryBucketQtyKnown === false && bucketNumber(count) !== null && Number(count) > 0
+  if (bucketNumber(qty) === null) return false
+  return (row.deliveryBucketQtyKnown === undefined || row.deliveryBucketQtyKnown === true)
+    && (count === undefined || bucketNumber(count) === 0)
+}
+function validBucketComparison(d, summary) {
+  if (d === undefined) return true
+  if (!d || d.unit !== '桶') return false
+  if (d.current !== summary.deliveryBucketQty && !(bucketNumber(d.current) !== null && bucketNumber(d.current) === bucketNumber(summary.deliveryBucketQty))) return false
+  if (d.current === null || d.previous === null) return d.known === false
+    && (d.current === null || bucketNumber(d.current) !== null)
+    && (d.previous === null || bucketNumber(d.previous) !== null)
+    && d.deltaDir === 'flat' && (d.good === null || d.good === undefined)
+    && typeof d.deltaText === 'string' && d.deltaText.trim().length > 0
+  return bucketNumber(d.current) !== null && bucketNumber(d.previous) !== null
+    && (d.known === undefined || d.known === true)
+}
+
 Page({
   data: {
     loading: true,
@@ -77,9 +105,10 @@ Page({
       if (seq !== this._reportSeq) return
       const summary = res.data.summary
       const known = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
-      const fields = ['orderCount', 'grossAmount', 'paidAmount', 'newCustomers', 'cancelledOrders', 'barrelsIn']
+      const fields = ['orderCount', 'grossAmount', 'paidAmount', 'newCustomers', 'cancelledOrders']
       const groups = { trend: ['orders', 'amount'], statusDistribution: ['cnt', 'share'], payMethodDistribution: ['cnt', 'share'], topProducts: ['qty', 'revenue', 'share'], topCustomers: ['orders', 'amount'], staffPerformance: ['totalOrders', 'completedOrders', 'completeRate'], hourDistribution: ['orders'] }
       if (!summary || !fields.every(key => known(summary[key])) || !Object.keys(groups).every(key => Array.isArray(res.data[key]) && res.data[key].every(row => row && groups[key].every(field => known(row[field]))))) throw new Error('报表加载不完整，请重试')
+      if (!validBucket(summary) || !res.data.staffPerformance.every(validBucket) || !validBucketComparison(res.data.compare && res.data.compare.deliveryBucketQty, summary)) throw new Error('报表加载不完整，请重试')
       const report = this.decorate(res.data)
       // Canvas位于!loading分支，渲染完成后再绘制，旧报表回调不能覆盖新周期。
       this.setData({ report, loading: false }, () => {
@@ -109,15 +138,17 @@ Page({
     const c = r.compare || {}
     const mk = (key, label, valueText) => {
       const d = c[key] || {}
+      const unknownBucket = key === 'deliveryBucketQty' && (s.deliveryBucketQty === null || d.known === false)
       return {
         key, label, valueText,
-        deltaText: d.deltaText || '对比待核实',
-        deltaDir: d.deltaDir || 'flat',
-        good: d.good,
+        deltaText: unknownBucket ? (d.deltaText || '历史数据不完整') : (d.deltaText || '对比待核实'),
+        deltaDir: unknownBucket ? 'flat' : (d.deltaDir || 'flat'),
+        good: unknownBucket ? null : d.good,
         previousText: this.fmtValue(d.previous, d.unit)
       }
     }
     r.metricCards = [
+      mk('deliveryBucketQty', '配送桶数', s.deliveryBucketQty === null ? '待核实' : String(Number(s.deliveryBucketQty))),
       mk('orderCount', '订单数', String(Number(s.orderCount) || 0)),
       mk('grossAmount', '订单金额', '¥' + r.grossAmountText),
       // [2026-09-27 产品裁定 1.b，正本 docs/design/32] 标签原为「已收款」——
@@ -128,8 +159,7 @@ Page({
       // 完整口径在下面那行说明里 —— 两处合起来读才不会误解。
       mk('paidAmount', '订单已付款', '¥' + r.paidAmountText),
       mk('newCustomers', '新客户', String(Number(s.newCustomers) || 0)),
-      mk('cancelledOrders', '取消单', String(Number(s.cancelledOrders) || 0)),
-      mk('barrelsIn', '新增桶', String(Number(s.barrelsIn) || 0))
+      mk('cancelledOrders', '取消单', String(Number(s.cancelledOrders) || 0))
     ]
 
     r.statusDistribution = (r.statusDistribution || []).map((x, i) => ({
@@ -151,6 +181,8 @@ Page({
       ...x, idx: i,
       totalOrders: Number(x.totalOrders) || 0,
       completedOrders: Number(x.completedOrders) || 0,
+      deliveryBucketQty: x.deliveryBucketQty === null ? null : Number(x.deliveryBucketQty),
+      deliveryBucketText: x.deliveryBucketQty === null ? '桶数待核实' : Number(x.deliveryBucketQty) + ' 桶',
       width: Math.min(100, Number(x.completeRate) || 0)
     }))
 

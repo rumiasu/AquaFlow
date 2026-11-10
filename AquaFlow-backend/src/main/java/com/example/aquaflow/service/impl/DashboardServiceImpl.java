@@ -103,6 +103,7 @@ public class DashboardServiceImpl implements DashboardService {
         Map<String, Object> barrelPrev = toBarrelFlow(dashboardMapper.barrelFlow(stationId, prevStart, prevEnd));
 
         Map<String, Object> summary = new LinkedHashMap<>();
+        copyBucketMetric(cur, summary);
         summary.put("orderCount", num(cur.get("orderCount")));
         summary.put("completedOrders", num(cur.get("completedOrders")));
         summary.put("cancelledOrders", num(cur.get("cancelledOrders")));
@@ -154,6 +155,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         // 环比对比表：key -> {current, previous, deltaText, deltaDir}
         Map<String, Map<String, Object>> compare = new LinkedHashMap<>();
+        compare.put("deliveryBucketQty", bucketDelta(cur, prev));
         compare.put("orderCount", deltaCount(num(cur.get("orderCount")), num(prev.get("orderCount")), "单", false));
         // 金额上涨是好事，不算 inverted；金额不乘 100 缩放，直接原值返回
         compare.put("grossAmount", deltaAmount(dec(cur.get("grossAmount")), dec(prev.get("grossAmount"))));
@@ -197,6 +199,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         List<Map<String, Object>> staff = dashboardMapper.staffPerformance(stationId, start, end);
         for (Map<String, Object> s : staff) {
+            copyBucketMetric(s, s);
             long total = num(s.get("totalOrders"));
             s.put("amountText", dec(s.get("amount")).toPlainString());
             s.put("completeRate", rate(num(s.get("completedOrders")), total));
@@ -215,6 +218,38 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     // ==================== 私有工具 ====================
+
+    /** Missing historical evidence must survive mapping/JSON as null, never become a false zero. */
+    private void copyBucketMetric(Map<String, Object> source, Map<String, Object> target) {
+        boolean known = bucketKnown(source);
+        target.put("deliveryBucketQty", known ? num(source.get("deliveryBucketQty")) : null);
+        target.put("deliveryBucketQtyKnown", known);
+        target.put("deliveryBucketUnknownOrders", num(source.get("deliveryBucketUnknownOrders")));
+    }
+
+    private boolean bucketKnown(Map<String, Object> row) {
+        return row.get("deliveryBucketQty") instanceof Number
+                && num(row.get("deliveryBucketUnknownOrders")) == 0;
+    }
+
+    /** Compare only two complete snapshots; incomplete periods have no meaningful percentage or direction. */
+    private Map<String, Object> bucketDelta(Map<String, Object> cur, Map<String, Object> prev) {
+        boolean currentKnown = bucketKnown(cur), previousKnown = bucketKnown(prev);
+        if (currentKnown && previousKnown) {
+            Map<String, Object> result = deltaCount(num(cur.get("deliveryBucketQty")), num(prev.get("deliveryBucketQty")), "桶", false);
+            result.put("known", true);
+            return result;
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("current", currentKnown ? num(cur.get("deliveryBucketQty")) : null);
+        result.put("previous", previousKnown ? num(prev.get("deliveryBucketQty")) : null);
+        result.put("unit", "桶");
+        result.put("known", false);
+        result.put("deltaText", "历史桶数不完整");
+        result.put("deltaDir", "flat");
+        result.put("good", null);
+        return result;
+    }
 
     /** 数量型环比：方向与"是好是坏"由后端统一判定（inverted=true 表示上涨是坏事，如取消单数） */
     private Map<String, Object> deltaCount(long cur, long prev, String unit, boolean inverted) {

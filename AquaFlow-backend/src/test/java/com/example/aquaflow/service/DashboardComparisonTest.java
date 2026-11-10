@@ -33,6 +33,7 @@ class DashboardComparisonTest {
             if (method.getName().equals("summary")) {
                 boolean current = windows.stream().filter(w -> w.query().equals("summary")).count() == 1;
                 return Map.of("orderCount", current ? 1L : previousOrders,
+                        "deliveryBucketQty", current ? 5L : previousOrders * 2,
                         "grossAmount", new BigDecimal(current ? currentAmount : previousAmount));
             }
             return method.getReturnType() == int.class ? 0 : List.of();
@@ -84,6 +85,19 @@ class DashboardComparisonTest {
             assertEquals(BigDecimal.ZERO, zero.get("previous"));
             assertFalse(zero.containsKey("deltaPct"));
         }
+    }
+
+    @Test
+    void deliveryBucketsHaveTheirOwnMetricAndComparison() {
+        Map<String, Object> r = report("2026-11-03T00:27:15Z", "today", 2, "20", "10");
+        assertEquals(5L, ((Map<?, ?>) r.get("summary")).get("deliveryBucketQty"));
+        Map<?, ?> buckets = (Map<?, ?>) ((Map<?, ?>) r.get("compare")).get("deliveryBucketQty");
+        assertEquals(5L, buckets.get("current"));
+        assertEquals(4L, buckets.get("previous"));
+        assertEquals("桶", buckets.get("unit"));
+        assertEquals("+25%", buckets.get("deltaText"));
+        assertEquals("up", buckets.get("deltaDir"));
+        assertEquals(true, buckets.get("good"));
     }
 
     @ParameterizedTest @CsvSource({"7d, 7", "30d, 30"})

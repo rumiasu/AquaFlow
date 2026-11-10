@@ -45,7 +45,7 @@ test('delivery merges ordinary and financial read failures, with a separate acti
 test('confirmed zero and unknown financial data stay distinguishable', () => {
   const f=delivery(); f.page.setData({loadError:'',readReady:{assigned:true,delivering:true,completed:true,unpaid:false,transfers:true}})
   const nodes=renderElements(deliveryTree,f.page.data,{includeText:true})
-  assert(nodes.filter(n=>n.className==='stat-unit').every(n=>n.text==='0 单'))
+  assert(nodes.filter(n=>n.className==='stat-unit').every(n=>n.text==='0 桶 · 0 单'))
   assert(nodes.some(n=>n.text==='待收款未加载，不代表结清。'))
   f.page.setData({readReady:{assigned:true,delivering:true,completed:true,unpaid:true,transfers:true}})
   assert(!renderElements(deliveryTree,f.page.data).some(n=>n.className==='home-read-feedback'))

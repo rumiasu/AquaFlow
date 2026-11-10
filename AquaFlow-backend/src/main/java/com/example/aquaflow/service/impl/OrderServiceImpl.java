@@ -595,7 +595,8 @@ public class OrderServiceImpl implements OrderService {
         orders.setSpecialNote(dto.getSpecialNote());
         orders.setCustomerNote(dto.getSpecialNote());
         orders.setReturnBucketQty(dto.getReturnBucketQty());
-        orders.setDeliveryBucketQty(totalNeededBuckets > 0 ? totalNeededBuckets : null);
+        // 2026-11-10: zero is known for non-barrel goods; NULL is reserved for missing historical evidence.
+        orders.setDeliveryBucketQty(totalNeededBuckets);
         // ⚠️ [2026-09-26 产品口径] 「本站第一笔**买桶**订单」的判据**只看桶权益**（hasBarrelAsset），
         //    不能复用上面的 firstStationAsset —— 后者把水票账户与押金账户也算作"已有资产"
         //    （那是给客户的"首次资产告知"用的）。用错的后果很具体：**先买过水票的客户**

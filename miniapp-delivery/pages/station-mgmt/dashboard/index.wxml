@@ -28,7 +28,7 @@
         <text class="section-note">{{report.comparisonNote}}</text>
       </view>
       <view class="metric-grid">
-        <view class="metric-card {{item.key === 'grossAmount' || item.key === 'paidAmount' ? 's-money-metric' : (item.key === 'barrelsIn' ? 's-physical-metric' : 's-neutral-metric')}}" wx:for="{{report.metricCards}}" wx:key="key">
+        <view class="metric-card {{item.key === 'grossAmount' || item.key === 'paidAmount' ? 's-money-metric' : (item.key === 'deliveryBucketQty' ? 's-physical-metric' : 's-neutral-metric')}}" wx:for="{{report.metricCards}}" wx:key="key">
           <text class="metric-value">{{item.valueText}}</text>
           <text class="metric-label">{{item.label}}</text>
           <view class="delta {{item.deltaDir}} {{item.good === true ? 'good' : (item.good === false ? 'bad' : '')}}">
@@ -138,12 +138,12 @@
         <view class="rank-body full">
           <view class="rank-line1">
             <text class="rank-name">{{item.staffName || '配送员#' + item.staffId}}</text>
-            <text class="rank-val">{{item.totalOrders}} 单 · 完成 {{item.completedOrders}}</text>
+            <text class="rank-val">{{item.deliveryBucketText}} · {{item.totalOrders}} 单</text>
           </view>
           <view class="rank-track">
             <view class="rank-fill green" style="width:{{item.width}}%"></view>
           </view>
-          <text class="rank-sub">完成率 {{item.completeRate}}%</text>
+          <text class="rank-sub">完成 {{item.completedOrders}} 单 · 完成率 {{item.completeRate}}%</text>
         </view>
       </view>
     </view>

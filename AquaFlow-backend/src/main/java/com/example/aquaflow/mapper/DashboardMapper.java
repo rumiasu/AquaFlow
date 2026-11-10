@@ -42,7 +42,12 @@ public interface DashboardMapper {
             + "coalesce(sum(case when payment_status = 2 then total_amount else 0 end), 0) as paidAmount, "
             + "coalesce(sum(case when payment_status = 1 and status != 5 then coalesce((select tp.cash_due from order_ticket_payment tp where tp.order_id=orders.id),total_amount) else 0 end), 0) as pendingAmount, "
             + "count(distinct customer_id) as activeCustomers, "
-            + "coalesce(sum(case when status != 5 then quantity else 0 end), 0) as totalQuantity "
+            + "coalesce(sum(case when status != 5 then quantity else 0 end), 0) as totalQuantity, "
+            // 2026-11-10: current product categories cannot reconstruct historical bucket counts.
+            // A missing snapshot makes the whole eligible aggregate unknown, not a partial sum or zero.
+            + "case when count(case when status != 5 and delivery_bucket_qty is null then 1 end) > 0 then null "
+            + "else coalesce(sum(case when status != 5 then delivery_bucket_qty else 0 end), 0) end as deliveryBucketQty, "
+            + "count(case when status != 5 and delivery_bucket_qty is null then 1 end) as deliveryBucketUnknownOrders "
             + "from orders where " + RANGE)
     Map<String, Object> summary(@Param("stationId") Long stationId,
                                 @Param("start") LocalDateTime start,
@@ -114,7 +119,10 @@ public interface DashboardMapper {
     /** 配送员业绩 */
     @Select("select o.delivery_staff_id as staffId, s.name as staffName, count(*) as totalOrders, "
             + "sum(case when o.status = 4 then 1 else 0 end) as completedOrders, "
-            + "coalesce(sum(case when o.status != 5 then o.total_amount else 0 end), 0) as amount "
+            + "coalesce(sum(case when o.status != 5 then o.total_amount else 0 end), 0) as amount, "
+            + "case when count(case when o.status != 5 and o.delivery_bucket_qty is null then 1 end) > 0 then null "
+            + "else coalesce(sum(case when o.status != 5 then o.delivery_bucket_qty else 0 end), 0) end as deliveryBucketQty, "
+            + "count(case when o.status != 5 and o.delivery_bucket_qty is null then 1 end) as deliveryBucketUnknownOrders "
             + "from orders o left join staff s on s.id = o.delivery_staff_id "
             + "where coalesce(o.settle_station_id, o.delivery_station_id, o.station_id) = #{stationId} "
             + "and o.create_time >= #{start} and o.create_time < #{end} "

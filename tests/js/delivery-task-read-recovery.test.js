@@ -160,6 +160,78 @@ test('stale finally cannot stop a newer load or change a hidden page', async () 
     if (!hidden) { assert.strictEqual(t.page.data.loading, true); newer.resolve(ok([row(60)])); await second; assert.strictEqual(t.page.data.assignedOrders[0].id, 60) }
   }
 })
+test('tab metrics prioritize bucket quantities after dedupe and keep legacy unknowns explicit', async () => {
+  const t = fixture(true)
+  t.sources.getAssignedToMe = () => ok([
+    { ...row(11), deliveryBucketQty: 3, itemSummary: '桶装水 3桶，瓶装水 1瓶，饮水机 1台' },
+    { ...row(12), deliveryBucketQty: 2, itemSummary: '桶装水 2桶' }
+  ])
+  t.sources.getPendingOrders = () => ok([{ ...row(11), deliveryBucketQty: 3, itemSummary: '桶装水 3桶，瓶装水 1瓶，饮水机 1台' }])
+  t.sources.getDeliveringOrders = () => ok([{ ...row(13), status: 2, deliveryBucketQty: null, itemSummary: '桶装水 1桶' }])
+  t.sources.getCompletedToday = () => ok([
+    { ...row(14), deliveryBucketQty: 0, itemSummary: '瓶装水 2瓶', itemKindCount: 1, quantity: 2 },
+    { ...row(15), deliveryBucketQty: 0, itemSummary: '饮水机 1台', itemKindCount: 1, quantity: 1 }
+  ])
+  await t.page.loadData(true)
+  assert.equal(t.page.data.assignedOrders.length, 2)
+  assert.equal(t.page.data.assignedMetricText, '5 桶 · 2 单')
+  assert.equal(t.page.data.deliveringMetricText, '桶数待核实 · 1 单')
+  assert.equal(t.page.data.completedMetricText, '0 桶 · 2 单')
+  const units = renderElements(tree, t.page.data, { includeText: true }).filter(n => n.className === 'stat-unit').map(n => n.text)
+  assert.deepStrictEqual(units, ['5 桶 · 2 单', '桶数待核实 · 1 单', '0 桶 · 2 单'])
+})
+test('a malformed bucket quantity never becomes a zero-bucket fact', async () => {
+  const t = fixture()
+  t.sources.getDeliveringOrders = () => ok([{ ...row(16), status: 2, deliveryBucketQty: 'bad', itemSummary: '瓶装水 1瓶' }])
+  await t.page.loadData(false)
+  assert.equal(t.page.data.deliveringMetricText, '桶数待核实 · 1 单')
+})
+test('missing or incomplete bucket evidence stays unknown instead of zero', async () => {
+  const unknowns = [
+    {}, { itemSummary: '商品明细待确认' }, { firstProductName: '饮用水' },
+    { itemSummary: '瓶装水 2瓶' },
+    { items: [{ productName: '饮用水', quantity: 3 }] },
+    { items: [{ category: 2, quantity: 'bad' }] },
+    { items: [{ category: 2, quantity: 0 }] },
+    { items: [{ category: 2, quantity: 1 }], itemKindCount: 2 },
+    { items: [{ category: 2, quantity: 1 }], quantity: 2 },
+    { items: [{ category: 2, quantity: 1, barrelItem: true }] },
+    { itemSummary: '饮用水 2件', itemKindCount: 1, quantity: 2 },
+    { itemSummary: '瓶装水 2瓶', itemKindCount: 2, quantity: 3 },
+    { itemSummary: '瓶装水 2瓶', itemKindCount: 1, quantity: 3 },
+    { itemSummary: '瓶装水 2瓶…', itemKindCount: 1, quantity: 2 }
+  ]
+  for (const fields of unknowns) {
+    const t = fixture()
+    t.sources.getDeliveringOrders = () => ok([{ ...row(20), deliveryBucketQty: null, ...fields }])
+    await t.page.loadData(false)
+    assert.equal(t.page.data.deliveringMetricText, '桶数待核实 · 1 单', JSON.stringify(fields))
+  }
+})
+test('only frozen zero stays known and live non-barrel evidence cannot reconstruct history', async () => {
+  const t = fixture()
+  t.sources.getCompletedToday = () => ok([
+    { ...row(21), deliveryBucketQty: 0 },
+    { ...row(22), deliveryBucketQty: null, items: [{ category: 2, quantity: 2 }, { category: '3', quantity: '1' }], itemKindCount: 2, quantity: 3 },
+    { ...row(23), deliveryBucketQty: null, itemSummary: '瓶装水 2瓶，饮水机 1台', itemKindCount: 2, quantity: 3 }
+  ])
+  await t.page.loadData(false)
+  assert.equal(t.page.data.completedMetricText, '桶数待核实 · 3 单')
+  t.sources.getCompletedToday = () => ok([{ ...row(27), deliveryBucketQty: 0 }, { ...row(28), deliveryBucketQty: '0' }])
+  await t.page.loadData(false)
+  assert.equal(t.page.data.completedMetricText, '0 桶 · 2 单')
+  t.sources.getCompletedToday = () => ok([{ ...row(24), deliveryBucketQty: 4 }, { ...row(25), deliveryBucketQty: null }])
+  await t.page.loadData(false)
+  assert.equal(t.page.data.completedMetricText, '桶数待核实 · 2 单')
+})
+test('invalid snapshot types cannot be coerced into bucket facts', async () => {
+  for (const qty of [true, false, ' ', [], {}, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const t = fixture()
+    t.sources.getCompletedToday = () => ok([{ ...row(26), deliveryBucketQty: qty }])
+    await t.page.loadData(false)
+    assert.equal(t.page.data.completedMetricText, '桶数待核实 · 1 单')
+  }
+})
 ;(async () => {
   let failed = 0
   try {

@@ -38,23 +38,30 @@ class ReviewMoneyAndPrivacyIntegrationTest extends AbstractIntegrationTest {
         String day=TestBusinessClock.today().toString();Api r=get("/api/manager/gross-profit?from="+day+"&to="+day,token);
         assertEquals(0,r.code(),r.toString());return r.data();
     }
-    void unknownProfit(JsonNode r,String income) {
+    void unpairedTicketIncome(JsonNode r,String income,String cost) {
         assertEquals(0,new BigDecimal(income).compareTo(r.path("totalIncome").decimalValue()),r.toString());
-        assertFalse(r.path("costComplete").asBoolean(),r.toString());
-        for(String field:new String[]{"totalCost","totalProfit","netProfit"})assertTrue(r.path(field).isNull(),field+": "+r);
-        assertTrue(r.path("missingCostKinds").asInt()>0);
+        // 2026-11-11 已批准分列：没有兑水不等于缺成本，票款无法对应仍必须禁止合计利润。
+        assertTrue(r.path("costComplete").asBoolean(),r.toString());
+        assertEquals(0,new BigDecimal(cost).compareTo(r.path("totalCost").decimalValue()),r.toString());
+        assertEquals(0,r.path("missingCostKinds").asInt(),r.toString());
+        assertFalse(r.path("profitComparable").asBoolean(),r.toString());
+        for(String field:new String[]{"totalProfit","netProfit"})assertTrue(r.path(field).isNull(),field+": "+r);
         for(JsonNode row:r.path("items"))assertTrue(row.path("profit").isNull(),row.toString());
     }
     @Test void ticketOnlyIncomeHasNoFulfilmentCostAndMustNotBecomeProfit() {
-        ticketReceipt(product);unknownProfit(report(),"36");
+        ticketReceipt(product);JsonNode r=report();unpairedTicketIncome(r,"36","0");
+        assertEquals(0,r.path("orderIncome").decimalValue().compareTo(BigDecimal.ZERO));
+        assertEquals(0,r.path("ticketRevenue").decimalValue().compareTo(new BigDecimal("36")));
     }
-    @Test void unrelatedKnownCostSaleDoesNotMakeTicketOnlyIncomeCostComplete() {
+    @Test void knownCostSaleKeepsItsCostButCannotMakeTicketReceiptsProfit() {
         jdbc.update("update inventory set cost_amount=100 where station_id=? and product_id=?",station,product);
         long order=createOrderFull(customer,address,station,product,2,2,1,"20","0","20",false,1);
         createReservedItem(order,product,"Review bottle",1,"20","0");reservations.shipForOrder(order,station);
         jdbc.update("update orders set status=4 where id=?",order);
         long ticketProduct=createProduct("Other tickets",2,"20","0",1,"18");ticketReceipt(ticketProduct);
-        unknownProfit(report(),"56");
+        JsonNode r=report();unpairedTicketIncome(r,"56","5");
+        assertEquals(0,r.path("orderIncome").decimalValue().compareTo(new BigDecimal("20")));
+        assertEquals(0,r.path("ticketRevenue").decimalValue().compareTo(new BigDecimal("36")));
     }
     @ParameterizedTest @ValueSource(ints={2,4})
     void stationStatusListsMaskForeignProfilesButKeepReceiverSnapshots(int status) {

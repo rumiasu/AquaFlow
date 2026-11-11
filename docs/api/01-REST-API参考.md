@@ -880,3 +880,9 @@ quoted 新路径让旧后端明确拒绝，不会把 token 当未知字段忽略
 ### 客户订单备注投影（2026-11-07）
 
 顾客读取 `GET /api/orders` 和 `GET /api/orders/{id}` 时，`specialNote` 仅呈现明确保存的客户下单备注 `customerNote`，不返回员工内部混合备注、桶差异备注或客户风险备注原文。历史订单没有客户备注快照但存在旧混合备注时，`legacyNoteUnavailable` 为 true；旧文本不推测拆分。员工读取仍按原有权限返回原有视图。`POST /api/order-templates/from-order` 新建模板时仅复制客户备注快照，不复制来源不明的旧混合备注。
+
+### 2026-11-11 购票实收与兑水成本分列
+
+`GET /api/manager/gross-profit` 新增 `orderIncome`（订单水费及服务费）、`profitComparable`（本轮是否具备展示合计利润的对应条件）和 `profitUnavailableReason`。`costComplete` 只反映本期订单成本资料是否完整，与收入和成本能否对应分开判断。期间有正额购票实收凭据或未取消的票付订单时，当前聚合不能逐批对应原款与兑水成本，`profitComparable=false`；同日或同数量也不推定对应。组合用票按 `order_ticket_payment` 凭据识别，票抵水费不重复计入订单收入。完整退票的正额原款仍保留票活动判据；零元赠票本身不计作实收。
+
+无法对应时，`netProfit`、`totalProfit` 和明细利润为 null，利润率不展示；已知订单收入、购票实收、出库成本及工钱保留。纯购票且本期没有订单出库的商品成本为本期实际的 0，不把未来兑水成本算成 0，也不把无出库误报为缺成本。纯非票期间仍在成本完整时按订单水费及服务费减出库成本与工钱显示净利。`totalIncome` 保留原合计收入兼容值，页面按两个来源分列；新版员工端仅在 `profitComparable=true` 且金额完整时展示利润，旧响应缺标记时展示已知收入。产品规则正本见 [design/16 §12](../design/16-范围决策与实施路线图.md#利润首屏的水票跨期口径2026-11-11-已批准)。

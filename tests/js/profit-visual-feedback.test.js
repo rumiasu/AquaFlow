@@ -17,7 +17,7 @@ const rows = [
   ['recoveryPendingReceiveAmount', '退款后返还待收', 15], ['recordedCashNetAmount', '登记净现金（不等于利润）', -16],
   ['futureField', '未来字段', 17]
 ].map(([key, label, amount]) => ({ key, label, amount }))
-let report = { costComplete: true, totalIncome: 100, netProfit: -56, items: [], totalCost: 150, wage: 6, helpNote: '1. 服务端范围\n6. 服务端成本', cooperation: { rows, scopeNote: '合作款说明' } }
+let report = { costComplete: true, profitComparable: true, totalIncome: 100, netProfit: -56, items: [], totalCost: 150, wage: 6, helpNote: '1. 服务端范围\n6. 服务端成本', cooperation: { rows, scopeNote: '合作款说明' } }
 let failReport = false, failMissing = false, missing = []
 const page = loadPage(reportPath + '.js', { stubs: {
   'config/api': { API: { MANAGER_GROSS_PROFIT: '/gp' } },
@@ -56,11 +56,11 @@ async function main() {
   await page.load()
   assert.equal(page.data.profitChart.length, 4)
   assert(page.data.profitChart.every(row => row.width === 0 && !row.negative))
-  report = { ...report, costComplete: false, totalCost: null, netProfit: null }
+  report = { ...report, costComplete: false, totalCost: null, netProfit: null, profitUnavailableReason: '本期成本不全，利润暂不显示。' }
   missing = [{ productId: 1, productName: '水' }]
   await page.load()
   assert.equal(page.data.profitChart.length, 0)
-  assert.equal(page.data.profitView.netProfitText, '未填成本')
+  assert.equal(page.data.profitView.netProfitText, '待核实')
   nodes = visible()
   assert(textContains(nodes, '本期成本不全，利润暂不显示'))
   assert(!textContains(nodes, '金额结构'))
@@ -69,6 +69,7 @@ async function main() {
   await page.load()
   assert.equal(page.data.profitView.netProfitText, '待核实')
   assert.equal(page.data.profitChart.length, 0)
+  assert.equal(page.data.costComplete, true, 'missing profit does not change known cost completeness')
   report = { ...report, netProfit: 10, costComplete: false }
   failMissing = true
   await page.load()

@@ -13,9 +13,9 @@ const styles = fs.readFileSync(path.join(ROOT, relWxss), 'utf8')
 const tree = parseWxml(wxml)
 const report = {
   from: '2026-11-01', to: '2026-11-09',
-  items: [], costComplete: true, orderCount: 1,
+  items: [], costComplete: true, profitComparable: true, profitUnavailableReason: null, orderCount: 1,
   orderRevenue: 40, ticketRevenue: 0, deliveryFee: 5, floorFee: 2,
-  totalIncome: 47, totalCost: 24, wage: 6, netProfit: 17,
+  totalIncome: 47, orderIncome: 47, totalCost: 24, wage: 6, netProfit: 17,
   totalRevenue: 40, totalProfit: 16,
   incomeBasisNote: '含尚未收款的订单水费、服务费与已收票款，不等于到账现金。',
   periodBasisNote: '订单按下单日，购票按收款日；水票收款与兑水成本可能跨期。',
@@ -82,6 +82,53 @@ async function verifyWorkbenchArrival() {
   assert.equal(nativePushes.length, 1, 'report retry stays on the current page')
 }
 
+async function verifyTicketSeparation() {
+  let response
+  const page = loadPage('miniapp-delivery/pages/station-mgmt/gross-profit/index.js', {
+    stubs: { 'utils/request': { get: async () => ({ code: 0, data: response }) } }
+  })
+  const render = () => renderElements(tree, page.data, { includeText: true })
+  const texts = (nodes, name) => nodes.filter(node => node.className?.split(/\s+/).includes(name)).map(node => node.text)
+  for (const [ticketRevenue, orderIncome, totalCost] of [[36, 0, 0], [0, 0, 24], [36, 7, 24]]) {
+    response = { ...report, ticketRevenue, orderIncome, totalCost, totalIncome: 999,
+      profitComparable: false, profitUnavailableReason: '购票与兑水成本未对应，利润暂不显示。',
+      totalProfit: 999, netProfit: 123,
+      items: [{ productId: 1, productName: '合成商品', soldQty: 2, revenue: orderIncome,
+        ticketRevenue, revenueTotal: 999, costAmount: totalCost, profitText: '旧利润', profitRateText: '100%' }] }
+    await page.load()
+    assert.equal(page.data.costComplete, true, 'ticket mismatch must not mean missing cost')
+    assert.equal(page.data.profitChart.length, 0)
+    let nodes = render()
+    assert.deepEqual(texts(nodes, 'hero-label'), ['订单水费及服务费', '购票实收', '出库成本', '计件工钱'])
+    assert.deepEqual(texts(nodes, 'hero-num'), ['¥' + orderIncome, '¥' + ticketRevenue, '¥' + totalCost, '¥6'])
+    assert.deepEqual(texts(nodes, 'profit-unavailable-note'), [response.profitUnavailableReason])
+    assert(!nodes.some(node => node.text.includes('¥999')))
+    if (!page.data.incomeDetailsExpanded) page.onToggleIncomeDetails()
+    nodes = render()
+    assert(!texts(nodes, 'ledger-label').includes('销售净利'))
+    assert(!texts(nodes, 'ledger-label').includes('销售收入'))
+    assert(!nodes.some(node => node.text.includes('100%') || node.text.includes('旧利润')))
+    assert(texts(nodes, 'ledger-label').includes('出库成本'))
+    assert(texts(nodes, 'ledger-label').includes('计件工钱'))
+  }
+  response = { ...report, profitComparable: false, costComplete: false, totalCost: null, netProfit: null,
+    profitUnavailableReason: '购票与兑水成本未对应，利润暂不显示。' }
+  await page.load()
+  assert.equal(page.data.costComplete, false)
+  assert.equal(page.data.profitView.totalCostText, '待核实')
+  assert.equal(page.data.profitView.wageText, '¥6')
+  response = { ...report, profitComparable: undefined, profitUnavailableReason: undefined }
+  await page.load()
+  assert.equal(page.data.costComplete, true)
+  assert.equal(page.data.showProfit, false, 'older response cannot authorize comparable profit')
+  assert.equal(page.data.profitChart.length, 0)
+  response = { ...report, wage: undefined }
+  await page.load()
+  assert.equal(page.data.costComplete, true)
+  assert.equal(page.data.showProfit, false, 'missing wage cannot authorize a complete profit display')
+  assert.equal(page.data.profitView.totalCostText, '¥24')
+}
+
 async function main() {
   const requests = []
   const page = loadPage('miniapp-delivery/pages/station-mgmt/gross-profit/index.js', {
@@ -98,7 +145,7 @@ async function main() {
   const groups = page.data.profitHelpSections
   assert.deepEqual(groups.map(group => group.key), ['scope', 'fees', 'costs'])
   assert(groups.every(group => group.expanded === false), 'explanation groups start collapsed')
-  assert.deepEqual(groups[0].notes, [report.incomeBasisNote, '按服务端口径查看本期经营数据。', '按所选日期和本站范围统计。'])
+  assert.deepEqual(groups[0].notes, [report.incomeBasisNote, report.periodBasisNote, '按服务端口径查看本期经营数据。', '按所选日期和本站范围统计。'])
   assert.deepEqual(groups[1].notes, ['配送费计入收入。', '水票收入按实收计算。', '合作款独立列示。', '押金不计作销售收入。', '合作款按服务端规则列示。'])
   assert.deepEqual(groups[2].notes, ['出库时记录实际成本。', '未填成本时利润不完整。'])
   assert.deepEqual(page.data.cooperationView.summary.map(row => row.key), ['pendingPayAmount', 'pendingReceiveAmount'])
@@ -116,7 +163,7 @@ async function main() {
   assert.deepEqual(textsOf(nodes, 'hero-label'), ['销售净利', '销售收入', '出库成本', '计件工钱'])
   assert.deepEqual(textsOf(nodes, 'hero-num'), ['¥17', '¥47', '¥24', '¥6'])
   assert(nodes.some(node => node.className?.includes('hero-period') && node.text.includes('2026-11-01 至 2026-11-09')), 'headline shows the server-confirmed period')
-  assert.deepEqual(textsOf(nodes, 'report-period-note'), [report.periodBasisNote], 'date and cross-period scope remains visible with income details collapsed')
+  assert.deepEqual(textsOf(nodes, 'report-period-note'), [], 'date details remain in the expandable explanation')
   assert.equal(page.data.periodExpanded, false, 'detailed date controls start collapsed')
   assert.equal(nodes.filter(node => node.tag === 'picker').length, 0)
   assert(!nodes.some(node => node.className?.includes('period-current')), 'confirmed period is not repeated below the headline')
@@ -164,7 +211,8 @@ async function main() {
   const helpNodes = renderElements(tree, page.data, { includeText: true })
   assert(helpNodes.some(node => node.text?.includes(report.incomeBasisNote)), 'the original income explanation remains available on demand')
   await verifyWorkbenchArrival()
-  console.log('AQUAFLOW_SUITE_OK 2')
+  await verifyTicketSeparation()
+  console.log('AQUAFLOW_SUITE_OK 8')
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1 })

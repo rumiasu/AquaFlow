@@ -30,6 +30,12 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
  JsonNode report(String day){Api r=get("/api/manager/gross-profit?from="+day+"&to="+day,token);assertEquals(0,r.code(),r.toString());return r.data();}
  void money(String e,JsonNode r,String f){assertTrue(r.path(f).isNumber(),f+": "+r);assertEquals(0,new BigDecimal(e).compareTo(r.path(f).decimalValue()),f);}
  void incomeOnly(JsonNode r){assertFalse(r.path("costComplete").asBoolean());for(String f:new String[]{"totalCost","totalProfit","netProfit"})assertTrue(r.path(f).isNull(),f+": "+r);for(JsonNode row:r.path("items"))assertTrue(row.path("profit").isNull());}
+ void ticketSeparated(JsonNode r) {
+  assertFalse(r.path("profitComparable").asBoolean());
+  assertEquals("购票与兑水成本未对应，利润暂不显示。",r.path("profitUnavailableReason").asText());
+  assertTrue(r.path("netProfit").isNull());assertTrue(r.path("totalProfit").isNull());
+  for(JsonNode row:r.path("items")){assertTrue(row.path("profit").isNull());assertEquals("—",row.path("profitRateText").asText());}
+ }
  @Test void optionalCostNeverBecomesZero(){assertEquals(0,inbound(3,null,"INB-optional-cost-0001").code());sold(2,1);JsonNode r=report();money("40",r,"totalIncome");incomeOnly(r);assertNull(decimalOf("select cost_amount from inventory where station_id=? and product_id=?",station,product));assertEquals(0,get("/api/manager/gross-profit/missing-cost",token).data().size());}
  @Test void explicitZeroAndImmutableReceipt(){assertEquals(0,inbound(3,"0","INB-zero-cost-0000001").code());assertEquals(0,inbound(3,"0.00","INB-zero-cost-0000001").code());assertNotEquals(0,inbound(3,"1","INB-zero-cost-0000001").code());assertEquals(3,intOf("select quantity from inventory where station_id=? and product_id=?",station,product));assertEquals(1,intOf("select count(*) from inventory_record where station_id=?",station));sold(2,1);JsonNode r=report();assertTrue(r.path("costComplete").asBoolean());money("0",r,"totalCost");money("40",r,"totalProfit");money("40",r,"netProfit");}
  @Test void mixedKnownBatchesAndLaterPriceCannotRewriteHistory(){assertEquals(0,inbound(2,"10","INB-known-batch-00001").code());assertEquals(0,inbound(2,"20","INB-known-batch-00002").code());sold(3,1);JsonNode r=report();money("60",r,"totalIncome");money("22.50",r,"totalCost");money("37.50",r,"netProfit");assertEquals(0,new BigDecimal("7.50").compareTo(decimalOf("select cost_amount from inventory where station_id=? and product_id=?",station,product)));assertEquals(0,inbound(1,"100","INB-known-batch-00003").code());money("22.50",report(),"totalCost");}
@@ -48,21 +54,81 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
   money("0",samePeriod,"orderRevenue");
   money("36",samePeriod,"ticketRevenue");
   money("24",samePeriod,"totalCost");
-  money("12",samePeriod,"netProfit");
+  assertTrue(samePeriod.path("costComplete").asBoolean());
+  money("0",samePeriod,"orderIncome");
+  ticketSeparated(samePeriod);
 
   LocalDateTime purchasedAt=TestBusinessClock.now().minusDays(40);
   jdbc.update("update payment_record set update_time=? where id=?",purchasedAt,pay);
   JsonNode purchasePeriod=report(purchasedAt.toLocalDate().toString());
   money("36",purchasePeriod,"ticketRevenue");
   money("36",purchasePeriod,"totalIncome");
-  incomeOnly(purchasePeriod);
+  assertTrue(purchasePeriod.path("costComplete").asBoolean());
+  money("0",purchasePeriod,"totalCost");
+  money("0",purchasePeriod,"wage");
+  assertEquals(0,purchasePeriod.path("missingCostKinds").asInt());
+  ticketSeparated(purchasePeriod);
   JsonNode redemptionPeriod=report();
   money("0",redemptionPeriod,"orderRevenue");
   money("0",redemptionPeriod,"ticketRevenue");
   money("0",redemptionPeriod,"totalIncome");
   money("24",redemptionPeriod,"totalCost");
   money("0",redemptionPeriod,"wage");
-  money("-24",redemptionPeriod,"netProfit");
+  assertTrue(redemptionPeriod.path("costComplete").asBoolean());
+  ticketSeparated(redemptionPeriod);
+ }
+
+ @Test void zeroAmountGiftReceiptAndGiftRedemptionRemainDifferentFacts() {
+  long gift=createPaymentRecord(null,customer,station,"0",1,2);
+  jdbc.update("update payment_record set ticket_water_type_id=?,ticket_qty=2,update_time=? where id=?",product,TestBusinessClock.now(),gift);
+  JsonNode noDelivery=report();
+  assertTrue(noDelivery.path("costComplete").asBoolean());assertTrue(noDelivery.path("profitComparable").asBoolean());
+  money("0",noDelivery,"ticketRevenue");money("0",noDelivery,"totalCost");money("0",noDelivery,"netProfit");
+  assertEquals(0,inbound(2,"24","INB-gift-profit-00001").code());sold(2,3);
+  JsonNode delivered=report();ticketSeparated(delivered);
+  assertTrue(delivered.path("costComplete").asBoolean());money("0",delivered,"ticketRevenue");money("24",delivered,"totalCost");
+ }
+
+ @Test void splitPaymentEvidenceSeparatesServiceRemainderEvenWhenMethodIsNotTicket() {
+  assertEquals(0,inbound(2,"24","INB-split-profit-0001").code());
+  long order=sold(2,2);
+  jdbc.update("update orders set delivery_fee=5,floor_fee=2,total_amount=47 where id=?",order);
+  jdbc.update("insert into order_ticket_payment(order_id,customer_id,station_id,water_amount,delivery_fee,floor_fee,cash_due,cash_method,state) values(?,?,?,40,5,2,7,2,'CONSUMED')",order,customer,station);
+  long payment=createPaymentRecord(order,customer,station,"7",2,2);
+  jdbc.update("update payment_record set water_amount=0,delivery_fee=5,floor_fee=2 where id=?",payment);
+  insert("insert into staff_earning(station_id,staff_id,order_id,kind,product_id,amount) values(?,?,?,'DELIVERY_BUCKET',?,6)",station,manager,order,product);
+  JsonNode paid=report();ticketSeparated(paid);
+  assertTrue(paid.path("costComplete").asBoolean());money("0",paid,"orderRevenue");money("7",paid,"orderIncome");
+  money("7",paid,"totalIncome");money("24",paid,"totalCost");money("6",paid,"wage");
+  insert("insert into payment_record(order_id,customer_id,station_id,payment_method,status,amount,water_amount,delivery_fee,floor_fee) values(?,?,?,2,3,-7,0,-5,-2)",order,customer,station);
+  JsonNode refunded=report();ticketSeparated(refunded);money("0",refunded,"orderIncome");money("24",refunded,"totalCost");money("6",refunded,"wage");
+ }
+
+ @Test void fullAndPartialTicketExitDoNotTurnMatchingIntoCostCompleteness() {
+  long original=createPaymentRecord(null,customer,station,"36",2,2);
+  jdbc.update("update payment_record set ticket_water_type_id=?,ticket_qty=3,update_time=? where id=?",product,TestBusinessClock.now(),original);
+  long partial=createPaymentRecord(null,customer,station,"-12",2,3);
+  insert("insert into ticket_exit_refund(original_payment_id,refund_payment_id,idempotency_key,quantity,amount,operator_id,create_time) values(?,?,'profit-partial-exit',1,12,?,NOW())",original,partial,manager);
+  JsonNode remaining=report();ticketSeparated(remaining);money("24",remaining,"ticketRevenue");
+  assertTrue(remaining.path("costComplete").asBoolean());money("0",remaining,"totalCost");
+  long rest=createPaymentRecord(null,customer,station,"-24",2,3);
+  insert("insert into ticket_exit_refund(original_payment_id,refund_payment_id,idempotency_key,quantity,amount,operator_id,create_time) values(?,?,'profit-full-exit',2,24,?,NOW())",original,rest,manager);
+  jdbc.update("update payment_record set status=3,update_time=? where id=?",TestBusinessClock.now(),original);
+  JsonNode returned=report();ticketSeparated(returned);money("0",returned,"ticketRevenue");
+  assertTrue(returned.path("costComplete").asBoolean());money("0",returned,"totalCost");
+ }
+
+ @Test void cancelledAndForeignTicketFactsDoNotHideCurrentStationsOrdinaryProfit() {
+  assertEquals(0,inbound(2,"24","INB-ticket-scope-0001").code());sold(2,2);
+  long cancelled=createOrderFull(customer,address,station,product,5,4,3,"40","0","40",false,2);
+  jdbc.update("insert into order_ticket_payment(order_id,customer_id,station_id,water_amount,delivery_fee,floor_fee,cash_due,state) values(?,?,?,40,0,0,0,'CANCELLED')",cancelled,customer,station);
+  long other=createStation("票款隔离站");
+  long payment=createPaymentRecord(null,customer,other,"36",2,2);
+  jdbc.update("update payment_record set ticket_water_type_id=?,ticket_qty=2,update_time=? where id=?",product,TestBusinessClock.now(),payment);
+  JsonNode current=report();assertTrue(current.path("profitComparable").asBoolean());money("16",current,"netProfit");
+  String otherToken=staffToken(createStaff("票款隔离站长","STATION_MANAGER",other,1),"STATION_MANAGER",other);
+  JsonNode foreign=get("/api/manager/gross-profit",otherToken).data();ticketSeparated(foreign);money("36",foreign,"ticketRevenue");
+  assertTrue(foreign.path("costComplete").asBoolean());money("0",foreign,"totalCost");
  }
 
  @Test void revenueFeesWagesAndDepositsKeepTheirBasis() {
@@ -72,11 +138,13 @@ class GrossProfitIntegrationTest extends AbstractIntegrationTest {
   insert("insert into staff_earning(station_id,staff_id,order_id,kind,product_id,amount) values(?,?,?,'DELIVERY_BUCKET',?,6)",station,manager,id,product);
   JsonNode r=report();
   assertTrue(r.path("costComplete").asBoolean());
+  assertTrue(r.path("profitComparable").asBoolean());
   money("40",r,"orderRevenue");
   money("0",r,"ticketRevenue");
   money("5",r,"deliveryFee");
   money("2",r,"floorFee");
   money("47",r,"totalIncome");
+  money("47",r,"orderIncome");
   money("24",r,"totalCost");
   money("6",r,"wage");
   money("17",r,"netProfit");

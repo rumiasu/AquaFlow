@@ -23,7 +23,7 @@ function buildProfitHelpSections(report) {
     if (match) clauses[Number(match[1])] = part.slice(match[0].length).trim()
   })
   // 2026-11-09：收入说明收进帮助，不在金额旁常驻重复提醒。
-  const scopeNotes = [report.incomeBasisNote, preface, clauses[1]]
+  const scopeNotes = [report.incomeBasisNote, report.periodBasisNote, preface, clauses[1]]
   const feeNotes = [clauses[2], clauses[3], clauses[4], clauses[5], report.cooperation && report.cooperation.scopeNote]
   const costNotes = [clauses[6], clauses[7]]
   if (!note) {
@@ -80,7 +80,8 @@ function buildProfitChart(report, profitView) {
 Page({
   data: {
     stationId: null,
-    costComplete: false, loading: true, reportError: '', missingError: '', missingReady: false,
+    costComplete: false, showProfit: false, splitIncome: false, profitUnavailableReason: '',
+    loading: true, reportError: '', missingError: '', missingReady: false,
     quickRange: 0,
     periodExpanded: false,
     incomeDetailsExpanded: false,
@@ -156,16 +157,9 @@ Page({
     navigation.dispose(this)
   },
 
-  /**
-   * "这个数给不出来"时显示的占位。**三种情况必须分开**，这是本页最容易"看起来正常"的地方：
-   *   · 有数字 → 「¥x」；
-   *   · `null` = 后端明确告知"有商品没填进货成本，这个数算不出来" → 「未填成本」，
-   *     紧跟其后原样展示后端的 missingCostHint（别让站长自己猜为什么没有数）；
-   *   · `undefined` = 响应里没有这个字段（旧版后端）→ 「待核实」。
-   *     把它当"未填成本"是**编原因**（站长会去补一个根本不缺的成本价），当 0 是编数字，两种都禁止。
-   */
+  /** 利润缺值的原因由服务端说明；null 也可能来自水票无法对应，不能自行解释为缺成本。 */
   _withheldMoney(v) {
-    if (v === null) return '未填成本'
+    if (v === null) return '待核实'
     return this._moneyText(v)
   },
 
@@ -179,7 +173,8 @@ Page({
 
   async load() {
     const seq = this._loadSeq = (this._loadSeq || 0) + 1
-    this.setData({ loading: true, costComplete: false, report: null, reportError: '', missingError: '', missingReady: false, missingCost: [], profitView: {} })
+    this.setData({ loading: true, costComplete: false, showProfit: false, splitIncome: false,
+      profitUnavailableReason: '', report: null, reportError: '', missingError: '', missingReady: false, missingCost: [], profitView: {} })
     const qs = []
     // The month shortcut stays relative when the page is reopened after a month boundary.
     if (this.data.quickRange !== 0 && this.data.from) qs.push('from=' + this.data.from)
@@ -189,17 +184,23 @@ Page({
     const patch = { loading: false }
     if (reportResult.status === 'fulfilled' && reportResult.value && reportResult.value.data && Array.isArray(reportResult.value.data.items)) {
       const d = reportResult.value.data
-      const costComplete = d.costComplete === true && [d.totalCost, d.netProfit].every(v => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)))
+      const knownMoney = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+      const costComplete = d.costComplete === true && knownMoney(d.totalCost)
+      const showProfit = costComplete && d.profitComparable === true
+        && [d.totalIncome, d.wage, d.netProfit].every(knownMoney)
       patch.costComplete = costComplete
-      const profitView = { netProfitText: this._withheldMoney(d.netProfit) }
-      for (const key of ['totalCost', 'orderRevenue', 'ticketRevenue', 'deliveryFee', 'floorFee', 'totalIncome', 'wage']) profitView[key + 'Text'] = this._moneyText(d[key])
+      patch.showProfit = showProfit
+      patch.splitIncome = d.profitComparable === false
+      patch.profitUnavailableReason = showProfit ? '' : d.profitUnavailableReason || '利润口径待核实，请重新读取报表。'
+      const profitView = { netProfitText: this._withheldMoney(showProfit ? d.netProfit : undefined) }
+      for (const key of ['totalCost', 'orderRevenue', 'ticketRevenue', 'deliveryFee', 'floorFee', 'totalIncome', 'orderIncome', 'wage']) profitView[key + 'Text'] = this._moneyText(d[key])
       profitView.orderCountText = d.orderCount === null || d.orderCount === undefined || d.orderCount === '' ? '待核实' : d.orderCount
-      const report = { ...d, items: d.items.map(item => ({ ...item, revenueTotalText: this._moneyText(item.revenueTotal), costAmountText: this._moneyText(item.costAmount), soldQtyText: item.soldQty === null || item.soldQty === undefined ? '待核实' : item.soldQty })) }
+      const report = { ...d, items: d.items.map(item => ({ ...item, orderRevenueText: this._moneyText(item.revenue), ticketRevenueText: this._moneyText(item.ticketRevenue), revenueTotalText: this._moneyText(item.revenueTotal), costAmountText: this._moneyText(item.costAmount), soldQtyText: item.soldQty === null || item.soldQty === undefined ? '待核实' : item.soldQty })) }
       if (d.cooperation && Array.isArray(d.cooperation.rows)) report.cooperation = { ...d.cooperation, rows: d.cooperation.rows.map(item => ({ ...item, amountText: this._moneyText(item.amount) })) }
       Object.assign(patch, {
         report, profitView, profitHelpSections: buildProfitHelpSections(report), profitHelpAllExpanded: false, profitHelpVisible: false,
         cooperationView: buildCooperationView(d.cooperation, value => this._moneyText(value)),
-        profitChart: costComplete ? buildProfitChart(d, profitView) : [],
+        profitChart: showProfit ? buildProfitChart(d, profitView) : [],
         from: d.from || this.data.from, to: d.to || this.data.to
       })
     } else patch.reportError = '本期报表加载失败，请重试'

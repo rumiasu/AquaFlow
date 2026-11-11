@@ -44,7 +44,7 @@ public interface GrossProfitMapper {
             //    原实现把 `o.payment_method <> 3` 写在 WHERE 里，等于把整张票单（含成本事实）
             //    一起滤掉：报表只剩售票实收与工钱，兑票配送的进货成本凭空消失、毛利虚高。
             //    改法就是下面这一行 CASE WHEN（只过滤"收入"这一个聚合，不过滤行）。
-            + "       round(sum(case when o.payment_method <> 3 and not (" + REFUND_WATER + " > 0 and " + REFUND_WATER + " >= o.water_amount) then oi.subtotal else 0 end), 2) as revenue, "
+            + "       round(sum(case when o.payment_method <> 3 and not exists(select 1 from order_ticket_payment tp where tp.order_id=o.id) and not (" + REFUND_WATER + " > 0 and " + REFUND_WATER + " >= o.water_amount) then oi.subtotal else 0 end), 2) as revenue, "
             + "       null as costPrice, "
             + "       round(sum(coalesce(c.costAmount,0)), 2) as costAmount, "
             + "       max(case when c.shippedQty=oi.quantity and c.unknownCost=0 then 0 else 1 end) as missingCost "
@@ -88,11 +88,13 @@ public interface GrossProfitMapper {
      */
     @Select("<script>select p.ticket_water_type_id as productId, "
             + "       max(pr.name) as productName, "
-            + "       round(coalesce(sum(p.amount <if test='refundSchema'>-coalesce((select sum(x.amount) from ticket_exit_refund x where x.original_payment_id=p.id),0)</if>), 0), 2) as ticketRevenue "
+            + "       round(coalesce(sum(case when p.status=2 then p.amount <if test='refundSchema'>-coalesce((select sum(x.amount) from ticket_exit_refund x where x.original_payment_id=p.id),0)</if> else 0 end), 0), 2) as ticketRevenue, "
+            + "       count(case when p.amount > 0 then 1 end) as ticketReceiptCount "
             + "  from payment_record p "
             + "  left join product pr on pr.id = p.ticket_water_type_id "
             + " where p.station_id = #{stationId} "
-            + "   and p.order_id is null and p.status = 2 "
+            // A fully refunded original receipt still identifies ticket activity; its income remains zero.
+            + "   and p.order_id is null and (p.status = 2 or (p.status = 3 and p.amount > 0)) "
             + "   and p.ticket_water_type_id is not null "
             + "   and p.update_time >= #{start} and p.update_time &lt; #{endExclusive} "
             + " group by p.ticket_water_type_id</script>")
@@ -117,6 +119,7 @@ public interface GrossProfitMapper {
      * <p>本查询恒返回一行（{@code count(*)} 是聚合），金额字段用 coalesce 兜 0。</p>
      */
     @Select("select count(*) as orderCount, "
+            + "       count(case when o.payment_method=3 or exists(select 1 from order_ticket_payment tp where tp.order_id=o.id) then 1 end) as ticketOrderCount, "
             // 2026-11-10：按商品当前分类重算会改写历史桶数。与 DashboardMapper.summary 一样，
             // 使用下单快照；任一未取消订单缺快照则整期未知，空集和明确的 0 才按 0 计。
             + "       case when count(o.delivery_bucket_qty) = count(*) then coalesce(sum(o.delivery_bucket_qty), 0) end as deliveryBucketQty, "

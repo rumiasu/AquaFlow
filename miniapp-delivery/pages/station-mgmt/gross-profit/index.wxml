@@ -5,29 +5,32 @@
 
   <block wx:if="{{report}}">
     <!-- 合计 -->
-    <view class="hero af2-tone-panel af2-tone-money {{!costComplete ? 'hero-income-only' : ''}}">
+    <view class="hero af2-tone-panel af2-tone-money {{!showProfit ? 'hero-income-only' : ''}} {{splitIncome ? 'hero-split-income' : ''}}">
       <text class="hero-period" wx:if="{{report.from && report.to}}">{{report.from}} 至 {{report.to}}</text>
       <!-- 2026-11-10：销售收入已含服务费，旧 totalProfit 未计服务费，和首屏收入对不上。此处沿用明细的销售净利。 -->
-      <view class="hero-item hero-profit" wx:if="{{costComplete}}"><icon name="chart" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" />
+      <view class="hero-item hero-profit" wx:if="{{showProfit}}"><icon name="chart" size="24px" variant="duotone" color="#54467C" fill-color="#E7E2F7" />
         <text class="hero-label">销售净利</text>
         <text class="hero-num">{{profitView.netProfitText}}</text>
       </view>
       <view class="hero-item hero-income">
-        <text class="hero-label">销售收入</text>
-        <text class="hero-num">{{profitView.totalIncomeText}}</text>
+        <text class="hero-label">{{splitIncome ? '订单水费及服务费' : '销售收入'}}</text>
+        <text class="hero-num">{{splitIncome ? profitView.orderIncomeText : profitView.totalIncomeText}}</text>
+      </view>
+      <view class="hero-item hero-ticket" wx:if="{{splitIncome}}">
+        <text class="hero-label">购票实收</text>
+        <text class="hero-num">{{profitView.ticketRevenueText}}</text>
       </view>
       <view class="hero-item hero-cost" wx:if="{{costComplete}}">
         <text class="hero-label">出库成本</text>
         <text class="hero-num">{{profitView.totalCostText}}</text>
       </view>
-      <view class="hero-item hero-wage" wx:if="{{costComplete}}">
+      <view class="hero-item hero-wage">
         <text class="hero-label">计件工钱</text>
         <text class="hero-num">{{profitView.wageText}}</text>
       </view>
     </view>
 
-    <text class="report-period-note" wx:if="{{report.periodBasisNote}}">{{report.periodBasisNote}}</text>
-    <text class="income-only-note" wx:if="{{!costComplete}}">本期成本不全，利润暂不显示。</text>
+    <text class="income-only-note profit-unavailable-note" wx:if="{{profitUnavailableReason}}">{{profitUnavailableReason}}</text>
   </block>
 
   <!-- 期间 -->
@@ -61,8 +64,8 @@
 
   <view class="ui-state" wx:if="{{reportError}}"><text class="ui-state-title">本期经营数据加载失败</text><text class="ui-state-copy">{{reportError}}</text><button class="af-action af-action--quiet" bindtap="onRetryReport"><text class="af-action__face">重新读取报表</text></button></view>
   <block wx:if="{{report}}">
-    <view class="af-entry analysis-entry" wx:if="{{costComplete && profitChart.length}}" bindtap="onToggleAmountComparison"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="af-entry__body">金额结构</text><text class="af-entry__arrow">{{amountComparisonExpanded ? '收起' : '查看 ›'}}</text></view>
-    <view class="card profit-chart-card" wx:if="{{amountComparisonExpanded && costComplete && profitChart.length}}">
+    <view class="af-entry analysis-entry" wx:if="{{showProfit && profitChart.length}}" bindtap="onToggleAmountComparison"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="af-entry__body">金额结构</text><text class="af-entry__arrow">{{amountComparisonExpanded ? '收起' : '查看 ›'}}</text></view>
+    <view class="card profit-chart-card" wx:if="{{amountComparisonExpanded && showProfit && profitChart.length}}">
       <view class="card-title">本期金额结构</view>
       <block wx:if="{{profitChart.length}}">
         <view class="profit-chart-row" wx:for="{{profitChart}}" wx:key="key">
@@ -77,7 +80,7 @@
 
     <!-- 这里逐项展开首屏与金额结构的同一组金额。票款与履约的跨期选择见 design/16 §12。 -->
     <view class="card" wx:if="{{report.profitBasisNote}}">
-      <view class="af-entry analysis-entry" bindtap="onToggleIncomeDetails"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="af-entry__body">{{costComplete ? '收入与销售净利' : '收入构成'}}</text><text class="af-entry__arrow">{{incomeDetailsExpanded ? '收起' : '展开 ›'}}</text></view>
+      <view class="af-entry analysis-entry" bindtap="onToggleIncomeDetails"><icon name="bill" size="22px" variant="duotone" color="#54467C" fill-color="#E7E2F7" /><text class="af-entry__body">{{showProfit ? '收入与销售净利' : '收入与成本明细'}}</text><text class="af-entry__arrow">{{incomeDetailsExpanded ? '收起' : '展开 ›'}}</text></view>
       <block wx:if="{{incomeDetailsExpanded}}">
       <view class="ledger-row">
         <text class="ledger-label">单数</text>
@@ -100,24 +103,28 @@
         <text class="ledger-label">楼层费</text>
         <text class="ledger-value">{{profitView.floorFeeText}}</text>
       </view>
-      <view class="ledger-row ledger-strong">
+      <view class="ledger-row ledger-strong" wx:if="{{!splitIncome}}">
         <text class="ledger-label">销售收入</text>
         <text class="ledger-value">{{profitView.totalIncomeText}}</text>
       </view>
+      <view class="ledger-row ledger-strong" wx:else>
+        <text class="ledger-label">订单水费及服务费</text>
+        <text class="ledger-value">{{profitView.orderIncomeText}}</text>
+      </view>
       <block wx:if="{{costComplete}}">
       <view class="ledger-row">
-        <text class="ledger-label">− 出库成本</text>
+        <text class="ledger-label">{{splitIncome ? '出库成本' : '− 出库成本'}}</text>
         <text class="ledger-value">{{profitView.totalCostText}}</text>
       </view>
+      </block>
       <view class="ledger-row">
-        <text class="ledger-label">− 计件工钱</text>
+        <text class="ledger-label">{{splitIncome ? '计件工钱' : '− 计件工钱'}}</text>
         <text class="ledger-value">{{profitView.wageText}}</text>
       </view>
-      <view class="ledger-row ledger-strong">
+      <view class="ledger-row ledger-strong" wx:if="{{showProfit}}">
         <text class="ledger-label">销售净利</text>
         <text class="ledger-value">{{profitView.netProfitText}}</text>
       </view>
-      </block>
       </block>
       <!--
         [2026-09-26 产品反馈"利润里太罗嗦了"] 这两段口径提示从"铺在屏幕上"改成**一行版**，
@@ -163,16 +170,16 @@
             <!-- [2026-09-25 评审问题 6] 行收入用 revenueTotal = 订单水费 + 该商品本期购票实收
                  （票款在下面单独标一行）。用旧的 item.revenue 会让"用票兑出去的商品"显示成
                  "卖出 2、收入 0、利润负"，看起来像报表坏了 —— 钱其实在买票那一刻收过了。 -->
-            <text class="row-amount">收入 {{item.revenueTotalText}}</text>
+            <text class="row-amount">{{splitIncome ? '订单水费 ' + item.orderRevenueText : '收入 ' + item.revenueTotalText}}</text>
           </view>
           <text class="row-sub">
             卖出 {{item.soldQtyText}} · 出库成本 {{item.costAmountText}}
           </text>
           <text class="row-sub" wx:if="{{item.ticketRevenue > 0}}">
-            其中水票收入 ¥{{item.ticketRevenue}}（客户买票时已收款）
+            购票实收 {{item.ticketRevenueText}}
           </text>
           <!-- 行利润的文案整句来自后端（缺成本那行是「未填成本，无法计算」）—— 前端只标警示色 -->
-          <text class="row-sub {{item.profit === null ? 'row-warn' : ''}}">
+          <text class="row-sub {{item.profit === null ? 'row-warn' : ''}}" wx:if="{{showProfit}}">
             利润：{{item.profitText}}<text wx:if="{{item.profitRateText}}"> · 利润率 {{item.profitRateText}}</text>
           </text>
         </view>

@@ -233,10 +233,11 @@ Page({
     }
   },
 
-  /** 成本不完整时展示已知收入；未知接口字段不能冒充成本缺失。 */
+  /** 成本不完整或水票收支无法对应时展示已知收入；未知接口字段不能冒充成本缺失。 */
   _decorateProfit(d) {
     const finiteMoney = v => (typeof v === 'number' || typeof v === 'string') && String(v).trim() !== '' && Number.isFinite(Number(v))
-    const complete = d.costComplete === true && finiteMoney(d.netProfit)
+    // 2026-11-11：成本齐全也不代表水票原款与兑水成本可以配对，按服务端可比状态决定是否显示净利。
+    const complete = d.costComplete === true && d.profitComparable === true && finiteMoney(d.netProfit)
     const amount = complete ? d.netProfit : d.totalIncome
     const known = finiteMoney(amount)
     const countKnown = this._knownCount(d.orderCount)

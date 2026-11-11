@@ -126,6 +126,31 @@ test('loading, failure, and success have distinct visible states', async () => {
   t.source.delivery = async () => ok({ deliveringBarrels: 0, completedBarrels: 1, returnBarrels: 2 })
   await t.page.onRetryStats(); assert.deepEqual(t.values(), ['0 桶', '1 桶', '2 桶'])
 })
+test('ticket periods show known income when combined profit is not comparable', async () => {
+  const t = fixture(true)
+  t.source.profit = async () => ok({ orderCount: 1, ...bucket(3), totalIncome: 36,
+    costComplete: true, profitComparable: false, netProfit: null })
+  await t.page.loadStats(true)
+  assert.deepEqual(t.values(), ['¥36.00', '3 桶'])
+  assert.equal(t.page.data.todayProfit.metricLabel, '今日收入')
+  assert.equal(t.page.data.managerStatsError, '')
+  // 即使兼容响应仍带旧算术结果，明确的不可比状态也不能被旧数字覆盖。
+  t.source.profit = async () => ok({ orderCount: 1, ...bucket(3), totalIncome: 36,
+    costComplete: true, profitComparable: false, netProfit: -24 })
+  await t.page.loadStats(true)
+  assert.deepEqual(t.values(), ['¥36.00', '3 桶'])
+  assert.equal(t.page.data.todayProfit.metricLabel, '今日收入')
+  t.source.profit = async () => ok({ orderCount: 1, ...bucket(3), totalIncome: 47,
+    costComplete: true, netProfit: 17 })
+  await t.page.loadStats(true)
+  assert.deepEqual(t.values(), ['¥47.00', '3 桶'])
+  assert.equal(t.page.data.todayProfit.metricLabel, '今日收入', 'old responses cannot establish comparable profit')
+  t.source.profit = async () => ok({ orderCount: 1, ...bucket(3), totalIncome: 47,
+    costComplete: true, profitComparable: true, netProfit: 17 })
+  await t.page.loadStats(true)
+  assert.deepEqual(t.values(), ['¥17.00', '3 桶'])
+  assert.equal(t.page.data.todayProfit.metricLabel, '今日净利')
+})
 test('manager overview shows loading while reads are pending, then verified values', async () => {
   const t = fixture(true), slow = deferred(); t.source.profit = () => slow.promise
   const pending = t.page.loadStats(true)

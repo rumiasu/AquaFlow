@@ -111,8 +111,10 @@ class PendingPaymentPaginationIntegrationTest extends AbstractIntegrationTest {
         assertEquals(List.of(foreign), ids(otherFirst.path("items")));
         JsonNode otherNext = page(1, otherFirst.path("nextCursor").asText(), otherToken);
         assertEquals(List.of(cross), ids(otherNext.path("items")));
-        assertTrue(otherNext.path("items").get(0).path("customerName").isNull());
-        assertTrue(otherNext.path("items").get(0).path("customerPhone").isNull());
+        // Map 序列化可省略 SQL NULL；与既有跨站隔离回归一致，契约是不下发有值的客户画像。
+        JsonNode crossRow = otherNext.path("items").get(0);
+        assertFalse(crossRow.hasNonNull("customerName"), crossRow.toString());
+        assertFalse(crossRow.hasNonNull("customerPhone"), crossRow.toString());
         JsonNode forgedStation = get("/api/payments/pending?pageSize=50&stationId=" + other, token).data();
         assertEquals(List.of(own), ids(forgedStation.path("items")));
         assertFalse(ids(page(50, otherFirst.path("nextCursor").asText(), token).path("items")).contains(cross));

@@ -44,6 +44,19 @@ public class Inventory {
      */
     private BigDecimal salePrice;
 
+    /** 非空表示本站已开启促销，结束时清空，保留日常售价。 */
+    private BigDecimal promotionPrice;
+    private String stationProductName;
+    private String stationProductSpec;
+
+    public String displayName(Product product) {
+        return stationProductName == null ? product.getName() : stationProductName;
+    }
+
+    public String displaySpec(Product product) {
+        return stationProductSpec == null ? product.getSpec() : stationProductSpec;
+    }
+
     /** 本站已成功确认定价设置；独立于是否覆盖参考价，0押金/继承参考价也可确认。 */
     private Integer pricingConfirmed;
 

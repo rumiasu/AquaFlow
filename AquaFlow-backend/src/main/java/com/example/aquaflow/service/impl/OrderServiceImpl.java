@@ -324,7 +324,7 @@ public class OrderServiceImpl implements OrderService {
                 throw new BusinessException("商品参数异常");
             }
             Product product = productMapper.getById(item.getProductId());
-            if (product == null) {
+            if (product == null || !product.visibleToStation(stationId)) {
                 throw new BusinessException("商品不存在: " + item.getProductId());
             }
             // 校验商品在该水站有库存记录（即属于该水站可售）
@@ -333,7 +333,7 @@ public class OrderServiceImpl implements OrderService {
                 throw new BusinessException("商品不在该水站销售: " + product.getName());
             }
             if (inv.getEnabled() == null || !Integer.valueOf(1).equals(inv.getEnabled())) {
-                throw new BusinessException("商品未上架: " + product.getName());
+                throw new BusinessException("商品未上架: " + inv.displayName(product));
             }
             // 判断是否涉及站点资产（桶装水类别；判据唯一实现在 util/BarrelScope）
             if (BarrelScope.isBarrel(product)) {
@@ -389,12 +389,12 @@ public class OrderServiceImpl implements OrderService {
                 throw new BusinessException("商品不在该水站销售: " + product.getName());
             }
             if (inv.getEnabled() == null || !Integer.valueOf(1).equals(inv.getEnabled())) {
-                throw new BusinessException("商品未上架: " + product.getName());
+                throw new BusinessException("商品未上架: " + inv.displayName(product));
             }
             // [AQ-030] 商品状态校验：product.status 0下架 / 1在售 / 2停售，仅"在售"可下单。
             // 原实现只看 inventory.enabled，product 停售后仍能继续产生订单。
             if (product.getStatus() != null && !Integer.valueOf(1).equals(product.getStatus())) {
-                throw new BusinessException("商品已下架或停售: " + product.getName());
+                throw new BusinessException("商品已下架或停售: " + inv.displayName(product));
             }
 
             productCache.put(item.getProductId(), product);
@@ -406,9 +406,9 @@ public class OrderServiceImpl implements OrderService {
             if (stock < item.getQuantity()) {
                 OrderCreateResult.ShortageItem s = new OrderCreateResult.ShortageItem();
                 s.setProductId(item.getProductId());
-                s.setProductName(product.getName());
+                s.setProductName(inv.displayName(product));
                 s.setBrand(product.getBrand());
-                s.setSpec(product.getSpec());
+                s.setSpec(inv.displaySpec(product));
                 s.setRequested(item.getQuantity());
                 s.setStock(stock);
                 if (stock == 0) {
@@ -422,7 +422,7 @@ public class OrderServiceImpl implements OrderService {
             // [AQ-030] 限购校验：站长按商品配置的单笔上限（product.max_per_order）必须生效
             if (product.getMaxPerOrder() != null && product.getMaxPerOrder() > 0
                     && item.getQuantity() > product.getMaxPerOrder()) {
-                throw new BusinessException("商品「" + product.getName() + "」单笔最多购买 "
+                throw new BusinessException("商品「" + inv.displayName(product) + "」单笔最多购买 "
                         + product.getMaxPerOrder() + " 件");
             }
 
@@ -441,7 +441,7 @@ public class OrderServiceImpl implements OrderService {
                         && BarrelScope.isBarrel(product)
                         && ticketAccountService.unifiedDiscountConfigured(stationId);
                 if (!customOk && !unifiedOk) {
-                    throw new BusinessException("商品「" + product.getName() + "」未开通水票支付");
+                    throw new BusinessException("商品「" + inv.displayName(product) + "」未开通水票支付");
                 }
             }
 
@@ -650,9 +650,9 @@ public class OrderServiceImpl implements OrderService {
             OrderItem oi = new OrderItem();
             oi.setOrderId(orders.getId());
             oi.setProductId(item.getProductId());
-            oi.setProductNameSnapshot(product.getName());
+            oi.setProductNameSnapshot(inv.displayName(product));
             oi.setBrandSnapshot(product.getBrand());
-            oi.setSpecSnapshot(product.getSpec());
+            oi.setSpecSnapshot(inv.displaySpec(product));
             oi.setPrice(unitPrice);
             oi.setQuantity(item.getQuantity());
             oi.setDeposit(itemDeposit);
@@ -692,12 +692,12 @@ public class OrderServiceImpl implements OrderService {
             int reserved = inventoryReservationService.reserveForItem(
                     orders.getId(), oi.getId(), stationId, item.getProductId(), item.getQuantity());
             if (reserved < item.getQuantity()) {
-                Product p = productCache.get(item.getProductId());
+                String name = oi.getProductNameSnapshot();
                 int lack = item.getQuantity() - reserved;
                 if (reserved == 0) {
-                    itemWarnings[idx] = p.getName() + " 暂时没货，需要等待配送";
+                    itemWarnings[idx] = name + " 暂时没货，需要等待配送";
                 } else {
-                    itemWarnings[idx] = p.getName() + " 库存不足(仅剩" + reserved + "桶)，缺" + lack + "桶需等待配送";
+                    itemWarnings[idx] = name + " 库存不足(仅剩" + reserved + "桶)，缺" + lack + "桶需等待配送";
                 }
             }
         }

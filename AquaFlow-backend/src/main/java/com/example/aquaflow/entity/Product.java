@@ -24,6 +24,10 @@ public class Product {
      */
     private Long ownerStationId;
 
+    public boolean visibleToStation(Long stationId) {
+        return ownerStationId == null || ownerStationId.equals(stationId);
+    }
+
     /** 商品名称 */
     private String name;
 

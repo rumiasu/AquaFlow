@@ -70,14 +70,14 @@ public interface TicketAccountMapper {
             "greatest(0,ta.remain_quantity-coalesce((select sum(h.quantity) from order_ticket_hold h join ticket_lot l on l.id=h.lot_id where l.customer_id=ta.customer_id and l.station_id=ta.station_id and l.product_id=ta.product_id and h.state='HELD'),0)) as availableQuantity, " +
             "ta.right_amount as rightAmount, " +
             "ta.update_time as updateTime, " +
-            "p.name as productName, " +
-            "p.spec as productSpec, " +
+            "coalesce(i.station_product_name,p.name) as productName, " +
+            "coalesce(i.station_product_spec,p.spec) as productSpec, " +
             "p.price as price, " +
             "p.ticket_price as ticketPrice, " +
             "coalesce(nullif(i.ticket_price, 0), nullif(p.ticket_price, 0), nullif(i.sale_price, 0), p.price) as effectiveTicketPrice " +
             "from ticket_account ta " +
-            "left join product p on ta.product_id = p.id " +
-            "left join inventory i on i.product_id = ta.product_id and i.station_id = ta.station_id " +
+            "left join product p on ta.product_id = p.id and (p.owner_station_id is null or p.owner_station_id=ta.station_id) " +
+            "left join inventory i on i.product_id = p.id and i.station_id = ta.station_id " +
             "where ta.customer_id = #{customerId} and ta.station_id = #{stationId} " +
             "order by ta.update_time desc")
     List<Map<String, Object>> listByCustomerAndStationWithDetail(@Param("customerId") Long customerId, @Param("stationId") Long stationId);

@@ -15,6 +15,7 @@ import com.example.aquaflow.service.CatalogService;
 import com.example.aquaflow.service.InventoryService;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.BarrelScope;
+import com.example.aquaflow.util.PriceUtil;
 import com.example.aquaflow.util.ProductImageResolver;
 import com.example.aquaflow.util.StationProductImage;
 import java.util.Objects;
@@ -114,7 +115,15 @@ public class CatalogServiceImpl implements CatalogService {
             throw new BusinessException("本站自定义商品图片请在商品编辑中保存");
         }
         String stationImage = dto.getImageObjectName() == null ? null : StationProductImage.normalize(dto.getImageObjectName());
-        Inventory current = inventoryMapper.getByStationAndProduct(stationId, productId);
+        Inventory current = inventoryMapper.getByStationAndProductForUpdate(stationId, productId);
+        boolean editingDetails = dto.getStationProductName() != null || dto.getStationProductSpec() != null;
+        boolean editingPromotion = dto.getPromotionActive() != null || dto.getPromotionPrice() != null;
+        if (!selecting && current == null && (editingDetails || editingPromotion)) {
+            throw new BusinessException("请先选用这件商品");
+        }
+        if (editingDetails && vo.getOwnerStationId() != null) {
+            throw new BusinessException("本站自建商品请在商品资料中修改名称和规格");
+        }
         validateStationMoney(dto.getSalePrice(), "本站售价");
         validateStationMoney(dto.getDepositPrice(), "本站押金");
         validateStationMoney(dto.getTicketPrice(), "本站水票价");
@@ -138,6 +147,10 @@ public class CatalogServiceImpl implements CatalogService {
         setting.setEnabled(dto.getEnabled() != null ? dto.getEnabled()
                 : (current != null && current.getEnabled() != null ? current.getEnabled() : 0));
         setting.setSalePrice(pickPrice(dto.getSalePrice(), current != null ? current.getSalePrice() : null));
+        BigDecimal regular = PriceUtil.regularPrice(vo.getPrice(), setting.getSalePrice());
+        setting.setPromotionPrice(promotionPrice(dto, current, regular));
+        setting.setStationProductName(stationText(dto.getStationProductName(), current == null ? null : current.getStationProductName(), "商品名称"));
+        setting.setStationProductSpec(stationText(dto.getStationProductSpec(), current == null ? null : current.getStationProductSpec(), "规格"));
         setting.setDepositPrice(pickPrice(dto.getDepositPrice(), current != null ? current.getDepositPrice() : null));
         setting.setTicketEnabled(dto.getTicketEnabled() != null ? dto.getTicketEnabled()
                 : (current != null && current.getTicketEnabled() != null ? current.getTicketEnabled() : 0));
@@ -154,7 +167,9 @@ public class CatalogServiceImpl implements CatalogService {
         setting.setPriorityDisplay(priority);
         // 选品/库存动作不是确认定价。显式保存（包括留空继承）与本站自定义商品创建
         // 在同一事务内确认；后续图片等任一步失败会一起回滚。
-        setting.setPricingConfirmed(!selecting || vo.getOwnerStationId() != null ? 1 : null);
+        boolean detailsOnly = editingDetails && !editingPromotion && dto.getSalePrice() == null && dto.getDepositPrice() == null
+                && dto.getEnabled() == null && dto.getTicketPrice() == null && dto.getTicketEnabled() == null && dto.getPriorityDisplay() == null;
+        setting.setPricingConfirmed((!selecting && !detailsOnly) || vo.getOwnerStationId() != null ? 1 : null);
 
         inventoryService.saveStationSetting(setting);
         if (dto.getImageObjectName() != null) {
@@ -372,6 +387,32 @@ public class CatalogServiceImpl implements CatalogService {
     private static BigDecimal pickPrice(BigDecimal incoming, BigDecimal currentValue) {
         if (incoming == null) return currentValue;
         return incoming.compareTo(BigDecimal.ZERO) > 0 ? incoming : null;
+    }
+
+    private static String stationText(String incoming, String current, String label) {
+        if (incoming == null) return current;
+        String value = incoming.strip();
+        if (value.codePointCount(0, value.length()) > 100 || value.codePoints().anyMatch(Character::isISOControl)) {
+            throw new BusinessException(label + "请填一行，最多100个字");
+        }
+        return value.isEmpty() ? null : value;
+    }
+
+    private static BigDecimal promotionPrice(StationCatalogSettingDTO dto, Inventory current, BigDecimal regular) {
+        BigDecimal price = current == null ? null : current.getPromotionPrice();
+        if (dto.getPromotionPrice() != null && !Boolean.TRUE.equals(dto.getPromotionActive())) {
+            throw new BusinessException("设置促销价时请同时开启促销");
+        }
+        if (Boolean.FALSE.equals(dto.getPromotionActive())) return null;
+        if (Boolean.TRUE.equals(dto.getPromotionActive())) {
+            price = dto.getPromotionPrice();
+            validateStationMoney(price, "促销价");
+            if (price == null) throw new BusinessException("请填写促销价");
+        }
+        if (price != null && !PriceUtil.promotionActive(regular, price)) {
+            throw new BusinessException("促销价须大于0元，且低于日常售价");
+        }
+        return price;
     }
 
     private static void validateStationMoney(BigDecimal amount, String label) {

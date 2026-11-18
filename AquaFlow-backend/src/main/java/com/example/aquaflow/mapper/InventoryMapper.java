@@ -29,9 +29,9 @@ public interface InventoryMapper {
     @Delete("delete from inventory where id = #{id}")
     void delete(@Param("id") Long id);
 
-    @Select("select i.*, p.name as product_name, p.spec as spec, p.image_object_name as image_object_name, " +
+    @Select("select i.*, coalesce(i.station_product_name,p.name) as product_name, coalesce(i.station_product_spec,p.spec) as spec, coalesce(i.image_object_name_override,p.image_object_name) as image_object_name, " +
             "p.status as status, p.category as category " +
-            "from inventory i left join product p on i.product_id = p.id " +
+            "from inventory i left join product p on i.product_id = p.id and (p.owner_station_id is null or p.owner_station_id=i.station_id) " +
             "where i.station_id = #{stationId} order by i.id asc")
     List<Inventory> listByStationId(@Param("stationId") Long stationId);
 
@@ -81,12 +81,13 @@ public interface InventoryMapper {
      * 价格与开关仍需调用方带回未编辑字段；库存调整只走有流水的 setStock。
      * duplicate 分支不得覆盖 quantity，避免旧快照撤销并发入库。
      */
-    @Insert("insert into inventory(station_id, product_id, quantity, enabled, sale_price, deposit_price, " +
+    @Insert("insert into inventory(station_id, product_id, quantity, enabled, sale_price, promotion_price, station_product_name, station_product_spec, deposit_price, " +
             "ticket_enabled, ticket_price, priority_display, pricing_confirmed, create_time, update_time) " +
-            "values(#{stationId}, #{productId}, #{quantity}, #{enabled}, #{salePrice}, #{depositPrice}, " +
+            "values(#{stationId}, #{productId}, #{quantity}, #{enabled}, #{salePrice}, #{promotionPrice}, #{stationProductName}, #{stationProductSpec}, #{depositPrice}, " +
             "#{ticketEnabled}, #{ticketPrice}, #{priorityDisplay}, coalesce(#{pricingConfirmed},0), NOW(), NOW()) " +
             "on duplicate key update enabled = #{enabled}, " +
-            "sale_price = #{salePrice}, deposit_price = #{depositPrice}, " +
+            "sale_price = #{salePrice}, promotion_price = #{promotionPrice}, " +
+            "station_product_name = #{stationProductName}, station_product_spec = #{stationProductSpec}, deposit_price = #{depositPrice}, " +
             "ticket_enabled = #{ticketEnabled}, ticket_price = #{ticketPrice}, " +
             "priority_display = #{priorityDisplay}, pricing_confirmed = if(#{pricingConfirmed}=1,1,pricing_confirmed), update_time = NOW()")
     void upsertSettings(Inventory inventory);

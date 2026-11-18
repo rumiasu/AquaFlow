@@ -232,6 +232,7 @@ SOURCE seed_platform_pulisi_185.sql;
 | 75 | `migration_v90_ticket_service_payment.sql` | 水票服务费组合凭据、按批次票预留与一次配送费权益。先核目标并备份，安装增量结构后更新后端与两端；无历史实款改写或演示数据重导。 |
 | 76 | `precheck_v91_ticket_exit_multiple_refunds.sql` + `migration_v91_ticket_exit_multiple_refunds.sql` + `verify_v91_ticket_exit_multiple_refunds.sql` | 同一原购票款允许多笔剩余票退出：先逐句执行只读预检，只有 `v91_precheck_result=GO` 才执行**单句 ALTER**（不含 session 变量/PREPARE），把 `ticket_exit_refund` 从 `original_payment_id` 单列主键改为自增 `id` 主键，增加非唯一原款索引、可空请求键及 `(original_payment_id, idempotency_key)` 唯一键；最后逐句执行只读核验并核对行数。**不改写任何历史退款金额/票数**；新后端按原款行锁累计数量与金额，累计不超过原款，最后一张补齐尾差。执行前必须停写、备份并记录行数；未知/部分迁移结构一律 STOP，不猜修。**本次未执行真实库或云端迁移。** |
 | 77 | `migration_v92_barrel_delivery_allocation.sql` | 新增明确配送实收来源及原退还申请分配两表，无历史回填。核对目标、备份及现有结构后安装；隔离旧版本交接写流量，全部后端切换后再启用配套两端。详见本文 v92 说明；v91 与本迁移独立，互不依赖。 |
+| 78 | `migration_v98_station_product_promotion.sql` | 本站零售促销、名称及规格覆盖。仅为 inventory 添加三个可空字段，无回填；旧版本继续按日常价。先核对和备份目标，再加列，最后切换服务端。编号保留给同一本地开发线的既有迁移；本脚本不依赖 v93–v97。 |
 
 ## 历史迁移演进（脚本已删除，结论保留）
 

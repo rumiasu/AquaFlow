@@ -25,8 +25,9 @@ public interface InventoryRecordMapper {
     Map<String,Object> returnCost(@Param("stationId") Long stationId,@Param("productId") Long productId,@Param("refId") Long refId);
 
     /** 按站+商品查询流水（倒序） */
-    @Select("select r.*, p.name as product_name, p.spec as spec " +
-            "from inventory_record r left join product p on r.product_id = p.id " +
+    @Select("select r.*, coalesce(i.station_product_name,p.name) as product_name, coalesce(i.station_product_spec,p.spec) as spec " +
+            "from inventory_record r left join product p on r.product_id = p.id and (p.owner_station_id is null or p.owner_station_id=r.station_id) " +
+            "left join inventory i on i.product_id=p.id and i.station_id=r.station_id " +
             "where r.station_id = #{stationId} and r.product_id = #{productId} " +
             "order by r.create_time desc, r.id desc limit #{limit}")
     List<InventoryRecord> listByStationAndProduct(@Param("stationId") Long stationId,
@@ -34,8 +35,9 @@ public interface InventoryRecordMapper {
                                                   @Param("limit") int limit);
 
     /** 按站查询全部流水（倒序） */
-    @Select("select r.*, p.name as product_name, p.spec as spec " +
-            "from inventory_record r left join product p on r.product_id = p.id " +
+    @Select("select r.*, coalesce(i.station_product_name,p.name) as product_name, coalesce(i.station_product_spec,p.spec) as spec " +
+            "from inventory_record r left join product p on r.product_id = p.id and (p.owner_station_id is null or p.owner_station_id=r.station_id) " +
+            "left join inventory i on i.product_id=p.id and i.station_id=r.station_id " +
             "where r.station_id = #{stationId} " +
             "order by r.create_time desc, r.id desc limit #{limit}")
     List<InventoryRecord> listByStation(@Param("stationId") Long stationId, @Param("limit") int limit);

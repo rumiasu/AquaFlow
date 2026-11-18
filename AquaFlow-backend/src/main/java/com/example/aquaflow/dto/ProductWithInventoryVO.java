@@ -1,6 +1,7 @@
 package com.example.aquaflow.dto;
 
 import lombok.Data;
+import com.example.aquaflow.util.PriceUtil;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,6 +37,10 @@ public class ProductWithInventoryVO {
     private String platformImageObjectName;
     private String platformImageUrl;
     private String stationImageObjectName;
+    private String platformName;
+    private String platformSpec;
+    private String stationProductName;
+    private String stationProductSpec;
     /** Capability comes from the paired backend; old clients cannot fake successful image persistence. */
     public boolean getStationImageEditable() { return ownerStationId == null && inventoryId != null; }
 
@@ -51,10 +56,12 @@ public class ProductWithInventoryVO {
     // ===== 当前水站库存配置 (inventory 表, 可能为 null = 未配置) =====
     private Long inventoryId;
     private Integer quantity;
+    private Integer availableQty;
     private Integer enabled;
 
     /** 本站售价（NULL/0 = 未覆盖，用 product.price 这个通用库参考价） */
     private BigDecimal salePrice;
+    private BigDecimal promotionPrice;
 
     /** 来自本站 inventory 的持久确认状态，不根据全局参考价猜测。 */
     private Integer pricingConfirmed;
@@ -72,15 +79,20 @@ public class ProductWithInventoryVO {
     }
 
     /**
-     * 本站生效售价（本站覆盖优先，否则通用库参考价）。
+     * 本站生效零售价（有效促销价优先，其次日常价）。
      * <p>与 {@code util/PriceUtil#calcUnitPrice} 同口径；前端展示必须用这个值，
      * 不要自己拿 price/salePrice 拼，否则会出现"列表价 ≠ 结算价"（本仓已有此类事故）。</p>
      */
     public BigDecimal getEffectivePrice() {
-        if (salePrice != null && salePrice.compareTo(BigDecimal.ZERO) > 0) {
-            return salePrice;
-        }
-        return price != null ? price : BigDecimal.ZERO;
+        return PriceUtil.retailPrice(getRegularPrice(), promotionPrice);
+    }
+
+    public BigDecimal getRegularPrice() {
+        return PriceUtil.regularPrice(price, salePrice);
+    }
+
+    public boolean getPromotionActive() {
+        return PriceUtil.promotionActive(getRegularPrice(), promotionPrice);
     }
 
     /** 本站生效押金（本站覆盖优先，否则通用库参考押金） */

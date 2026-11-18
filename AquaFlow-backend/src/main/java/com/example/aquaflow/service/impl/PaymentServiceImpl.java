@@ -1400,7 +1400,7 @@ public class PaymentServiceImpl implements PaymentService {
             if (productId == null || quantity <= 0) continue;
 
             Product product = productMapper.getById(productId);
-            if (product == null) continue;
+            if (product == null || !product.visibleToStation(stationId) || !Integer.valueOf(1).equals(product.getStatus())) continue;
 
             Inventory inv = inventoryMapper.getByStationAndProduct(stationId, productId);
             if (inv == null || inv.getEnabled() == null || !Integer.valueOf(1).equals(inv.getEnabled())) continue;
@@ -1421,7 +1421,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
 
             if (payByTicket) {
-                TicketLine line = ticketLineOf(customerId, stationId, product, quantity);
+                TicketLine line = ticketLineOf(customerId, stationId, product, inv, quantity);
                 ticketLines.add(line);
                 ticketTotalQty += quantity;
                 if (line.covered()) {
@@ -1601,9 +1601,8 @@ public class PaymentServiceImpl implements PaymentService {
      *       否则结算页会说"还差 1 桶"而实际提交时整行被拒。</li>
      * </ol>
      */
-    private TicketLine ticketLineOf(Long customerId, Long stationId, Product product, int qty) {
-        String name = product.getName() != null ? product.getName() : ("商品" + product.getId());
-        Inventory inv = inventoryMapper.getByStationAndProduct(stationId, product.getId());
+    private TicketLine ticketLineOf(Long customerId, Long stationId, Product product, Inventory inv, int qty) {
+        String name = inv.displayName(product);
         // 与下单闸门同一判据：定制票开了 → 可用；否则本站有统一折扣且是桶装水 → 可用
         boolean usable = ticketTierService.usesCustomTicket(product, inv)
                 || (BarrelScope.isBarrel(product)

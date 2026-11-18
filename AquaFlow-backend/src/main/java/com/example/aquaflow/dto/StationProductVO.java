@@ -1,6 +1,8 @@
 package com.example.aquaflow.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
+import com.example.aquaflow.util.PriceUtil;
 
 import java.math.BigDecimal;
 
@@ -35,9 +37,12 @@ public class StationProductVO {
 
     // ===== 本站设置 =====
     private BigDecimal salePrice;
+    private BigDecimal promotionPrice;
     private BigDecimal depositPrice;
     private Integer ticketEnabled;
     private BigDecimal ticketPrice;
+    @JsonIgnore
+    private BigDecimal referenceTicketPrice;
     /** 优先展示（0/1）：顾客列表按它排在最前 */
     private Integer priorityDisplay;
     /** 本站可售库存（未配置本站时为 null） */
@@ -57,10 +62,17 @@ public class StationProductVO {
         }
     }
 
-    /** 本站生效售价：站级覆盖(&gt;0) 优先，否则通用库参考价。与 {@code PriceUtil#calcUnitPrice} 同口径 */
+    /** 当前本站零售价：有效促销价优先，其次日常价。 */
     public BigDecimal getEffectivePrice() {
-        if (salePrice != null && salePrice.compareTo(BigDecimal.ZERO) > 0) return salePrice;
-        return price != null ? price : BigDecimal.ZERO;
+        return PriceUtil.retailPrice(getRegularPrice(), promotionPrice);
+    }
+
+    public BigDecimal getRegularPrice() {
+        return PriceUtil.regularPrice(price, salePrice);
+    }
+
+    public boolean getPromotionActive() {
+        return PriceUtil.promotionActive(getRegularPrice(), promotionPrice);
     }
 
     /** 本站生效押金：站级覆盖(&gt;0) 优先，否则通用库参考押金。与 {@code PriceUtil#calcDeposit} 同口径 */
@@ -75,8 +87,7 @@ public class StationProductVO {
      * "买票按 A 价、用票按 B 价"（[AQ-031] 就是这条链上的历史事故）。
      */
     public BigDecimal getEffectiveTicketPrice() {
-        if (ticketPrice != null && ticketPrice.compareTo(BigDecimal.ZERO) > 0) return ticketPrice;
-        return getEffectivePrice();
+        return PriceUtil.ticketPrice(getRegularPrice(), referenceTicketPrice, ticketPrice);
     }
 
     /** 是否有现货（0 库存仍可下单 —— 产品口径：提示"暂时没货，需要等待配送"） */

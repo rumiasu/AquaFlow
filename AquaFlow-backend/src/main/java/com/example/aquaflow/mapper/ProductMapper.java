@@ -22,6 +22,10 @@ import java.util.List;
  */
 @Mapper
 public interface ProductMapper {
+    String STATION_DETAILS = "coalesce(i.station_product_name,p.name) as name, p.category, p.brand, "
+            + "coalesce(i.station_product_spec,p.spec) as spec, ";
+    String AVAILABLE_AT_STATION = "(i.quantity - coalesce((select sum(r.reserved_qty) from inventory_reservation r "
+            + "where r.station_id=i.station_id and r.product_id=i.product_id and r.status=1), 0)) as available_qty";
 
     @Insert("insert into product(owner_station_id, name, category, brand, spec, image_object_name, description, price, deposit, max_per_order, status, sort, create_time, update_time) " +
             "values(#{ownerStationId}, #{name}, #{category}, #{brand}, #{spec}, #{imageObjectName}, #{description}, #{price}, #{deposit}, #{maxPerOrder}, #{status}, #{sort}, #{createTime}, #{updateTime})")
@@ -68,7 +72,11 @@ public interface ProductMapper {
     Product getById(@Param("id") Long id);
 
     /** 本站可见（通用库 + 本站自定义，含下架/停售），用于站长侧"选品"与排查。 */
-    @Select("select * from product where owner_station_id is null or owner_station_id = #{stationId} order by sort asc, id asc")
+    @Select("select p.id, p.owner_station_id, " + STATION_DETAILS + "p.description, p.price, p.deposit, p.max_per_order, "
+            + "coalesce(i.image_object_name_override,p.image_object_name) as image_object_name, p.ticket_price, p.ticket_enabled, "
+            + "p.status, p.sort, p.create_time, p.update_time from product p "
+            + "left join inventory i on i.product_id=p.id and i.station_id=#{stationId} "
+            + "where p.owner_station_id is null or p.owner_station_id=#{stationId} order by p.sort, p.id")
     List<Product> listVisibleToStation(@Param("stationId") Long stationId);
 
     /** 本站自定义商品（不含软删）。 */
@@ -114,12 +122,10 @@ public interface ProductMapper {
      * 顾客照它下单只会拿到"缺货待补"。判据正本：{@code InventoryReservationService.availableQty}
      * （{@code status = 1} 即 {@code ReservationStatus.RESERVED}）。</p>
      */
-    @Select("select p.id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
-            "p.price, p.deposit, p.max_per_order, " +
-            "i.sale_price, i.deposit_price, i.ticket_enabled, i.ticket_price, i.priority_display, " +
-            "(i.quantity - coalesce((select sum(r.reserved_qty) from inventory_reservation r " +
-            "   where r.station_id = i.station_id and r.product_id = i.product_id and r.status = 1), 0)) " +
-            "  as available_qty " +
+    @Select("select p.id, " + STATION_DETAILS + "coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
+            "p.price, p.deposit, p.max_per_order, p.ticket_price as reference_ticket_price, " +
+            "i.sale_price, i.promotion_price, i.deposit_price, i.ticket_enabled, i.ticket_price, i.priority_display, " +
+            AVAILABLE_AT_STATION + " " +
             "from product p " +
             "join inventory i on i.product_id = p.id " +
             "where i.station_id = #{stationId} and i.enabled = 1 and p.status = 1 " +
@@ -133,15 +139,13 @@ public interface ProductMapper {
      * <b>可见性</b>（这个商品能不能给他看）由 Controller 按 {@code owner_station_id} + {@code status} 判定。</p>
      * <p>{@code available_qty} 口径同 {@link #listSellableByStationWithInventory}（实物 − 活跃预留，C4）。</p>
      */
-    @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
-            "p.price, p.deposit, p.max_per_order, p.status, " +
-            "i.sale_price, i.deposit_price, i.ticket_enabled, i.ticket_price, i.priority_display, " +
-            "(i.quantity - coalesce((select sum(r.reserved_qty) from inventory_reservation r " +
-            "   where r.station_id = i.station_id and r.product_id = i.product_id and r.status = 1), 0)) " +
-            "  as available_qty " +
+    @Select("select p.id, p.owner_station_id, " + STATION_DETAILS + "coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
+            "p.price, p.deposit, p.max_per_order, p.status, p.ticket_price as reference_ticket_price, " +
+            "i.sale_price, i.promotion_price, i.deposit_price, i.ticket_enabled, i.ticket_price, i.priority_display, " +
+            AVAILABLE_AT_STATION + " " +
             "from product p " +
             "left join inventory i on i.product_id = p.id and i.station_id = #{stationId} " +
-            "where p.id = #{id}")
+            "where p.id = #{id} and (p.owner_station_id is null or p.owner_station_id=#{stationId})")
     StationProductVO getStationProduct(@Param("id") Long id, @Param("stationId") Long stationId);
 
     /**
@@ -157,24 +161,26 @@ public interface ProductMapper {
 
     // ===== 管理端: 商品 + 库存联合查询（同样必须带归属过滤） =====
 
-    @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
+    @Select("select p.id, p.owner_station_id, " + STATION_DETAILS + "coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, p.status, p.sort, p.create_time, p.update_time, " +
+            "p.name as platform_name, p.spec as platform_spec, i.station_product_name, i.station_product_spec, " +
             "p.image_object_name as platform_image_object_name, i.image_object_name_override as station_image_object_name, " +
-            "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.deposit_price, i.pricing_confirmed, " +
-            "i.ticket_enabled, i.ticket_price, i.priority_display " +
+            "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.promotion_price, i.deposit_price, i.pricing_confirmed, " +
+            AVAILABLE_AT_STATION + ", i.ticket_enabled, i.ticket_price, i.priority_display " +
             "from product p " +
             "left join inventory i on i.product_id = p.id and i.station_id = #{stationId} " +
             "where p.owner_station_id is null or p.owner_station_id = #{stationId} " +
             "order by i.priority_display desc, p.sort asc, p.id asc")
     List<ProductWithInventoryVO> listWithInventory(@Param("stationId") Long stationId);
 
-    @Select("select p.id, p.owner_station_id, p.name, p.category, p.brand, p.spec, coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
+    @Select("select p.id, p.owner_station_id, " + STATION_DETAILS + "coalesce(nullif(i.image_object_name_override, ''), p.image_object_name) as image_object_name, p.description, " +
             "p.price, p.deposit, p.max_per_order, p.status, p.sort, p.create_time, p.update_time, " +
+            "p.name as platform_name, p.spec as platform_spec, i.station_product_name, i.station_product_spec, " +
             "p.image_object_name as platform_image_object_name, i.image_object_name_override as station_image_object_name, " +
-            "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.deposit_price, i.pricing_confirmed, " +
-            "i.ticket_enabled, i.ticket_price, i.priority_display " +
+            "i.id as inventory_id, i.quantity, i.enabled, i.sale_price, i.promotion_price, i.deposit_price, i.pricing_confirmed, " +
+            AVAILABLE_AT_STATION + ", i.ticket_enabled, i.ticket_price, i.priority_display " +
             "from product p " +
             "left join inventory i on i.product_id = p.id and i.station_id = #{stationId} " +
-            "where p.id = #{id} and (p.owner_station_id is null or p.owner_station_id = #{stationId})")
+            "where p.id = #{id} and (p.owner_station_id is null or p.owner_station_id = #{stationId}) for share of p")
     ProductWithInventoryVO getByIdWithInventory(@Param("id") Long id, @Param("stationId") Long stationId);
 }

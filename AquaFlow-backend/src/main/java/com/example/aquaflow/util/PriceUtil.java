@@ -45,8 +45,7 @@ public final class PriceUtil {
 
     /**
      * 按支付方式计算商品单价：水票支付时优先取站级库存水票价（inventory.ticket_price），
-     * 无有效站级配置时回退 product.ticket_price；否则取站级零售价（inventory.sale_price），
-     * 无有效站级配置时回退通用库参考价 product.price。
+     * 无水票价时回退日常价。其余支付方式按本站有效促销价或日常价结算。
      *
      * @param inventory 该站该商品的库存配置（含本站售价/水票价），可为 null
      */
@@ -54,21 +53,29 @@ public final class PriceUtil {
         if (product == null) {
             return BigDecimal.ZERO;
         }
+        BigDecimal regular = regularPrice(product.getPrice(), inventory == null ? null : inventory.getSalePrice());
         if (Integer.valueOf(PayMethod.TICKET).equals(paymentMethod)) {
-            BigDecimal stTicketPrice = inventory != null ? inventory.getTicketPrice() : null;
-            if (isEffectiveOverride(stTicketPrice)) {
-                return stTicketPrice;
-            }
-            if (isEffectiveOverride(product.getTicketPrice())) {
-                return product.getTicketPrice();
-            }
+            return ticketPrice(regular, product.getTicketPrice(), inventory == null ? null : inventory.getTicketPrice());
         }
-        // 零售价：本站售价覆盖 → 通用库参考价
-        BigDecimal stSalePrice = inventory != null ? inventory.getSalePrice() : null;
-        if (isEffectiveOverride(stSalePrice)) {
-            return stSalePrice;
-        }
-        return product.getPrice() != null ? product.getPrice() : BigDecimal.ZERO;
+        return retailPrice(regular, inventory == null ? null : inventory.getPromotionPrice());
+    }
+
+    public static BigDecimal regularPrice(BigDecimal reference, BigDecimal stationSalePrice) {
+        return isEffectiveOverride(stationSalePrice) ? stationSalePrice : (reference == null ? BigDecimal.ZERO : reference);
+    }
+
+    /** 有效的本站零售促销只影响零售，水票退回日常价的原有规则仍独立。 */
+    public static BigDecimal retailPrice(BigDecimal regular, BigDecimal promotion) {
+        return promotionActive(regular, promotion) ? promotion : regular;
+    }
+
+    public static boolean promotionActive(BigDecimal regular, BigDecimal promotion) {
+        return isEffectiveOverride(promotion) && promotion.compareTo(regular) < 0;
+    }
+
+    public static BigDecimal ticketPrice(BigDecimal regular, BigDecimal referenceTicketPrice, BigDecimal stationTicketPrice) {
+        if (isEffectiveOverride(stationTicketPrice)) return stationTicketPrice;
+        return isEffectiveOverride(referenceTicketPrice) ? referenceTicketPrice : regular;
     }
 
     /**

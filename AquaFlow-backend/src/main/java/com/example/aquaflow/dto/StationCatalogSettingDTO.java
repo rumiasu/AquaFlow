@@ -9,7 +9,7 @@ import java.math.BigDecimal;
  *
  * <p>规格见 {@code docs/design/12-商品与库存重构.md} §6.1。要点：</p>
  * <ul>
- *   <li>通用库商品的名称/规格/描述由开发者维护，本站设置不包含这些公共字段；</li>
+ *   <li>通用库商品的公共资料由平台维护，本站可单独设置显示名称和规格；</li>
  *   <li>图片允许本站覆盖，单独存入本站库存配置，不修改公共原图；</li>
  *   <li><b>库存不在这里</b>（走 {@code POST /api/manager/catalog/{id}/stock}），否则会绕过
  *       {@code inventory_record} 流水；</li>
@@ -28,6 +28,13 @@ public class StationCatalogSettingDTO {
 
     /** 本站售价（覆盖通用库参考价 product.price） */
     private BigDecimal salePrice;
+
+    /** 同一笔设置可同时修改日常价与促销。false 结束，未传保持。 */
+    private Boolean promotionActive;
+    private BigDecimal promotionPrice;
+    /** 共享模板的本站显示资料。空串恢复模板，未传保持。 */
+    private String stationProductName;
+    private String stationProductSpec;
 
     /** 本站押金（覆盖通用库参考押金 product.deposit） */
     private BigDecimal depositPrice;

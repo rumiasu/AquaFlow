@@ -119,7 +119,7 @@ async function test(name, run) { await run(); passed++; console.log('PASS ' + na
     })
     await test('existing save button is disabled until status is loaded', async () => {
       const view = fs.readFileSync(path.join(ROOT, 'miniapp-delivery/pages/station-mgmt/station-status/index.wxml'), 'utf8')
-      assert.ok(/bindtap="onSaveStatus"[^>]*disabled="{{saving \|\| loading \|\| !statusLoaded}}"/.test(view))
+      assert.ok(/bindtap="onSaveStatus"[^>]*disabled="{{saving \|\| loading \|\| !statusLoaded \|\| picked === 2 \|\| \(current.operatingStatus === 3 && picked !== 1\)}}"/.test(view))
       assert.ok(view.includes('营业状态加载失败'))
     })
     console.log('AQUAFLOW_SUITE_OK ' + passed)

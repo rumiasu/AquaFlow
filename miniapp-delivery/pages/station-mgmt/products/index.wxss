@@ -955,3 +955,5 @@ button.af-entry::after { border:0; }
 .list .card .action .b3-on-request-remove-product { color:var(--error-color); }
 .inventory-summary { border-radius:var(--radius-lg); padding:28rpx; }
 .work-read-error { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); line-height:1.65; }
+
+.promotion-overlay{position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.45);display:flex;align-items:flex-end}.promotion-sheet{max-height:90vh;box-sizing:border-box;background:#fff;border-radius:24rpx 24rpx 0 0;padding:28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom))}.promotion-head{display:flex;justify-content:space-between;align-items:center;font-weight:600}.promotion-head button{margin:0}.promotion-name{display:block;font-size:32rpx;margin:24rpx 0}.promotion-note{display:block;font-size:25rpx;color:#66736f;margin:16rpx 0;line-height:1.6}.promotion-field{display:flex;justify-content:space-between;gap:16rpx;align-items:center;padding:22rpx 0;border-bottom:1rpx solid #e4e9e7}.promotion-field input{width:260rpx;text-align:right}.promotion-error{display:block;color:#a23e32;padding:16rpx 0}.promotion-sheet>button{margin-top:18rpx}

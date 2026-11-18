@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "商品与库存",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "product-promotion-poster": "/components/ProductPromotionPoster/index"
+  }
 }

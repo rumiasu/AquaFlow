@@ -17,7 +17,7 @@ const tree = () => parseWxml(source('wxml'))
 
 test('editor and inventory sheets keep native scrollers free of touch blockers and footers outside bodies', () => {
   const root = tree(), sheets = nodes(root, n => hasClass(n, 'product-edit-modal'))
-  assert.equal(root.children.find(n => n.tag === 'page-meta').attrs['page-style'], "{{showEdit || showSetting || showInventory || showRecords ? 'overflow: hidden;' : ''}}")
+  assert.equal(root.children.find(n => n.tag === 'page-meta').attrs['page-style'], "{{promotionVisible || showEdit || showSetting || showInventory || showRecords ? 'overflow: hidden;' : ''}}")
   assert.equal(sheets.length, 2)
   for (const { node, ancestors } of sheets) {
     assert(![...ancestors, node].some(n => n.attrs && 'catchtouchmove' in n.attrs))

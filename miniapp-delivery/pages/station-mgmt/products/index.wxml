@@ -1,4 +1,4 @@
-<page-meta page-style="{{showEdit || showSetting || showInventory || showRecords ? 'overflow: hidden;' : ''}}" />
+<page-meta page-style="{{promotionVisible || showEdit || showSetting || showInventory || showRecords ? 'overflow: hidden;' : ''}}" />
 <view class="container">
   <view class="product-setup-guide" wx:if="{{moduleSetupLoading || moduleSetupError || (moduleSetupReady && moduleSetupTasks.length)}}">
     <view class="product-setup-guide-head">
@@ -100,6 +100,7 @@
             <button class="af-action af-action--primary b3-on-open-inventory" wx:if="{{item.selected || item.ownerStationId}}" catchtap="onOpenInventory" data-item="{{item}}" hover-class="af-action--pressed">库存操作</button>
             <button class="af-action af-action--secondary b3-on-select-product" wx:if="{{!item.selected}}" catchtap="onSelectProduct" data-id="{{item.id}}" hover-class="af-action--pressed">选用商品</button>
             <button class="af-action af-action--secondary b3-on-open-setting" wx:else catchtap="onOpenSetting" data-item="{{item}}" hover-class="af-action--pressed">编辑商品</button>
+            <button class="af-action af-action--secondary" wx:if="{{item.selected}}" catchtap="openPromotion" data-id="{{item.id}}">售价与海报</button>
             <button class="af-action af-action--danger-quiet b3-on-request-remove-product" wx:if="{{item.selected}}" catchtap="onRequestRemoveProduct" data-item="{{item}}" hover-class="af-action--pressed">移除</button>
           </block>
         </view>
@@ -473,3 +474,22 @@
 
 </view>
 <business-dialog id="business-dialog" />
+
+<view wx:if="{{promotionVisible}}" class="promotion-overlay">
+  <scroll-view scroll-y="true" class="promotion-sheet">
+    <view class="promotion-head"><text>本站售价与海报</text><button size="mini" bindtap="closePromotion">关闭</button></view>
+    <block wx:if="{{promotionDraft}}">
+      <text class="promotion-name">{{promotionDraft.name}} {{promotionDraft.spec}}</text>
+      <text class="promotion-note">当前售价 ¥{{promotionDraft.current}} · 日常价 ¥{{promotionDraft.regular}}</text>
+      <label class="promotion-field"><text>新日常价（留空保持）</text><input type="digit" maxlength="11" value="{{promotionDraft.value}}" data-field="value" bindinput="editPromotion" disabled="{{promotionBusy || promotionDraft.checkValue !== null}}" placeholder="大于零，最多两位小数"/></label>
+      <view class="promotion-field"><text>本站零售促销</text><switch checked="{{promotionDraft.promoActive}}" bindchange="switchPromotion" disabled="{{promotionBusy || promotionDraft.checkValue !== null}}"/></view>
+      <label wx:if="{{promotionDraft.promoActive}}" class="promotion-field"><text>促销价</text><input type="digit" maxlength="11" value="{{promotionDraft.promoValue}}" data-field="promoValue" bindinput="editPromotion" disabled="{{promotionBusy || promotionDraft.checkValue !== null}}" placeholder="低于日常价"/></label>
+      <text class="promotion-note">促销只改变本站零售价格，不改水票、押金或已下订单。</text>
+      <button bindtap="savePromotion" loading="{{promotionBusy}}" disabled="{{promotionBusy}}">{{promotionDraft.checkValue !== null ? '核对保存结果' : '保存售价'}}</button>
+      <button bindtap="promotionPoster" disabled="{{promotionBusy}}">{{promotionDraft.checkValue !== null ? '核对后生成海报' : '保存并做海报'}}</button>
+    </block>
+    <text wx:if="{{promotionError}}" class="promotion-error">{{promotionError}}</text>
+    <button wx:if="{{!promotionDraft && !promotionBusy}}" bindtap="retryPromotionRead">重新读取商品</button>
+    <product-promotion-poster wx:if="{{posterProduct}}" product="{{posterProduct}}" station-name="{{posterStationName}}" saved="{{true}}" bind:close="closePromotionPoster"/>
+  </scroll-view>
+</view>

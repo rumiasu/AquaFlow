@@ -1,0 +1,11 @@
+<view class="poster-panel">
+  <view class="poster-head">
+    <text class="poster-title">商品海报</text>
+    <button class="poster-back" bindtap="closePoster">返回</button>
+  </view>
+  <view class="poster-paper"><canvas type="2d" id="poster" class="poster-canvas" aria-label="{{description}}"/></view>
+  <text wx:if="{{message}}" class="poster-note" role="status">{{message}}</text>
+  <button wx:if="{{canRetry}}" class="poster-action" bindtap="refreshPoster">重新生成</button>
+  <button wx:else class="poster-action" disabled="{{!ready || busy || !saved}}" loading="{{busy}}" bindtap="exportPoster">查看大图</button>
+  <text wx:if="{{ready && saved}}" class="poster-hint">打开大图后，长按可保存或转发。</text>
+</view>

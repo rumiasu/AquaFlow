@@ -3,6 +3,7 @@ const { jumpToSettingSection } = require('../../../utils/settings-sections')
 const {
   getStationStatus,
   updateStationStatus,
+  updateStationDeliveryHours,
   getNotices,
   createNotice,
   updateNotice,
@@ -33,12 +34,31 @@ const {
  */
 
 const STATUS_OPTIONS = [
-  { value: 1, name: '正常运营', desc: '照常接单配送' },
-  { value: 2, name: '休息中', desc: '暂时休息，配送时间见留言' },
+  { value: 1, name: '正常运营', desc: '按每日营业时间安排配送' },
   { value: 4, name: '暂停配送，可预约', desc: '暂不配送，仍可预约下单' }
 ]
 
 const unknownStatus = () => ({ operatingStatus: null, statusText: '', note: '', customerHint: '' })
+
+const hourFields = ['opensAt', 'closesAt', 'openMinutes', 'closedMinutes']
+const durationFields = ['openMinutes', 'closedMinutes']
+const durationUnits = ['分钟', '小时']
+
+function hoursFromResponse(hours) {
+  if (!hours) return null
+  return { ...hours, closedMinutes: hours.closedMinutes ?? hours.closedHours * 60 }
+}
+
+function minuteValue(text, unit) {
+  const raw = String(text).trim()
+  if (!(unit === 1 ? /^\d+(?:\.\d{1,2})?$/ : /^\d+$/).test(raw)) return null
+  const minutes = Math.round(Number(raw) * (unit === 1 ? 60 : 1))
+  return minutes >= 1 && minutes <= 1440 ? minutes : null
+}
+
+function durationText(minutes, unit) {
+  return unit === 1 ? String(Number((minutes / 60).toFixed(2))) : String(minutes)
+}
 
 // 未读到真实状态时不能默认成正常运营，否则会掩盖待上线原因并允许误保存。
 function statusData(res) {
@@ -51,10 +71,11 @@ function statusData(res) {
   return d
 }
 
+
 Page({
   onSettingsSection(e) { jumpToSettingSection(this, e) },
   data: {
-    settingsSections: [{"target": "status-operation", "label": "营业状态"}, {"target": "status-notices", "label": "本站公告"}],
+    settingsSections: [{"target": "status-hours", "label": "营业时间"}, {"target": "status-operation", "label": "营业状态"}, {"target": "status-notices", "label": "发公告"}],
     loading: true,
     statusLoaded: false,
     statusOptions: STATUS_OPTIONS,
@@ -70,6 +91,18 @@ Page({
     picked: null,
     noteInput: '',
     saving: false,
+    hoursSaved: null,
+    hoursDraft: null,
+    hoursDirty: false,
+    durationUnits,
+    deliveryRules: [
+      { field: 'openMinutes', label: '营业中接单', start: '从接单起算' },
+      { field: 'closedMinutes', label: '打烊后接单', start: '从下次开门起算' }
+    ],
+    hoursUnit: { openMinutes: 0, closedMinutes: 0 },
+    hoursInput: {},
+    hoursSaving: false,
+    hoursError: '',
 
     notices: [],
     noticesLoading: false, noticesError: '', statusError: '',
@@ -86,6 +119,10 @@ Page({
     saveHint: ''
   },
 
+  onLoad(options = {}) {
+    this._focusHours = options.section === 'hours'
+  },
+
   onShow() {
     const app = getApp()
     if (!app.canAccessStationBusiness()) {
@@ -98,10 +135,12 @@ Page({
     if (changed) {
       this._noticeEditVersion = (this._noticeEditVersion || 0) + 1
       this._unverifiedStatusDraft = null
-      this.setData({ showEdit: false, editForm: { title: '', content: '' }, noteInput: '' })
+      this.setData({ showEdit: false, editForm: { title: '', content: '' }, noteInput: '',
+        hoursSaved: null, hoursDraft: null, hoursDirty: false, hoursSaving: false, hoursError: '',
+        hoursUnit: { openMinutes: 0, closedMinutes: 0 }, hoursInput: {} })
     }
     this._statusOwner = owner
-    if (changed || !this.statusDraftDirty()) this.loadStatus()
+    if (changed || !this.hasSettingsDraft()) this.loadStatus()
     this.loadNotices()
   },
 
@@ -111,18 +150,36 @@ Page({
   },
 
   onPullDownRefresh() {
-    Promise.all([this.statusDraftDirty() ? Promise.resolve() : this.loadStatus(), this.loadNotices()]).then(() => wx.stopPullDownRefresh())
+    Promise.all([this.hasSettingsDraft() ? Promise.resolve() : this.loadStatus(), this.loadNotices()]).then(() => wx.stopPullDownRefresh())
   },
 
   statusDraftDirty() {
     return this.data.statusLoaded && (this.data.picked !== this.data.current.operatingStatus || this.data.noteInput !== this.data.current.note)
   },
 
+  hoursDraftDirty() {
+    const { hoursSaved, hoursDraft } = this.data
+    return hoursSaved && hoursDraft && hourFields.some(key => String(hoursDraft[key]) !== String(hoursSaved[key]))
+  },
+
+  refreshHoursDraft() {
+    this.setData({ hoursDirty: Boolean(this.hoursDraftDirty()) }, () => this.syncExitGuard())
+  },
+
+  durationInputs(hours) {
+    if (!hours) return {}
+    return Object.fromEntries(durationFields.map(field => [field, durationText(hours[field], this.data.hoursUnit[field])]))
+  },
+
+  hasSettingsDraft() {
+    return this.statusDraftDirty() || this.hoursDraftDirty() || this.data.hoursSaving
+  },
+
   syncExitGuard() {
     const initial = this._noticeInitial || { title: '', content: '' }, form = this.data.editForm
     const dirtyNotice = this.data.showEdit && (form.title !== initial.title || form.content !== initial.content)
-    if (this.statusDraftDirty() || dirtyNotice || this._unverifiedStatusDraft) {
-      if (typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '营业状态或公告尚未保存。', fail: () => this.setData({ exitGuardError: '离开提醒未能开启，请先保存或确认放弃修改。' }) })
+    if (this.hasSettingsDraft() || dirtyNotice || this._unverifiedStatusDraft) {
+      if (typeof wx.enableAlertBeforeUnload === 'function') wx.enableAlertBeforeUnload({ message: '还有修改尚未保存。', fail: () => this.setData({ exitGuardError: '离开提醒未能开启，请先保存或确认放弃修改。' }) })
       else this.setData({ exitGuardError: '当前无法开启离开提醒，请先保存或确认放弃修改。' })
     } else {
       if (typeof wx.disableAlertBeforeUnload === 'function') wx.disableAlertBeforeUnload({})
@@ -145,10 +202,12 @@ Page({
       const res = await getStationStatus()
       if (!current()) return
       const d = statusData(res)
+      const preserveHoursDraft = this.hoursDraftDirty()
       const patch = {
         statusLoaded: true,
         current: {
           operatingStatus: d.operatingStatus,
+          hardStatus: d.hardStatus,
           statusText: d.statusText,
           note: d.note || '',
           customerHint: d.customerHint || '',
@@ -157,9 +216,17 @@ Page({
         picked: d.operatingStatus,
         noteInput: d.note || ''
       }
+      if (!this.data.hoursSaving && !preserveHoursDraft) {
+        patch.hoursSaved = hoursFromResponse(d.deliveryHours)
+        patch.hoursDraft = patch.hoursSaved ? { ...patch.hoursSaved } : null
+        patch.hoursInput = this.durationInputs(patch.hoursSaved)
+        patch.hoursDirty = false
+        patch.hoursError = ''
+      }
       // 选项**以后端下发为准**（value/text/desc/effect 同源于 constant/StationOperatingStatus）；
       // 后端还没这些字段时（旧后端）才用文件头那张兜底表，别让它成为唯一来源。
-      const opts = (d.options || []).map(o => ({ value: o.value, name: o.text, desc: o.desc, effect: o.effect || '' }))
+      const opts = (d.options || []).filter(o => o.value !== 2)
+        .map(o => ({ value: o.value, name: o.text, desc: o.desc, effect: o.effect || '' }))
       if (opts.length) patch.statusOptions = opts
       // 打开页面先显示**当前状态**的效果；点了别的选项再换成那个选项的。
       // ⚠️ 待上线**不在可选项里**，所以它的效果只能从 currentEffect 拿（见后端 toView）。
@@ -174,13 +241,71 @@ Page({
         patch.picked = this.data.picked
         patch.noteInput = this.data.noteInput
       }
-      this.setData(patch, () => this.syncExitGuard())
+      this.setData(patch, () => {
+        this.syncExitGuard()
+        if (this._focusHours && this.data.hoursDraft) {
+          this._focusHours = false
+          this.onSettingsSection({ currentTarget: { dataset: { target: 'status-hours' } } })
+        }
+      })
     } catch (err) {
       if (!current()) return
       this.setData({ statusError: '营业状态尚未读取，请重试后再修改' })
       wx.showToast({ title: (err && err.message) || '营业状态加载失败', icon: 'none' })
     } finally {
       if (current()) this.setData({ loading: false })
+    }
+  },
+
+  onHoursChange(e) {
+    const { field } = e.currentTarget.dataset
+    if (!this.data.hoursDraft || this.data.hoursSaving || !hourFields.includes(field)) return
+    const value = e.detail.value
+    const patch = { hoursDraft: { ...this.data.hoursDraft, [field]: value }, hoursError: '' }
+    if (durationFields.includes(field)) {
+      patch.hoursInput = { ...this.data.hoursInput, [field]: value }
+      patch.hoursDraft[field] = minuteValue(value, this.data.hoursUnit[field])
+    }
+    this.setData(patch, () => this.refreshHoursDraft())
+  },
+
+  onHoursUnitChange(e) {
+    const { field } = e.currentTarget.dataset
+    const unit = Number(e.detail.value)
+    if (!this.data.hoursDraft || this.data.hoursSaving || !durationFields.includes(field) || !durationUnits[unit]) return
+    const minutes = this.data.hoursDraft[field]
+    this.setData({
+      hoursUnit: { ...this.data.hoursUnit, [field]: unit },
+      hoursInput: { ...this.data.hoursInput, [field]: minutes == null ? '' : durationText(minutes, unit) },
+      hoursError: ''
+    })
+  },
+
+  async onSaveHours() {
+    if (this.data.loading || !this.data.statusLoaded || this.data.hoursSaving || !this.hoursDraftDirty()) return
+    const owner = this.statusOwner()
+    const draft = this.data.hoursDraft
+    if (durationFields.some(field => draft[field] == null)) {
+      this.setData({ hoursError: '配送时限须为 1 至 1440 分钟（最多 24 小时）' })
+      return
+    }
+    const payload = Object.fromEntries(hourFields.map(field => [field, draft[field]]))
+    this.setData({ hoursSaving: true, hoursError: '' })
+    try {
+      const res = await updateStationDeliveryHours(payload)
+      if (owner !== this.statusOwner()) return
+      const saved = hoursFromResponse(res && res.data)
+      if (!saved || !hourFields.every(key => saved[key] === payload[key])) {
+        throw new Error('保存结果待核实，请重试')
+      }
+      const statusText = saved.stationStatusText
+      this.setData({ hoursSaved: saved, hoursDraft: { ...saved }, hoursDirty: false, hoursInput: this.durationInputs(saved),
+        ...(statusText ? { 'current.statusText': statusText } : {}) })
+      wx.showToast({ title: '营业时间已保存', icon: 'success' })
+    } catch (error) {
+      if (owner === this.statusOwner()) this.setData({ hoursError: (error && error.message) || '保存未确认，请重试' })
+    } finally {
+      if (owner === this.statusOwner()) this.setData({ hoursSaving: false }, () => this.syncExitGuard())
     }
   },
 
@@ -225,6 +350,8 @@ Page({
 
   async onSaveStatus() {
     if (this.data.loading || !this.data.statusLoaded || this.data.saving) return
+    if (this.data.picked === 2) return
+    if (this.data.current.operatingStatus === 3 && this.data.picked !== 1) return
     this.setData({ saving: true })
     try {
       const res = await updateStationStatus(this.data.picked, this.data.noteInput)
@@ -233,6 +360,7 @@ Page({
       this.setData({
         current: {
           operatingStatus: d.operatingStatus,
+          hardStatus: d.hardStatus,
           statusText: d.statusText,
           note: d.note || '',
           customerHint: d.customerHint || '',

@@ -1,3 +1,4 @@
+const promotionPage = require('./promotion')
 const { showBusinessModal } = require('../../../utils/business-dialog')
 const { initialModuleData, refreshModuleTasks } = require('../../../utils/setup-progress')
 const { WATER_PRODUCT_TEMPLATES, TEMPLATE_IMAGE, IMAGE_NOTICE, templatesWithImages, matchingCatalogProducts, templateBusinessError } = require('../../../utils/water-product-templates')
@@ -145,7 +146,18 @@ const SUBMISSION_STATUS_TEXT = { 0: '待处理', 1: '已纳入通用库', 2: '�
  *   · 通用库没有的品，走**底部独立入口**「新建自定义商品」（仅本站可见，可上报供审核）。
  */
 Page({
+  syncPromotionSession(event) { return promotionPage.syncPromotionSession.call(this, event) },
+  hidePromotion(event) { return promotionPage.hidePromotion.call(this, event) },
+  closePromotion(event) { return promotionPage.closePromotion.call(this, event) },
+  closePromotionPoster(event) { return promotionPage.closePromotionPoster.call(this, event) },
+  openPromotion(event) { return promotionPage.openPromotion.call(this, event) },
+  retryPromotionRead(event) { return promotionPage.retryPromotionRead.call(this, event) },
+  editPromotion(event) { return promotionPage.editPromotion.call(this, event) },
+  switchPromotion(event) { return promotionPage.switchPromotion.call(this, event) },
+  promotionPoster(event) { return promotionPage.promotionPoster.call(this, event) },
+  savePromotion(event) { return promotionPage.savePromotion.call(this, event) },
   data: {
+    promotionVisible: false, promotionBusy: false, promotionDraft: null, posterProduct: null, posterStationName: '',
     ...initialModuleData(),
     loading: true,
     loadError: '',
@@ -254,6 +266,7 @@ Page({
   },
 
   onShow() {
+    this.syncPromotionSession()
     this._productHidden = false
     const visibleSession = productSession()
     if (this._productPageSession && !sameProductSession(this._productPageSession)) {
@@ -299,6 +312,7 @@ Page({
   },
 
   onUnload() {
+    this.hidePromotion()
     if (this._pkgReturnCancel) this._pkgReturnCancel()
     this._productDestroyed = true
     this._catalogReadSeq = (this._catalogReadSeq || 0) + 1
@@ -308,12 +322,13 @@ Page({
   },
 
   onHide() {
+    this.hidePromotion()
     this._productHidden = true
     if (this._pkgReturnCancel) this._pkgReturnCancel()
     if (this._inboundFlight && this._inboundFlight.cancelConfirmation) this._inboundFlight.cancelConfirmation()
   },
 
-  productWriteLocked() { return !!(this._productSaveFlight || this._inboundFlight || this._stockOperationFlight || this.data.saving || this.data.inboundBusy || this.data.stockOperationBusy) },
+  productWriteLocked() { return !!(this._promotionFlight || this.data.promotionBusy || this._productSaveFlight || this._inboundFlight || this._stockOperationFlight || this.data.saving || this.data.inboundBusy || this.data.stockOperationBusy) },
 
   productSaveProof(kind, targetId) {
     return { kind, targetId, session: (kind === 'setting' ? this._productSettingOwner : kind === 'edit' ? this._productEditOwner : null) || productSession(),

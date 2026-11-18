@@ -45,12 +45,52 @@ for (const change of [{ id: undefined }, { floor: 0 }, { hasElevator: 0 }, { isD
   f.p.setData({ formData: { ...form } }); await f.p.onSubmit(); await f.p.onSubmit()
   assert.equal(writes, 2, 'only a valid matching resource avoids a second explicit POST')
 })
-test('failed address lookup never claims success and permits only the user requested create retry', async () => {
+test('failed address lookup never sends a second create while the first result is unknown', async () => {
   let writes = 0, reads = 0
   const f = fixture('edit', { api: { createAddress: async () => { writes++; throw lost() }, getAddresses: async () => { reads++; throw lost() } } })
   f.p.setData({ formData: { ...form } }); await f.p.onSubmit()
   assert.equal(writes, 1); assert.equal(reads, 0)
-  await f.p.onSubmit(); assert.equal(writes, 2); assert.equal(reads, 1); assert.equal(f.p.data.saveSucceeded, false)
+  await f.p.onSubmit(); assert.equal(writes, 1); assert.equal(reads, 1); assert.equal(f.p.data.saveSucceeded, false)
+})
+test('a synchronous storage failure before saving a new address never sends the create', async () => {
+  let writes = 0
+  const f = fixture('edit', { wx: { setStorageSync: () => { throw Error('storage unavailable') } },
+    api: { createAddress: async () => { writes++; return ok(8) } } })
+  f.p.setData({ formData: { ...form } }); await f.p.onSubmit()
+  assert.equal(writes, 0); assert(!f.p.data.saveSucceeded); assert(!f.p.data.submitting)
+})
+test('a success envelope without an address id keeps the original create request for a safe retry', async () => {
+  const keys = [], f = fixture('edit', { api: { getAddresses: async () => ok([]),
+    createAddress: async body => { keys.push(body.idempotencyKey); return ok(keys.length === 1 ? null : 12) } } })
+  f.p.setData({ formData: { ...form } }); await f.p.onSubmit()
+  assert(!f.p.data.saveSucceeded); await f.p.onSubmit()
+  assert(f.p.data.saveSucceeded); assert.equal(keys[0],keys[1])
+})
+test('a changed original address keeps its current fields and a deleted original needs another explicit save', async () => {
+  const changed = fixture('edit', { api: { getAddresses: async () => ok([{ ...address, detail: '已改门牌' }]),
+    createAddress: async () => { if (!changed.lostOnce) { changed.lostOnce = true; throw lost() } return ok(3) } } })
+  changed.p.setData({ formData: { ...form } }); await changed.p.onSubmit(); await changed.p.onSubmit()
+  assert(changed.p.data.saveSucceeded); assert.match(changed.p.data.saveMessage, /后来有修改/)
+  const keys = [], removed = fixture('edit', { api: { getAddresses: async () => ok([]),
+    createAddress: async body => { keys.push(body.idempotencyKey); if (keys.length === 1) throw lost()
+      if (keys.length === 2) throw Object.assign(Error('这次保存的地址已删除，请返回地址簿核对'), { businessRejected: true })
+      return ok(8) } } })
+  removed.p.setData({ formData: { ...form } }); await removed.p.onSubmit(); await removed.p.onSubmit()
+  assert(!removed.p.data.saveSucceeded); assert.match(removed.p.data.saveMessage, /已删除/)
+  assert.deepEqual(keys, [keys[0],keys[0]]); await removed.p.onSubmit()
+  assert(removed.p.data.saveSucceeded); assert.notEqual(keys[0],keys[2])
+})
+test('reopening the same new address reuses the original create key after a proved empty lookup', async () => {
+  const keys = [], storage = new Map()
+  const config = { wx: { getStorageSync: k => storage.get(k) || '', setStorageSync: (k,v) => storage.set(k,v),
+    removeStorageSync: k => storage.delete(k) }, api: { getAddresses: async () => ok([]), createAddress: async data => {
+    keys.push(data.idempotencyKey); if (keys.length === 1) throw lost(); return ok(19)
+  } } }
+  for (let i = 0; i < 2; i++) {
+    const f = fixture('edit', config); f.p.setData({ formData: { ...form } }); await f.p.onSubmit()
+    assert.equal(f.p.data.saveSucceeded, i === 1)
+  }
+  assert(keys[0]); assert.equal(keys[0], keys[1]); assert.equal(storage.size, 0)
 })
 test('default address response loss refreshes once automatically without a manual verification panel', async () => {
   let reads = 0, changed = false

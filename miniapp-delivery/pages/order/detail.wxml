@@ -32,6 +32,9 @@
       <text class="status-badge status-{{order.statusClass}}">{{order.statusText}}</text>
       <text class="aux-tag aux-{{l.type}}" wx:for="{{order.labels}}" wx:for-item="l" wx:key="type">{{l.text}}</text>
     </view>
+    <view class="info-row" wx:if="{{order.deliveryDeadlineText}}">
+      <text class="info-text">最迟送达 {{order.deliveryDeadlineText}}</text>
+    </view>
     <view class="fact-amount-row lv2-fact-money" wx:if="{{order.amountText}}">
       <view class="fact-total">
         <text class="fact-amount-label">订单金额</text>

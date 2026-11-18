@@ -15,6 +15,9 @@ const os = require('os')
 const { registryProblems, completion } = require('./suite-registry')
 
 const SUITES = [
+  { file: 'station-promotion-poster.test.js', name: 'saved price poster rendering and callbacks' },
+  { file: 'station-promotion-functional.test.js', name: 'station promotion save and receipt safety' },
+  { file: 'station-delivery-hours.test.js', name: 'station opening hours and delivery minute precision' },
   { file: 'station-discovery.test.js', name: 'scoped station discovery, map city controls and stale context boundaries' },
   { file: 'customer-pending-return.test.js', name: 'customer return confirmation reminders and direct entry' },
   { file: 'delivery-home-address-navigation.test.js', name: 'delivery home snapshot address and navigation' },

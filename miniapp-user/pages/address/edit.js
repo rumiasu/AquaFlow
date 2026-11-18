@@ -21,6 +21,26 @@ function sameAddress(row, payload) {
     && Number(row.isDefault || 0) === Number(payload.isDefault || 0)
 }
 
+// 本地仅用短摘要定位上次的随机编号；服务端按完整内容摘要核对。
+function addressCreateIntent(customerId, form) {
+  if (!customerId) throw new Error('请先登录后保存地址')
+  const fields = ['name','phone','province','city','district','detail','label','floor','hasElevator','isDefault','lat','lng']
+  const content = JSON.stringify(fields.map(field => form[field] ?? null))
+  let hash = 2166136261
+  for (let i = 0; i < content.length; i++) hash = Math.imul(hash ^ content.charCodeAt(i), 16777619)
+  const slot = 'aq_user_address_create:' + customerId + ':' + (hash >>> 0).toString(36) + ':' + content.length
+  const saved = wx.getStorageSync(slot)
+  if (saved) {
+    if (typeof saved !== 'string' || !/^addr_[a-z0-9_]+$/.test(saved)) throw new Error('原保存编号暂未读到')
+    return { slot, key: saved, retry: true }
+  }
+  const key = 'addr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+  wx.setStorageSync(slot, key)
+  if (wx.getStorageSync(slot) !== key) throw new Error('保存编号未能暂存')
+  return { slot, key, retry: false }
+}
+
+
 Page({
   data: {
     loading: false,
@@ -235,7 +255,7 @@ Page({
       Object.assign(patch, { 'formData.lat': null, 'formData.lng': null, locating: false,
         ...(field === 'detail' ? { 'formData.province': '', 'formData.city': '', 'formData.district': '' } : {}),
         locationMessage: hadLocation || this.data.locationMessage.includes('原地图位置和记录区域已清除')
-          ? '粗略地址已修改，原地图位置和记录区域已清除；可重新选择地图位置。' : '可选择地图位置，也可继续手动填写。' })
+          ? '小区或街道已修改，原定位已清除，可重新选点。' : '可以选点，也可继续手动填写。' })
     }
     this.setData(patch, () => this.updateLeaveWarning())
   },
@@ -368,7 +388,7 @@ Page({
 
     if (!formData.province && !formData.city && !formData.district) {
       if (!formData.detail) {
-        this.setData({ saveMessage: '请输入粗略地址。' })
+        this.setData({ saveMessage: '请填写小区、街道或送水地址。' })
         return
       }
     }
@@ -405,6 +425,7 @@ Page({
       isDefault: formData.isDefault ? 1 : 0,
       ...(customerId ? { customerId } : {})
     }
+    let createIntent, previousAddresses, savedBeforeEdit = false
     try {
       if (isEdit) {
         // 2026-11-01 C-01: explicit CLEAR is separate from legacy null/omission (KEEP).
@@ -418,25 +439,30 @@ Page({
           throw new Error('地址保存结果尚未确认')
       } else {
         let present = false
-        if (this._lastCreatePayload === JSON.stringify(submitData)) {
-          try {
-            const res = await getAddresses()
-            if (this._disposed || !this.ensurePageSession()) return
-            present = !!(res && Array.isArray(res.data) && res.data.some(row => sameAddress(row, submitData)))
-          } catch (readError) {
-            if (this._disposed || !this.ensurePageSession()) return
-            if (this.isAccessError(readError)) throw readError
-            // A failed lookup is not success. Only this explicit user retry may submit again.
-          }
+        createIntent = addressCreateIntent(customerId, submitData)
+        if (createIntent.retry) {
+          const res = await getAddresses()
+          if (this._disposed || !this.ensurePageSession()) return
+          if (!res || res.code != null && res.code !== 0 || !Array.isArray(res.data)) throw new Error('地址簿暂未读到')
+          previousAddresses = res.data
+          present = res.data.some(row => sameAddress(row, submitData))
         }
-        if (!present) await createAddress(submitData)
+        if (!present) {
+          const response = await createAddress({ ...submitData, idempotencyKey: createIntent.key })
+          const result = response && response.data
+          const id = result && typeof result === 'object' ? result.id : result
+          if (!response || response.code != null && response.code !== 0 || !Number.isSafeInteger(Number(id)) || Number(id) < 1)
+            throw new Error('尚未收到已保存的地址编号')
+          savedBeforeEdit = previousAddresses && previousAddresses.some(row => Number(row.id) === Number(id))
+        }
       }
       if (this._disposed || !this.ensurePageSession()) return
-      this._lastCreatePayload = null
+      if (createIntent && wx.getStorageSync(createIntent.slot) === createIntent.key) wx.removeStorageSync(createIntent.slot)
       this._saveCompleted = true
       const cleared = this.clearSavedDraft()
-      this.setData({ saveSucceeded: true, saveMessage: cleared ? '地址已保存，即将返回地址列表。' : '地址已保存，草稿尚未确认清除。' }, () => this.updateLeaveWarning())
-      wx.showToast({ title: '地址已保存', icon: 'success' })
+      this.setData({ saveSucceeded: true, saveMessage: savedBeforeEdit ? '这次地址已保存过，后来有修改。请以地址簿中的记录为准。'
+        : cleared ? '地址已保存，即将返回地址列表。' : '地址已保存，草稿尚未确认清除。' }, () => this.updateLeaveWarning())
+      wx.showToast({ title: savedBeforeEdit ? '请核对地址簿' : '地址已保存', icon: savedBeforeEdit ? 'none' : 'success' })
       if (cleared) this._backTimer = setTimeout(() => { if (!this._disposed) this.onBackToList() }, 1000)
     } catch (error) {
       if (this._disposed || !this.ensurePageSession()) return
@@ -444,12 +470,17 @@ Page({
       const denied = this.isAccessError(error)
       const serviceMissing = isEdit && /^(404|405)$/.test(String(error && (error.code || error.statusCode) || ''))
       const rejected = error && (error.businessRejected === true || String(error.code || error.statusCode) === '401' || String(error.code || error.statusCode) === '403')
-      if (!isEdit && !rejected && !denied) this._lastCreatePayload = JSON.stringify(submitData)
+      const removed = createIntent && error && error.businessRejected === true && (error.originalMessage || error.message) === '这次保存的地址已删除，请返回地址簿核对'
+      if (removed) {
+        try { if (wx.getStorageSync(createIntent.slot) === createIntent.key) wx.removeStorageSync(createIntent.slot) } catch (_) {}
+      }
       this.setData({ accessDenied: denied, saveUnknown: false, saveMessage: denied
         ? '当前账号无权保存此地址，输入已保留，请使用客户账号登录。'
         : serviceMissing ? '地址服务暂不可用，输入已保留，请稍后重试。'
+          : removed ? '之前保存的地址已删除。需要重新添加时，可再次保存。'
           : rejected ? '地址未保存，输入已保留，请核对信息后重试。'
-          : '暂未收到保存结果，输入已保留，可直接重试。' })
+          : isEdit ? '暂未收到保存结果，可以重试。'
+            : createIntent ? '保存结果待核对。再次保存时会先查地址簿。' : '暂时无法保存，请稍后重试。' })
       if (denied) {
         showBusinessModal({ confirmColor: '#1264D6', cancelColor: '#637083',
           title: '暂时无法保存',

@@ -13,19 +13,20 @@
   <view class="card" id="status-operation">
     <view class="card-header">
       <text class="card-title">营业状态</text>
-      <text class="badge badge-on" wx:if="{{current.operatingStatus === 1}}">{{current.statusText}}</text>
+      <text class="badge badge-on" wx:if="{{current.statusText === '营业中'}}">{{current.statusText}}</text>
       <text class="badge badge-warn" wx:else>{{current.statusText || (loading ? '正在加载…' : '营业状态加载失败')}}</text>
     </view>
     <!-- ⚠️ 这一句**保持可见**：它是本页的核心语义（软状态 = 顾客照样能下单）。
          站长若以为"休息中"会挡住下单，就永远不敢用这个功能 —— 那是会做出错决定的信息，
          不能藏进「?」（判据见 components/HelpTip/index.js 边界 1）。
          [2026-09-24] 从 30 字压到 20 字，语义不变。 -->
-    <text class="card-sub">营业状态仅向顾客显示提示，不限制下单；待上线时水站暂不对顾客展示。</text>
+    <text class="card-sub">{{current.operatingStatus === 3 ? '资料齐全后，选「正常运营」并保存，即可开站。' : '正常运营时，按营业时间自动显示营业中或已打烊。'}}</text>
 
     <view class="options">
       <view
         class="af-choice b3-on-pick-status {{picked === item.value ? 'af-choice--selected' : ''}}"
         wx:for="{{statusOptions}}"
+        wx:if="{{current.operatingStatus !== 3 || item.value === 1}}"
         wx:key="value"
         bindtap="onPickStatus"
         data-value="{{item.value}}"
@@ -34,10 +35,10 @@
     </view>
 
     <view class="field">
-      <text class="label">留言（给顾客看的一句话，≤100 字）</text>
+      <text class="label">给顾客的留言（最多 100 字）</text>
       <textarea
         class="textarea"
-        placeholder="如：今天休息，明早 8 点正常送水"
+        placeholder="如：今天送水稍晚"
         maxlength="100"
         value="{{noteInput}}"
         bindinput="onNoteInput"
@@ -56,9 +57,36 @@
       <text class="preview-text">{{effectText}}</text>
     </view>
 
-    <button class="af-action af-action--primary b3-on-save-status af-action--block" bindtap="onSaveStatus" loading="{{saving}}" disabled="{{saving || loading || !statusLoaded}}" hover-class="af-action--pressed">保存营业状态</button>
+    <button class="af-action af-action--primary b3-on-save-status af-action--block" bindtap="onSaveStatus" loading="{{saving}}" disabled="{{saving || loading || !statusLoaded || picked === 2 || (current.operatingStatus === 3 && picked !== 1)}}" hover-class="af-action--pressed">{{current.operatingStatus === 3 ? '保存并开始营业' : '保存营业状态'}}</button>
   </view>
 
+  <view class="card" id="status-hours" wx:if="{{hoursDraft}}">
+    <view class="card-header">
+      <text class="card-title">营业时间与配送承诺</text>
+      <text class="badge badge-off">每天</text>
+    </view>
+    <view class="hours-grid">
+      <picker mode="time" value="{{hoursDraft.opensAt}}" disabled="{{hoursSaving || loading}}" data-field="opensAt" bindchange="onHoursChange">
+        <view class="hours-time"><text>开门</text><text class="hours-value">{{hoursDraft.opensAt}} ›</text></view>
+      </picker>
+      <picker mode="time" value="{{hoursDraft.closesAt}}" disabled="{{hoursSaving || loading}}" data-field="closesAt" bindchange="onHoursChange">
+        <view class="hours-time"><text>打烊</text><text class="hours-value">{{hoursDraft.closesAt}} ›</text></view>
+      </picker>
+    </view>
+    <text class="card-sub" wx:if="{{hoursDraft.closesAt < hoursDraft.opensAt}}">打烊时间为次日</text>
+    <view class="hours-rule" wx:for="{{deliveryRules}}" wx:key="field">
+      <view class="hours-rule-copy"><text class="label">{{item.label}}</text><text>{{item.start}}</text></view>
+      <view class="hours-limit">
+        <input type="{{hoursUnit[item.field] === 1 ? 'digit' : 'number'}}" maxlength="5" value="{{hoursInput[item.field]}}" disabled="{{hoursSaving || loading}}" data-field="{{item.field}}" bindinput="onHoursChange" aria-label="{{item.label}}的配送时限" />
+        <picker mode="selector" range="{{durationUnits}}" value="{{hoursUnit[item.field]}}" disabled="{{hoursSaving || loading}}" data-field="{{item.field}}" bindchange="onHoursUnitChange">
+          <view class="hours-unit" aria-label="切换{{item.label}}的时限单位">{{durationUnits[hoursUnit[item.field]]}}内 ▾</view>
+        </picker>
+      </view>
+    </view>
+    <text class="card-sub">打烊后仍接单。货到付款从下单起算，预付订单从支付成功起算。</text>
+    <text class="hours-error" wx:if="{{hoursError}}">{{hoursError}}</text>
+    <button class="af-action af-action--primary af-action--block" bindtap="onSaveHours" loading="{{hoursSaving}}" disabled="{{hoursSaving || loading || !statusLoaded || !hoursDirty}}" hover-class="af-action--pressed">保存营业时间和配送承诺</button>
+  </view>
   <!-- ============ 公告 ============ -->
   <view class="card" id="status-notices">
     <view class="card-header">

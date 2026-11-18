@@ -117,6 +117,10 @@
       <text class="label">配送地址</text>
       <text class="value">{{order.addressDetail}}</text>
     </view>
+    <view class="info-row" wx:if="{{order.deliveryDeadlineText}}">
+      <text class="label">最迟送达</text>
+      <text class="value">{{order.deliveryDeadlineText}}</text>
+    </view>
     <view class="info-row" wx:if="{{order.deliveryTimeRequest}}">
       <text class="label">期望送达</text>
       <text class="value">{{order.deliveryTimeRequest}}</text>

@@ -42,6 +42,23 @@ test('选择地址按账号保存，首页和下单页同账号正常一次性�
   }
 })
 
+test('选择地址暂存失败时给出反馈并留在列表，恢复后可以重新选择', async () => {
+  const t = fixture(), list = t.list()
+  list.onLoad({ from: 'order' })
+  await list.loadAddresses()
+  const save = t.wx.setStorageSync
+  t.wx.setStorageSync = (key, value) => {
+    if (key === 'selectedAddress') throw new Error('storage unavailable')
+    return save(key, value)
+  }
+  list.onSelectAddress(tap(list.data.addresses[0]))
+  assert.equal(t.wx.__calls.nav.length, 0)
+  assert.match(list.data.actionMessage, /未能应用所选地址/)
+  t.wx.setStorageSync = save
+  list.onSelectAddress(tap(list.data.addresses[0]))
+  assert.equal(t.wx.__calls.nav.at(-1).type, 'navigateBack')
+})
+
 test('未正常退出直接换号，首页和下单页都不会展示或使用上一账号选择', async () => {
   for (const target of ['home', 'order']) {
     const t = fixture(), list = t.list()

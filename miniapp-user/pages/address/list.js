@@ -13,11 +13,12 @@ function failureView(error) {
   return { denied: denied || login, text: denied ? '当前账号无权查看或修改收货地址，请使用客户账号登录。'
     : login ? '登录状态已失效，请重新登录后查看地址。' : '地址未能读取，请检查网络后重试。' }
 }
+
 Page({
   data: { loading: true, loaded: false, loadError: '', accessDenied: false, addresses: [], from: '',
     mutationPending: false, actionMessage: '', actionUnknown: false },
   onLoad(options) { this.setData({ from: options && options.from || '' }) },
-  onShow() { this._disposed = false; this.loadAddresses() },
+  onShow() { appearance.show(this); this._disposed = false; this.loadAddresses() },
   onHide() { this._readId = (this._readId || 0) + 1; this.setData({ loading: false }) },
   onUnload() { this._disposed = true; this._readId = (this._readId || 0) + 1 },
   onPullDownRefresh() { return this.loadAddresses().finally(() => wx.stopPullDownRefresh()) },
@@ -53,13 +54,23 @@ Page({
     }
   },
   onSelectAddress(e) {
-    if (!this.ensurePageSession()) return
+    if (this._disposed || !this.ensurePageSession()) return
     if (this.data.loading || this.data.loadError || this.data.mutationPending || this.data.actionUnknown) return
     if (this.data.from === 'home' || this.data.from === 'order') {
-      if (selectedAddressStorage.set(e.currentTarget.dataset.item, this._pageSession)) wx.navigateBack()
+      const address = e.currentTarget.dataset.item
+      // 2026-11-17：选址暂存失败原本没有反馈，用户看见按钮无反应。
+      if (selectedAddressStorage.set(address, this._pageSession)) wx.navigateBack()
+      else {
+        const message = '未能应用所选地址，请重新选择。'
+        this.setData({ actionMessage: message })
+        wx.showToast({ title: message, icon: 'none' })
+      }
     }
   },
-  onAddAddress() { if (!this.data.mutationPending) wx.navigateTo({ url: '/pages/address/edit' }) },
+  onAddAddress() {
+    if (!this.ensurePageSession() || this._disposed || this.data.mutationPending || this.data.actionUnknown || this.data.accessDenied) return
+    wx.navigateTo({ url: '/pages/address/edit' })
+  },
   onEditAddress(e) {
     if (!this.ensurePageSession() || this._disposed || this.data.loading || this.data.loadError || this.data.mutationPending || this.data.actionUnknown || this.data.accessDenied) return
     if (!this.data.addresses.some(row => String(row.id) === String(e.currentTarget.dataset.id))) return

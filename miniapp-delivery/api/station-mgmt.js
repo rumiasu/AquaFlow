@@ -169,6 +169,8 @@ const updateStationStatus = (operatingStatus, note) => {
   return put(API.MANAGER_STATION_STATUS, { operatingStatus, note: note || '' })
 }
 
+const updateStationDeliveryHours = (hours) => put(API.MANAGER_STATION_STATUS + '/hours', hours)
+
 /**
  * 站长「信息完善引导」：未配好的项逐条列出来（key / label / level / done / where / route / why）。
  *
@@ -481,6 +483,7 @@ module.exports = {
   getMySubmissions,
   getStationStatus,
   updateStationStatus,
+  updateStationDeliveryHours,
   getMyStation,
   updateStation,
   updateStationProfile,

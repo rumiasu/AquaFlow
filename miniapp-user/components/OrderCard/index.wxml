@@ -30,6 +30,7 @@
     </view>
     <view class="delivery-info">
       <text class="address">{{order.addressDetail || '配送地址待核实'}}</text>
+      <text class="time" wx:if="{{(order.status === 1 || order.status === 2) && order.deliveryDeadlineText}}">最迟送达 {{order.deliveryDeadlineText}}</text>
       <text class="time">{{createTimeText ? '下单于 ' + createTimeText : '下单时间待核实'}}</text>
     </view>
   </view>

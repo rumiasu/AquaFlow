@@ -218,3 +218,13 @@ button.af-entry::after { border:0; }
 .notice-actions { display:flex; flex-wrap:wrap; gap:12rpx; }
 .modal { box-sizing:border-box; }
 .ui-state { background:var(--bg-gray); border-left:4rpx solid var(--primary-color); }
+
+.hours-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20rpx; }
+.hours-time { display: flex; flex-direction: column; gap: 8rpx; padding: 20rpx 24rpx; border-radius: 16rpx; background: var(--af-soft, #eef4fc); color: var(--af-ink, #20344b); font-size: 26rpx; }
+.hours-value { font-size: 38rpx; font-weight: 500; font-variant-numeric: tabular-nums; }
+.hours-rule { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 0; border-bottom: 1rpx solid var(--border-color, #e4eaf1); }
+.hours-rule-copy { display: flex; flex-direction: column; gap: 4rpx; color: var(--text-secondary, #516073); font-size: 24rpx; }
+.hours-limit { display: flex; align-items: center; gap: 12rpx; flex-shrink: 0; font-size: 26rpx; }
+.hours-limit input { box-sizing: border-box; width: 108rpx; min-height: 44px; text-align: center; border: 1rpx solid var(--af-border, #cad7e7); border-radius: 12rpx; font-size: 30rpx; }
+.hours-unit { display: flex; align-items: center; min-height: 44px; padding: 0 14rpx; color: var(--primary-color, #125ec7); background: var(--af-soft, #eef4fc); border-radius: 12rpx; }
+.hours-error { display: block; margin: 12rpx 0; color: var(--af-danger, #a6271b); font-size: 26rpx; }

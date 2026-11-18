@@ -22,8 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @DisplayName("水站营业状态（软状态）：站长设置 → 顾客可见 → 不阻断下单")
 class StationOperatingStatusIntegrationTest extends AbstractIntegrationTest {
 
-    private static final String RESTING = "\u4f11\u606f\u4e2d";
-
     @Test
     @DisplayName("站长设置营业状态与留言：落库 + 回读 + 顾客公开端可见")
     void managerCanSetOperatingStatusAndCustomerCanSeeIt() {
@@ -40,10 +38,10 @@ class StationOperatingStatusIntegrationTest extends AbstractIntegrationTest {
         assertTrue(before.data().path("customerHint").isNull(), "正常运营时不应有顾客提示");
 
         Api set = put("/api/manager/station-status", mgr,
-                "{\"operatingStatus\":2,\"note\":\"今天休息，明早8点正常送水\"}");
+                "{\"operatingStatus\":4,\"note\":\"明早8点正常送水\"}");
         assertTrue(set.isSuccess(), "设置营业状态应成功，实际=" + set);
-        assertEquals(2, intOf("SELECT operating_status FROM station WHERE id=?", station), "营业状态应落库");
-        assertEquals("今天休息，明早8点正常送水",
+        assertEquals(4, intOf("SELECT operating_status FROM station WHERE id=?", station), "营业状态应落库");
+        assertEquals("明早8点正常送水",
                 jdbc.queryForObject("SELECT status_note FROM station WHERE id=?", String.class, station));
         assertEquals(1, intOf("SELECT COUNT(*) FROM station WHERE id=? AND status_update_time IS NOT NULL", station),
                 "状态更新时间应写入");
@@ -51,10 +49,10 @@ class StationOperatingStatusIntegrationTest extends AbstractIntegrationTest {
         // 顾客侧公开端点（无需登录）
         Api pub = get("/api/stations/" + station + "/status", null);
         assertTrue(pub.isSuccess(), "公开营业状态应可读，实际=" + pub);
-        assertEquals(2, pub.data().path("operatingStatus").asInt());
-        assertTrue(pub.data().path("customerHint").asText().contains(RESTING),
+        assertEquals(4, pub.data().path("operatingStatus").asInt());
+        assertTrue(pub.data().path("customerHint").asText().contains("暂停配送"),
                 "顾客提示里应包含状态文案：" + pub);
-        assertTrue(pub.data().path("customerHint").asText().contains("今天休息"),
+        assertTrue(pub.data().path("customerHint").asText().contains("明早8点正常送水"),
                 "顾客提示里应包含站长留言：" + pub);
         assertEquals(1, pub.data().path("hardStatus").asInt(),
                 "硬状态仍是 1 营业（软状态不允许改动硬状态）");
@@ -67,7 +65,7 @@ class StationOperatingStatusIntegrationTest extends AbstractIntegrationTest {
         assertNotEquals(0, put("/api/manager/station-status", mgr, "{\"operatingStatus\":99}").code(),
                 "非法营业状态应被拒");
         assertNotEquals(0, put("/api/manager/station-status", mgr,
-                "{\"operatingStatus\":2,\"note\":\"" + "x".repeat(101) + "\"}").code(),
+                "{\"operatingStatus\":4,\"note\":\"" + "x".repeat(101) + "\"}").code(),
                 "留言超 100 字应被拒");
     }
 
@@ -90,10 +88,10 @@ class StationOperatingStatusIntegrationTest extends AbstractIntegrationTest {
                 "状态文案由后端下发，应为「待上线」：" + view);
 
         // 选择器选项也必须由后端下发（前端原先自写了一份 1..4 映射表，含已废弃的「配送延迟」）。
-        // ⚠️ 2026-09-24 起是 **3 个**：「待上线」是系统状态，不是站长能选的（见下一个用例）。
         var options = view.data().path("options");
-        assertEquals(3, options.size(), "站长可选状态是 3 个（待上线不在其中）：" + view);
+        assertEquals(2, options.size(), "日常打烊按营业时间，手动只保留正常运营和暂停配送：" + view);
         for (var o : options) {
+            assertNotEquals(2, o.path("value").asInt(), "休息中是旧记录，不能新选");
             assertNotEquals(3, o.path("value").asInt(),
                     "「待上线」不该出现在选择器里 —— 出现了就等于告诉站长他能设，而后端会拒：" + o);
         }
@@ -168,10 +166,10 @@ class StationOperatingStatusIntegrationTest extends AbstractIntegrationTest {
 
         // ⑥ 转正后：按普通软状态随意设置，且**再也回不去待上线**
         assertEquals(0, put("/api/manager/station-status", mgr,
-                "{\"operatingStatus\":2,\"note\":\"休息\"}").code(), "转正后应能正常设置营业状态");
+                "{\"operatingStatus\":4,\"note\":\"明早恢复\"}").code(), "转正后应能暂停配送");
         assertNotEquals(0, put("/api/manager/station-status", mgr, "{\"operatingStatus\":3}").code(),
                 "转正后不能再变回待上线");
-        assertEquals(2, intOf("SELECT operating_status FROM station WHERE id=?", station),
+        assertEquals(4, intOf("SELECT operating_status FROM station WHERE id=?", station),
                 "被拒的那次写入不能偷偷落库");
 
         // ⑦ 转正后客户就能发现它了

@@ -65,6 +65,13 @@ CREATE TABLE IF NOT EXISTS `address` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='地址表';
+CREATE TABLE IF NOT EXISTS address_create_receipt (
+  customer_id BIGINT NOT NULL,
+  idempotency_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  request_digest CHAR(64) CHARACTER SET ascii NOT NULL,
+  address_id BIGINT NOT NULL,
+  PRIMARY KEY (customer_id, idempotency_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='新增地址回执，保留原请求身份';
 CREATE TABLE IF NOT EXISTS `audit_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int DEFAULT NULL,
@@ -526,6 +533,8 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `settlement_status` tinyint DEFAULT '1' COMMENT '1未结算 2已结算',
   `due_date` date DEFAULT NULL COMMENT '应付款日期',
   `delivery_bucket_qty` int DEFAULT '0' COMMENT '送出空桶数',
+  `delivery_deadline` datetime DEFAULT NULL COMMENT '接单时确定的最迟送达时间（业务时区）',
+  `delivery_timing_pending` tinyint(1) NOT NULL DEFAULT '0' COMMENT '待预付款成功后确定配送时限',
   `return_bucket_qty` int DEFAULT '0' COMMENT '回收空桶数',
   `delivery_staff_id` bigint DEFAULT NULL COMMENT '配送员ID',
   `guard_info` varchar(200) DEFAULT NULL COMMENT '门卫信息',
@@ -721,6 +730,11 @@ CREATE TABLE IF NOT EXISTS `station` (
   `operating_status` tinyint NOT NULL DEFAULT '3' COMMENT '营业软状态（不阻断下单，只给顾客提示）: 1正常运营 2休息中 3待上线(新站默认) 4暂停配送可预约; 见 constant/StationOperatingStatus',
   `status_note` varchar(100) DEFAULT NULL COMMENT '站长留言：配合营业状态的一句话说明，展示给顾客（≤100字）',
   `status_update_time` datetime DEFAULT NULL COMMENT '营业状态最近一次修改时间',
+  `business_opens_at` time NOT NULL DEFAULT '08:00:00' COMMENT '每日开门时间',
+  `business_closes_at` time NOT NULL DEFAULT '17:00:00' COMMENT '每日打烊时间，可跨夜',
+  `open_delivery_minutes` int NOT NULL DEFAULT '60' COMMENT '营业中接单后的配送分钟数',
+  `closed_delivery_hours` int NOT NULL DEFAULT '2' COMMENT '打烊接单后从下次开门起算的配送小时数',
+  `closed_delivery_minutes` int DEFAULT NULL COMMENT '打烊接单后从下次开门起算的配送分钟数',
   `lat` decimal(10,6) DEFAULT NULL COMMENT '纬度（站长地图选点；NULL=未设置，配送范围校验会跳过）',
   `lng` decimal(10,6) DEFAULT NULL COMMENT '经度（站长地图选点；NULL=未设置，配送范围校验会跳过）',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -954,8 +968,10 @@ CREATE TABLE IF NOT EXISTS `user_token` (
   `refresh_token` varchar(500) NOT NULL COMMENT 'refresh_token字符串',
   `expire_time` datetime NOT NULL COMMENT '过期时间',
   `device_info` varchar(100) DEFAULT NULL COMMENT '设备标识',
+  `session_id` char(36) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL COMMENT '员工会话标识，历史凭据为NULL',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_token_session` (`session_id`),
   KEY `idx_user` (`user_id`,`user_type`),
   KEY `idx_refresh_token` (`refresh_token`),
   KEY `idx_expire` (`expire_time`)
@@ -1588,3 +1604,31 @@ CREATE TABLE IF NOT EXISTS barrel_return_delivery_allocation (
  KEY idx_return_delivery_source(delivery_record_id,return_record_id),
  CONSTRAINT chk_return_delivery_quantity CHECK (quantity > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='原退还申请引用已入账配送实收；不再次改实物或原退款批次';
+
+CREATE TABLE IF NOT EXISTS product_image_library (
+  image_key VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '图库稳定键',
+  label VARCHAR(120) NOT NULL COMMENT '站长选图名称',
+  brand VARCHAR(80) DEFAULT NULL,
+  spec VARCHAR(80) DEFAULT NULL COMMENT '含包装数；规格未核实时为空或只写已核对部分',
+  image_ref VARCHAR(500) NOT NULL COMMENT '已发布：包内路径或持久图片引用；参考：素材包相对路径',
+  source_kind VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  source_url VARCHAR(512) DEFAULT NULL COMMENT '原始出处页面；用户提供的文件留空',
+  source_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  asset_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  review_note VARCHAR(255) DEFAULT NULL COMMENT '规格、包装或使用范围的复核说明',
+  published TINYINT NOT NULL DEFAULT 0,
+  sort_order SMALLINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (image_key),
+  KEY idx_product_image_published (published, sort_order, image_key),
+  CONSTRAINT chk_product_image_published CHECK (published IN (0,1)),
+  CONSTRAINT chk_product_image_source CHECK (source_kind IN ('internal','manufacturer','merchant','user')),
+  CONSTRAINT chk_product_image_reference CHECK (published = 0 OR image_ref NOT LIKE 'catalog-image-assets/%')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='平台商品图库；参考素材不向站长或顾客展示';
+
+-- 初次部署保持旧预设可用，不依赖小程序先更新。历史引用不改。
+INSERT INTO product_image_library (image_key,label,brand,image_ref,source_kind,source_url,published,sort_order) VALUES
+  ('barrel-neutral-template','通用桶装水示意图',NULL,'/assets/product/barrel-neutral-template.webp','internal',NULL,1,10),
+  ('pulisi-purified-photo','普利思 · 纯净水','普利思','catalog-sample-20261023-pulisi-purified-87bf702c165d.png','manufacturer','https://www.pulisi.com/product/128.html',1,20),
+  ('pulisi-spring-photo','普利思 · 天然泉水','普利思','catalog-sample-20261023-pulisi-spring-f576447ab103.png','manufacturer','https://www.pulisi.com/product/130.html',1,30),
+  ('pulisi-mineral-photo','普利思 · 天然矿泉水','普利思','catalog-sample-20261023-pulisi-mineral-cef12b0ef29a.png','manufacturer','https://www.pulisi.com/product/129.html',1,40)
+ON DUPLICATE KEY UPDATE image_key = product_image_library.image_key;

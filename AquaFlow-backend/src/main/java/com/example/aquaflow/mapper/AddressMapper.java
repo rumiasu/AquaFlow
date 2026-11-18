@@ -8,6 +8,15 @@ import java.util.List;
 @Mapper
 public interface AddressMapper {
 
+    @Select("select address_id as addressId, request_digest as digest from address_create_receipt " +
+            "where customer_id=#{customerId} and idempotency_key=#{key}")
+    java.util.Map<String,Object> getCreateReceipt(@Param("customerId") Long customerId, @Param("key") String key);
+
+    @Insert("insert into address_create_receipt(customer_id,idempotency_key,request_digest,address_id) " +
+            "values(#{customerId},#{key},#{digest},#{addressId})")
+    void insertCreateReceipt(@Param("customerId") Long customerId, @Param("key") String key,
+                             @Param("digest") String digest, @Param("addressId") Long addressId);
+
     @Insert("insert into address(customer_id, name, phone, province, city, district, label, detail, lat, lng, floor, has_elevator, is_default, create_time, update_time) " +
             "values(#{customerId}, #{name}, #{phone}, #{province}, #{city}, #{district}, #{label}, #{detail}, #{lat}, #{lng}, #{floor}, #{hasElevator}, #{isDefault}, #{createTime}, #{updateTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

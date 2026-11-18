@@ -20,6 +20,13 @@ public interface OrderMapper extends OrderArrangementEvidenceQueries {
             + "(select t.state from order_ticket_payment t where t.order_id=o.id) as ticketWaterState, ";
     @Update("update orders set due_date=#{dueDate} where id=#{id}")
     int updateTicketDueDate(@Param("id") Long id,@Param("dueDate") java.time.LocalDate dueDate);
+
+    @Update("update orders set delivery_timing_pending=1 where id=#{id}")
+    int awaitDeliveryTiming(@Param("id") Long id);
+
+    @Update("update orders set delivery_deadline=#{deadline,jdbcType=TIMESTAMP}, delivery_timing_pending=0 "
+            + "where id=#{id} and status=1 and delivery_deadline is null")
+    int setDeliveryDeadline(@Param("id") Long id, @Param("deadline") java.time.LocalDateTime deadline);
     String DELIVERY_EVENT_TIME = "coalesce(completed.delivery_time,barrels.delivery_time)";
     // audit_log 没有 target 联合索引；每类凭据先聚合一次，不能为每张订单反复相关扫描。
     String DELIVERY_EVENT_JOINS = " left join (select target,min(create_time) as delivery_time from audit_log "

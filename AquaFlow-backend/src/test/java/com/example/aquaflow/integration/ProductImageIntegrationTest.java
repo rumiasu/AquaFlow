@@ -51,6 +51,31 @@ class ProductImageIntegrationTest extends AbstractIntegrationTest {
     private static final String LOCAL_IMAGE_PATH = "/assets/product/pulisi-pure.webp";
 
     @Test
+    @DisplayName("图库下发数据库已发布的名称和图片，不下发参考素材")
+    void pickerOnlyShowsPublishedDatabaseImages() {
+        String mgr = newManagerToken("平台图库验证站");
+        String insert = """
+                INSERT INTO product_image_library(image_key,label,image_ref,source_kind,published)
+                VALUES (?, ?, ?, 'internal', ?)
+                """;
+        jdbc.update(insert, "test-library-published", "数据库选图样例", LOCAL_IMAGE_PATH, 1);
+        jdbc.update(insert, "test-library-reference", "不可发布样例", "catalog-image-assets/reference/test.webp", 0);
+        try {
+            Api res = get("/api/manager/catalog/preset-images", mgr);
+            assertEquals(0, res.code(), res.toString());
+            List<JsonNode> rows = new ArrayList<>();
+            res.data().forEach(rows::add);
+            var row = rows.stream().filter(n -> "test-library-published".equals(n.path("key").asText())).findFirst().orElseThrow();
+            assertEquals("数据库选图样例", row.path("label").asText());
+            assertEquals(LOCAL_IMAGE_PATH, row.path("path").asText());
+            assertEquals("", row.path("objectName").asText());
+            assertTrue(rows.stream().noneMatch(n -> "test-library-reference".equals(n.path("key").asText())));
+        } finally {
+            jdbc.update("DELETE FROM product_image_library WHERE image_key IN ('test-library-published','test-library-reference')");
+        }
+    }
+
+    @Test
     @DisplayName("选图清单：兼容包内图，永久或临时预览与持久对象键分开，顾客端读不到")
     void presetImageListServesPackagePaths() {
         String mgr = newManagerToken("图片站A");

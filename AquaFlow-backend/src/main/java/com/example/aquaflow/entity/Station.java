@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
  * 水站实体类，对应数据库 station 表。
@@ -56,6 +57,12 @@ public class Station {
 
     /** 营业状态最近一次修改时间（顾客提示里显示"刚刚更新"） */
     private LocalDateTime statusUpdateTime;
+
+    private LocalTime businessOpensAt;
+    private LocalTime businessClosesAt;
+    private Integer openDeliveryMinutes;
+    private Integer closedDeliveryHours;
+    private Integer closedDeliveryMinutes;
 
     /** 营业状态文案（后端唯一下发来源，前端禁止自带 1..4 映射表） */
     public String getOperatingStatusText() {

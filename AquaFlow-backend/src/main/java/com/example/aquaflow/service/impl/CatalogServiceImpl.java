@@ -9,6 +9,7 @@ import com.example.aquaflow.entity.Product;
 import com.example.aquaflow.entity.ProductSubmission;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.InventoryMapper;
+import com.example.aquaflow.mapper.ProductImageLibraryMapper;
 import com.example.aquaflow.mapper.ProductMapper;
 import com.example.aquaflow.mapper.ProductSubmissionMapper;
 import com.example.aquaflow.service.CatalogService;
@@ -29,7 +30,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -65,6 +68,8 @@ public class CatalogServiceImpl implements CatalogService {
     @Autowired
     private ProductImageResolver imageResolver;
 
+    @Autowired
+    private ProductImageLibraryMapper imageLibrary;
 
     /**
      * 站级价偏离通用库参考价多少算"要提醒"（默认 ±50%）。
@@ -96,6 +101,19 @@ public class CatalogServiceImpl implements CatalogService {
                         || Integer.valueOf(1).equals(vo.getStatus())
                         || vo.getInventoryId() != null)
                 .collect(Collectors.toList()));
+    }
+
+    @Override
+    public List<Map<String, String>> listPresetImages() {
+        return imageLibrary.listPublished().stream().map(photo -> {
+            String ref = photo.imageRef();
+            Map<String, String> item = new HashMap<>();
+            item.put("key", photo.imageKey());
+            item.put("label", photo.label());
+            item.put("path", imageResolver.resolve(ref));
+            item.put("objectName", ref.startsWith("/") ? "" : ref);
+            return item;
+        }).toList();
     }
 
     @Override

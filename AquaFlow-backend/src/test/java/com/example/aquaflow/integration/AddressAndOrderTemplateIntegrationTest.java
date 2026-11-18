@@ -120,6 +120,23 @@ class AddressAndOrderTemplateIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void retriesOfOneAddressCreateReturnItsOriginalId() {
+        seed();
+        String body = "{\"name\":\"客户\",\"phone\":\"13800000001\",\"detail\":\"东巷 401\",\"idempotencyKey\":\"addr_retry_1\"}";
+        Api first = post("/api/addresses", customerToken(alice), body);
+        assertTrue(first.isSuccess(), first.toString());
+        Api again = post("/api/addresses", customerToken(alice), body);
+        assertTrue(again.isSuccess(), again.toString());
+        assertEquals(first.data().asLong(), again.data().asLong());
+        assertFalse(post("/api/addresses", customerToken(alice), body.replace("401","402")).isSuccess());
+        assertEquals(1, intOf("select count(*) from address where customer_id=?", alice));
+        assertTrue(post("/api/addresses", customerToken(bob), body).isSuccess());
+        assertTrue(delete("/api/addresses/" + first.data().asLong(), customerToken(alice)).isSuccess());
+        assertFalse(post("/api/addresses", customerToken(alice), body).isSuccess());
+        assertEquals(0, intOf("select count(*) from address where customer_id=?", alice));
+    }
+
+    @Test
     @DisplayName("站长只能看本站客户的地址；配送员读地址一律拒绝")
     void managerScopeAndDeliveryDenied() {
         seed();

@@ -29,12 +29,41 @@ public class AddressServiceImpl implements AddressService {
         validateDefault(address.getIsDefault());
         validateCoordinates(address);
         if (address.getIsDefault() == null) address.setIsDefault(0);
+        String key = address.getIdempotencyKey();
+        String digest = null;
+        if (key != null) {
+            if (!key.matches("[A-Za-z0-9_-]{1,64}")) throw new BusinessException("地址保存编号无效，请重新打开地址页");
+            digest = createDigest(address);
+            Map<String,Object> receipt = addressMapper.getCreateReceipt(address.getCustomerId(), key);
+            if (receipt != null) {
+                if (!digest.equals(receipt.get("digest"))) throw new BusinessException("本次填写与原保存记录不同，请核对地址");
+                Long originalId = ((Number) receipt.get("addressId")).longValue();
+                if (addressMapper.getById(originalId) == null) throw new BusinessException("这次保存的地址已删除，请返回地址簿核对");
+                address.setId(originalId);
+                return;
+            }
+        }
         address.setCreateTime(LocalDateTime.now());
         address.setUpdateTime(LocalDateTime.now());
         if (address.getIsDefault() != null && Integer.valueOf(1).equals(address.getIsDefault())) {
             addressMapper.clearDefault(address.getCustomerId());
         }
         addressMapper.insert(address);
+        if (key != null) addressMapper.insertCreateReceipt(address.getCustomerId(), key, digest, address.getId());
+    }
+
+    private static String createDigest(Address a) {
+        StringBuilder encoded = new StringBuilder();
+        for (Object field : new Object[]{a.getName(), a.getPhone(), a.getProvince(), a.getCity(), a.getDistrict(),
+                a.getLabel(), a.getDetail(), a.getFloor(), a.getHasElevator(), a.getIsDefault(), a.getLat(), a.getLng()}) {
+            if (field == null) { encoded.append("-1:"); continue; }
+            String value = field instanceof BigDecimal decimal ? decimal.stripTrailingZeros().toPlainString() : field.toString();
+            encoded.append(value.length()).append(':').append(value);
+        }
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(encoded.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException error) { throw new IllegalStateException(error); }
     }
 
     @Override

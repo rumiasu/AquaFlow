@@ -1,6 +1,7 @@
 package com.example.aquaflow.util;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -18,6 +19,7 @@ import java.util.Map;
 @Component
 public class JwtUtil {
     public static final String TEST_AUTH_SOURCE = "TEMPORARY_TEST";
+    public static final String SESSION_ID = "sid";
 
     @Value("${jwt.secret}")
     private String secret;
@@ -32,7 +34,7 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-public String generateAccessToken(Long userId, String userType, String role,
+    public String generateAccessToken(Long userId, String userType, String role,
                                             Long stationId) {
         return generateAccessToken(userId, userType, role, stationId, null);
     }
@@ -52,11 +54,17 @@ public String generateAccessToken(Long userId, String userType, String role,
      */
     public String generateAccessToken(Long userId, String userType, String role,
                                       Long stationId, String pendingOpenid) {
+        return generateAccessToken(userId, userType, role, stationId, pendingOpenid, null);
+    }
+
+    public String generateAccessToken(Long userId, String userType, String role,
+                                      Long stationId, String pendingOpenid, String sessionId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("userType", userType);
         claims.put("role", role);
         claims.put("tokenType", "access");
+        if (sessionId != null) claims.put(SESSION_ID, sessionId);
         if ("staff".equals(userType) && stationId != null) {
             claims.put("stationId", stationId);
         }
@@ -115,6 +123,17 @@ public String generateAccessToken(Long userId, String userType, String role,
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    /** 过期的访问令牌仅可用于退出该令牌所属的已签名会话。 */
+    public Claims parseLogoutToken(String token) {
+        try {
+            return parseToken(token);
+        } catch (ExpiredJwtException expired) {
+            return expired.getClaims().get(SESSION_ID, String.class) == null ? null : expired.getClaims();
+        } catch (JwtException | IllegalArgumentException invalid) {
+            return null;
+        }
     }
 
     /** 测试认证沿用普通 token 的过期/jti；刷新时必须保留标记，不能升级为普通会话。 */

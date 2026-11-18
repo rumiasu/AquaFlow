@@ -11,6 +11,7 @@ import com.example.aquaflow.mapper.CustomerMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.StationService;
 import com.example.aquaflow.service.StationDiscoveryService;
+import com.example.aquaflow.service.StationDeliveryTiming;
 import com.example.aquaflow.vo.StationDiscoveryVO;
 import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,8 @@ public class StationController {
 
     @Autowired
     private CustomerMapper customerMapper;
+    @Autowired
+    private StationDeliveryTiming deliveryTiming;
 
     @RequireRole({"STATION_MANAGER"})
     @GetMapping
@@ -122,9 +125,13 @@ public class StationController {
         info.put("hardStatus", s.getStatus());                 // 1 营业 2 停业（下单硬拦）
         info.put("operatingStatus", s.getOperatingStatus() == null
                 ? com.example.aquaflow.constant.StationOperatingStatus.NORMAL : s.getOperatingStatus());
-        info.put("statusText", s.getOperatingStatusText());
+        Map<String, Object> hours = StationDeliveryTiming.offersTiming(s) ? deliveryTiming.describe(s) : Map.of();
+        info.put("statusText", deliveryTiming.displayStatus(s, hours));
         info.put("note", s.getStatusNote());
         info.put("statusUpdateTime", s.getStatusUpdateTime());
+        if (!hours.isEmpty()) {
+            info.put("deliveryHours", hours);
+        }
         info.put("customerHint", com.example.aquaflow.constant.StationOperatingStatus.customerHint(
                 s.getOperatingStatus(), s.getStatusNote()));
         return Result.success(info);

@@ -111,9 +111,12 @@ public class LoginController {
     // ==================== 登出 ====================
 
     @PostMapping("/logout")
-    public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        authTokenService.logout(authHeader);
-        return Result.success();
+    public org.springframework.http.ResponseEntity<Result<Void>> logout(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (!authTokenService.logout(authHeader)) {
+            return org.springframework.http.ResponseEntity.status(401).body(Result.error("登录信息无效"));
+        }
+        return org.springframework.http.ResponseEntity.ok(Result.success());
     }
 
     // ==================== 验证登录状态 ====================

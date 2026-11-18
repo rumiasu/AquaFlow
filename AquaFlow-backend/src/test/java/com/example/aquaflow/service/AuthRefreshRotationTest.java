@@ -182,7 +182,7 @@ class AuthRefreshRotationTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"password", "customer-wechat", "staff-wechat"})
-    void ordinaryLoginStillClearsOnlyThatUsersPreviousTokens(String path) {
+    void staffLoginAddsAnIndependentSessionAndCustomerLoginKeepsItsPolicy(String path) {
         Fixture f = new Fixture();
         String type = path.equals("customer-wechat") ? "customer" : "staff";
         f.addUser(ID, type); f.addUser(ID + 1, type);
@@ -201,12 +201,14 @@ class AuthRefreshRotationTest {
             AuthRequestDTO.WxLoginStaff request = new AuthRequestDTO.WxLoginStaff(); request.setCode("F78-fake-code");
             result = f.service.wxLoginStaff(request);
         }
-        assertEquals(1, f.tokens.userDeletes.get(), "login retains one user-wide cleanup");
-        assertNull(f.tokens.find(old1)); assertNull(f.tokens.find(old2));
+        boolean customer = type.equals("customer");
+        assertEquals(customer ? 1 : 0, f.tokens.userDeletes.get());
+        assertEquals(customer, f.tokens.find(old1) == null);
+        assertEquals(customer, f.tokens.find(old2) == null);
         assertNotNull(f.tokens.find(other)); assertNotNull(f.tokens.find(opposite));
         assertNotNull(f.tokens.find(token(result)));
-        assertEquals(1, f.tokens.active(ID, type).size(), "login retains one current token for this user/type");
-        System.out.println("F78_LOGIN path=" + path + " oldRows=0 sameUserNewRows=1 otherIdentitiesPreserved=true");
+        assertEquals(customer ? 1 : 3, f.tokens.active(ID, type).size());
+        assertEquals(customer, f.jwt.parseToken((String) result.get("accessToken")).get(JwtUtil.SESSION_ID) == null);
     }
 
     @Test void unselectedStaffLoginStillClearsItsVirtualUsersPreviousToken() {
@@ -350,7 +352,7 @@ class AuthRefreshRotationTest {
                     writes.incrementAndGet();
                     if (failPreciseDelete) throw new IllegalStateException("F78 fake precise-delete failure");
                     removeWithoutWrite((String) args[0]); return null;
-                case "deleteByUser":
+                case "deleteByUser", "deleteLegacyByUser":
                     writes.incrementAndGet(); userDeletes.incrementAndGet();
                     synchronized (this) { rows.removeIf(r -> Objects.equals(r.getUserId(), args[0]) && r.getUserType().equals(args[1])); }
                     return null;
@@ -386,7 +388,7 @@ class AuthRefreshRotationTest {
                 default -> throw new AssertionError("unexpected customer mapper method: " + m.getName());
             }));
             ReflectionTestUtils.setField(service, "staffMapper", proxy(StaffMapper.class, (p, m, a) -> switch (m.getName()) {
-                case "getById" -> staff.get((Long) a[0]);
+                case "getById", "getByIdForUpdate" -> staff.get((Long) a[0]);
                 case "findByName" -> staff.values().stream().filter(s -> s.getName().equals(a[0])).findFirst().orElse(null);
                 case "findByOpenid" -> staff.values().stream().filter(s -> s.getOpenid().equals(a[0])).findFirst().orElse(null);
                 default -> throw new AssertionError("unexpected staff mapper method: " + m.getName());

@@ -11,6 +11,9 @@ import java.time.LocalDateTime;
  */
 @Data
 public class Address {
+    /** 仅用于新增请求，不出现在地址簿响应。 */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    private String idempotencyKey;
 
     /** 地址ID，主键自增 */
     private Long id;

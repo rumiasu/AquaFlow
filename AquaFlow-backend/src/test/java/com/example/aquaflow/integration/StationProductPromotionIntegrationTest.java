@@ -145,6 +145,9 @@ class StationProductPromotionIntegrationTest extends AbstractIntegrationTest {
         }
         price(get(detail, auth).data(), "effectivePrice", "12");
         price(get(detail, auth).data(), "regularPrice", "20");
+        assertEquals(new BigDecimal("12.00"), decimalOf(
+                "select promotion_price from inventory where station_id=? and product_id=?", station, product),
+                "被拒绝的设置不得改写原促销价");
         saved(path, manager, "{\"promotionActive\":false,\"salePrice\":10}");
         price(get(detail, auth).data(), "effectivePrice", "10");
     }

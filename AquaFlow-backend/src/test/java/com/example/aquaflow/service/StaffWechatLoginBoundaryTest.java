@@ -122,8 +122,10 @@ class StaffWechatLoginBoundaryTest {
         doReturn(Map.of("openid", OPENID)).when(provider).code2Session(WeChatApp.STAFF, CODE);
         Staff staff = new Staff();
         staff.setId(23L);
+        staff.setOpenid(OPENID);
         staff.setStatus(2);
         when(staffMapper.findByOpenid(OPENID)).thenReturn(staff);
+        when(staffMapper.getByIdForUpdate(staff.getId())).thenReturn(staff);
         assertEquals("该账号已停用", assertThrows(BusinessException.class, () -> service.wxLoginStaff(request())).getMessage());
         verifyNoInteractions(customerMapper, tokenMapper);
         verify(evidence, never()).recordLogin(anyString(), anyLong(), any());
@@ -150,10 +152,12 @@ class StaffWechatLoginBoundaryTest {
         doReturn(Map.of("openid", OPENID)).when(provider).code2Session(WeChatApp.STAFF, CODE);
         Staff staff = new Staff();
         staff.setId(23L);
+        staff.setOpenid(OPENID);
         staff.setStatus(1);
         staff.setRole("DELIVERY");
         staff.setStationId(7L);
         when(staffMapper.findByOpenid(OPENID)).thenReturn(staff);
+        when(staffMapper.getByIdForUpdate(staff.getId())).thenReturn(staff);
         when(evidence.recordLogin(eq("staff"), eq(23L), any())).thenReturn(true);
         doThrow(new IllegalStateException("synthetic token store fault")).when(tokenMapper).insert(any(UserToken.class));
         AuthRequestDTO.WxLoginStaff request = request();
@@ -163,7 +167,7 @@ class StaffWechatLoginBoundaryTest {
         request.setAgreement(versions);
         assertThrows(BusinessException.class, () -> service.wxLoginStaff(request));
         verify(evidence).recordLogin("staff", 23L, versions);
-        verify(tokenMapper).deleteByUser(23L, "staff");
+        verify(tokenMapper, never()).deleteByUser(23L, "staff");
         verifyNoInteractions(customerMapper);
         assertRollback();
     }

@@ -42,6 +42,13 @@ public interface StationMapper {
                              @Param("operatingStatus") Integer operatingStatus,
                              @Param("note") String note);
 
+    @Update("update station set business_opens_at=#{opens}, business_closes_at=#{closes}, "
+            + "open_delivery_minutes=#{minutes}, closed_delivery_minutes=#{closedMinutes}, "
+            + "closed_delivery_hours=(#{closedMinutes}+59) DIV 60, update_time=NOW() where id=#{id}")
+    int updateDeliveryHours(@Param("id") Long id, @Param("opens") java.time.LocalTime opens,
+                            @Param("closes") java.time.LocalTime closes, @Param("minutes") int minutes,
+                            @Param("closedMinutes") int closedMinutes);
+
     // 注：原 offline_payment_enabled 列已于 2026-09-12 停止读写（站点总闸移除），
     // DROP 脚本见 sql/migration_v22_drop_station_offline_payment.sql
     @Update("UPDATE station SET name=#{name}, phone=#{phone}, address=#{address}, " +

@@ -431,6 +431,18 @@ public class Orders {
     /** 配送时间要求 */
     private String deliveryTimeRequest;
 
+    private LocalDateTime deliveryDeadline;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Boolean deliveryTimingPending;
+
+    public String getDeliveryDeadlineText() {
+        if (deliveryDeadline == null || Integer.valueOf(OrderStatus.CANCELLED).equals(status)) {
+            return null;
+        }
+        return deliveryDeadline.format(java.time.format.DateTimeFormatter.ofPattern("M月d日 HH:mm"));
+    }
+
     /** 特殊说明 */
     private String specialNote;
 

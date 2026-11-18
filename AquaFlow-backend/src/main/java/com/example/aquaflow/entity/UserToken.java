@@ -21,6 +21,9 @@ public class UserToken {
     /** refresh_token 字符串 */
     private String refreshToken;
 
+    /** 员工会话标识，轮换时保留；历史凭据为空。 */
+    private String sessionId;
+
     /** 过期时间 */
     private LocalDateTime expireTime;
 

@@ -2,6 +2,7 @@ package com.example.aquaflow.interceptor;
 
 import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.mapper.StaffMapper;
+import com.example.aquaflow.mapper.UserTokenMapper;
 import com.example.aquaflow.util.AuthContext;
 import com.example.aquaflow.util.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,7 +47,6 @@ public class AuthInterceptor implements HandlerInterceptor {
     private static final List<String> UNSELECTED_ALLOWED_PATHS = List.of(
             "/api/auth/select-role",       // 它的全部意义：选定身份、建员工记录
             "/api/auth/me",                // 客户端启动时探活（对 UNSELECTED 会回"用户不存在"）
-            "/api/auth/logout",            // 退出登录，不该被身份状态挡住
             "/api/delivery/bind/status"    // 绑定状态探活（对 UNSELECTED 会回"员工不存在"）
     );
 
@@ -55,6 +55,9 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Autowired
     private StaffMapper staffMapper;
+
+    @Autowired
+    private UserTokenMapper userTokenMapper;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -121,6 +124,11 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         Long userId = userIdNum != null ? userIdNum.longValue() : null;
         Long stationId = stationIdNum != null ? stationIdNum.longValue() : null;
+        String sessionId = claims.get(JwtUtil.SESSION_ID, String.class);
+        if (sessionId != null && !userTokenMapper.sessionActive(sessionId, userId, userType)) {
+            send401(response, "会话已退出，请重新登录");
+            return false;
+        }
 
         // [AQ-024] 员工 token 回查：JWT 只验签不查库，一旦员工被停用/调站，旧 token 在有效期内（默认2h）
         // 仍可继续访问，属越权窗口。此处对 staff 类型 token 每次请求回查员工实际状态：

@@ -3,6 +3,8 @@ package com.example.aquaflow.integration;
 import com.example.aquaflow.entity.UserToken;
 import com.example.aquaflow.support.AbstractIntegrationTest;
 import com.example.aquaflow.util.PasswordUtil;
+import com.example.aquaflow.util.JwtUtil;
+import com.example.aquaflow.service.WeChatLoginService;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -18,18 +20,87 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 /** Real HTTP, Spring transaction proxy and MySQL; only the write boundary is fault/gate injected. */
 @Import(AuthRefreshTransactionIntegrationTest.Hooks.class)
 class AuthRefreshTransactionIntegrationTest extends AbstractIntegrationTest {
     private static final String OLD_PASSWORD = "F78-public-old-password";
     @Autowired private WriteBoundary boundary;
+    @MockitoBean private WeChatLoginService wechat;
+
+    @Test void webAndWechatRotateAndLogoutIndependently() throws Exception {
+        long staff = user("staff");
+        String legacy = seed(staff, "staff");
+        String openid = "F78-multi-client-openid";
+        jdbc.update("update staff set openid=? where id=?", openid, staff);
+        when(wechat.staffCode2Session("F78-multi-client-code")).thenReturn(Map.of("openid", openid));
+        JsonNode web = loginByPassword();
+        JsonNode mini = authPost("/api/auth/wx-login-staff", null, Map.of("code", "F78-multi-client-code"));
+        String webAccess = field(web, "accessToken"), miniAccess = field(mini, "accessToken");
+        assertNotEquals(jwtUtil.parseToken(webAccess).get(JwtUtil.SESSION_ID), jwtUtil.parseToken(miniAccess).get(JwtUtil.SESSION_ID));
+        assertEquals(0, authPost("/api/auth/logout", access(staff, "staff"), Map.of()).path("code").asInt());
+        assertEquals(1, refresh(legacy).path("code").asInt());
+
+        JsonNode rotated = refresh(field(web, "refreshToken"));
+        assertEquals(1, refresh(field(web, "refreshToken")).path("code").asInt());
+        assertEquals(0, authPost("/api/auth/logout", webAccess, Map.of()).path("code").asInt());
+        assertEquals(401, get("/api/auth/me", field(rotated, "accessToken")).status());
+        assertEquals(1, refresh(field(rotated, "refreshToken")).path("code").asInt());
+        assertEquals(0, get("/api/auth/me", miniAccess).code());
+        JsonNode miniRotated = refresh(field(mini, "refreshToken"));
+        JsonNode webAgain = loginByPassword();
+        assertEquals(0, authPost("/api/auth/change-password", field(miniRotated, "accessToken"),
+                Map.of("oldPassword", OLD_PASSWORD, "newPassword", "F78-multi-client-new-password")).path("code").asInt());
+        for (JsonNode session : java.util.List.of(miniRotated, webAgain)) {
+            assertEquals(401, get("/api/auth/me", field(session, "accessToken")).status());
+            assertEquals(1, refresh(field(session, "refreshToken")).path("code").asInt());
+        }
+    }
+
+    private JsonNode loginByPassword() throws Exception {
+        return authPost("/api/auth/login", null, Map.of("username", "F78-synthetic", "password", OLD_PASSWORD));
+    }
+
+    @Test void logoutDuringNewSessionRotationDoesNotRevokeSiblingOrReviveCurrentSession() throws Exception {
+        long staff = user("staff");
+        JsonNode web = loginByPassword(), sibling = loginByPassword();
+        String accessToken = field(web,"accessToken"), refreshToken = field(web,"refreshToken");
+        Gate gate = new Gate(staff,"staff");
+        boundary.gate = gate;
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<JsonNode> rotation = pool.submit(() -> refresh(refreshToken));
+            assertTrue(gate.beforeInsert.await(10,TimeUnit.SECONDS), "refresh must hold the row before updating it");
+            Future<JsonNode> logout = pool.submit(() -> authPost("/api/auth/logout",accessToken,Map.of()));
+            assertTrue(gate.beforeRevoke.await(10,TimeUnit.SECONDS));
+            gate.release.countDown();
+            JsonNode rotated = rotation.get(15,TimeUnit.SECONDS);
+            assertEquals(0,logout.get(15,TimeUnit.SECONDS).path("code").asInt());
+            boundary.gate = null;
+            assertEquals(401,get("/api/auth/me",field(rotated,"accessToken")).status());
+            assertEquals(1,refresh(field(rotated,"refreshToken")).path("code").asInt());
+            assertEquals(0,refresh(field(sibling,"refreshToken")).path("code").asInt());
+        } finally {
+            gate.release.countDown();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(20,TimeUnit.SECONDS));
+        }
+    }
+
+    private static String field(JsonNode response, String name) {
+        assertEquals(0, response.path("code").asInt(), response.path("message").asText());
+        String value = response.path("data").path(name).asText();
+        assertFalse(value.isBlank());
+        return value;
+    }
 
     @AfterEach void clearHook() { boundary.gate = null; }
 
@@ -232,13 +303,13 @@ class AuthRefreshTransactionIntegrationTest extends AbstractIntegrationTest {
             Object parameter = invocation.getArgs()[1];
             if (current != null && statement.endsWith("UserTokenMapper.findByRefreshToken")
                     && current.queryEntries.incrementAndGet() == 2) current.secondQuery.countDown();
-            if (current != null && statement.endsWith("UserTokenMapper.insert") && parameter instanceof UserToken row
+            if (current != null && (statement.endsWith("UserTokenMapper.insert") || statement.endsWith("UserTokenMapper.rotateSession")) && parameter instanceof UserToken row
                     && row.getUserId() == current.id && current.type.equals(row.getUserType())) {
                 if (current.failInsert) throw new IllegalStateException("synthetic refresh persistence failure");
                 current.beforeInsert.countDown();
                 if (!current.release.await(15, TimeUnit.SECONDS)) throw new AssertionError("refresh insertion gate timed out");
             }
-            if (current != null && statement.endsWith("UserTokenMapper.deleteByUser") && parameter instanceof Map<?, ?> args
+            if (current != null && (statement.endsWith("UserTokenMapper.deleteByUser") || statement.endsWith("UserTokenMapper.deleteLegacyByUser") || statement.endsWith("UserTokenMapper.deleteSession")) && parameter instanceof Map<?, ?> args
                     && args.get("userId").equals(current.id) && current.type.equals(args.get("userType"))) {
                 current.beforeRevoke.countDown();
                 if(current.holdRevoke && !current.release.await(15,TimeUnit.SECONDS))throw new AssertionError("role revocation gate timed out");

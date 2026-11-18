@@ -191,7 +191,8 @@ public class DevLoginController {
     }
 
     private void saveRefreshToken(Long userId, String userType, String refreshToken) {
-        userTokenMapper.deleteByUser(userId, userType);
+        if ("staff".equals(userType)) userTokenMapper.deleteLegacyByUser(userId, userType);
+        else userTokenMapper.deleteByUser(userId, userType);
         UserToken userToken = new UserToken();
         userToken.setUserId(userId);
         userToken.setUserType(userType);

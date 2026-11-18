@@ -3,6 +3,7 @@ package com.example.aquaflow.service.impl;
 import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.StaffMapper;
+import com.example.aquaflow.mapper.UserTokenMapper;
 import com.example.aquaflow.mapper.StationMapper;
 import com.example.aquaflow.service.StaffService;
 import com.example.aquaflow.util.AuthContext;
@@ -21,6 +22,9 @@ public class StaffServiceImpl implements StaffService {
 
     @Autowired
     private StaffMapper staffMapper;
+
+    @Autowired
+    private UserTokenMapper userTokenMapper;
 
     @Autowired
     private StationMapper stationMapper;
@@ -85,6 +89,7 @@ public class StaffServiceImpl implements StaffService {
                 existing.getStatus(), name, phone, status) != 1) {
             throw new BusinessException("员工信息已变化，请刷新重试");
         }
+        if (status == 2) userTokenMapper.deleteByUser(existing.getId(), "staff");
     }
 
     @Override
@@ -96,6 +101,7 @@ public class StaffServiceImpl implements StaffService {
         if (staffMapper.deleteIf(id, stationId, existing.getRole(), existing.getStatus()) != 1) {
             throw new BusinessException("员工信息已变化，请刷新重试");
         }
+        userTokenMapper.deleteByUser(id, "staff");
     }
 
     /** 服务写入口也验证身份，不能依赖控制器注解拦住其它调用路径。 */

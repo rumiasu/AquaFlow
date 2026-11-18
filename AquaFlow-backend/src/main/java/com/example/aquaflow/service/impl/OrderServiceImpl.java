@@ -43,6 +43,7 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private TicketTierService ticketTierService;
     @Autowired private com.example.aquaflow.service.TicketPaymentService ticketPayments;
+    @Autowired private com.example.aquaflow.service.StationDeliveryTiming deliveryTiming;
     @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderPurchases;
     @Autowired private com.example.aquaflow.service.BarrelBusinessPolicy barrelPolicy;
     @Autowired private com.example.aquaflow.service.BarrelLedgerService barrelLedger;
@@ -725,6 +726,8 @@ public class OrderServiceImpl implements OrderService {
         warnings.addAll(feeResult.getWarnings());
 
         // Reserve source lots, never consume on creation. Required cash must still actually arrive.
+        boolean stockAvailable = java.util.Arrays.stream(itemWarnings).allMatch(java.util.Objects::isNull);
+        boolean standardTiming = dto.getDeliveryTimeRequest() == null || dto.getDeliveryTimeRequest().isBlank();
         if (Integer.valueOf(PayMethod.TICKET).equals(dto.getPaymentMethod())) {
             var split=ticketPayments.prepare(orders,dto.getTicketFeePaymentMethod(),dto.getTicketFeeQuoteAmount(),dto.getTicketDeliveryCreditQuote());
             if(split.cashDue().signum()>0) {
@@ -737,8 +740,13 @@ public class OrderServiceImpl implements OrderService {
                 }
             }
             orders.setTotalAmount(orders.getWaterAmount().add(split.cashDue()));
+            if (standardTiming) {
+                deliveryTiming.onCreated(orders, station, Integer.valueOf(PayMethod.CASH).equals(split.cashMethod()), stockAvailable);
+            }
             // Pure tickets have no remaining cash to collect; same payment orchestration, no second ledger.
             if(split.cashDue().signum()==0 && "staff".equals(AuthContext.getUserType()) || Integer.valueOf(PayMethod.CASH).equals(split.cashMethod()))paymentService.createPayment(orders.getId(),orders.getCustomerId(),null,null,null,null,PayMethod.TICKET,null,null,"水票抵水费，服务费为零");
+        } else if (standardTiming) {
+            deliveryTiming.onCreated(orders, station, Integer.valueOf(PayMethod.CASH).equals(dto.getPaymentMethod()), stockAvailable);
         }
 
         Map<String, Object> detail = new HashMap<>();

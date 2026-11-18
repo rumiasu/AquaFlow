@@ -236,6 +236,10 @@
 | `GET` | `/api/products/with-stock` | {"STATION_MANAGER"} | `ProductController.listWithStock` |
 | `GET` | `/api/products/{id}` | {"STATION_MANAGER"} | `ProductController.getById` |
 
+本站商品设置沿用 `PUT /api/manager/catalog/{productId}`。日常售价使用 `salePrice`（0 恢复参考价）。开启或调整促销传 `promotionActive: true` 和 `promotionPrice`，价格须大于 0、低于日常价，最多两位小数。结束传 `promotionActive: false`；省略两项则保留当前促销。同一请求可一起修改日常价和促销。票价与押金沿用原规则。
+
+已选共享商品可传 `stationProductName` 和 `stationProductSpec` 保存本站展示资料，各最多 100 字，空串恢复模板。员工列表的 `platformName`、`platformSpec` 是原始资料。员工商品清单与顾客本站商品清单、详情均按站下发 `name`、`spec`、`regularPrice`、`promotionActive`、`promotionPrice`、`effectivePrice`；新单保存当时的名称、规格和成交价。
+
 ### 订单
 
 | 方法 | 路径 | 角色 | 说明 |
@@ -493,6 +497,7 @@
 | `GET` | `/api/manager/setup-guide` | {"STATION_MANAGER"} | `ManagerSetupGuideController.guide` |
 | `GET` | `/api/manager/station-status` | "STATION_MANAGER" | `ManagerStationStatusController.get` |
 | `PUT` | `/api/manager/station-status` | "STATION_MANAGER" | `ManagerStationStatusController.update` |
+| `PUT` | `/api/manager/station-status/hours` | "STATION_MANAGER" | `ManagerStationStatusController.updateHours` |
 | `GET` | `/api/manager/todo-summary` | {"STATION_MANAGER"} | `ManagerTodoController.summary` |
 
 ### 协议与本人资料请求（准备能力，正式及受理默认关闭）

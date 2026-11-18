@@ -6,6 +6,7 @@ import com.example.aquaflow.dto.StationCatalogSettingDTO;
 import com.example.aquaflow.entity.ProductSubmission;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 通用商品库 + 本站配置的读写编排（站长侧）。
@@ -22,6 +23,9 @@ public interface CatalogService {
 
     /** 选品列表：通用库 + 本站自定义，带本站状态（是否已选用/上架/库存/本站价/水票/优先展示）。 */
     List<ProductWithInventoryVO> listCatalog(Long stationId);
+
+    /** 平台已发布的商品图，保留可展示地址与持久图片引用。 */
+    List<Map<String, String>> listPresetImages();
 
     /**
      * 保存本站设置（"选用"与"改设置"共用）。

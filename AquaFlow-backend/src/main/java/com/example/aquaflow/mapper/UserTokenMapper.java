@@ -8,8 +8,8 @@ import java.util.List;
 @Mapper
 public interface UserTokenMapper {
 
-    @Insert("insert into user_token(user_id, user_type, refresh_token, expire_time, device_info, create_time) " +
-            "values(#{userId}, #{userType}, #{refreshToken}, #{expireTime}, #{deviceInfo}, #{createTime})")
+    @Insert("insert into user_token(user_id, user_type, refresh_token, expire_time, device_info, create_time, session_id) " +
+            "values(#{userId}, #{userType}, #{refreshToken}, #{expireTime}, #{deviceInfo}, #{createTime}, #{sessionId})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(UserToken userToken);
 
@@ -36,6 +36,25 @@ public interface UserTokenMapper {
 
     @Delete("delete from user_token where user_id = #{userId} and user_type = #{userType}")
     void deleteByUser(@Param("userId") Long userId, @Param("userType") String userType);
+
+    @Delete("delete from user_token where user_id = #{userId} and user_type = #{userType} and session_id is null")
+    void deleteLegacyByUser(@Param("userId") Long userId, @Param("userType") String userType);
+
+    @Update("update user_token set refresh_token = #{refreshToken}, expire_time = #{expireTime} " +
+            "where id = #{id} and session_id = #{sessionId}")
+    int rotateSession(UserToken token);
+
+    @Select("select exists(select 1 from user_token where session_id = #{sessionId} " +
+            "and user_id = #{userId} and user_type = #{userType} and expire_time > now())")
+    boolean sessionActive(@Param("sessionId") String sessionId, @Param("userId") Long userId,
+                          @Param("userType") String userType);
+
+    @Delete("delete from user_token where session_id = #{sessionId} and user_id = #{userId} and user_type = #{userType}")
+    void deleteSession(@Param("sessionId") String sessionId, @Param("userId") Long userId,
+                       @Param("userType") String userType);
+
+    @Delete("delete from user_token where expire_time <= now() order by expire_time limit 1000")
+    int deleteExpiredBatch();
 
     @Delete("delete from user_token where refresh_token = #{refreshToken}")
     void deleteByRefreshToken(@Param("refreshToken") String refreshToken);

@@ -29,7 +29,7 @@ class StationProductImageTest {
         product.setPrice(new BigDecimal("12")); product.setDeposit(new BigDecimal("50")); product.setInventoryId(3L);
         when(products.getByIdWithInventory(17L, station)).thenReturn(product);
         var current = new Inventory(); current.setStationId(station); current.setProductId(17L); current.setQuantity(10);
-        when(inventory.getByStationAndProduct(station, 17L)).thenReturn(current);
+        when(inventory.getByStationAndProductForUpdate(station, 17L)).thenReturn(current);
         when(inventory.updateStationImage(eq(station), eq(17L), nullable(String.class))).thenReturn(1);
         return new Fixture(service, products, inventory, stock, product);
     }

@@ -94,6 +94,6 @@ class AgreementEvidenceIntegrationTest extends AbstractIntegrationTest {
         assertEquals(previousEvents,jdbc.queryForList("select * from agreement_acknowledgement"));
         assertEquals(previousTokens,jdbc.queryForList("select * from user_token"));
         assertEquals(alerts,intOf("select count(*) from alert_log where alert_type='SYSTEM'"));
-        verify(tokenMapper).deleteByUser(staff,"staff");
+        verify(tokenMapper, never()).deleteByUser(staff,"staff");
     }
 }

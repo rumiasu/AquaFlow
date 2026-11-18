@@ -48,6 +48,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired private com.example.aquaflow.payment.MockWechatPaymentAdapter mockAdapter;
     @Autowired private com.example.aquaflow.mapper.ConsumptionRefundMapper paymentLocks;
     @Autowired private com.example.aquaflow.service.TicketPaymentService ticketPayments;
+    @Autowired private com.example.aquaflow.service.StationDeliveryTiming deliveryTiming;
     @Autowired private com.example.aquaflow.service.ConfirmedRefusalService confirmedRefusals;
     @Autowired private com.example.aquaflow.service.IndependentBarrelService independentBarrelService;
     @Autowired private com.example.aquaflow.service.OrderBarrelPurchaseService orderPurchases;
@@ -348,7 +349,7 @@ public class PaymentServiceImpl implements PaymentService {
         // `payment_status = 1 且未取消` —— 一改这笔钱就从站长「待收款」合计里凭空消失。
         // 状态只前进：0/1（钱没到手）→ 2（已付款），见 OrderMapper.markPaidIfCollectable。
         if (orderId != null && Integer.valueOf(PaymentStatus.PAID).equals(status)) {
-            orderMapper.markPaidIfCollectable(orderId);
+            markPrepaymentAndSetDeliveryDeadline(order);
         }
 
         // [AQ-009] 水票是「下单即视同已付」的唯一支付方式：订单在这一步就已经是 PAID，
@@ -386,7 +387,9 @@ public class PaymentServiceImpl implements PaymentService {
         record.setStatus(split.cashDue().signum()==0?PaymentStatus.PAID:PaymentStatus.PENDING);mockPolicy.prepare(record);
         paymentRecordMapper.insert(record);
         if(record.getStatus()==PaymentStatus.PAID) {
-            ticketPayments.paid(order);orderMapper.markPaidIfCollectable(order.getId());applyDepositOnPaid(order.getId());
+            ticketPayments.paid(order);
+            markPrepaymentAndSetDeliveryDeadline(order);
+            applyDepositOnPaid(order.getId());
         }
         return record.isSimulated()?confirmMockChannelIfApplicable(record.getId()):record;
     }
@@ -473,7 +476,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (record.getOrderId() != null) {
             ticketPayments.paid(orderMapper.getById(record.getOrderId()));
             // 确认收款 = 收钱 → 0/1 任一状态都前进到 已付款(2)；水票创建时已是 2，此处 affected=0 属幂等
-            int marked = orderMapper.markPaidIfCollectable(record.getOrderId());
+            int marked = markPrepaymentAndSetDeliveryDeadline(collectionOrder);
             if (record.isSimulated() && marked != 1)
                 throw new BusinessException("订单付款状态已变化，本次确认未生效，请核对原结果");
             // [AQ-009] 支付成功时才入账预收桶押金（此前在下单时即入账，那时客户一分未付）
@@ -481,6 +484,15 @@ public class PaymentServiceImpl implements PaymentService {
             com.example.aquaflow.util.OrderCollectionCompletion.finishDelivered(
                     orderMapper, record.getOrderId(), collectionOrder.getStatus());
         }
+    }
+
+    private int markPrepaymentAndSetDeliveryDeadline(Orders order) {
+        int marked = orderMapper.markPaidIfCollectable(order.getId());
+        if (marked == 1 && Boolean.TRUE.equals(order.getDeliveryTimingPending())
+                && Integer.valueOf(OrderStatus.PENDING).equals(order.getStatus())) {
+            deliveryTiming.onPrepaymentAccepted(order);
+        }
+        return marked;
     }
 
     /**

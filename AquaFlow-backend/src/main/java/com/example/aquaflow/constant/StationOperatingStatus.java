@@ -56,7 +56,7 @@ public final class StationOperatingStatus {
     /**
      * 站长**可以自己设**的取值 = 选择器选项（2026-09-24 产品裁定）。
      *
-     * <p>⚠️ 与 {@link #ALL} 的差别只有一项：**「待上线」不在里面**。它是**系统状态** ——
+     * <p>「休息中」保留读取旧记录，日常开门和打烊按营业时间计算。「待上线」是系统状态 ——
      * 只有刚注册的站才会是它，配齐必填项后转正成「正常运营」，**且再也回不去**
      * （判据与单向门在 {@code ManagerStationStatusController#update}）。
      * 让站长能手动设/取消它，等于给了他一个"把自家站从客户视野里摘掉再放回来"的开关，
@@ -65,7 +65,7 @@ public final class StationOperatingStatus {
      * <p>后台报「取值非法」也用这一份：错误提示是站长唯一能看到的"合法取值说明书"，
      * 上面列出一个他本来就设不了的值只会让人困惑。</p>
      */
-    public static final int[] SELECTABLE = { NORMAL, RESTING, APPOINTMENT_ONLY };
+    public static final int[] SELECTABLE = { NORMAL, APPOINTMENT_ONLY };
 
     /** 给用户看的**可选**取值清单（用于「取值非法」这类错误提示） */
     public static String selectableText() {
@@ -127,7 +127,7 @@ public final class StationOperatingStatus {
     public static String descOf(Integer status) {
         if (status == null) return "";
         switch (status) {
-            case NORMAL: return "照常接单、照常配送";
+            case NORMAL: return "按每日营业时间安排配送";
             case RESTING: return "暂时休息，仍可下单；可留言说明恢复时间";
             case PENDING_LAUNCH: return "资料尚未完善，暂不对外营业";
             case APPOINTMENT_ONLY: return "暂不配送，仍可预约下单";
@@ -172,7 +172,7 @@ public final class StationOperatingStatus {
         if (status == null) return "";
         switch (status) {
             case NORMAL:
-                return "正常接单，不额外显示营业状态提醒。";
+                return "打烊后仍可下单，现货从下次开门起安排配送。";
             case RESTING:
                 return "仍可下单，顾客会看到「休息中」和你的留言。";
             case PENDING_LAUNCH:

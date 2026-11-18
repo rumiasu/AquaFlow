@@ -21,7 +21,9 @@ import com.example.aquaflow.util.PasswordUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.UUID;
 import org.springframework.transaction.annotation.Isolation;
 
 import java.time.LocalDateTime;
@@ -145,6 +147,12 @@ public class AuthTokenService {
         log.info("[wx-login-staff] openid={}", MaskUtil.maskOpenid(openid));
 
         Staff staff = staffMapper.findByOpenid(openid);
+        if (staff != null) {
+            staff = staffMapper.getByIdForUpdate(staff.getId());
+            if (staff == null || !openid.equals(staff.getOpenid())) {
+                throw new BusinessException("账号已变化，请重新登录");
+            }
+        }
         log.info("[wx-login-staff] staff查询结果: staffId={}, role={}, status={}, stationId={}",
                 staff != null ? staff.getId() : "null",
                 staff != null ? staff.getRole() : "null",
@@ -393,18 +401,12 @@ public class AuthTokenService {
         staff.setUpdateTime(LocalDateTime.now());
         staffMapper.update(staff);
 
-        // 刷新 token
-        String accessToken = jwtUtil.generateAccessToken(staff.getId(), "staff", "STATION_MANAGER", station.getId());
-        String refreshToken = jwtUtil.generateRefreshToken(staff.getId(), "staff");
-        saveRefreshToken(staff.getId(), "staff", refreshToken);
-
         Map<String, Object> data = new HashMap<>();
+        data.putAll(issueStaffSession(staff, "STATION_MANAGER", station.getId()));
         data.put("id", station.getId());
         data.put("name", station.getName());
         data.put("stationId", station.getId());
         data.put("staffId", staff.getId());
-        data.put("accessToken", accessToken);
-        data.put("refreshToken", refreshToken);
         data.put("nickname", staff.getName());
         data.put("phone", staff.getPhone());
         data.put("role", "STATION_MANAGER");
@@ -533,6 +535,7 @@ public class AuthTokenService {
         LOGIN_ATTEMPTS.remove(key);
     }
 
+    @Transactional
     public Map<String, Object> login(AuthRequestDTO.Login params) {
         String username = params.getUsername();
         String password = params.getPassword();
@@ -545,7 +548,10 @@ public class AuthTokenService {
 
         Staff staff = staffMapper.findByName(username);
         if (staff != null) {
-            if (staff.getPasswordHash() != null && PasswordUtil.matches(password, staff.getPasswordHash())) {
+            String matchedName = staff.getName();
+            staff = staffMapper.getByIdForUpdate(staff.getId());
+            if (staff != null && Integer.valueOf(1).equals(staff.getStatus()) && java.util.Objects.equals(matchedName, staff.getName())
+                    && staff.getPasswordHash() != null && PasswordUtil.matches(password, staff.getPasswordHash())) {
                 clearFailures(lockKey);
                 return buildStaffLoginResult(staff);
             }
@@ -638,20 +644,26 @@ public class AuthTokenService {
             stationId = null;
         }
 
-        String newAccessToken = jwtUtil.generateAccessToken(userId, userType, role, stationId);
+        String sessionId = storedToken.getSessionId();
+        String newAccessToken = sessionId == null
+                ? jwtUtil.generateAccessToken(userId, userType, role, stationId)
+                : jwtUtil.generateAccessToken(userId, userType, role, stationId, null, sessionId);
         if (testAccount != null) newAccessToken = jwtUtil.withTestAuthentication(newAccessToken,testAccount.name(),temporaryTestLogin.binding(testAccount));
 
-        // [2026-10-05 F-78] 原非事务的先删后插会丢旧凭据；撤销也能在间隙结束后被晚到插入复活。
-        // 旧凭据 FOR UPDATE 锁一直持有至替换提交，撤销须等待并删除已提交替换；撤销先完成则刷新拒绝。
-        // 同一旧凭据的并发重放须在锁后重读，不保证两次都成功；已返回的新凭据不能被失败请求全清。
-        // 仍禁止调用登录用的 saveRefreshToken/deleteByUser，否则会撤销其它会话。
         String newRefreshToken = jwtUtil.generateRefreshToken(userId, userType);
         if (testAccount != null) newRefreshToken = jwtUtil.withTestAuthentication(newRefreshToken,testAccount.name(),temporaryTestLogin.binding(testAccount));
-        // 删除旧token记录（同值的重复行一并清掉，见 UserTokenMapper.findByRefreshToken 的说明）
-        userTokenMapper.deleteByRefreshToken(refreshToken);
-        // [2026-10-02 F-78] 原误调登录用的 saveRefreshToken 会全清，删掉并发请求已返回的新 token。
-        // 轮换只追加本次凭据；同用户全清仍由登录入口负责。
-        insertRefreshToken(userId, userType, newRefreshToken);
+        if (sessionId == null) {
+            // 历史凭据可能有重复行，按原凭据清理并在同一事务内替换。
+            userTokenMapper.deleteByRefreshToken(refreshToken);
+            insertRefreshToken(userId, userType, newRefreshToken);
+        } else {
+            // 刷新和退出竞争同一行锁，轮换原地更新，避免晚到刷新重建已退出的会话。
+            storedToken.setRefreshToken(newRefreshToken);
+            storedToken.setExpireTime(refreshExpiry());
+            if (userTokenMapper.rotateSession(storedToken) != 1) {
+                throw new BusinessException("令牌已失效，请重新登录");
+            }
+        }
 
         Map<String, Object> data = new HashMap<>();
         data.put("accessToken", newAccessToken);
@@ -661,16 +673,21 @@ public class AuthTokenService {
 
     // ==================== 登出 ====================
 
-    public void logout(String authHeader) {
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            if (jwtUtil.validateToken(token)) {
-                io.jsonwebtoken.Claims claims = jwtUtil.parseToken(token);
-                Long userId = claims.get("userId", Number.class).longValue();
-                String userType = claims.get("userType", String.class);
-                userTokenMapper.deleteByUser(userId, userType);
-            }
+    public boolean logout(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) return false;
+        var claims = jwtUtil.parseLogoutToken(authHeader.substring(7));
+        if (claims == null || !"access".equals(claims.get("tokenType", String.class))) return false;
+        if (TemporaryTestLogin.marked(claims)) temporaryTestLogin.requireSession(claims);
+        Long userId = claims.get("userId", Number.class).longValue();
+        String userType = claims.get("userType", String.class);
+        String sessionId = claims.get(JwtUtil.SESSION_ID, String.class);
+        if (sessionId == null) {
+            if ("staff".equals(userType)) userTokenMapper.deleteLegacyByUser(userId, userType);
+            else userTokenMapper.deleteByUser(userId, userType);
+        } else {
+            userTokenMapper.deleteSession(sessionId, userId, userType);
         }
+        return true;
     }
 
     // ==================== 验证登录状态 ====================
@@ -711,6 +728,7 @@ public class AuthTokenService {
 
     // ==================== 修改密码 ====================
 
+    @Transactional
     public void changePassword(AuthRequestDTO.ChangePassword params) {
         Long userId = AuthContext.getUserId();
         String userType = AuthContext.getUserType();
@@ -719,7 +737,7 @@ public class AuthTokenService {
             throw new BusinessException("仅支持员工修改密码");
         }
 
-        Staff staff = staffMapper.getById(userId);
+        Staff staff = staffMapper.getByIdForUpdate(userId);
         if (staff == null) throw new BusinessException("用户不存在");
 
         String oldPassword = params.getOldPassword();
@@ -759,16 +777,8 @@ public class AuthTokenService {
         try {
             String role = mapStaffRole(staff);
             Long stationId = (staff.getStationId() != null && staff.getStationId() == 0) ? null : staff.getStationId();
-            String accessToken = jwtUtil.generateAccessToken(
-                    staff.getId(), "staff", role,
-                    stationId);
-            String refreshToken = jwtUtil.generateRefreshToken(staff.getId(), "staff");
-
-            saveRefreshToken(staff.getId(), "staff", refreshToken);
-
             Map<String, Object> data = new HashMap<>();
-            data.put("accessToken", accessToken);
-            data.put("refreshToken", refreshToken);
+            data.putAll(issueStaffSession(staff, role, stationId));
             data.put("staffId", staff.getId());
             data.put("nickname", staff.getName());
             data.put("phone", staff.getPhone());
@@ -788,16 +798,8 @@ public class AuthTokenService {
     private Map<String, Object> buildStaffLoginResult(Staff staff) {
         String role = mapStaffRole(staff);
         Long stationId = (staff.getStationId() != null && staff.getStationId() == 0) ? null : staff.getStationId();
-        String accessToken = jwtUtil.generateAccessToken(
-                staff.getId(), "staff", role,
-                stationId);
-        String refreshToken = jwtUtil.generateRefreshToken(staff.getId(), "staff");
-
-        saveRefreshToken(staff.getId(), "staff", refreshToken);
-
         Map<String, Object> data = new HashMap<>();
-        data.put("accessToken", accessToken);
-        data.put("refreshToken", refreshToken);
+        data.putAll(issueStaffSession(staff, role, stationId));
         data.put("username", staff.getName());
         data.put("nickname", staff.getName());
         data.put("role", role);
@@ -809,20 +811,42 @@ public class AuthTokenService {
     }
 
     private void saveRefreshToken(Long userId, String userType, String refreshToken) {
-        // #3: 清理该用户旧的refresh token，防止累积
-        userTokenMapper.deleteByUser(userId, userType);
+        // 顾客、虚拟引导身份及临时测试登录维持旧凭据语义。
+        if ("staff".equals(userType)) userTokenMapper.deleteLegacyByUser(userId, userType);
+        else userTokenMapper.deleteByUser(userId, userType);
         insertRefreshToken(userId, userType, refreshToken);
     }
 
-    /** 只追加凭据；刷新不得通过登录的清旧逻辑撤销其它已通过校验的并发轮换。 */
+    private Map<String, String> issueStaffSession(Staff staff, String role, Long stationId) {
+        String sessionId = UUID.randomUUID().toString();
+        String access = jwtUtil.generateAccessToken(staff.getId(), "staff", role, stationId, null, sessionId);
+        String refresh = jwtUtil.generateRefreshToken(staff.getId(), "staff");
+        persistRefreshToken(staff.getId(), "staff", refresh, sessionId);
+        return Map.of("accessToken", access, "refreshToken", refresh);
+    }
+
     private void insertRefreshToken(Long userId, String userType, String refreshToken) {
+        persistRefreshToken(userId, userType, refreshToken, null);
+    }
+
+    private void persistRefreshToken(Long userId, String userType, String refreshToken, String sessionId) {
         UserToken userToken = new UserToken();
         userToken.setUserId(userId);
         userToken.setUserType(userType);
         userToken.setRefreshToken(refreshToken);
-        userToken.setExpireTime(LocalDateTime.now().plusSeconds(jwtUtil.getRefreshTokenExpiry() / 1000));
+        userToken.setSessionId(sessionId);
+        userToken.setExpireTime(refreshExpiry());
         userToken.setCreateTime(LocalDateTime.now());
         userTokenMapper.insert(userToken);
+    }
+
+    private LocalDateTime refreshExpiry() {
+        return LocalDateTime.now().plusSeconds(jwtUtil.getRefreshTokenExpiry() / 1000);
+    }
+
+    @Scheduled(fixedDelayString = "${aquaflow.auth.expired-token-cleanup-ms:60000}")
+    public void cleanupExpiredTokens() {
+        userTokenMapper.deleteExpiredBatch();
     }
 
     private String mapStaffRole(Staff staff) {

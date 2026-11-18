@@ -3,6 +3,7 @@ package com.example.aquaflow.service;
 import com.example.aquaflow.entity.Staff;
 import com.example.aquaflow.exception.BusinessException;
 import com.example.aquaflow.mapper.StaffMapper;
+import com.example.aquaflow.mapper.UserTokenMapper;
 import com.example.aquaflow.service.impl.StaffServiceImpl;
 import com.example.aquaflow.util.AuthContext;
 import org.junit.jupiter.api.AfterEach;
@@ -27,6 +28,7 @@ class StaffManagementGuardTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(service, "staffMapper", mapper);
+        ReflectionTestUtils.setField(service, "userTokenMapper", mock(UserTokenMapper.class));
         AuthContext.set(new AuthContext.AuthUser(MANAGER_ID, "staff", "STATION_MANAGER", STATION_ID));
     }
 

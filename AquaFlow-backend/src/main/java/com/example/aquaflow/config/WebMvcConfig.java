@@ -44,6 +44,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/wx-login-staff",
                         "/api/auth/dev-login",
                         "/api/auth/refresh",
+                        "/api/auth/logout",
                         "/api/auth/change-password",
                         "/api/auth/bind-staff"
                 );
@@ -68,6 +69,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/bind-staff",
                         "/api/auth/dev-login",
                         "/api/auth/refresh",
+                        // 退出独立校验签名，允许过期访问令牌撤销它自己的员工会话。
+                        "/api/auth/logout",
                         // Only packaged public text. Evidence/request routes remain authenticated; no UNSELECTED expansion.
                         "/api/agreements/current",
                         "/api/agreements/documents/{versionId}",

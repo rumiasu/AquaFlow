@@ -6,6 +6,7 @@ import com.example.aquaflow.common.Result;
 import com.example.aquaflow.constant.StationOperatingStatus;
 import com.example.aquaflow.entity.Station;
 import com.example.aquaflow.mapper.StationMapper;
+import com.example.aquaflow.service.StationDeliveryTiming;
 import com.example.aquaflow.service.impl.StationSetupGuideService;
 import com.example.aquaflow.util.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalTime;
 
 /**
  * 水站<b>营业状态</b>（软状态）+ 站长留言（<b>站长专属</b>）。
@@ -41,6 +43,9 @@ public class ManagerStationStatusController {
     @Autowired
     private StationMapper stationMapper;
 
+    @Autowired
+    private StationDeliveryTiming deliveryTiming;
+
     /**
      * 「转正」门槛的唯一判据来源（2026-09-24）。
      *
@@ -59,6 +64,58 @@ public class ManagerStationStatusController {
             return Result.error("水站不存在");
         }
         return Result.success(toView(station));
+    }
+
+    @PutMapping("/hours")
+    public Result<Map<String, Object>> updateHours(@RequestBody Map<String, Object> body) {
+        LocalTime opens = parseTime(body.get("opensAt"));
+        LocalTime closes = parseTime(body.get("closesAt"));
+        if (opens == null || closes == null || opens.equals(closes)) {
+            return Result.error("请选择不同的开门时间和打烊时间");
+        }
+        Integer minutes = parseInteger(body.get("openMinutes"));
+        Integer closedMinutes = parseInteger(body.get("closedMinutes"));
+        if (!body.containsKey("closedMinutes")) {
+            Integer legacyHours = parseInteger(body.get("closedHours"));
+            if (legacyHours != null && legacyHours >= 1 && legacyHours <= 24) {
+                closedMinutes = legacyHours * 60;
+            }
+        }
+        if (minutes == null || minutes < 1 || minutes > 1440) {
+            return Result.error("营业中的配送时限请输入 1 至 1440 分钟");
+        }
+        if (closedMinutes == null || closedMinutes < 1 || closedMinutes > 1440) {
+            return Result.error("打烊后的配送时限请输入 1 至 1440 分钟");
+        }
+        Long stationId = AuthContext.requireStationId();
+        if (!body.containsKey("closedMinutes")) {
+            Station current = stationMapper.getById(stationId);
+            Integer exact = current == null ? null : current.getClosedDeliveryMinutes();
+            // 旧端修改开门或营业中时限时，也会把显示的小时数原样提交。
+            if (exact != null && closedMinutes == ((exact + 59) / 60) * 60) {
+                closedMinutes = exact;
+            }
+        }
+        if (stationMapper.updateDeliveryHours(stationId, opens, closes, minutes, closedMinutes) == 0) {
+            return Result.error("保存失败：水站不存在");
+        }
+        Station saved = stationMapper.getById(stationId);
+        Map<String, Object> view = new HashMap<>(deliveryTiming.describe(saved));
+        view.put("stationStatusText", deliveryTiming.displayStatus(saved, view));
+        return Result.success(view);
+    }
+
+    private static LocalTime parseTime(Object value) {
+        return value instanceof String time && time.matches("(?:[01][0-9]|2[0-3]):[0-5][0-9]")
+                ? LocalTime.parse(time) : null;
+    }
+
+    private static Integer parseInteger(Object value) {
+        try {
+            return Integer.valueOf(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
@@ -136,9 +193,12 @@ public class ManagerStationStatusController {
         data.put("stationName", station.getName());
         data.put("operatingStatus", station.getOperatingStatus() == null
                 ? StationOperatingStatus.NORMAL : station.getOperatingStatus());
-        data.put("statusText", station.getOperatingStatusText());
+        Map<String, Object> hours = deliveryTiming.describe(station);
+        data.put("statusText", deliveryTiming.displayStatus(station, hours));
+        data.put("hardStatus", station.getStatus());
         data.put("note", station.getStatusNote());
         data.put("statusUpdateTime", station.getStatusUpdateTime());
+        data.put("deliveryHours", hours);
         // 给前端判断"要不要展示横幅"：正常运营时 customerHint 为 null
         data.put("customerHint", StationOperatingStatus.customerHint(
                 station.getOperatingStatus(), station.getStatusNote()));

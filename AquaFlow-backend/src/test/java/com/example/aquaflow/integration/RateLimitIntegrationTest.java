@@ -48,8 +48,7 @@ class RateLimitIntegrationTest extends AbstractIntegrationTest {
         assertEquals(429, post("/api/auth/refresh", null, "{\"refreshToken\":\"bogus\"}").status(),
                 "换个限流端点继续打仍应被挡住");
 
-        // [F-48] 注册表全钉：WebMvcConfig 注册的 8 条限流路径必须**逐条**断言 429。
-        // 过去这里只打 login + refresh 两条 ⇒ 删掉其余 6 条注册根本不会红（台账 F-48）。
+        // [F-48] WebMvcConfig 注册的每条限流路径均须返回 429。
         // 本类是单用例（计数器按 IP 聚合、跨用例互相污染），所以整表断言放在同一方法里；
         // 「注册表清单 == 本文件清单」的双向对账另由 scripts/check-ledger-claims.js 的 FND-4 盯。
         // ⚠️ dev-login 的 Bean 在测试 profile 不存在（dev-login-enabled=false），但限流拦截器
@@ -61,6 +60,7 @@ class RateLimitIntegrationTest extends AbstractIntegrationTest {
                 "/api/auth/wx-login-staff",
                 "/api/auth/dev-login",
                 "/api/auth/refresh",
+                "/api/auth/logout",
                 "/api/auth/change-password",
                 "/api/auth/bind-staff"
         };

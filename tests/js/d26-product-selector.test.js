@@ -7,9 +7,9 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a, b)
 const dataset = (id, delta) => ({ currentTarget: { dataset: { id, delta } } })
 const choice = id => ({ detail: { id, item: { id, name: 'untrusted' } } })
 const products = [
-  { id: 1, name: '甲水', spec: '大桶', salePrice: 0, imageUrl: 'a.png', availableQty: 8 },
-  { id: 2, name: '乙水', spec: '小桶', salePrice: null, price: null, availableQty: 3 },
-  { id: 3, name: '丙水', salePrice: false },
+  { id: 1, name: '甲水', spec: '大桶', effectivePrice: 0, salePrice: 21, imageUrl: 'a.png', availableQty: 8 },
+  { id: 2, name: '乙水', spec: '小桶', effectivePrice: '15.25', salePrice: 20, price: 24, availableQty: 3 },
+  { id: 3, name: '丙水', salePrice: 23, price: 25 },
   { id: null, name: '编号待核实' }
 ]
 
@@ -24,9 +24,9 @@ async function run() {
   page._pageOwner = JSON.stringify([1, 8, 'STATION_MANAGER', 1])
   await page.loadProducts()
   assert.equal(page.data.selectedProductId, 1)
-  assert.equal(page.data.productOptions[0].priceText, '参考价 ¥0')
-  assert.equal(page.data.productOptions[1].priceText, '参考价待核实')
-  assert.equal(page.data.productOptions[2].priceText, '参考价待核实')
+  assert.equal(page.data.productOptions[0].priceText, '售价 ¥0')
+  assert.equal(page.data.productOptions[1].priceText, '售价 ¥15.25')
+  assert.equal(page.data.productOptions[2].priceText, '售价待核实')
   assert.equal(page.data.productOptions[3].disabled, true)
   assert.equal(page.data.productOptions[1].image, undefined)
   assert.deepEqual(page.data.cartLines, [])
@@ -36,6 +36,24 @@ async function run() {
   assert.deepEqual(page.data.cartLines, [])
   page.onQty(dataset(2, 1)); page.onQty(dataset(2, 1))
   assert.equal(page.data.activeProduct.selectedQty, 2)
+  assert.equal(page.data.cartLines[0].priceText, '售价 ¥15.25')
+  page.onQty(dataset(3, 1))
+  assert.equal(page.data.cartLines[1].priceText, '售价待核实')
+  page.onQty(dataset(3, -1))
+  page.setData({ quote: { totalAmount: 30.50 } })
+  read = async () => ({ data: products.map(x => x.id === 2 ? { ...x, effectivePrice: 14 } : x) })
+  await page.loadProducts()
+  assert.equal(page.data.productOptions[1].priceText, '售价 ¥14')
+  assert.equal(page.data.cartLines[0].priceText, '售价 ¥14')
+  assert.equal(page.data.quote, null)
+  for (const invalid of [null, '', '   ', -3, false, 'bad']) {
+    read = async () => ({ data: products.map(x => x.id === 2 ? { ...x, effectivePrice: invalid } : x) })
+    await page.loadProducts()
+    assert.equal(page.data.productOptions[1].priceText, '售价待核实')
+    assert.equal(page.data.cartLines[0].priceText, '售价待核实')
+  }
+  read = async () => ({ data: products })
+  await page.loadProducts()
   page.onSelectProduct(choice(1)); page.onQty(dataset(1, 1))
   assert.equal(page.data.activeProduct.selectedQty, 1)
   assert.deepEqual(page.data.cartLines.map(x => [x.productId, x.quantity]), [[2, 2], [1, 1]])

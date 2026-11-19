@@ -88,7 +88,7 @@
       <view class="row" wx:for="{{cartLines}}" wx:key="productId">
         <view class="row-main">
           <text class="row-title">{{item.name}}</text>
-          <text class="row-sub">{{item.priceText || '参考价待核实'}} × {{item.quantity}}</text>
+          <text class="row-sub">{{item.priceText || '售价待核实'}} × {{item.quantity}}</text>
         </view>
         <view class="qty">
           <button class="af-action af-action--quiet b3-quantity b3-on-qty" bindtap="onQty" data-id="{{item.productId}}" data-delta="{{-1}}" disabled="{{submitting || unknownOrder || productsLoading || productError}}" aria-label="减少数量" hover-class="af-action--pressed">−</button>

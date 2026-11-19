@@ -3,15 +3,36 @@ import {inventory} from './inventory.js';
 
 const REASONS = [['customer_kept','客户留存'],['lost','路上丢失'],['damaged','破损'],['wrong','送错'],['other','其他']];
 
+// Use the server's return plan, never the delivered quantity. Leave hand-entered rows untouched.
+export function fillExpectedReturns(order, form) {
+  if (order.status !== 2 || order.firstBarrelOrder === true || !Array.isArray(order.items) || !order.items.length ||
+      order.items.some(item => !item || typeof item.barrelItem !== 'boolean')) return 0;
+  const barrels = order.items.filter(item => item.barrelItem);
+  if (barrels.some(item => !positive(item.id) || !Number.isInteger(item.suggestedReturnQty) || item.suggestedReturnQty < 0 || item.suggestedReturnQty > 2147483647) ||
+      new Set(barrels.map(item => String(item.id))).size !== barrels.length) return 0;
+  const targets = barrels.map(item => ({item, input:form.elements.namedItem(`actual-${item.id}`)}));
+  if (targets.some(({input}) => !input || typeof input.value !== 'string')) return 0;
+  let filled = 0;
+  for (const {item,input} of targets) {
+    if (input.value !== '' || input.validity?.badInput || REASONS.some(([key]) => {
+      const reason = form.elements.namedItem(`${item.id}-${key}`);
+      return reason && (reason.value !== '' || reason.validity?.badInput);
+    })) continue;
+    input.value = String(item.suggestedReturnQty);
+    filled++;
+  }
+  return filled;
+}
+
 export function completeRequest(order,form) {
   if (order.status !== 2 || typeof order.needCollect !== 'boolean' || order.stockPrep && order.stockPrep.ready !== true) throw new Error('当前配送或备货状态待核实');
   const items = rows(order.items);
-  if (!items.length || items.some(item => typeof item.barrelItem !== 'boolean')) throw new Error('订单商品及回桶计划待核实');
+  if (!items.length || items.some(item => !item || typeof item.barrelItem !== 'boolean')) throw new Error('订单商品及回桶计划待核实');
   const barrels = order.firstBarrelOrder === true ? [] : items.filter(row => row.barrelItem === true);
   const itemReturns = barrels.map(item => {
     const quantity = form.get(`actual-${item.id}`);
     const expected = item.suggestedReturnQty;
-    if (!positive(item.id) || !Number.isInteger(expected) || expected < 0 || !/^\d+$/.test(quantity ?? '') || Number(quantity) > 2147483647) throw new Error('请逐项核对实际回桶数量');
+    if (!positive(item.id) || !Number.isInteger(expected) || expected < 0 || expected > 2147483647 || !/^\d+$/.test(quantity ?? '') || Number(quantity) > 2147483647) throw new Error('请逐项核对实际回桶数量');
     const actual = Number(quantity);
     const reasons = REASONS.flatMap(([key]) => {
       const value = form.get(`${item.id}-${key}`);
@@ -66,20 +87,24 @@ export function fulfillment(context,order,refresh) {
     return;
   }
   if (order.status !== 2) return;
-  if (typeof order.needCollect !== 'boolean' || !Array.isArray(order.items) || !order.items.length || order.items.some(item => typeof item.barrelItem !== 'boolean')) return;
+  if (typeof order.needCollect !== 'boolean' || !Array.isArray(order.items) || !order.items.length || order.items.some(item => !item || typeof item.barrelItem !== 'boolean')) return;
   const amount = order.paymentMethod === 3 ? order.collectAmount : order.totalAmount;
   if (order.needCollect && money(amount) === '待核实') return;
   const barrels = order.firstBarrelOrder === true ? [] : order.items.filter(item => item.barrelItem === true);
-  if (barrels.some(item => !positive(item.id) || !Number.isInteger(item.suggestedReturnQty) || item.suggestedReturnQty < 0)) return;
+  if (barrels.some(item => !positive(item.id) || !Number.isInteger(item.suggestedReturnQty) || item.suggestedReturnQty < 0 || item.suggestedReturnQty > 2147483647) || new Set(barrels.map(item => String(item.id))).size !== barrels.length) return;
   host.innerHTML = `<form id="finish-delivery" class="panel"><h2>登记送达</h2>
     ${facts([['收货人',order.receiverName],['付款状态',order.payStateText]])}
     ${order.needCollect ? `<fieldset><legend>本单实收情况 · ${money(amount)}</legend><label><input type="radio" name="cash" value="received" required> 已收齐</label>
       ${order.hasOrderBarrelPurchase === true ? '<p>本单有新增押金，需收齐后交桶。</p>' : '<label><input type="radio" name="cash" value="pending"> 已送达，尚未收款</label>'}</fieldset>` : ''}
-    ${barrels.length ? table(['商品','应回空桶','实回空桶','少回原因（选填）'],barrels.map(item => [esc(item.productNameSnapshot ?? item.productName),esc(item.suggestedReturnQty),
+    ${barrels.length ? '<button type="button" id="fill-expected-returns">按应回数量填入未填写项</button>' + table(['商品','应回空桶','实回空桶','少回原因（选填）'],barrels.map(item => [esc(item.productNameSnapshot ?? item.productName),esc(item.suggestedReturnQty),
       `<input type="number" aria-label="${esc(item.productNameSnapshot ?? item.productName)}实回空桶" name="actual-${item.id}" min="0" max="2147483647" step="1" required>`,
       `<details><summary>填写原因</summary>${REASONS.map(([key,label]) => `<label class="field">${label}<input type="number" name="${item.id}-${key}" min="0" max="${item.suggestedReturnQty}" step="1"></label>`).join('')}</details>`])) : ''}
     <label class="field">实际配送楼层（选填）<input type="number" name="floor" min="1" max="200" step="1"></label>
     <label class="field">配送备注（选填）<textarea name="note" rows="2" maxlength="500"></textarea></label><button>登记本单送达</button></form>`;
+  listen('#fill-expected-returns','click', () => {
+    const form = host.querySelector('#finish-delivery');
+    if (form) fillExpectedReturns(order,form);
+  });
   listen('#finish-delivery','submit',async form => {
     const body = completeRequest(order,new FormData(form));
     const cash = order.needCollect ? (body.collected ? `已收齐 ${money(amount)}` : `尚未收款 ${money(amount)}`) : order.payStateText;

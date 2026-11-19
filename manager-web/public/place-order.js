@@ -2,7 +2,16 @@ import {salePriceLabel} from './sales-view.js';
 import {esc, facts, money, original, params, positive, rows, screen, table} from './desktop.js';
 
 const ASSIST = '/api/manager/order-assist';
-const amountKnown = value => value !== '' && value != null && Number.isFinite(Number(value)) && Number(value) >= 0;
+const amountKnown = value => ['number','string'].includes(typeof value) && String(value).trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0;
+
+export const completeAddress = row => !!row && positive(row.id) && ['name','phone','detail'].every(key => typeof row[key] === 'string' && row[key].trim());
+export const singleAddressId = addresses => addresses.length === 1 && completeAddress(addresses[0]) ? String(addresses[0].id) : '';
+export function orderWarnings(quote) {
+  const warnings = quote.warnings ?? [];
+  if (!Array.isArray(warnings) || warnings.some(value => typeof value !== 'string')) throw new Error('业务提示待核实，请重新试算');
+  return warnings.map(value => value.trim()).filter(Boolean);
+}
+export const needsOrderConfirmation = quote => rows(quote.barrelPurchases ?? []).length > 0 || Number(quote.extraDeposit) > 0 || orderWarnings(quote).length > 0;
 
 export function makeOrderRequest(user, customerId, quoteInput, quote, key) {
   if (quote.blocked !== false || !amountKnown(quote.totalAmount) || !rows(quote.methods).some(method =>
@@ -48,8 +57,9 @@ export async function placeOrder(context) {
       api.get(`${ASSIST}/customers/${customer.id}/addresses`),api.get(params('/api/products/sale-by-station',{stationId:user.stationId}))
     ])).map(rows);
     if (!current()) return;
+    const defaultAddress = singleAddressId(addresses);
     show(`<button id="back-search">重选客户</button><form class="panel" id="order-draft"><h2>${esc(customer.name)}的订单</h2>
-      <label class="field">收货地址<select name="address" required><option value="">请选择</option>${addresses.filter(row => positive(row.id)).map(row => `<option value="${row.id}">${esc([row.name,row.phone,row.detail].filter(Boolean).join(' · '))}</option>`).join('')}</select></label>
+      <label class="field">收货地址<select name="address" required><option value="">请选择</option>${addresses.filter(row => row && positive(row.id)).map(row => `<option value="${row.id}" ${String(row.id) === defaultAddress ? 'selected' : ''}>${esc([row.name,row.phone,row.detail].filter(Boolean).join(' · '))}</option>`).join('')}</select>（可更改）</label>
       ${table(['商品','参考价','数量'],products.filter(row => positive(row.id)).map(row => [`${esc(row.name)} ${esc(row.spec ?? '')}`,salePriceLabel(row),`<input aria-label="${esc(row.name)}数量" type="number" name="product-${row.id}" min="0" step="1" max="2147483647" value="0" required>`]))}
       <div class="actions" id="order-methods"></div><button>试算费用</button></form><div id="order-quote"></div>`);
     const draft = container.querySelector('#order-draft');
@@ -57,6 +67,7 @@ export async function placeOrder(context) {
     let revision = 0, selectedMethod = 2, feeMethod, ready;
     function invalidate() { revision++; ready = null; quoteBox.replaceChildren(); }
     draft.addEventListener('input',invalidate);
+    draft.addEventListener('change',invalidate);
     listen('#back-search','click',() => search());
     async function quoteOrder(allowDefault = true) {
       if (storage.read()) throw new Error('请先核对上次订单');
@@ -65,6 +76,9 @@ export async function placeOrder(context) {
       const data = new FormData(draft);
       const items = products.filter(row => positive(row.id)).map(row => ({productId:Number(row.id),quantity:Number(data.get(`product-${row.id}`))})).filter(row => row.quantity > 0);
       if (!positive(data.get('address')) || !items.length || !draft.reportValidity()) throw new Error('请选择地址和商品，核对数量');
+      const address = addresses.find(row => row && String(row.id) === data.get('address'));
+      if (!address) throw new Error('所选地址已无法匹配，请重新选择');
+      const incompleteAddress = !completeAddress(address);
       const input = {addressId:Number(data.get('address')),items,paymentMethod:selectedMethod,...(selectedMethod === 3 ? {ticketFeePaymentMethod:feeMethod} : {})};
       const quote = await api.command(params(`${ASSIST}/quote`,{customerId:customer.id}),'POST',{...input,stationId:Number(user.stationId)});
       if (!current() || version !== revision || !draft.isConnected) return;
@@ -79,18 +93,23 @@ export async function placeOrder(context) {
       listen('[data-method]','click',button => {selectedMethod = Number(button.dataset.method); feeMethod = undefined; return quoteOrder(false);});
       listen('[data-fee-method]','click',button => {feeMethod = Number(button.dataset.feeMethod); return quoteOrder(false);});
       const purchases = rows(quote.barrelPurchases ?? []);
+      const warnings = orderWarnings(quote);
+      if (incompleteAddress) warnings.push('所选历史地址的收货人、电话或详细地址有缺失，请核对后再下单');
       let request;
       try { request = makeOrderRequest(user,customer.id,input,quote,crypto.randomUUID()); }
       catch (error) { if (!quote.blocked && methods.some(row => row.id === selectedMethod && row.enabled === true)) throw error; }
-      quoteBox.innerHTML = `<section class="panel"><h2>服务端报价</h2>${facts([['水费',money(quote.waterAmount)],['配送费',money(quote.deliveryFee)],['楼层费',money(quote.floorFee)],['新增押金',money(quote.extraDeposit)],['总额',money(quote.totalAmount)],...(quote.ticketFeeAmount == null ? [] : [['用票后应付余款',money(quote.ticketFeeAmount)]])])}
-        ${(quote.warnings ?? []).map(warning => `<p>${esc(warning)}</p>`).join('')}${quote.blockReason ? `<p role="alert">${esc(quote.blockReason)}</p>` : ''}
+      quoteBox.innerHTML = `<section class="panel"><h2>服务端报价</h2>${facts([['客户',customer.name],['收货人',address.name],['电话',address.phone],['收货地址',address.detail],['水费',money(quote.waterAmount)],['配送费',money(quote.deliveryFee)],['楼层费',money(quote.floorFee)],['新增押金',money(quote.extraDeposit)],['总额',money(quote.totalAmount)],...(quote.ticketFeeAmount == null ? [] : [['用票后应付余款',money(quote.ticketFeeAmount)]])])}
+        ${warnings.map(warning => `<p>${esc(warning)}</p>`).join('')}${quote.blockReason ? `<p role="alert">${esc(quote.blockReason)}</p>` : ''}
         ${purchases.map(row => `<p>${esc(row.productName)} · 新增押金 ${esc(row.quantity)} 份，${money(row.amount)}</p>`).join('')}
         ${request ? '<button id="create-order">确认下单</button>' : '<p>当前报价无法提交，请核对付款方式或配送条件。</p>'}</section>`;
       ready = request;
       listen('#create-order','click',async () => {
         if (ready !== request || storage.read()) throw new Error('请重新核对报价或原订单');
-        if (!confirm(`为 ${customer.name} 提交 ${money(quote.totalAmount)} 的订单？${purchases.length ? '\n请确认客户同意逐项新增押金。' : ''}`)) return;
+        const latest = new FormData(draft);
+        if (latest.get('address') !== String(request.addressId) || products.filter(row => positive(row.id)).some(row => Number(latest.get(`product-${row.id}`)) !== (request.items.find(item => item.productId === Number(row.id))?.quantity ?? 0))) throw new Error('地址或数量已变化，请重新试算');
+        if ((incompleteAddress || needsOrderConfirmation(quote)) && !confirm(`为 ${customer.name} 提交 ${money(quote.totalAmount)} 的订单？${purchases.length || Number(quote.extraDeposit) > 0 ? '\n请确认客户同意逐项新增押金。' : ''}${warnings.length ? '\n'+warnings.join('\n') : ''}`)) return;
         storage.save(request);
+        ready = null;
         await send(request,false);
       });
     }

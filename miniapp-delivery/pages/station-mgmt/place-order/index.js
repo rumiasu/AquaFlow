@@ -27,14 +27,18 @@ function validOriginal(body, station) {
     && [1, 2, 3].includes(body.paymentMethod) && typeof body.idempotencyKey === 'string' && body.idempotencyKey.length <= 64 && !!body.idempotencyKey.trim()
     && Array.isArray(body.items) && body.items.length > 0 && body.items.every(i => i && positive(i.productId) && positive(i.quantity))
 }
-function referencePrice(price) {
-  const validType = typeof price === 'number' || typeof price === 'string'
-  return validType && String(price).trim() !== '' && Number.isFinite(Number(price)) ? '参考价 ¥' + price : '参考价待核实'
+// The station catalog already applies active promotions. A reference or regular price is not a substitute.
+function catalogPrice(product) {
+  const value = product && product.effectivePrice
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  const text = String(value).trim()
+  return /^\d+(?:\.\d{1,2})?$/.test(text) && Number.isFinite(Number(text)) ? text : null
 }
+function priceLabel(price) { return price == null ? '售价待核实' : '售价 ¥' + price }
 function productOptionsOf(products) {
   return products.map(p => {
-    const price = p.salePrice != null ? p.salePrice : p.price
-    return { id: p.id, name: p.name, spec: p.spec, priceText: referencePrice(price), image: p.imageUrl,
+    const price = catalogPrice(p)
+    return { id: p.id, name: p.name, spec: p.spec, priceText: priceLabel(price), image: p.imageUrl,
       disabled: !Number.isSafeInteger(Number(p.id)) || Number(p.id) <= 0 }
   })
 }
@@ -169,7 +173,15 @@ Page({
       const first = products.find(p => Number.isSafeInteger(Number(p.id)) && Number(p.id) > 0)
       const previous = selectedProduct(products, this.data.selectedProductId)
       const active = previous && Number.isSafeInteger(Number(previous.id)) && Number(previous.id) > 0 ? previous : (first || null)
-      this.setData({ products, productOptions: productOptionsOf(products), selectedProductId: active ? active.id : '', activeProduct: active })
+      const cartLines = this.data.cartLines.map(line => {
+        const price = catalogPrice(selectedProduct(products, line.productId))
+        return { ...line, price, priceText: priceLabel(price) }
+      })
+      const priceChanged = cartLines.some((line, i) => line.price !== this.data.cartLines[i].price)
+      if (priceChanged) this._quoteSeq = (this._quoteSeq || 0) + 1
+      this.setData({ products, cartLines, productOptions: productOptionsOf(products),
+        selectedProductId: active ? active.id : '', activeProduct: active,
+        ...(priceChanged ? { quote: null, quoting: false } : {}) })
     } catch (err) {
       if (!current()) return
       this.setData({ productError: '商品列表尚未读取，请重试后选择商品' })
@@ -341,11 +353,11 @@ Page({
         productId,
         name: p.name,
         // 价格只用于**展示**参考，最终金额一律以服务端试算/建单为准
-        price: p.salePrice != null ? p.salePrice : p.price,
+        price: catalogPrice(p),
         quantity: next
       })
     }
-    cartLines = cartLines.map(line => ({ ...line, priceText: referencePrice(line.price) }))
+    cartLines = cartLines.map(line => ({ ...line, priceText: priceLabel(line.price) }))
     const totalQty = cartLines.reduce((s, l) => s + l.quantity, 0)
     // 数量一变，之前的报价就失效了 —— 宁可让站长重新试算，也不要展示过期金额
     this._quoteSeq = (this._quoteSeq || 0) + 1

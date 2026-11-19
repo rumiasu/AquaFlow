@@ -1,0 +1,16 @@
+.login{max-width:420px;margin:12vh auto;padding:36px;background:white;border:1px solid #e6ebf2;border-radius:20px}.login label{display:block;margin:18px 0}.login input{display:block;width:100%;padding:12px;margin-top:8px}.login button{width:100%;padding:12px}.login img{width:48px}.notice{color:#68768a;font-size:14px;line-height:1.7}.error{color:#b74425}.toolbar{display:flex;gap:12px;align-items:end;margin:24px 0;flex-wrap:wrap}.toolbar label{display:grid;gap:6px}.toolbar input,.toolbar select{padding:10px;border:1px solid #dde5ef;border-radius:8px}.panel{padding:24px;background:white;border:1px solid #e5ebf2;border-radius:16px;margin-top:20px;overflow:auto}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.metric{background:white;padding:24px;border:1px solid #e5ebf2;border-radius:14px}.metric strong{display:block;font-size:28px;margin-top:14px}td{max-width:380px;white-space:normal!important}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}.paging{display:flex;gap:15px;align-items:center;margin:20px 0}.detail{display:grid;grid-template-columns:140px 1fr;gap:16px}.detail dt{color:#68768a}.detail dd{margin:0;overflow-wrap:anywhere}@media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}}
+.brand-mark{width:42px;height:42px;object-fit:contain}
+aside{overflow:auto}
+nav button{text-align:left;white-space:nowrap}
+nav button{padding-block:6px}
+nav button.active,.actions button[aria-current=true]{color:var(--blue);background:var(--pale);border-color:#bbd7fa}
+#controls{margin:16px 0}
+#content>h2{margin-top:24px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-block:12px}
+.field{display:grid;gap:6px;max-width:36rem;margin:14px 0}
+.panel textarea{display:block;max-width:100%;width:36rem;margin:6px 0 12px;resize:vertical}
+.field input,.field select,.panel textarea,.panel td input{padding:8px;border:1px solid #dce4ef;border-radius:7px}
+.panel td input[type=number]{width:7rem}
+.panel td button+button{margin-left:6px}
+[hidden]{display:none!important}
+@media(max-width:700px){.detail{grid-template-columns:95px 1fr}.cards{grid-template-columns:repeat(2,1fr)}}

@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {assignment,paymentConfirmation,exceptionResolution} from '../public/business.js';
+const order={id:4,status:1,stationId:3},staff={id:8,role:'DELIVERY',status:1,stationId:3};
+test('local assignment uses named endpoint without risk bypass',()=>{assert.deepEqual(assignment(order,staff,3),{path:'/api/delivery/orders/assign/4',method:'POST',body:{deliveryStaffId:8}})});
+test('cross station, quotes, assigned, disabled staff are not silently dispatched',()=>{for(const row of [{...order,stationId:9},{...order,dispatchAgreement:{}},{...order,deliveryStaffId:2},{...order,status:2}])assert.throws(()=>assignment(row,staff,3));assert.throws(()=>assignment(order,{...staff,status:0},3));});
+test('payment uses payment id, no client amount write',()=>{assert.deepEqual(paymentConfirmation({id:7,orderId:2,amount:'12.50'}),{path:'/api/payments/7/confirm',method:'PUT'});for(const amount of [null,'',NaN,-1])assert.throws(()=>paymentConfirmation({id:7,amount}));});
+test('resolve follows server capability and submits version/reason/key only',()=>{const v={caseId:8,canResolve:true,closed:false,version:4};assert.deepEqual(exceptionResolution(v,' 已核实 ','key').body,{expectedVersion:4,idempotencyKey:'key',reason:'已核实'});assert.throws(()=>exceptionResolution({...v,canResolve:false},'x','k'));assert.throws(()=>exceptionResolution({...v,closed:true},'x','k'));});

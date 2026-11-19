@@ -1,0 +1,10 @@
+{
+  "name": "aquaflow-manager-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/check.mjs",
+    "test:dom": "node test/sales-dom.mjs"
+  }
+}
